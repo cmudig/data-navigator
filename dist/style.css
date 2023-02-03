@@ -1,0 +1,20 @@
+.dn-root {
+    position: absolute;
+	top: 0px;
+	left: 0px;
+	pointer-events: none;
+}
+
+.dn-node {
+    position: absolute;
+	padding: 0px;
+	margin: 0px;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.dn-node:focus {
+    border: 2px solid white;
+    outline: #000000 solid 2px;
+    /* outline-offset: 1px; */
+}
