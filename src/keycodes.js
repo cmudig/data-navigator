@@ -11,3 +11,14 @@ export const keyCodes = {
     shift: 16, // SHIFT
     tab: 9 // TAB
 };
+
+export const defaultKeyBindings = {
+    'ArrowLeft': 'left',
+    'ArrowRight': 'right',
+    'ArrowUp': 'up',
+    'ArrowDown': 'down',
+    'Period': 'forward',
+    'Comma': 'backward',
+    'Escape': 'parent',
+    'Enter': 'child'
+}
