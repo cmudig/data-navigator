@@ -1,5 +1,130 @@
 import { defaultKeyBindings } from "./keycodes";
 
+export const dataNavigator = {}
+/*
+    new ideal api format:
+    {
+        data: { // required
+            "id": {
+                d: {},
+                edges: [
+                    {
+                        source: "id",
+                        target: "id",
+                        weight: 1,
+                        direction: "target"
+                    }
+                ],
+                refVariable: "id", // if an element exists
+                x: "", // if no refVariable, then x can be specified
+                y: "", // if no refVariable, then y can be specified
+                width: "", // if no refVariable, then width can be specified
+                height: "", // if no refVariable, then height can be specified
+                cssClass: "",
+                description: d => { return dataNavigator.describe(d, descriptionOptions) } // defaults to describing all the keys with navigation rules set
+            }
+        },
+        id: 'data-navigator-schema', // required
+        root: {
+            cssClass: "",
+            width: 0,
+            height: 0
+        },
+        node: {
+            cssClass: "",
+        },
+        options: {
+            rendering: "full", // "on-demand"
+            manualEventHandling: false // default is false/undefined
+            firstNode: 'byj1',
+        },
+        navigation: {
+            leftRight: {
+                key: "series",
+                flow: "terminal", // could also have circular here (dhefaults to terminal)
+                rebindKeycodes: {
+                    left: "",
+                    right: ""
+                },
+                hooks: {
+                    start: () => {},
+                    complete: () => {}
+                }
+            },
+            upDown: {
+                key: "category",
+                flow: "terminal", // could also have circular here (dhefaults to terminal)
+                rebindKeycodes: {
+                    up: "",
+                    down: ""
+                },
+                hooks: {
+                    start: () => {},
+                    complete: () => {}
+                }
+            },
+            forwardBackward: {
+                key: "group",
+                flow: "terminal", // could also have circular here (dhefaults to terminal)
+                rebindKeycodes: {
+                    forward: "",
+                    backward: ""
+                },
+                hooks: {
+                    start: () => {},
+                    complete: () => {}
+                }
+            },
+            parentChild: {
+                key: "level",
+                flow: "terminal", // could also have circular here (dhefaults to terminal)
+                rebindKeycodes: {
+                    parent: "",
+                    child: ""
+                },
+                hooks: {
+                    start: () => {},
+                    complete: () => {}
+                }
+            }
+        }
+    }
+
+*/
+
+// options for building
+// {
+//     data: dataUsedInChart, // required
+//     id: 'data-navigator-schema', // required
+//     root: {
+//         cssClass: "",
+//         width: 0,
+//         height: 0,
+//     },
+//     node: {
+//         cssClass: "",
+//     },
+//     settings: {
+//         rendering: "full", // "on-demand"
+//         manualEventHandling: false // default is false/undefined
+//         firstNode: 'byj1',
+//     },
+//     navigation: {
+//         parentChild: {
+//             key: "level",
+//             flow: "terminal", // could also have circular here (dhefaults to terminal)
+//             rebindKeycodes: {
+//                 parent: "",
+//                 child: ""
+//             },
+//             hooks: {
+//                 start: () => {},
+//                 complete: () => {}
+//             }
+//         }
+//     }
+// }
+
 dataNavigator.transformData = (options) => {
     console.log("transforming!", options)
     // need to convert to a graph structure!
@@ -24,35 +149,6 @@ dataNavigator.transformData = (options) => {
     //     height: "", // if no refVariable, then height can be specified
     //     idPrefix: ""
     // }
-    const hashes = {}
-    let outputData = {
-        "byj1": { 
-            d: {
-                value: 5,
-                category: "b",
-                group: "y",
-                series: "j",
-                level: "1",
-                id: "ref-byj1"
-            },
-            // x: 40, // these should all be calculated on focus
-            // y: 0,
-            // width: 
-            // height: 
-            ref: "ref-byj1",
-            id: "byj1",
-            cssClass: "dn-node",
-            lr: ["byi1", "byk1"], // left/right, left/right arrows
-            ud: ["ayj1", "cyj1"], // up/down, up/down arrows
-            fb: ["bxj1", "bzj1"], // backward/forward, comma/period
-            pc: ["byj0", "byj2"], // first parent/first child, escape/enter
-            semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
-            // also: control/command + z to undo last movement and control/command + shift + z to redo last movement
-            // f1: menu or help button to pull up directions
-            // spacebar: select
-        }
-    }
-
     return outputData
 }
 
@@ -64,8 +160,8 @@ dataNavigator.build = (options) => {
     let entryPoint = null
     if (options.data) {
         dataNavigator.currentOptions = options
-        if (options.firstNode) {
-            entryPoint = options.firstNode
+        if (options.settings && options.settings.firstNode) {
+            entryPoint = options.settings.firstNode
         } else {
             entryPoint = Object.keys(options.data)[0]
         }
@@ -80,7 +176,6 @@ dataNavigator.build = (options) => {
     }
 
     if (options.id) {
-        // iterate over data? draw structure?
         console.log("building navigator!",options)
 
         // build root
@@ -99,6 +194,37 @@ dataNavigator.build = (options) => {
         entry.innerText = `Enter navigation area`
         entry.addEventListener('click',enterSchema)
         root.appendChild(entry)
+
+        console.log("dataNavigator.keyBindings",dataNavigator.keyBindings)
+        Object.keys(dataNavigator.keyBindings).forEach(key=> {
+            // dataNavigator.directions = {
+            //     down: "",
+            //     left: "",
+            //     right: "",
+            //     up: "",
+            //     backward: "",
+            //     child: "",
+            //     parent: "",
+            //     forward: ""
+            // }
+            dataNavigator.directions[dataNavigator.keyBindings[key]] = key
+        })
+        console.log("directions",dataNavigator.directions)
+        if (options.navigation) {
+            Object.keys(options.navigation).forEach(navKey => {
+                const navOption = options.navigation[navKey]
+                if (navOption.rebindKeycodes) {
+                    Object.keys(navOption.rebindKeycodes).forEach(rebind => {
+                        dataNavigator.directions[rebind] = navOption.rebindKeycodes[rebind]
+                    })
+                }
+            })
+        }
+        dataNavigator.keyBindings = {}
+        Object.keys(dataNavigator.directions).forEach(key=> {
+            dataNavigator.keyBindings[dataNavigator.directions[key]] = key
+        })
+        console.log("keybinds", dataNavigator.keyBindings)
 
         // build the first node
         dataNavigator.prepNode(entryPoint)
@@ -225,8 +351,10 @@ dataNavigator.currentFocus = null
 dataNavigator.currentOptions = null
 dataNavigator.handleKeydownInteraction = (e) => {
     console.log('key down', e)
+    console.log('dataNavigator.keyBindings', dataNavigator.keyBindings)
     const direction = dataNavigator.keyBindings[e.code]
     if (direction) {
+        console.log("MOVING (attempt)",direction)
         e.preventDefault()
         dataNavigator.move.inDirection(direction)
     }
@@ -244,5 +372,14 @@ dataNavigator.escape = () => {}
 dataNavigator.undo = () => {}
 dataNavigator.redo = () => {}
 dataNavigator.keyBindings = defaultKeyBindings
-window.dn = dataNavigator
+dataNavigator.directions = {
+    down: "",
+    left: "",
+    right: "",
+    up: "",
+    backward: "",
+    child: "",
+    parent: "",
+    forward: ""
+}
 

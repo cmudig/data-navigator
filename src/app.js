@@ -16,18 +16,28 @@ const descriptionOptions = {
 }
 
 const rects = document.querySelectorAll('rect')
-
+const prepDatum = rect => {
+    console.log(rect)
+    if (rect) {
+        const x = rect.id.substring(4)
+        return {
+            x,
+            d: {
+                category: x.substring(0,1),
+                group: x.substring(1,2),
+                series: x.substring(2,3),
+                level: x.substring(3,4),
+                id: rect.id
+            }
+        }
+    }
+    return
+}
 rects.forEach(rect => {
     if (rect.id.includes('ref-')) {
-        const x = rect.id.substring(4)
-        console.log(x)
-        const d = {
-            category: x.substring(0,1),
-            group: x.substring(1,2),
-            series: x.substring(2,3),
-            level: x.substring(3,4),
-            id: rect.id
-        }
+        const prepped = prepDatum(rect)
+        const x = prepped.x
+        const d = prepped.d
         const findNeighbor = (id) => {
             return document.getElementById(`ref-${id}`)
         }
@@ -57,6 +67,56 @@ rects.forEach(rect => {
         const backward = moveValue('group', +1)
         const parent = x === 'byj1' || x === 'byj2' ? moveValue('level', -1) : '' // x === 'byj0' ? 'dn-entry-button-data-navigator-schema'  : ''
         const child = x === 'byj1' || x === 'byj0' ? moveValue('level', +1) : ''
+        console.log(left,findNeighbor(left))
+        const edges = []
+        if (left) {
+            edges.push({
+                id: left,
+                ...prepDatum(findNeighbor(left)).d
+            })
+        }
+        if (right) {
+            edges.push({
+                id: right,
+                ...prepDatum(findNeighbor(right)).d
+            })
+        }
+        if (up) {
+            edges.push({
+                id: up,
+                ...prepDatum(findNeighbor(up)).d
+            })
+        }
+        if (down) {
+            edges.push({
+                id: down,
+                ...prepDatum(findNeighbor(down)).d
+            })
+        }
+        if (forward) {
+            edges.push({
+                id: forward,
+                ...prepDatum(findNeighbor(forward)).d
+            })
+        }
+        if (backward) {
+            edges.push({
+                id: backward,
+                ...prepDatum(findNeighbor(backward)).d
+            })
+        }
+        if (parent) {
+            edges.push({
+                id: parent,
+                ...prepDatum(findNeighbor(parent)).d
+            })
+        }
+        if (child) {
+            edges.push({
+                id: child,
+                ...prepDatum(findNeighbor(child)).d
+            })
+        }
         dataUsedInChart[x] = {
             d,
             x: +rect.getAttribute('x') - 2,
@@ -66,6 +126,7 @@ rects.forEach(rect => {
             ref: "ref-" + x,
             id: x,
             cssClass: "dn-test-class",
+            edges,
             lr: [left, right], // left/right, left/right arrows
             ud: [up, down], // up/down, up/down arrows
             fb: [forward, backward], // backward/forward, comma/period
@@ -101,14 +162,83 @@ console.log("keys",Object.keys(dataUsedInChart))
 // const transformedData = dataNavigator.transformData(transformOptions)
 
 // options for building
+// {
+//     data: dataUsedInChart, // required
+//     id: 'data-navigator-schema', // required
+//     root: {
+//         cssClass: "",
+//         width: 0,
+//         height: 0,
+//     },
+//     node: {
+//         cssClass: "",
+//     },
+//     options: {
+//         rendering: "full", // "on-demand"
+//         manualEventHandling: false // default is false/undefined
+//         firstNode: 'byj1',
+//     },
+//     navigation: {
+//         x
+//     }
+// }
 let buildOptions = {
     data: dataUsedInChart, // required
-    firstNode: 'byj1',
     id: 'data-navigator-schema', // required
-    rendering: "full", // "on-demand"
-    style: "width: 100%,", // optional, css rules, anything goes
-    manualEventHandling: false // default is false/undefined
+    settings: {
+        firstNode: 'byj1',
+        rendering: "on-demand", // "full"
+        manualEventHandling: false // default is false/undefined
+    },
+    root: {
+        cssClass: "",
+        width: "100%",
+        height: 0,
+    },
+    navigation: {
+        leftRight: {
+            key: "series",
+            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            rebindKeycodes: {
+                left: "KeyA",
+                right: "KeyD"
+            },
+            hooks: {
+                start: d => {
+                    console.log("start of left/right", d)
+                },
+                complete: d => {
+                    console.log("end of left/right", d)
+                }
+            }
+        },
+        upDown: {
+            key: "category",
+            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            rebindKeycodes: {
+                up: "KeyW",
+                down: "KeyS"
+            }
+        },
+        forwardBackward: {
+            key: "group",
+            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            rebindKeycodes: {
+                forward: "KeyE",
+                backward: "KeyQ"
+            }
+        },
+        parentChild: {
+            key: "level",
+            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+        }
+    },
 }
+
+// category: "abc",
+// group: "xyz",
+// series: "ijk",
+// level: "012"
 
 // create data navigator
 let dn = dataNavigator.build(buildOptions)
