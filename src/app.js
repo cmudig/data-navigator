@@ -1,4 +1,4 @@
-import { dataNavigator } from "./data-navigator";
+import { dataNavigator, describeNode } from "./data-navigator";
 
 const dimensions = {
     category: "abc",
@@ -71,50 +71,82 @@ rects.forEach(rect => {
         const edges = []
         if (left) {
             edges.push({
+                direction: -1,
+                dimension: "series",
                 id: left,
-                ...prepDatum(findNeighbor(left)).d
+                d: {
+                    ...prepDatum(findNeighbor(left)).d,
+                },
             })
         }
         if (right) {
             edges.push({
+                direction: 1,
+                dimension: "series",
                 id: right,
-                ...prepDatum(findNeighbor(right)).d
+                d: {
+                    ...prepDatum(findNeighbor(right)).d,
+                },
             })
         }
         if (up) {
             edges.push({
+                direction: -1,
+                dimension: "category",
                 id: up,
-                ...prepDatum(findNeighbor(up)).d
+                d: {
+                    ...prepDatum(findNeighbor(up)).d,
+                },
             })
         }
         if (down) {
             edges.push({
+                direction: 1,
+                dimension: "category",
                 id: down,
-                ...prepDatum(findNeighbor(down)).d
+                d: {
+                    ...prepDatum(findNeighbor(down)).d,
+                },
             })
         }
         if (forward) {
             edges.push({
+                direction: 1,
+                dimension: "group",
                 id: forward,
-                ...prepDatum(findNeighbor(forward)).d
+                d: {
+                    ...prepDatum(findNeighbor(forward)).d,
+                },
             })
         }
         if (backward) {
             edges.push({
+                direction: -1,
+                dimension: "group",
                 id: backward,
-                ...prepDatum(findNeighbor(backward)).d
+                d: {
+                    ...prepDatum(findNeighbor(backward)).d,
+                },
             })
         }
         if (parent) {
             edges.push({
+                direction: -1,
+                dimension: "level",
                 id: parent,
-                ...prepDatum(findNeighbor(parent)).d
+                d: {
+                    ...prepDatum(findNeighbor(parent)).d,
+                },
             })
         }
         if (child) {
             edges.push({
+                direction: 1,
+                dimension: "level",
                 id: child,
-                ...prepDatum(findNeighbor(child)).d
+                d: {
+                    ...prepDatum(findNeighbor(child)).d,
+                },
             })
         }
         dataUsedInChart[x] = {
@@ -131,7 +163,7 @@ rects.forEach(rect => {
             ud: [up, down], // up/down, up/down arrows
             fb: [forward, backward], // backward/forward, comma/period
             pc: [parent, child], // first parent/first child, escape/enter
-            description: dataNavigator.describe(d, descriptionOptions),
+            description: describeNode(d, descriptionOptions),
             semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
         }
         console.log(dataUsedInChart[x])
@@ -185,11 +217,9 @@ console.log("keys",Object.keys(dataUsedInChart))
 let buildOptions = {
     data: dataUsedInChart, // required
     id: 'data-navigator-schema', // required
-    settings: {
-        firstNode: 'byj1',
-        rendering: "on-demand", // "full"
-        manualEventHandling: false // default is false/undefined
-    },
+    firstNode: 'byj1',
+    rendering: "on-demand", // "full"
+    manualEventHandling: false, // default is false/undefined
     root: {
         cssClass: "",
         width: "100%",
@@ -198,31 +228,23 @@ let buildOptions = {
     navigation: {
         leftRight: {
             key: "series",
-            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
                 left: "KeyA",
                 right: "KeyD"
             },
-            hooks: {
-                start: d => {
-                    console.log("start of left/right", d)
-                },
-                complete: d => {
-                    console.log("end of left/right", d)
-                }
-            }
         },
         upDown: {
             key: "category",
-            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
                 up: "KeyW",
                 down: "KeyS"
             }
         },
-        forwardBackward: {
+        backwardForward: {
             key: "group",
-            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
                 forward: "KeyE",
                 backward: "KeyQ"
@@ -230,9 +252,34 @@ let buildOptions = {
         },
         parentChild: {
             key: "level",
-            // flow: "terminal", // could also have circular here (dhefaults to terminal)
+            // flow: "terminal", // could also have circular here (defaults to terminal)
         }
     },
+    hooks: {
+        navigation: d => {
+            // either a valid keypress is about to trigger navigation (before)
+            // or navigation has just finished
+            // provide another function to interrupt? hmmm...
+            console.log("navigating",d)
+        },
+        focus: d => {
+            // focus has just finished
+            console.log("focus",d)
+        },
+        selection: d => {
+            // selection event has just finished
+            console.log("selection",d)
+        },
+        keydown: d => {
+            // a keydown event has just happened (most expensive hook)
+            console.log("keydown",d)
+        },
+        pointerClick: d => {
+            // the whole nav region has received a click
+            // ideally, we could send the previous focus point and maybe an x/y coord for the mouse?
+            console.log("clicked",d)
+        }
+    }
 }
 
 // category: "abc",
@@ -241,6 +288,7 @@ let buildOptions = {
 // level: "012"
 
 // create data navigator
-let dn = dataNavigator.build(buildOptions)
+let dn = dataNavigator(buildOptions)
+console.log(dn)
 
-document.getElementById("root").appendChild(dn)
+document.getElementById("root").appendChild(dn.build())
