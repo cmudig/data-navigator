@@ -17,7 +17,6 @@ const descriptionOptions = {
 
 const rects = document.querySelectorAll('rect')
 const prepDatum = rect => {
-    console.log(rect)
     if (rect) {
         const x = rect.id.substring(4)
         return {
@@ -41,10 +40,6 @@ rects.forEach(rect => {
         const findNeighbor = (id) => {
             return document.getElementById(`ref-${id}`)
         }
-        
-        console.log(dimensions.series.indexOf(d.series-1))
-        console.log(x.replace(d.series, 
-            dimensions.series.substring(dimensions.series.indexOf(d.series-1),dimensions.series.indexOf(d.series-1)+1)))
 
         const moveValue = (key, change) => {
             const i = dimensions[key].indexOf(d[key])
@@ -67,7 +62,6 @@ rects.forEach(rect => {
         const backward = moveValue('group', +1)
         const parent = x === 'byj1' || x === 'byj2' ? moveValue('level', -1) : '' // x === 'byj0' ? 'dn-entry-button-data-navigator-schema'  : ''
         const child = x === 'byj1' || x === 'byj0' ? moveValue('level', +1) : ''
-        console.log(left,findNeighbor(left))
         const edges = []
         if (left) {
             edges.push({
@@ -159,14 +153,13 @@ rects.forEach(rect => {
             id: x,
             cssClass: "dn-test-class",
             edges,
-            lr: [left, right], // left/right, left/right arrows
-            ud: [up, down], // up/down, up/down arrows
-            fb: [forward, backward], // backward/forward, comma/period
-            pc: [parent, child], // first parent/first child, escape/enter
+            // lr: [left, right], // left/right, left/right arrows
+            // ud: [up, down], // up/down, up/down arrows
+            // fb: [forward, backward], // backward/forward, comma/period
+            // pc: [parent, child], // first parent/first child, escape/enter
             description: describeNode(d, descriptionOptions),
-            semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
+            // semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
         }
-        console.log(dataUsedInChart[x])
     }
 })
 console.log("dataUsedInChart",dataUsedInChart)
@@ -288,7 +281,9 @@ let buildOptions = {
 // level: "012"
 
 // create data navigator
-let dn = dataNavigator(buildOptions)
+const dn = dataNavigator(buildOptions)
 console.log(dn)
 
 document.getElementById("root").appendChild(dn.build())
+
+window.dn = dn
