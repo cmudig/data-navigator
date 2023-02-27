@@ -2,7 +2,6 @@
     position: absolute;
 	top: 0px;
 	left: 0px;
-	pointer-events: none;
 }
 
 .dn-node {
@@ -10,7 +9,7 @@
 	padding: 0px;
 	margin: 0px;
 	overflow: visible;
-	pointer-events: none;
+    border: 2px solid transparent;
 }
 
 .dn-node:focus {
