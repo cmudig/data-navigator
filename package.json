@@ -11,6 +11,7 @@
   "description": "Data-navigator is a JavaScript library that allows for serial navigation of data structures using keyboard and touch inputs.",
   "scripts": {
     "build": "webpack",
+    "server": "python -m http.server",
     "prettier-all-check": "prettier --config  ./.prettierrc --ignore ./.prettierignore --debug-check \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
     "prettier-all": "prettier --config  ./.prettierrc --ignore ./.prettierignore --write \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\""
   },
