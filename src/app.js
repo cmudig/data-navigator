@@ -162,8 +162,6 @@ rects.forEach(rect => {
         }
     }
 })
-console.log("dataUsedInChart",dataUsedInChart)
-console.log("keys",Object.keys(dataUsedInChart))
 
 // options for transforming
 // let transformOptions = {
@@ -282,7 +280,6 @@ let buildOptions = {
 
 // create data navigator
 const dn = dataNavigator(buildOptions)
-console.log(dn)
 
 document.getElementById("root").appendChild(dn.build())
 
@@ -295,16 +292,12 @@ touchHandler.get('pan').set({ enable: false });
 touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
 
 touchHandler.on('press', (ev) => {
-    console.log("pressing!", ev)
     // dn.enter()
 })
 touchHandler.on('pressup', (ev) => {
-    console.log("pressed!", ev)
     dn.enter()
 })
 touchHandler.on('swipe', (ev) => {
-	// console.log(ev);
-	// console.log(ev.direction);
     // two finger scrub to escape?
     // press and hold to escape?
     // press and hold for single button menu?
@@ -335,7 +328,6 @@ touchHandler.on('swipe', (ev) => {
         up && larger === 'Y' ? "up" :
         null
     if (dn.getCurrentFocus() && direction) {
-        console.log("moving",direction)
         dn.move(direction)
     }
 });
