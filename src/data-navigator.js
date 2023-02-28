@@ -122,7 +122,11 @@ export const dataNavigator = (options) => {
     }
 
     // exported methods with dn object
-    // organized by: setNavigationKeyBindings, build, move, and then events (hooks)
+    // organized by: getCurrentFocus, setNavigationKeyBindings, build, move, and then events (hooks)
+    dn.getCurrentFocus = () => {
+        return currentFocus
+    }
+    
     dn.setNavigationKeyBindings = (navKeyBindings) => {
         Object.keys(keyBindings).forEach(key=> {
             // directions = {
