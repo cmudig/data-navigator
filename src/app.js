@@ -329,10 +329,10 @@ touchHandler.on('swipe', (ev) => {
         right && down ? "child" :
         left && down ? "backward" :
         left && up ? "parent" : null) :
-        right ? "right" :
-        down ? "down" :
-        left ? "left" :
-        up ? "up" :
+        right && larger === 'X' ? "right" :
+        down && larger === 'Y' ? "down" :
+        left && larger === 'X' ? "left" :
+        up && larger === 'Y' ? "up" :
         null
     if (dn.getCurrentFocus() && direction) {
         console.log("moving",direction)
