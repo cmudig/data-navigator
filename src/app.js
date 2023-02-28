@@ -287,3 +287,55 @@ console.log(dn)
 document.getElementById("root").appendChild(dn.build())
 
 window.dn = dn
+
+const touchHandler = new Hammer(document.body, {});
+touchHandler.get('pinch').set({ enable: false });
+touchHandler.get('rotate').set({ enable: false });
+touchHandler.get('pan').set({ enable: false });
+touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
+
+touchHandler.on('press', (ev) => {
+    console.log("pressing!", ev)
+    // dn.enter()
+})
+touchHandler.on('pressup', (ev) => {
+    console.log("pressed!", ev)
+    dn.enter()
+})
+touchHandler.on('swipe', (ev) => {
+	// console.log(ev);
+	// console.log(ev.direction);
+    // two finger scrub to escape?
+    // press and hold to escape?
+    // press and hold for single button menu?
+    // exit, repeat, select, move (right/left, up/down, forward/backward, parent/child)
+    // left
+    // right
+    // up
+    // down
+    // backward
+    // forward
+    // parent
+    // child
+    const larger = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? "X" : "Y"
+    // const smaller = ev.deltaX <= ev.deltaY ? ev.deltaX : ev.deltaY
+    const ratio = (Math.abs(ev["delta" + larger]) + 0.000000001) / (Math.abs(ev["delta" + (larger === "X" ? "Y" : "X")]) + 0.000000001)
+    const left = ev.deltaX < 0
+    const right = ev.deltaX > 0
+    const up = ev.deltaY < 0
+    const down = ev.deltaY > 0
+    const direction = ratio > 0.99 && ratio <= 2 ?
+        (right && up ? "forward" :
+        right && down ? "child" :
+        left && down ? "backward" :
+        left && up ? "parent" : null) :
+        right ? "right" :
+        down ? "down" :
+        left ? "left" :
+        up ? "up" :
+        null
+    if (dn.getCurrentFocus() && direction) {
+        console.log("moving",direction)
+        dn.move(direction)
+    }
+});
