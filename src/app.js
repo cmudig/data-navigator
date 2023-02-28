@@ -295,11 +295,11 @@ touchHandler.get('pan').set({ enable: false });
 touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
 
 touchHandler.on('press', (ev) => {
-    console.log("pressing!", ev)
+    // console.log("pressing!", ev)
     // dn.enter()
 })
 touchHandler.on('pressup', (ev) => {
-    console.log("pressed!", ev)
+    // console.log("pressed!", ev)
     dn.enter()
 })
 touchHandler.on('swipe', (ev) => {
@@ -335,7 +335,6 @@ touchHandler.on('swipe', (ev) => {
         up && larger === 'Y' ? "up" :
         null
     if (dn.getCurrentFocus() && direction) {
-        console.log("moving",direction)
         dn.move(direction)
     }
 });
