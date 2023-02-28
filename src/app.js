@@ -331,3 +331,15 @@ touchHandler.on('swipe', (ev) => {
         dn.move(direction)
     }
 });
+
+/*
+    Expose props: 
+        changing the axes of navigation, 
+        manual event handling, 
+        rendering (on-demand/full), 
+        hooks, 
+        keybindings, 
+        css styling
+    Data translation system (take input data, build a navigable structure)
+    Structure visualizer
+*/
