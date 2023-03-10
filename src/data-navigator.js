@@ -30,6 +30,9 @@ export const dataNavigator = options => {
             add events to focused element
         */
     };
+    const handleBlurInteraction = e => {
+        // clearStructure()
+    }
     const buildNode = id => {
         // const options = dn.currentOptions
         const node = document.createElement('figure'); // subject to change based on new props
@@ -47,6 +50,7 @@ export const dataNavigator = options => {
         node.setAttribute('tabindex', '-1');
         node.addEventListener('keydown', handleKeydownInteraction);
         node.addEventListener('focus', handleFocusInteraction);
+        node.addEventListener('blur', handleBlurInteraction)
 
         const nodeText = document.createElement('div');
         nodeText.setAttribute('role', 'img'); // subject to change based on new props
@@ -77,6 +81,7 @@ export const dataNavigator = options => {
         if (node) {
             node.removeEventListener('keydown', handleKeydownInteraction);
             node.removeEventListener('focus', handleFocusInteraction);
+            node.removeEventListener('blur', handleBlurInteraction);
             node.remove();
         }
     };
@@ -86,6 +91,12 @@ export const dataNavigator = options => {
         focusNode(newId);
         deleteNode(oldId);
     };
+
+    const clearStructure = () => {
+        deleteNode(currentFocus);
+        previousFocus = currentFocus;
+        currentFocus = null;
+    }
 
     // exported methods with dn object
     // organized by: get[Current/Previous]Focus, setNavigationKeyBindings, build, move, and then events (hooks)
@@ -173,20 +184,21 @@ export const dataNavigator = options => {
             entry.addEventListener('click', dn.enter);
             root.appendChild(entry);
 
-            exit = document.createElement('p');
+            exit = document.createElement('div');
 
             exit.id = 'dn-exit-' + options.id;
             exit.classList.add('dn-exit-position');
             exit.innerText = `End of data structure.`;
+            exit.setAttribute('aria-label',`End of data structure.`);
+            exit.setAttribute('role','note');
+            exit.setAttribute('tabindex','-1');
             exit.style.position = 'absolute';
             exit.style.bottom = '-20px';
             exit.style.display = 'none';
             exit.addEventListener('focus', () => {
                 console.log('deleting all things!');
                 exit.style.display = 'block';
-                previousFocus = currentFocus;
-                currentFocus = null;
-                deleteNode(currentFocus);
+                clearStructure()
             });
             exit.addEventListener('blur', () => {
                 exit.style.display = 'none';
@@ -231,13 +243,16 @@ export const dataNavigator = options => {
                     // so, is it possible to have an edge on a node where neither source or target are the node?
                     // we would need to make sure the node is at least valid in one direction?
                     // eg: const valid = currentFocus === t || currentFocus === s
+                    if (!(type === edge.type)) {
+                        return null
+                    }
                     const t =
                         typeof edge.target === 'string' ? edge.target : edge.target(d, currentFocus, previousFocus);
                     const s =
                         typeof edge.source === 'string' ? edge.source : edge.source(d, currentFocus, previousFocus);
                     const vector = s === currentFocus ? 1 : t === currentFocus ? -1 : 0;
                     const otherID = vector === 1 ? t : vector === -1 ? s : null;
-                    return otherID && type === edge.type && vector === x.direction ? otherID : null;
+                    return otherID && vector === x.direction ? otherID : null;
                 };
                 for (i = 0; i < d.edges.length; i++) {
                     const edge = options.data.edges[d.edges[i]];
@@ -245,6 +260,7 @@ export const dataNavigator = options => {
                         types.forEach(type => {
                             if (!target) {
                                 target = verifyEdge(type, edge);
+                                console.log(target)
                             }
                         });
                     } else {
@@ -275,7 +291,8 @@ export const dataNavigator = options => {
         dn.moveTo(entryPoint);
     };
     dn.exit = () => {
-        console.log('exit has been called');
+        console.log('exit has been called',exit);
+        exit.style.display = 'block';
         exit.focus();
     };
 

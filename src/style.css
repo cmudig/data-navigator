@@ -17,3 +17,11 @@
     outline: #000000 solid 2px;
     /* outline-offset: 1px; */
 }
+
+.dn-exit-position {
+    display: none
+}
+
+.dn-exit-position:focus {
+    display: block
+}
