@@ -1,19 +1,19 @@
 .dn-root {
-  position: absolute;
-  top: 0px;
-  left: 0px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
 }
 
 .dn-node {
-  position: absolute;
-  padding: 0px;
-  margin: 0px;
-  overflow: visible;
-  border: 2px solid transparent;
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    border: 2px solid transparent;
 }
 
 .dn-node:focus {
-  border: 2px solid white;
-  outline: #000000 solid 2px;
-  /* outline-offset: 1px; */
+    border: 2px solid white;
+    outline: #000000 solid 2px;
+    /* outline-offset: 1px; */
 }
