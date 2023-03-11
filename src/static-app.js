@@ -1,5 +1,5 @@
 import { dataNavigator, describeNode } from './data-navigator';
-console.log('bundled!');
+
 // input data
 // extracted from https://www.highcharts.com/demo/column-stacked
 let nodes = {
@@ -181,8 +181,9 @@ let nodes = {
         y: 138,
         width: 918,
         height: 378,
+        path: 'M987 136H985.762L985.21 137.108L848.762 411H720H584H457.309L321.603 368.093L321.309 368H321H196H194V370V430V432H196H320.431L458.948 517.701L459.431 518H460H584H584.579L585.069 517.69L720.579 432H850H850.152L850.303 431.977L987.152 411H1112H1114V409V138V136H1112H987Z',
         id: 'bpl',
-        cssClass: 'dn-test-class',
+        cssClass: 'dn-test-path',
         edges: ['any-return', 'any-exit', 'legend-bpl', 'any-legend', 'bpl-bpl1', 'bpl-fa', 'cl-bpl'],
         description: describeNode(
             {
@@ -202,8 +203,9 @@ let nodes = {
         y: 414,
         width: 918,
         height: 311,
+        path: 'M987.407 412H987.263L987.119 412.021L849.712 432H722.274H721.698L721.211 432.306L586.141 517H459.707L324.059 432.304L323.573 432H323H196H194V434V725V727H196H323H323.288L323.564 726.919L459.421 687H586.717H587.298L587.788 686.689L722.855 601H849.414L986.563 664.813L986.965 665H987.407H1112H1114V663V414V412H1112H987.407Z',
         id: 'fa',
-        cssClass: 'dn-test-class',
+        cssClass: 'dn-test-path',
         edges: ['any-return', 'any-exit', 'any-legend', 'bpl-fa', 'fa-fa1', 'fa-cl'],
         description: describeNode(
             {
@@ -223,8 +225,9 @@ let nodes = {
         y: 609,
         width: 918,
         height: 116,
+        path: 'M321.731 723H191V727H322H457H585H721H849H987H1112H1114V725V666V664H1112H987.441L849.841 600.186L849.441 600H849H721H720.421L719.931 600.31L584.421 686H457H456.731L456.471 686.071L321.731 723Z',
         id: 'cl',
-        cssClass: 'dn-test-class',
+        cssClass: 'dn-test-path',
         edges: ['any-return', 'any-exit', 'any-legend', 'fa-cl', 'cl-cl1', 'cl-bpl'],
         description: describeNode(
             {
@@ -886,6 +889,8 @@ let buildOptions = {
     entryPoint: 'title',
     rendering: 'on-demand', // "full"
     manualEventHandling: false, // default is false/undefined
+    width: 1200,
+    height: 800,
     root: {
         cssClass: '',
         width: '100%',

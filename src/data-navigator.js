@@ -15,9 +15,6 @@ export const dataNavigator = options => {
     const handleKeydownInteraction = e => {
         const direction = keyBindings[e.code];
         if (direction) {
-            console.log('direction', direction);
-            console.log('keycode', e.code);
-            console.log('keyBindings', keyBindings);
             e.preventDefault();
             dn.move(direction);
         }
@@ -32,7 +29,7 @@ export const dataNavigator = options => {
     };
     const handleBlurInteraction = e => {
         // clearStructure()
-    }
+    };
     const buildNode = id => {
         // const options = dn.currentOptions
         const node = document.createElement('figure'); // subject to change based on new props
@@ -50,7 +47,7 @@ export const dataNavigator = options => {
         node.setAttribute('tabindex', '-1');
         node.addEventListener('keydown', handleKeydownInteraction);
         node.addEventListener('focus', handleFocusInteraction);
-        node.addEventListener('blur', handleBlurInteraction)
+        node.addEventListener('blur', handleBlurInteraction);
 
         const nodeText = document.createElement('div');
         nodeText.setAttribute('role', 'img'); // subject to change based on new props
@@ -62,6 +59,24 @@ export const dataNavigator = options => {
         nodeText.setAttribute('aria-label', d.description);
 
         node.appendChild(nodeText);
+        if (d.path) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', options.width || '100%');
+            svg.setAttribute('height', options.height);
+            svg.setAttribute('viewBox', `0 0 ${options.width} ${options.height}`);
+            svg.style.left = -parseFloat(d.x || 0);
+            svg.style.top = -parseFloat(d.y || 0);
+            svg.classList.add('dn-node-svg');
+            svg.setAttribute('role', 'presentation');
+            svg.setAttribute('focusable', 'false');
+            svg.setAttribute('tabindex', '-1');
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d.path);
+            path.classList.add('dn-node-path');
+            svg.appendChild(path);
+            node.appendChild(svg);
+        }
         root.appendChild(node);
         return node;
     };
@@ -96,7 +111,7 @@ export const dataNavigator = options => {
         deleteNode(currentFocus);
         previousFocus = currentFocus;
         currentFocus = null;
-    }
+    };
 
     // exported methods with dn object
     // organized by: get[Current/Previous]Focus, setNavigationKeyBindings, build, move, and then events (hooks)
@@ -111,19 +126,6 @@ export const dataNavigator = options => {
     dn.setNavigationKeyBindings = navKeyBindings => {
         console.log('setting key bindings', navKeyBindings);
         if (!navKeyBindings) {
-            // Object.keys(keyBindings).forEach(key => {
-            //     // directions = {
-            //     //     down: "",
-            //     //     left: "",
-            //     //     right: "",
-            //     //     up: "",
-            //     //     backward: "",
-            //     //     child: "",
-            //     //     parent: "",
-            //     //     forward: ""
-            //     // }
-            //     directions[keyBindings[key]].key = key;
-            // });
             keyBindings = defaultKeyBindings;
             directions = defaultDirections;
         } else {
@@ -131,18 +133,9 @@ export const dataNavigator = options => {
             directions = navKeyBindings;
             Object.keys(navKeyBindings).forEach(direction => {
                 const navOption = navKeyBindings[direction];
-                // if (navOption.rebindKeycodes) {
-                //     Object.keys(navOption.rebindKeycodes).forEach(rebind => {
-                //         directions[rebind].key = navOption.rebindKeycodes[rebind];
-                //     });
-                // }
                 keyBindings[navOption.key] = direction;
             });
         }
-        // keyBindings = {};
-        // Object.keys(directions).forEach(key => {
-        //     keyBindings[directions[key].key] = key;
-        // });
     };
 
     dn.build = () => {
@@ -151,7 +144,6 @@ export const dataNavigator = options => {
         // NOTE: the keys are based on insertion order EXCEPT when keys are number-like (or parse to ints)
         // so if someone passes ids in that are "1" or "2", then those go first in numerical order
         if (options.data) {
-            // dn.currentOptions = options
             if (options.entryPoint) {
                 entryPoint = options.entryPoint;
             } else {
@@ -165,8 +157,6 @@ export const dataNavigator = options => {
         }
 
         if (options.id) {
-            console.log('building navigator!', options);
-
             // build root
             root = document.createElement('div');
             root.id = 'dn-root-' + options.id;
@@ -189,16 +179,15 @@ export const dataNavigator = options => {
             exit.id = 'dn-exit-' + options.id;
             exit.classList.add('dn-exit-position');
             exit.innerText = `End of data structure.`;
-            exit.setAttribute('aria-label',`End of data structure.`);
-            exit.setAttribute('role','note');
-            exit.setAttribute('tabindex','-1');
+            exit.setAttribute('aria-label', `End of data structure.`);
+            exit.setAttribute('role', 'note');
+            exit.setAttribute('tabindex', '-1');
             exit.style.position = 'absolute';
             exit.style.bottom = '-20px';
             exit.style.display = 'none';
             exit.addEventListener('focus', () => {
-                console.log('deleting all things!');
                 exit.style.display = 'block';
-                clearStructure()
+                clearStructure();
             });
             exit.addEventListener('blur', () => {
                 exit.style.display = 'none';
@@ -208,7 +197,6 @@ export const dataNavigator = options => {
             dn.setNavigationKeyBindings(options.navigation);
 
             // build the whole structure, if props sent
-            // buildNode(entryPoint)
 
             return root;
         } else {
@@ -227,24 +215,8 @@ export const dataNavigator = options => {
 
                 const types = x.types || direction; // hasNavigationRules.key;
                 const verifyEdge = (type, edge) => {
-                    // below we could use "!(edge.target === currentFocus) ? 1 : !(edge.source === currentFocus) ? -1 : 0"
-                    // because I would want it to explicitly encourage movement to a target
-                    // as long as the current node is not the target
-                    // on bob, we want to go to jill
-                    // edge says any->jill
-                    // so we get 1 and move to jill (this is the case I want to solve for)
-                    // on jill, want to go to bob
-                    // edge says bob->jill,
-                    // so we get -1 and move to bob
-                    // but what if I am on bob, and just move somewhere
-                    // and the edge says zonk->zork
-                    // we would get 1
-                    // no error would throw! we'd move to zork
-                    // so, is it possible to have an edge on a node where neither source or target are the node?
-                    // we would need to make sure the node is at least valid in one direction?
-                    // eg: const valid = currentFocus === t || currentFocus === s
                     if (!(type === edge.type)) {
-                        return null
+                        return null;
                     }
                     const t =
                         typeof edge.target === 'string' ? edge.target : edge.target(d, currentFocus, previousFocus);
@@ -260,7 +232,6 @@ export const dataNavigator = options => {
                         types.forEach(type => {
                             if (!target) {
                                 target = verifyEdge(type, edge);
-                                console.log(target)
                             }
                         });
                     } else {
@@ -271,7 +242,6 @@ export const dataNavigator = options => {
                     }
                 }
                 if (target) {
-                    console.log('we found a target?');
                     initiateNodeLifeCycle(target, currentFocus);
                 }
             }
@@ -287,19 +257,16 @@ export const dataNavigator = options => {
             initiateNodeLifeCycle(id, currentFocus);
         }
     };
+
     dn.enter = () => {
         dn.moveTo(entryPoint);
     };
+
     dn.exit = () => {
-        console.log('exit has been called',exit);
         exit.style.display = 'block';
         exit.focus();
     };
 
-    // dn.select = () => {}
-    // dn.escape = () => {}
-    // dn.undo = () => {}
-    // dn.redo = () => {}
     dn.hooks = {};
     dn.hooks.navigation = () => {};
     dn.hooks.focus = () => {};

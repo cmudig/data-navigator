@@ -18,10 +18,21 @@
     /* outline-offset: 1px; */
 }
 
+.dn-node-svg {
+    position: absolute;
+    pointer-events: none;
+}
+
+.dn-node-path {
+    fill: none;
+    stroke: #000000;
+    stroke-width: 2px;
+}
+
 .dn-exit-position {
-    display: none
+    display: none;
 }
 
 .dn-exit-position:focus {
-    display: block
+    display: block;
 }
