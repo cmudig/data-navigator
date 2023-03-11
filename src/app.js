@@ -1,147 +1,144 @@
-import { dataNavigator, describeNode } from "./data-navigator";
+import { dataNavigator, describeNode } from './data-navigator';
 
 const dimensions = {
-    category: "abc",
-    group: "xyz",
-    series: "ijk",
-    level: "012"
-}
+    category: 'abc',
+    group: 'xyz',
+    series: 'ijk',
+    level: '012'
+};
 
 // input data
-let dataUsedInChart = {}
+let dataUsedInChart = {};
 
 // options for element descriptions
 const descriptionOptions = {
-    omitKeyNames: false,
-}
+    omitKeyNames: false
+};
 
-const rects = document.querySelectorAll('rect')
+const rects = document.querySelectorAll('rect');
 const prepDatum = rect => {
     if (rect) {
-        const x = rect.id.substring(4)
+        const x = rect.id.substring(4);
         return {
             x,
             d: {
-                category: x.substring(0,1),
-                group: x.substring(1,2),
-                series: x.substring(2,3),
-                level: x.substring(3,4),
+                category: x.substring(0, 1),
+                group: x.substring(1, 2),
+                series: x.substring(2, 3),
+                level: x.substring(3, 4),
                 id: rect.id
             }
-        }
+        };
     }
-    return
-}
+    return;
+};
 rects.forEach(rect => {
     if (rect.id.includes('ref-')) {
-        const prepped = prepDatum(rect)
-        const x = prepped.x
-        const d = prepped.d
-        const findNeighbor = (id) => {
-            return document.getElementById(`ref-${id}`)
-        }
+        const prepped = prepDatum(rect);
+        const x = prepped.x;
+        const d = prepped.d;
+        const findNeighbor = id => {
+            return document.getElementById(`ref-${id}`);
+        };
 
         const moveValue = (key, change) => {
-            const i = dimensions[key].indexOf(d[key])
-            let newCode = ''
+            const i = dimensions[key].indexOf(d[key]);
+            let newCode = '';
             if (i + change > -1 && i + change < 3) {
-                const newValue = dimensions[key].substring(
-                    i + change,
-                    i + change + 1
-                )
+                const newValue = dimensions[key].substring(i + change, i + change + 1);
 
-                newCode = x.replace(d[key], newValue)
+                newCode = x.replace(d[key], newValue);
             }
-            return findNeighbor(newCode) ? newCode : ''
-        }
-        const left = moveValue('series', -1)
-        const right = moveValue('series', +1)
-        const up = moveValue('category', -1)
-        const down = moveValue('category', +1)
-        const forward = moveValue('group', -1)
-        const backward = moveValue('group', +1)
-        const parent = x === 'byj1' || x === 'byj2' ? moveValue('level', -1) : '' // x === 'byj0' ? 'dn-entry-button-data-navigator-schema'  : ''
-        const child = x === 'byj1' || x === 'byj0' ? moveValue('level', +1) : ''
-        const edges = []
+            return findNeighbor(newCode) ? newCode : '';
+        };
+        const left = moveValue('series', -1);
+        const right = moveValue('series', +1);
+        const up = moveValue('category', -1);
+        const down = moveValue('category', +1);
+        const forward = moveValue('group', -1);
+        const backward = moveValue('group', +1);
+        const parent = x === 'byj1' || x === 'byj2' ? moveValue('level', -1) : ''; // x === 'byj0' ? 'dn-entry-button-data-navigator-schema'  : ''
+        const child = x === 'byj1' || x === 'byj0' ? moveValue('level', +1) : '';
+        const edges = [];
         if (left) {
             edges.push({
                 direction: -1,
-                dimension: "series",
+                dimension: 'series',
                 id: left,
                 d: {
-                    ...prepDatum(findNeighbor(left)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(left)).d
+                }
+            });
         }
         if (right) {
             edges.push({
                 direction: 1,
-                dimension: "series",
+                dimension: 'series',
                 id: right,
                 d: {
-                    ...prepDatum(findNeighbor(right)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(right)).d
+                }
+            });
         }
         if (up) {
             edges.push({
                 direction: -1,
-                dimension: "category",
+                dimension: 'category',
                 id: up,
                 d: {
-                    ...prepDatum(findNeighbor(up)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(up)).d
+                }
+            });
         }
         if (down) {
             edges.push({
                 direction: 1,
-                dimension: "category",
+                dimension: 'category',
                 id: down,
                 d: {
-                    ...prepDatum(findNeighbor(down)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(down)).d
+                }
+            });
         }
         if (forward) {
             edges.push({
                 direction: 1,
-                dimension: "group",
+                dimension: 'group',
                 id: forward,
                 d: {
-                    ...prepDatum(findNeighbor(forward)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(forward)).d
+                }
+            });
         }
         if (backward) {
             edges.push({
                 direction: -1,
-                dimension: "group",
+                dimension: 'group',
                 id: backward,
                 d: {
-                    ...prepDatum(findNeighbor(backward)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(backward)).d
+                }
+            });
         }
         if (parent) {
             edges.push({
                 direction: -1,
-                dimension: "level",
+                dimension: 'level',
                 id: parent,
                 d: {
-                    ...prepDatum(findNeighbor(parent)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(parent)).d
+                }
+            });
         }
         if (child) {
             edges.push({
                 direction: 1,
-                dimension: "level",
+                dimension: 'level',
                 id: child,
                 d: {
-                    ...prepDatum(findNeighbor(child)).d,
-                },
-            })
+                    ...prepDatum(findNeighbor(child)).d
+                }
+            });
         }
         dataUsedInChart[x] = {
             d,
@@ -149,19 +146,19 @@ rects.forEach(rect => {
             y: +rect.getAttribute('y') - 2,
             width: +rect.getAttribute('width'),
             height: +rect.getAttribute('height'),
-            ref: "ref-" + x,
+            ref: 'ref-' + x,
             id: x,
-            cssClass: "dn-test-class",
+            cssClass: 'dn-test-class',
             edges,
             // lr: [left, right], // left/right, left/right arrows
             // ud: [up, down], // up/down, up/down arrows
             // fb: [forward, backward], // backward/forward, comma/period
             // pc: [parent, child], // first parent/first child, escape/enter
-            description: describeNode(d, descriptionOptions),
+            description: describeNode(d, descriptionOptions)
             // semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
-        }
+        };
     }
-})
+});
 
 // options for transforming
 // let transformOptions = {
@@ -208,41 +205,41 @@ rects.forEach(rect => {
 let buildOptions = {
     data: dataUsedInChart, // required
     id: 'data-navigator-schema', // required
-    firstNode: 'byj1',
-    rendering: "on-demand", // "full"
+    firstNode: 'byj1', // call this entryPoint?
+    rendering: 'on-demand', // "full"
     manualEventHandling: false, // default is false/undefined
     root: {
-        cssClass: "",
-        width: "100%",
-        height: 0,
+        cssClass: '',
+        width: '100%',
+        height: 0
     },
     navigation: {
         leftRight: {
-            key: "series",
+            key: 'series',
             // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
-                left: "KeyA",
-                right: "KeyD"
-            },
+                left: 'KeyA',
+                right: 'KeyD'
+            }
         },
         upDown: {
-            key: "category",
+            key: 'category',
             // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
-                up: "KeyW",
-                down: "KeyS"
+                up: 'KeyW',
+                down: 'KeyS'
             }
         },
         backwardForward: {
-            key: "group",
+            key: 'group',
             // flow: "terminal", // could also have circular here (defaults to terminal)
             rebindKeycodes: {
-                forward: "KeyE",
-                backward: "KeyQ"
+                forward: 'KeyE',
+                backward: 'KeyQ'
             }
         },
         parentChild: {
-            key: "level",
+            key: 'level'
             // flow: "terminal", // could also have circular here (defaults to terminal)
         }
     },
@@ -251,27 +248,27 @@ let buildOptions = {
             // either a valid keypress is about to trigger navigation (before)
             // or navigation has just finished
             // provide another function to interrupt? hmmm...
-            console.log("navigating",d)
+            console.log('navigating', d);
         },
         focus: d => {
             // focus has just finished
-            console.log("focus",d)
+            console.log('focus', d);
         },
         selection: d => {
             // selection event has just finished
-            console.log("selection",d)
+            console.log('selection', d);
         },
         keydown: d => {
             // a keydown event has just happened (most expensive hook)
-            console.log("keydown",d)
+            console.log('keydown', d);
         },
         pointerClick: d => {
             // the whole nav region has received a click
             // ideally, we could send the previous focus point and maybe an x/y coord for the mouse?
-            console.log("clicked",d)
+            console.log('clicked', d);
         }
     }
-}
+};
 
 // category: "abc",
 // group: "xyz",
@@ -279,11 +276,11 @@ let buildOptions = {
 // level: "012"
 
 // create data navigator
-const dn = dataNavigator(buildOptions)
+const dn = dataNavigator(buildOptions);
 
-document.getElementById("root").appendChild(dn.build())
+document.getElementById('root').appendChild(dn.build());
 
-window.dn = dn
+window.dn = dn;
 
 const touchHandler = new Hammer(document.body, {});
 touchHandler.get('pinch').set({ enable: false });
@@ -291,13 +288,13 @@ touchHandler.get('rotate').set({ enable: false });
 touchHandler.get('pan').set({ enable: false });
 touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
 
-touchHandler.on('press', (ev) => {
+touchHandler.on('press', ev => {
     // dn.enter()
-})
-touchHandler.on('pressup', (ev) => {
-    dn.enter()
-})
-touchHandler.on('swipe', (ev) => {
+});
+touchHandler.on('pressup', ev => {
+    dn.enter();
+});
+touchHandler.on('swipe', ev => {
     // two finger scrub to escape?
     // press and hold to escape?
     // press and hold for single button menu?
@@ -310,24 +307,48 @@ touchHandler.on('swipe', (ev) => {
     // forward
     // parent
     // child
-    const larger = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? "X" : "Y"
+    const larger = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? 'X' : 'Y';
     // const smaller = ev.deltaX <= ev.deltaY ? ev.deltaX : ev.deltaY
-    const ratio = (Math.abs(ev["delta" + larger]) + 0.000000001) / (Math.abs(ev["delta" + (larger === "X" ? "Y" : "X")]) + 0.000000001)
-    const left = ev.deltaX < 0
-    const right = ev.deltaX > 0
-    const up = ev.deltaY < 0
-    const down = ev.deltaY > 0
-    const direction = ratio > 0.99 && ratio <= 2 ?
-        (right && up ? "forward" :
-        right && down ? "child" :
-        left && down ? "backward" :
-        left && up ? "parent" : null) :
-        right && larger === 'X' ? "right" :
-        down && larger === 'Y' ? "down" :
-        left && larger === 'X' ? "left" :
-        up && larger === 'Y' ? "up" :
-        null
+    const ratio =
+        (Math.abs(ev['delta' + larger]) + 0.000000001) /
+        (Math.abs(ev['delta' + (larger === 'X' ? 'Y' : 'X')]) + 0.000000001);
+    const left = ev.deltaX < 0;
+    const right = ev.deltaX > 0;
+    const up = ev.deltaY < 0;
+    const down = ev.deltaY > 0;
+    const direction =
+        ratio > 0.99 && ratio <= 2
+            ? right && up
+                ? 'forward'
+                : right && down
+                ? 'child'
+                : left && down
+                ? 'backward'
+                : left && up
+                ? 'parent'
+                : null
+            : right && larger === 'X'
+            ? 'right'
+            : down && larger === 'Y'
+            ? 'down'
+            : left && larger === 'X'
+            ? 'left'
+            : up && larger === 'Y'
+            ? 'up'
+            : null;
     if (dn.getCurrentFocus() && direction) {
-        dn.move(direction)
+        dn.move(direction);
     }
 });
+
+/*
+    Expose props: 
+        changing the axes of navigation, 
+        manual event handling, 
+        rendering (on-demand/full), 
+        hooks, 
+        keybindings, 
+        css styling
+    Data translation system (take input data, build a navigable structure)
+    Structure visualizer
+*/

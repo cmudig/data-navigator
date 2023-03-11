@@ -1,0 +1,38 @@
+.dn-root {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.dn-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    border: 2px solid transparent;
+}
+
+.dn-node:focus {
+    border: 2px solid white;
+    outline: #000000 solid 2px;
+    /* outline-offset: 1px; */
+}
+
+.dn-node-svg {
+    position: absolute;
+    pointer-events: none;
+}
+
+.dn-node-path {
+    fill: none;
+    stroke: #000000;
+    stroke-width: 2px;
+}
+
+.dn-exit-position {
+    display: none;
+}
+
+.dn-exit-position:focus {
+    display: block;
+}
