@@ -282,7 +282,8 @@ let nodes = {
         height: 291,
         id: 'fa1',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'fa-fa1', 'bpl1-fa1', 'fa1-cl1', 'fa1-fa2', 'fa4-fa1'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'arsenal-fa1', 'fa-fa1', 'bpl1-fa1', 'fa1-cl1', 'fa1-fa2', 'fa4-fa1'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -304,7 +305,8 @@ let nodes = {
         height: 0,
         id: 'cl1',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'cl-cl1', 'fa1-cl1', 'cl1-bpl1', 'cl1-cl2', 'cl4-cl1'],
+        edges: ['any-return', 'any-exit',
+        'arsenal-cl1', 'any-legend', 'cl-cl1', 'fa1-cl1', 'cl1-bpl1', 'cl1-cl2', 'cl4-cl1'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -357,7 +359,8 @@ let nodes = {
         height: 165,
         id: 'fa2',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'bpl2-fa2', 'fa2-cl2', 'fa1-fa2', 'fa2-fa3'],
+        edges: ['any-return',
+        'chelsea-fa2', 'any-exit', 'any-legend', 'bpl2-fa2', 'fa2-cl2', 'fa1-fa2', 'fa2-fa3'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -379,7 +382,8 @@ let nodes = {
         height: 35,
         id: 'cl2',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'fa2-cl2', 'cl2-bpl2', 'cl1-cl2', 'cl2-cl3'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'chelsea-cl2', 'fa2-cl2', 'cl2-bpl2', 'cl1-cl2', 'cl2-cl3'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -432,7 +436,8 @@ let nodes = {
         height: 165,
         id: 'fa3',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'bpl3-fa3', 'fa3-cl3', 'fa2-fa3', 'fa3-fa4'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'liverpool-fa3', 'bpl3-fa3', 'fa3-cl3', 'fa2-fa3', 'fa3-fa4'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -454,7 +459,8 @@ let nodes = {
         height: 119,
         id: 'cl3',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'fa3-cl3', 'cl3-bpl3', 'cl2-cl3', 'cl3-cl4'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'liverpool-cl3', 'fa3-cl3', 'cl3-bpl3', 'cl2-cl3', 'cl3-cl4'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -507,7 +513,8 @@ let nodes = {
         height: 250,
         id: 'fa4',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'bpl4-fa4', 'fa4-cl4', 'fa3-fa4', 'fa4-fa1'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'manchester-fa4', 'bpl4-fa4', 'fa4-cl4', 'fa3-fa4', 'fa4-fa1'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -529,7 +536,8 @@ let nodes = {
         height: 58,
         id: 'cl4',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend', 'fa4-cl4', 'cl4-bpl4', 'cl3-cl4', 'cl4-cl1'],
+        edges: ['any-return', 'any-exit', 'any-legend',
+        'manchester-cl4', 'fa4-cl4', 'cl4-bpl4', 'cl3-cl4', 'cl4-cl1'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -587,6 +595,46 @@ let edges = {
     'arsenal-bpl1': {
         source: 'arsenal',
         target: 'bpl1',
+        type: 'child'
+    },
+    'arsenal-fa1':{
+        source: 'arsenal',
+        target: 'fa1',
+        type: 'child'
+    },
+    'arsenal-cl1':{
+        source: 'arsenal',
+        target: 'cl1',
+        type: 'child'
+    },
+    'chelsea-fa2':{
+        source: 'chelsea',
+        target: 'fa2',
+        type: 'child'
+    },
+    'chelsea-cl2':{
+        source: 'chelsea',
+        target: 'cl2',
+        type: 'child'
+    },
+    'liverpool-fa3':{
+        source: 'liverpool',
+        target: 'fa3',
+        type: 'child'
+    },
+    'liverpool-cl3':{
+        source: 'liverpool',
+        target: 'cl3',
+        type: 'child'
+    },
+    'manchester-fa4':{
+        source: 'manchester',
+        target: 'fa4',
+        type: 'child'
+    },
+    'manchester-cl4':{
+        source: 'manchester',
+        target: 'cl4',
         type: 'child'
     },
     'arsenal-chelsea': {
