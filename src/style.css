@@ -1,4 +1,8 @@
 .dn-root {
+    position: relative;
+}
+
+.dn-wrapper {
     position: absolute;
     top: 0px;
     left: 0px;
@@ -31,8 +35,15 @@
 
 .dn-exit-position {
     display: none;
+    position: absolute;
+    bottom: -18px;
 }
 
 .dn-exit-position:focus {
     display: block;
+}
+
+.dn-entry-button {
+    position: relative;
+    top: -21px;
 }
