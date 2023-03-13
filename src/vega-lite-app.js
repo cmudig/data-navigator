@@ -1,151 +1,99 @@
-import { dataNavigator, describeNode } from './data-navigator';
-import { cars } from './cars.js';
+import { dataNavigator, describeNode, extractStructureFromVegaLite } from './data-navigator';
+// import { cars } from './cars.js';
 console.log('yo');
-console.log(cars);
-let extents = {
-    Horsepower: [Infinity, -Infinity],
-    Miles_per_Gallon: [Infinity, -Infinity]
+
+let view;
+let spec;
+let dn;
+const groupInclusionCriteria = (item, _i, _spec) => {
+    return item.marktype && !(item.marktype === 'text'); // item.marktype !== 'group' && item.marktype !== 'text'
 };
-let cleaned = [];
-cars.forEach(x => {
-    const car = { ...x };
-    if (!car['Horsepower']) {
-        console.log('0 horse', car['Horsepower'], car);
-        car['Horsepower'] = 0;
-    }
-    if (!car['Miles_per_Gallon']) {
-        console.log('0 mpg', car['Miles_per_Gallon'], car);
-        car['Miles_per_Gallon'] = 0;
-    }
-    extents['Horsepower'][0] =
-        car['Horsepower'] < extents['Horsepower'][0] ? car['Horsepower'] : extents['Horsepower'][0];
-    extents['Horsepower'][1] =
-        car['Horsepower'] > extents['Horsepower'][1] ? car['Horsepower'] : extents['Horsepower'][1];
-    extents['Miles_per_Gallon'][0] =
-        car['Miles_per_Gallon'] < extents['Miles_per_Gallon'][0]
-            ? car['Miles_per_Gallon']
-            : extents['Miles_per_Gallon'][0];
-    extents['Miles_per_Gallon'][1] =
-        car['Miles_per_Gallon'] > extents['Miles_per_Gallon'][1]
-            ? car['Miles_per_Gallon']
-            : extents['Miles_per_Gallon'][1];
-    cleaned.push(car);
-});
-console.log(extents);
-// vega-lite
-const scatter = {
-    $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-    description: 'A scatterplot showing horsepower and miles per gallons for various cars.',
-    data: cleaned,
-    mark: 'point',
-    encoding: {
-        x: { field: 'Horsepower', type: 'quantitative' },
-        y: { field: 'Miles_per_Gallon', type: 'quantitative' }
-    }
-    // "config": {}
+const itemInclusionCriteria = (_item, _i, group, _spec) => {
+    return !(group.role === 'axis' || group.role === 'legend'); // true
 };
-console.log(scatter);
-vegaEmbed('#root', scatter);
-
-// input data
-let dataUsedInChart = {};
-// dataUsedInChart[x] = {
-//     d,
-//     x: +rect.getAttribute('x') - 2,
-//     y: +rect.getAttribute('y') - 2,
-//     width: +rect.getAttribute('width'),
-//     height: +rect.getAttribute('height'),
-//     ref: "ref-" + x,
-//     id: x,
-//     cssClass: "dn-test-class",
-//     edges,
-//     // lr: [left, right], // left/right, left/right arrows
-//     // ud: [up, down], // up/down, up/down arrows
-//     // fb: [forward, backward], // backward/forward, comma/period
-//     // pc: [parent, child], // first parent/first child, escape/enter
-//     description: describeNode(d, descriptionOptions),
-//     // semantics: "node", //  collection root, list root, list item, menu, button, hyperlink, toggle, multi-select?, search?
-// }
-
-// // options for element descriptions
-// const descriptionOptions = {
-//     omitKeyNames: false,
-// }
-
-let buildOptions = {
-    data: dataUsedInChart, // required
-    id: 'data-navigator-schema', // required
-    firstNode: 'byj1',
-    rendering: 'on-demand', // "full"
-    manualEventHandling: false, // default is false/undefined
-    root: {
-        cssClass: '',
-        width: '100%',
-        height: 0
-    },
-    navigation: {
-        leftRight: {
-            key: 'series',
-            // flow: "terminal", // could also have circular here (defaults to terminal)
-            rebindKeycodes: {
-                left: 'KeyA',
-                right: 'KeyD'
-            }
-        },
-        upDown: {
-            key: 'category',
-            // flow: "terminal", // could also have circular here (defaults to terminal)
-            rebindKeycodes: {
-                up: 'KeyW',
-                down: 'KeyS'
-            }
-        },
-        backwardForward: {
-            key: 'group',
-            // flow: "terminal", // could also have circular here (defaults to terminal)
-            rebindKeycodes: {
-                forward: 'KeyE',
-                backward: 'KeyQ'
-            }
-        },
-        parentChild: {
-            key: 'level'
-            // flow: "terminal", // could also have circular here (defaults to terminal)
-        }
-    },
-    hooks: {
-        navigation: d => {
-            // either a valid keypress is about to trigger navigation (before)
-            // or navigation has just finished
-            // provide another function to interrupt? hmmm...
-            console.log('navigating', d);
-        },
-        focus: d => {
-            // focus has just finished
-            console.log('focus', d);
-        },
-        selection: d => {
-            // selection event has just finished
-            console.log('selection', d);
-        },
-        keydown: d => {
-            // a keydown event has just happened (most expensive hook)
-            console.log('keydown', d);
-        },
-        pointerClick: d => {
-            // the whole nav region has received a click
-            // ideally, we could send the previous focus point and maybe an x/y coord for the mouse?
-            console.log('clicked', d);
+const datumInclusionCriteria = (_key, _value, _d, _level, _spec) => {
+    return true;
+};
+const nodeDescriber = (d, item, level) => {
+    if (Object.keys(d).length) {
+        return describeNode(d, {});
+    } else {
+        d.role = item.role;
+        if (item.role === 'axis') {
+            const ticks = item.items[0].items[0].items;
+            const type =
+                item.items[0].datum.scale === 'yscale' ? 'Y ' : item.items[0].datum.scale === 'xscale' ? 'X ' : '';
+            return `${type}Axis. Values range from ${ticks[0].datum.label} to ${ticks[ticks.length - 1].datum.label}.`;
+        } else if (item.role === 'mark') {
+            return `${item.items.length} navigable data elements. Group. Enter using Down Arrow.`;
+        } else if (item.role === 'legend') {
+            const labels = item.items[0].items[0].items[0].items[0].items;
+            return `Legend: ${spec.legends[0].title}. Showing values from ${
+                labels[0].items[1].items[0].datum.label
+            } to ${labels[labels.length - 1].items[1].items[0].datum.label}.`;
+        } else {
+            return `${level}.`;
         }
     }
 };
+const exit = () => {
+    dn.exit();
+    return '';
+};
+fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
+    // fetch('https://vega.github.io/vega/examples/bar-chart.vg.json')
+    .then(res => {
+        return res.json();
+    })
+    .then(specification => {
+        spec = specification;
+        return render(specification);
+    })
+    .then(v => {
+        const dnStructure = extractStructureFromVegaLite({
+            vegaLiteView: v,
+            vegaLiteSpec: spec,
+            groupInclusionCriteria,
+            itemInclusionCriteria,
+            datumInclusionCriteria,
+            keyRenamingHash: {},
+            nodeDescriber,
+            exitFunction: exit
+        });
+        const dnBuildOptions = {
+            data: {
+                nodes: dnStructure.data.nodes,
+                edges: dnStructure.data.edges
+            },
+            navigation: dnStructure.navigation,
+            id: 'data-navigator-schema', // required
+            // entryPoint: 'title',
+            // rendering: 'on-demand', // "full"
+            // manualEventHandling: false, // default is false/undefined
+            root: {
+                id: 'view',
+                cssClass: '',
+                width: '100%',
+                height: 0
+            }
+        };
+        // we build here
+        console.log('dnBuildOptions', dnBuildOptions);
+        dn = dataNavigator(dnBuildOptions);
+        dn.build();
+        window.dn = dn;
+        return dnBuildOptions;
+    })
+    .catch(err => console.error(err));
 
-// create data navigator
-const dn = dataNavigator(buildOptions);
-
-document.getElementById('root').appendChild(dn.build());
-
-window.dn = dn;
+const render = spec => {
+    view = new vega.View(vega.parse(spec), {
+        renderer: 'canvas', // renderer (canvas or svg)
+        container: '#view', // parent DOM container
+        hover: true // enable hover processing
+    });
+    return view.runAsync();
+};
 
 const touchHandler = new Hammer(document.body, {});
 touchHandler.get('pinch').set({ enable: false });

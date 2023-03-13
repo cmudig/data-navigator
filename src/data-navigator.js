@@ -10,6 +10,7 @@ export const dataNavigator = options => {
     let keyBindings = defaultKeyBindings;
     let directions = defaultDirections;
     let root = null;
+    let structureWrapper = null;
 
     // local methods
     const handleKeydownInteraction = e => {
@@ -20,7 +21,7 @@ export const dataNavigator = options => {
         }
     };
     const handleFocusInteraction = e => {
-        console.log('focus', e);
+        // console.log('focus', e);
         /* On focus:
             remove events from previous location 
             calculate x/y/width/height on focus
@@ -60,10 +61,12 @@ export const dataNavigator = options => {
 
         node.appendChild(nodeText);
         if (d.path) {
+            const totalWidth = parseFloat(d.width || '0') + parseFloat(d.x || '0') + 10;
+            const totalHeight = parseFloat(d.height || '0') + parseFloat(d.y || '0') + 10;
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', options.width || '100%');
-            svg.setAttribute('height', options.height);
-            svg.setAttribute('viewBox', `0 0 ${options.width} ${options.height}`);
+            svg.setAttribute('width', totalWidth);
+            svg.setAttribute('height', totalHeight);
+            svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
             svg.style.left = -parseFloat(d.x || 0);
             svg.style.top = -parseFloat(d.y || 0);
             svg.classList.add('dn-node-svg');
@@ -77,7 +80,7 @@ export const dataNavigator = options => {
             svg.appendChild(path);
             node.appendChild(svg);
         }
-        root.appendChild(node);
+        structureWrapper.appendChild(node);
         return node;
     };
 
@@ -86,7 +89,6 @@ export const dataNavigator = options => {
         if (node) {
             previousFocus = currentFocus;
             currentFocus = id;
-            console.log('focusing', id, node);
             node.focus();
         }
     };
@@ -124,7 +126,6 @@ export const dataNavigator = options => {
     };
 
     dn.setNavigationKeyBindings = navKeyBindings => {
-        console.log('setting key bindings', navKeyBindings);
         if (!navKeyBindings) {
             keyBindings = defaultKeyBindings;
             directions = defaultDirections;
@@ -155,14 +156,26 @@ export const dataNavigator = options => {
             );
             return;
         }
+        if (options.root && document.getElementById(options.root.id)) {
+            root = document.getElementById(options.root.id);
+        } else {
+            console.error(
+                'No root element found, cannot build: options.root.id must reference an existing DOM element.'
+            );
+            return;
+        }
+        root.style.position = 'relative';
+        root.classList.add('dn-root');
 
         if (options.id) {
-            // build root
-            root = document.createElement('div');
-            root.id = 'dn-root-' + options.id;
-            root.classList.add('dn-root');
-            root.style.width = options.width || '100%';
-            root.style.height = options.height;
+            // build structureWrapper
+            structureWrapper = document.createElement('div');
+            structureWrapper.id = 'dn-wrapper-' + options.id;
+            structureWrapper.classList.add('dn-wrapper');
+            structureWrapper.style.width = options.root && options.root.width ? options.root.width : '100%';
+            if (options.root && options.root.height) {
+                structureWrapper.style.height = options.root.height;
+            }
 
             // TO-DO: build interaction instructions/menu
 
@@ -172,7 +185,7 @@ export const dataNavigator = options => {
             entry.classList.add('dn-entry-button');
             entry.innerText = `Enter navigation area`;
             entry.addEventListener('click', dn.enter);
-            root.appendChild(entry);
+            structureWrapper.appendChild(entry);
 
             exit = document.createElement('div');
 
@@ -182,8 +195,6 @@ export const dataNavigator = options => {
             exit.setAttribute('aria-label', `End of data structure.`);
             exit.setAttribute('role', 'note');
             exit.setAttribute('tabindex', '-1');
-            exit.style.position = 'absolute';
-            exit.style.bottom = '-20px';
             exit.style.display = 'none';
             exit.addEventListener('focus', () => {
                 exit.style.display = 'block';
@@ -192,12 +203,13 @@ export const dataNavigator = options => {
             exit.addEventListener('blur', () => {
                 exit.style.display = 'none';
             });
-            root.appendChild(exit);
 
             dn.setNavigationKeyBindings(options.navigation);
 
             // build the whole structure, if props sent
 
+            root.appendChild(structureWrapper);
+            root.appendChild(exit);
             return root;
         } else {
             console.error('No id found: options.id must be specified for dataNavigator.build');
@@ -242,6 +254,7 @@ export const dataNavigator = options => {
                     }
                 }
                 if (target) {
+                    console.log('target', options.data.nodes[target], options.data.nodes[target].description);
                     initiateNodeLifeCycle(target, currentFocus);
                 }
             }
@@ -284,6 +297,224 @@ export const describeNode = (d, descriptionOptions) => {
     });
     description += descriptionOptions.semanticLabel || 'Data point.';
     return description;
+};
+
+export const extractStructureFromVegaLite = options => {
+    // options = {
+    //     vegaLiteView: {}, // required
+    //     vegaLiteSpec: {}, // required
+    //     groupInclusionCriteria: () => {},
+    //     itemInclusionCriteria: () => {},
+    //     datumInclusionCriteria: () => {},
+    //     nodeDescriber: () => {},
+    //     keyRenamingHash: {}
+    // }
+    console.log('extractStructureFromVegaLite', options);
+    let nodes = {};
+    let edges = {};
+    let total = 0;
+    let repeated = 0;
+    let navigation = {
+        right: {
+            types: ['sibling'],
+            key: 'ArrowRight',
+            direction: 1
+        },
+        left: {
+            types: ['sibling'],
+            key: 'ArrowLeft',
+            direction: -1
+        },
+        down: {
+            types: ['level'],
+            key: 'ArrowDown',
+            direction: 1
+        },
+        up: {
+            types: ['level'],
+            key: 'ArrowUp',
+            direction: -1
+        },
+        exit: {
+            types: ['exit'],
+            key: 'Escape',
+            direction: 1
+        },
+        undo: {
+            types: ['undo'],
+            key: 'Backspace',
+            direction: 1
+        },
+        legend: {
+            types: ['legend'],
+            key: 'KeyL',
+            direction: 1
+        }
+    };
+
+    const includeGroup = options.groupInclusionCriteria ? options.groupInclusionCriteria : () => true;
+    const includeItem = options.itemInclusionCriteria ? options.itemInclusionCriteria : () => true;
+    const includeDataProperties = options.datumInclusionCriteria ? options.datumInclusionCriteria : () => true;
+    const offset = options.vegaLiteView._renderer._origin;
+    const groupParent = options.vegaLiteView._scenegraph.root.items[0].mark.items[0];
+
+    const idBuilder = (it, level) => {
+        // const item = it.mark || it
+        if (it['data-navigator-id']) {
+            return it['data-navigator-id'];
+        }
+        const id = `dn-node-${level}-${total}`; // (item.name || '') + (item.role || '') + (item.marktype || '') + total
+        total++;
+        it['data-navigator-id'] = id;
+        return id;
+    };
+    const navBuilder = () => {
+        return;
+    };
+    const edgeBuilder = id => {
+        const node = nodes[id];
+        const index = node.index;
+        const level = node.level;
+        const parent = node.parent;
+        const edgeList = [];
+        // previous and next use parent.items[]
+        const previous = parent.items[index - 1];
+        if (previous) {
+            const previousId = idBuilder(previous, level);
+            if (nodes[previousId]) {
+                const previousEdge = `${previousId}-${node.id}`;
+                edgeList.push(previousEdge);
+                if (!edges[previousEdge]) {
+                    edges[previousEdge] = {
+                        source: previousId,
+                        target: node.id,
+                        type: 'sibling'
+                    };
+                }
+            }
+        }
+        const next = parent.items[index + 1];
+        if (next) {
+            const nextId = idBuilder(next, level);
+            if (nodes[nextId]) {
+                const nextEdge = `${node.id}-${nextId}`;
+                edgeList.push(nextEdge);
+                if (!edges[nextEdge]) {
+                    edges[nextEdge] = {
+                        source: node.id,
+                        target: nextId,
+                        type: 'sibling'
+                    };
+                }
+            }
+        }
+        if (level === 'group' && parent.items[index].items) {
+            const g = parent.items[index].items[0].mark.items[0].items || parent.items[index].items;
+            // first child
+            const firstChild = g[0];
+            const firstChildId = idBuilder(firstChild, 'item');
+            if (nodes[firstChildId]) {
+                const firstChildEdge = `${node.id}-${firstChildId}`;
+                edgeList.push(firstChildEdge);
+                if (!edges[firstChildEdge]) {
+                    edges[firstChildEdge] = {
+                        source: node.id,
+                        target: firstChildId,
+                        type: 'level'
+                    };
+                }
+            }
+        } else if (level === 'item') {
+            // parent
+            const parentId = idBuilder(parent, 'group');
+            if (nodes[parentId]) {
+                const parentEdge = `${parentId}-${node.id}`;
+                edgeList.push(parentEdge);
+                if (!edges[parentEdge]) {
+                    edges[parentEdge] = {
+                        source: parentId,
+                        target: node.id,
+                        type: 'level'
+                    };
+                }
+            }
+        }
+        if (options.exitFunction) {
+            edgeList.push('any-exit');
+            if (!edges['any-exit']) {
+                edges['any-exit'] = {
+                    source: (_d, current, _previous) => current,
+                    target: options.exitFunction,
+                    type: 'exit'
+                };
+            }
+        }
+        edgeList.push('any-undo');
+        if (!edges['any-undo']) {
+            edges['any-undo'] = {
+                source: (_d, current, _previous) => current,
+                target: (_d, _current, previous) => previous,
+                type: 'undo'
+            };
+        }
+        return edgeList;
+    };
+    const nodeBuilder = (item, level, offset, index, parent) => {
+        const id = idBuilder(item, level);
+        const o = offset || [0, 0];
+        nodes[id] = {};
+        nodes[id].d = {};
+        nodes[id].id = id;
+        nodes[id].x = item.bounds.x1 + o[0];
+        nodes[id].y = item.bounds.y1 + o[1];
+        nodes[id].width = item.bounds.x2 - item.bounds.x1;
+        nodes[id].height = item.bounds.y2 - item.bounds.y1;
+        nodes[id].cssClass = 'dn-vega-lite-node';
+        nodes[id].index = index;
+        nodes[id].level = level;
+        nodes[id].parent = parent;
+        if (item.datum) {
+            Object.keys(item.datum).forEach(key => {
+                const value = item.datum[key];
+                if (includeDataProperties(key, value, item.datum, level, options.vegaLiteSpec)) {
+                    nodes[id].d[
+                        options.keyRenamingHash && options.keyRenamingHash[key] ? options.keyRenamingHash[key] : key
+                    ] = value;
+                }
+            });
+        }
+        nodes[id].description = options.nodeDescriber
+            ? options.nodeDescriber(nodes[id].d, item, level)
+            : describeNode(nodes[id].d);
+    };
+    let i = 0;
+    const groups = groupParent.items;
+    groups.forEach(group => {
+        if (includeGroup(group, i, options.vegaLiteSpec)) {
+            nodeBuilder(group, 'group', offset, i, groupParent);
+            let j = 0;
+            const g = group.items[0].mark.items[0].items ? group.items[0].mark.items[0] : group;
+            g.items.forEach(item => {
+                if (includeItem(item, j, group, options.vegaLiteSpec)) {
+                    nodeBuilder(item, 'item', offset, j, g);
+                }
+                j++;
+            });
+        }
+        i++;
+    });
+    Object.keys(nodes).forEach(n => {
+        nodes[n].edges = edgeBuilder(n);
+    });
+    console.log('total', total);
+    console.log('repeated', repeated);
+    return {
+        data: {
+            nodes,
+            edges
+        },
+        navigation
+    };
 };
 
 export const transformData = options => {

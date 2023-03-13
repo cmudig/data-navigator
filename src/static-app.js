@@ -282,8 +282,17 @@ let nodes = {
         height: 291,
         id: 'fa1',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'arsenal-fa1', 'fa-fa1', 'bpl1-fa1', 'fa1-cl1', 'fa1-fa2', 'fa4-fa1'],
+        edges: [
+            'any-return',
+            'any-exit',
+            'any-legend',
+            'arsenal-fa1',
+            'fa-fa1',
+            'bpl1-fa1',
+            'fa1-cl1',
+            'fa1-fa2',
+            'fa4-fa1'
+        ],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -305,8 +314,17 @@ let nodes = {
         height: 0,
         id: 'cl1',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit',
-        'arsenal-cl1', 'any-legend', 'cl-cl1', 'fa1-cl1', 'cl1-bpl1', 'cl1-cl2', 'cl4-cl1'],
+        edges: [
+            'any-return',
+            'any-exit',
+            'arsenal-cl1',
+            'any-legend',
+            'cl-cl1',
+            'fa1-cl1',
+            'cl1-bpl1',
+            'cl1-cl2',
+            'cl4-cl1'
+        ],
         description: describeNode(
             {
                 contest: 'CL',
@@ -359,8 +377,7 @@ let nodes = {
         height: 165,
         id: 'fa2',
         cssClass: 'dn-test-class',
-        edges: ['any-return',
-        'chelsea-fa2', 'any-exit', 'any-legend', 'bpl2-fa2', 'fa2-cl2', 'fa1-fa2', 'fa2-fa3'],
+        edges: ['any-return', 'chelsea-fa2', 'any-exit', 'any-legend', 'bpl2-fa2', 'fa2-cl2', 'fa1-fa2', 'fa2-fa3'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -382,8 +399,7 @@ let nodes = {
         height: 35,
         id: 'cl2',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'chelsea-cl2', 'fa2-cl2', 'cl2-bpl2', 'cl1-cl2', 'cl2-cl3'],
+        edges: ['any-return', 'any-exit', 'any-legend', 'chelsea-cl2', 'fa2-cl2', 'cl2-bpl2', 'cl1-cl2', 'cl2-cl3'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -436,8 +452,7 @@ let nodes = {
         height: 165,
         id: 'fa3',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'liverpool-fa3', 'bpl3-fa3', 'fa3-cl3', 'fa2-fa3', 'fa3-fa4'],
+        edges: ['any-return', 'any-exit', 'any-legend', 'liverpool-fa3', 'bpl3-fa3', 'fa3-cl3', 'fa2-fa3', 'fa3-fa4'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -459,8 +474,7 @@ let nodes = {
         height: 119,
         id: 'cl3',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'liverpool-cl3', 'fa3-cl3', 'cl3-bpl3', 'cl2-cl3', 'cl3-cl4'],
+        edges: ['any-return', 'any-exit', 'any-legend', 'liverpool-cl3', 'fa3-cl3', 'cl3-bpl3', 'cl2-cl3', 'cl3-cl4'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -513,8 +527,7 @@ let nodes = {
         height: 250,
         id: 'fa4',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'manchester-fa4', 'bpl4-fa4', 'fa4-cl4', 'fa3-fa4', 'fa4-fa1'],
+        edges: ['any-return', 'any-exit', 'any-legend', 'manchester-fa4', 'bpl4-fa4', 'fa4-cl4', 'fa3-fa4', 'fa4-fa1'],
         description: describeNode(
             {
                 contest: 'FA Cup',
@@ -536,8 +549,7 @@ let nodes = {
         height: 58,
         id: 'cl4',
         cssClass: 'dn-test-class',
-        edges: ['any-return', 'any-exit', 'any-legend',
-        'manchester-cl4', 'fa4-cl4', 'cl4-bpl4', 'cl3-cl4', 'cl4-cl1'],
+        edges: ['any-return', 'any-exit', 'any-legend', 'manchester-cl4', 'fa4-cl4', 'cl4-bpl4', 'cl3-cl4', 'cl4-cl1'],
         description: describeNode(
             {
                 contest: 'CL',
@@ -561,22 +573,22 @@ let edges = {
         },
         type: 'legend'
     },
-    'any-return': {
-        source: (_d, current, _previous) => current,
-        target: (_d, _current, previous) => previous,
-        type: 'returnTo'
-    },
     'any-x_axis': {
         source: (_d, current, _previous) => current,
         target: 'x_axis',
         type: 'parent'
+    },
+    'any-return': {
+        source: (_d, current, _previous) => current,
+        target: (_d, _current, previous) => previous,
+        type: 'returnTo'
     },
     'any-exit': {
         source: (_d, current, _previous) => current,
         target: () => {
             dn.exit();
             return '';
-        }, // need something clever here
+        },
         type: 'exit'
     },
     'x_axis-exit': {
@@ -597,42 +609,42 @@ let edges = {
         target: 'bpl1',
         type: 'child'
     },
-    'arsenal-fa1':{
+    'arsenal-fa1': {
         source: 'arsenal',
         target: 'fa1',
         type: 'child'
     },
-    'arsenal-cl1':{
+    'arsenal-cl1': {
         source: 'arsenal',
         target: 'cl1',
         type: 'child'
     },
-    'chelsea-fa2':{
+    'chelsea-fa2': {
         source: 'chelsea',
         target: 'fa2',
         type: 'child'
     },
-    'chelsea-cl2':{
+    'chelsea-cl2': {
         source: 'chelsea',
         target: 'cl2',
         type: 'child'
     },
-    'liverpool-fa3':{
+    'liverpool-fa3': {
         source: 'liverpool',
         target: 'fa3',
         type: 'child'
     },
-    'liverpool-cl3':{
+    'liverpool-cl3': {
         source: 'liverpool',
         target: 'cl3',
         type: 'child'
     },
-    'manchester-fa4':{
+    'manchester-fa4': {
         source: 'manchester',
         target: 'fa4',
         type: 'child'
     },
-    'manchester-cl4':{
+    'manchester-cl4': {
         source: 'manchester',
         target: 'cl4',
         type: 'child'
@@ -937,9 +949,8 @@ let buildOptions = {
     entryPoint: 'title',
     rendering: 'on-demand', // "full"
     manualEventHandling: false, // default is false/undefined
-    width: 1200,
-    height: 800,
     root: {
+        id: 'root',
         cssClass: '',
         width: '100%',
         height: 0
@@ -975,7 +986,7 @@ let buildOptions = {
 // create data navigator
 const dn = dataNavigator(buildOptions);
 
-document.getElementById('root').appendChild(dn.build());
+dn.build();
 
 window.dn = dn;
 
