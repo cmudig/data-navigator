@@ -65,7 +65,43 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
                 nodes: dnStructure.data.nodes,
                 edges: dnStructure.data.edges
             },
-            navigation: dnStructure.navigation,
+            navigation: {
+                right: {
+                    types: ['sibling'],
+                    key: 'ArrowRight',
+                    direction: 1
+                },
+                left: {
+                    types: ['sibling'],
+                    key: 'ArrowLeft',
+                    direction: -1
+                },
+                down: {
+                    types: ['level'],
+                    key: 'Enter',
+                    direction: 1
+                },
+                up: {
+                    types: ['level'],
+                    key: 'Backspace',
+                    direction: -1
+                },
+                exit: {
+                    types: ['exit'],
+                    key: 'Escape',
+                    direction: 1
+                },
+                undo: {
+                    types: ['undo'],
+                    key: 'Period',
+                    direction: 1
+                },
+                legend: {
+                    types: ['legend'],
+                    key: 'KeyL',
+                    direction: 1
+                }
+            },
             id: 'data-navigator-schema', // required
             // entryPoint: 'title',
             // rendering: 'on-demand', // "full"

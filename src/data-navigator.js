@@ -314,43 +314,6 @@ export const extractStructureFromVegaLite = options => {
     let edges = {};
     let total = 0;
     let repeated = 0;
-    let navigation = {
-        right: {
-            types: ['sibling'],
-            key: 'ArrowRight',
-            direction: 1
-        },
-        left: {
-            types: ['sibling'],
-            key: 'ArrowLeft',
-            direction: -1
-        },
-        down: {
-            types: ['level'],
-            key: 'ArrowDown',
-            direction: 1
-        },
-        up: {
-            types: ['level'],
-            key: 'ArrowUp',
-            direction: -1
-        },
-        exit: {
-            types: ['exit'],
-            key: 'Escape',
-            direction: 1
-        },
-        undo: {
-            types: ['undo'],
-            key: 'Backspace',
-            direction: 1
-        },
-        legend: {
-            types: ['legend'],
-            key: 'KeyL',
-            direction: 1
-        }
-    };
 
     const includeGroup = options.groupInclusionCriteria ? options.groupInclusionCriteria : () => true;
     const includeItem = options.itemInclusionCriteria ? options.itemInclusionCriteria : () => true;
@@ -512,8 +475,7 @@ export const extractStructureFromVegaLite = options => {
         data: {
             nodes,
             edges
-        },
-        navigation
+        }
     };
 };
 
