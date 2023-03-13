@@ -28,10 +28,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&amp;display=swap" rel="stylesheet"> -->
         <link href="./src/style.css" rel="stylesheet" />
         <style>
-            .dn-node {
+            /* .dn-node {
                 background: #000;
-            }
+            } */
         </style>
+        <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+        <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
     </head>
     <body>
         <a href="#main" class="skip">skip to main content</a>
@@ -41,13 +43,11 @@
         <main id="main">
             <h1>Data Navigator Vega-Lite Examples</h1>
             <p>Hi! Welcome to our testing area :)</p>
-            <div id="root" style="position: relative"></div>
+            <br />
+            <div id="view" style="position: relative"></div>
         </main>
         <footer></footer>
-        <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-        <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
+
         <script src="dist/v-bundle.js"></script>
     </body>
 </html>
