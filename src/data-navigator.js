@@ -72,7 +72,6 @@ export const dataNavigator = options => {
             svg.classList.add('dn-node-svg');
             svg.setAttribute('role', 'presentation');
             svg.setAttribute('focusable', 'false');
-            svg.setAttribute('tabindex', '-1');
 
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', d.path);
