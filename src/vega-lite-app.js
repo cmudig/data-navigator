@@ -25,7 +25,7 @@ const nodeDescriber = (d, item, level) => {
                 item.items[0].datum.scale === 'yscale' ? 'Y ' : item.items[0].datum.scale === 'xscale' ? 'X ' : '';
             return `${type}Axis. Values range from ${ticks[0].datum.label} to ${ticks[ticks.length - 1].datum.label}.`;
         } else if (item.role === 'mark') {
-            return `${item.items.length} navigable data elements. Group. Enter using Down Arrow.`;
+            return `${item.items.length} navigable data elements. Group. Enter using Enter Key.`;
         } else if (item.role === 'legend') {
             const labels = item.items[0].items[0].items[0].items[0].items;
             return `Legend: ${spec.legends[0].title}. Showing values from ${
