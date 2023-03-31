@@ -13,24 +13,10 @@ export const dataNavigator = options => {
     let structureWrapper = null;
 
     // local methods
-    const handleKeydownInteraction = e => {
-        const direction = keyBindings[e.code];
-        if (direction) {
-            e.preventDefault();
-            dn.move(direction);
-        }
-    };
-    const handleFocusInteraction = e => {
-        // console.log('focus', e);
-        /* On focus:
-            remove events from previous location 
-            calculate x/y/width/height on focus
-            add events to focused element
-        */
-    };
-    const handleBlurInteraction = e => {
-        // clearStructure()
-    };
+    let handleKeydownInteraction
+    let handleFocusInteraction
+    let handleBlurInteraction
+    
     const buildNode = id => {
         // const options = dn.currentOptions
         const node = document.createElement('figure'); // subject to change based on new props
@@ -38,6 +24,59 @@ export const dataNavigator = options => {
         node.id = id;
         node.classList.add('dn-node');
         const d = options.data.nodes[id];
+        handleKeydownInteraction = e => {
+            const direction = keyBindings[e.code];
+            if (options.hooks && options.hooks.keydown) {
+                options.hooks.keydown({
+                    e,
+                    d,
+                    direction
+                })
+            }
+            if (direction) {
+                e.preventDefault();
+                if (options.hooks && options.hooks.navigationStart) {
+                    options.hooks.navigationStart({
+                        e,
+                        d,
+                        direction
+                    })
+                }
+                if (options.hooks && options.hooks.navigation) {
+                    options.hooks.navigation({
+                        e,
+                        d,
+                        direction
+                    })
+                }
+                dn.move(direction);
+                if (options.hooks && options.hooks.navigationEnd) {
+                    options.hooks.navigationEnd({
+                        e,
+                        d,
+                        direction
+                    })
+                }
+            }
+        };
+        handleFocusInteraction = e => {
+            if (options.hooks && options.hooks.focus) {
+                options.hooks.focus({
+                    e,
+                    d
+                })
+            }
+        };
+        handleBlurInteraction = (e, d) => {
+            // clearStructure()
+            if (options.hooks && options.hooks.blue) {
+                options.hooks.blue({
+                    e,
+                    d
+                })
+            }
+        };
+
         if (d.cssClass) {
             node.classList.add(d.cssClass);
         }
@@ -95,20 +134,28 @@ export const dataNavigator = options => {
     const deleteNode = id => {
         const node = document.getElementById(id);
         if (node) {
-            node.removeEventListener('keydown', handleKeydownInteraction);
-            node.removeEventListener('focus', handleFocusInteraction);
-            node.removeEventListener('blur', handleBlurInteraction);
             node.remove();
         }
     };
 
+    const removeListeners = id => {
+        const node = document.getElementById(id);
+        if (node) {
+            node.removeEventListener('keydown', handleKeydownInteraction);
+            node.removeEventListener('focus', handleFocusInteraction);
+            node.removeEventListener('blur', handleBlurInteraction);
+        }
+    }
+
     const initiateNodeLifeCycle = (newId, oldId) => {
+        removeListeners(oldId)
         buildNode(newId);
         focusNode(newId);
         deleteNode(oldId);
     };
 
     const clearStructure = () => {
+        removeListeners(currentFocus)
         deleteNode(currentFocus);
         previousFocus = currentFocus;
         currentFocus = null;
@@ -140,7 +187,6 @@ export const dataNavigator = options => {
 
     dn.build = () => {
         // to-do: remove any elements from previous build? lifecycle stuff?
-        console.log('building', options);
         // NOTE: the keys are based on insertion order EXCEPT when keys are number-like (or parse to ints)
         // so if someone passes ids in that are "1" or "2", then those go first in numerical order
         if (options.data) {
@@ -223,8 +269,10 @@ export const dataNavigator = options => {
                 let target = null;
                 let i = 0;
                 const x = directions[direction];
-
-                const types = x.types || direction; // hasNavigationRules.key;
+                if (!x) {
+                    return
+                }
+                const types = x && x.types ? x.types : direction; // hasNavigationRules.key;
                 const verifyEdge = (type, edge) => {
                     if (!(type === edge.type)) {
                         return null;
@@ -253,7 +301,6 @@ export const dataNavigator = options => {
                     }
                 }
                 if (target) {
-                    console.log('target', options.data.nodes[target], options.data.nodes[target].description);
                     initiateNodeLifeCycle(target, currentFocus);
                 }
             }
@@ -308,7 +355,6 @@ export const extractStructureFromVegaLite = options => {
     //     nodeDescriber: () => {},
     //     keyRenamingHash: {}
     // }
-    console.log('extractStructureFromVegaLite', options);
     let nodes = {};
     let edges = {};
     let total = 0;
@@ -468,8 +514,6 @@ export const extractStructureFromVegaLite = options => {
     Object.keys(nodes).forEach(n => {
         nodes[n].edges = edgeBuilder(n);
     });
-    console.log('total', total);
-    console.log('repeated', repeated);
     return {
         data: {
             nodes,

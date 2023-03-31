@@ -1,5 +1,33 @@
 import { dataNavigator, describeNode } from './data-navigator';
+let scale;
+const hideTooltip = () => {
+    document.getElementById("tooltip").classList.add("hidden")
+}
 
+const showTooltip = e => {
+    console.log("showing tooltip",e)
+    const tooltip = document.getElementById("tooltip")
+    tooltip.classList.remove("hidden")
+    tooltip.innerText = e.d.description
+    // const xCenter = e.d.x + e.d.width/2
+    const bbox = tooltip.getBoundingClientRect()
+    const offset = (5 * scale)
+    const yOffset = bbox.height + offset
+    console.log(e.d.d.team)
+    if (!(e.d.d.team === "Manchester United" || e.d.d.team === "Liverpool" || (!e.d.d.team && e.d.d.contest === "BPL"))) {
+        tooltip.style.textAlign = "left"
+        tooltip.style.transform = `translate(${(e.d.x)*scale-offset+1}px,${(e.d.y)*scale-yOffset}px)`
+    } else {
+        tooltip.style.textAlign = "right"
+        console.log(e.d.x)
+        console.log(e.d.width)
+        console.log(e.d.x + e.d.width)
+        const xOffset = bbox.width
+        tooltip.style.transform = `translate(${(e.d.x + e.d.width)*scale+offset-xOffset+1}px,${(e.d.y)*scale-yOffset}px)`
+    }
+}
+
+let entered;
 // input data
 // extracted from https://www.highcharts.com/demo/column-stacked
 let nodes = {
@@ -53,7 +81,7 @@ let nodes = {
         id: 'x_axis',
         cssClass: 'dn-test-class',
         edges: ['any-return', 'any-exit', 'y_axis-x_axis', 'x_axis-arsenal'],
-        description: 'Teams included: Arsenal, Chelsea, Liverpool, Manchester United.'
+        description: 'X Axis. Arsenal, Chelsea, Liverpool, Manchester United. Press Enter to explore these teams.'
     },
     arsenal: {
         d: {
@@ -587,6 +615,8 @@ let edges = {
         source: (_d, current, _previous) => current,
         target: () => {
             dn.exit();
+            hideTooltip();
+            entered = false
             return '';
         },
         type: 'exit'
@@ -595,6 +625,7 @@ let edges = {
         source: 'x_axis',
         target: () => {
             dn.exit();
+            hideTooltip();
             return '';
         },
         type: 'exit'
@@ -961,24 +992,29 @@ let buildOptions = {
             // either a valid keypress is about to trigger navigation (before)
             // or navigation has just finished
             // provide another function to interrupt? hmmm...
-            console.log('navigating', d);
+            // console.log('navigating', d);
         },
         focus: d => {
             // focus has just finished
             console.log('focus', d);
+            showTooltip(d)
+        },
+        blur: d => {
+            // focus has just finished
+            // console.log('blur', d);
         },
         selection: d => {
             // selection event has just finished
-            console.log('selection', d);
+            // console.log('selection', d);
         },
         keydown: d => {
             // a keydown event has just happened (most expensive hook)
-            console.log('keydown', d);
+            // console.log('keydown', d);
         },
         pointerClick: d => {
             // the whole nav region has received a click
             // ideally, we could send the previous focus point and maybe an x/y coord for the mouse?
-            console.log('clicked', d);
+            // console.log('clicked', d);
         }
     }
 };
@@ -990,19 +1026,8 @@ dn.build();
 
 window.dn = dn;
 
-const touchHandler = new Hammer(document.body, {});
-touchHandler.get('pinch').set({ enable: false });
-touchHandler.get('rotate').set({ enable: false });
-touchHandler.get('pan').set({ enable: false });
-touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
-
-touchHandler.on('press', ev => {
-    // dn.enter()
-});
-touchHandler.on('pressup', ev => {
-    dn.enter();
-});
-touchHandler.on('swipe', ev => {
+const handleMovement = ev => {
+    console.log("moving",ev)
     const larger = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? 'X' : 'Y';
     // const smaller = ev.deltaX <= ev.deltaY ? ev.deltaX : ev.deltaY
     const ratio =
@@ -1032,7 +1057,279 @@ touchHandler.on('swipe', ev => {
             : up && larger === 'Y'
             ? 'up'
             : null;
+    console.log("direction",direction)
     if (dn.getCurrentFocus() && direction) {
         dn.move(direction);
     }
+}
+const touchHandler = new Hammer(document.getElementById("root"), {});
+touchHandler.get('pinch').set({ enable: false });
+touchHandler.get('rotate').set({ enable: false });
+touchHandler.get('pan').set({ enable: false });
+touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
+
+touchHandler.on('press', ev => {
+    // dn.enter()
 });
+touchHandler.on('pressup', ev => {
+    entered = true
+    dn.enter();
+});
+touchHandler.on('swipe', ev => {
+    handleMovement(ev)
+});
+
+
+let model;
+let isVideo = false;
+let ready = false;
+let timer;
+let command = null;
+const video = document.getElementById("feed")
+const canvas = document.getElementById("canvas");
+const context = canvas.getContext("2d");
+const modelParams = {
+    flipHorizontal: true,
+    // outputStride: 16,
+    // imageScaleFactor: 1,
+    iouThreshold: 0.5,
+    scoreThreshold: 0.45,
+    modelType: "ssd320fpnlite",
+    modelSize: "small",
+    // bboxLineWidth: "2",
+    // fontSize: 17,
+}
+
+const openCam = () => {
+    document.getElementById("openWebcam").disabled = true;
+    document.getElementById("ready").innerText = "No. Loading video feed..."
+    handTrack.startVideo(video).then((status) => {
+        console.log("video started", status);
+        document.getElementById("ready").innerText = "Feed ready. Close your hand to prepare for gesture commands."
+        if (status) {
+        //   updateNote.innerText = "Video started. Now tracking";
+          isVideo = true;
+          document.getElementById("status").classList.remove('hidden')
+          document.getElementById("canvas").classList.remove('hidden')
+          runDetection();
+        } else {
+        //   updateNote.innerText = "Please enable video";
+        }
+    });
+}
+
+const runDetection = () => {
+    model.detect(video).then((predictions) => {
+        if (predictions.length) {
+            model.renderPredictions(predictions, canvas, context, video);
+            // predictions.forEach(pred => {
+            //     attemptCommand(pred)
+            // })
+        }
+        if (isVideo) {
+          requestAnimationFrame(runDetection);
+        }
+      });
+}
+
+const closeCam = () => {
+    isVideo = false
+    handTrack.stopVideo(video);
+    document.getElementById("openWebcam").classList.add('hidden')
+    document.getElementById("canvas").classList.add('hidden')
+    document.getElementById("status").innerText = "Video feed disabled. Model disposed!"
+    model.dispose();
+}
+
+const setReady = (bbox) => {
+    ready = bbox
+    document.getElementById("ready").innerText = "Yes!"
+}
+const setNotReady = () => {
+    ready = false
+    document.getElementById("ready").innerText = "No."
+}
+const attemptCommand = (pred) => {
+    if (ready) {
+        if (pred.label === 'point') {
+            console.log("POINT")
+            const ev = {
+                deltaX: (ready[2] - ready[0]) - (pred.bbox[2] - pred.bbox[0]),
+                deltaY: (ready[3] - ready[1]) - (pred.bbox[3] - pred.bbox[1])
+            }
+            handleMovement(ev)
+            setNotReady()
+        }
+        if (pred.label === 'open' && !entered) {
+            console.log("GOIN IN!")
+            entered = true
+            dn.enter()
+            setNotReady()
+        } else if (pred.label === 'open' && entered) {
+            // console.log("GOIN OUT!")
+            // entered = false
+            // dn.exit()
+            // setNotReady()
+            if (dn.getCurrentFocus()) {
+                dn.move("child");
+                setNotReady()
+            }
+        }
+    } else if (pred.label === 'closed') {
+        console.log("NOW READY")
+        setReady(pred.bbox)
+    }
+}
+
+
+const loadModel = ()=> {
+    document.getElementById("loadModel").disabled = true;
+    document.getElementById("status").classList.remove("hidden")
+    document.getElementById("ready").innerText = "No. Loading model..."
+    handTrack.load(modelParams).then((lmodel) => {
+        // detect objects in the image.
+        model = lmodel;
+        console.log(model);
+        document.getElementById("openWebcam").disabled = false;
+        document.getElementById("ready").innerText = "No. Model loaded but webcam feed required."
+    });
+}
+
+document.getElementById("loadModel").addEventListener("click",loadModel)
+document.getElementById("openWebcam").addEventListener("click",openCam)
+document.getElementById("closeWebcam").addEventListener("click",closeCam)
+
+const attemptSubmission = e => {
+    console.log("form submission!")
+    const command = document.getElementById("textCommand").value.toLowerCase()
+    commandHandler(command)
+    e.preventDefault()
+}
+
+const commandHandler = command => {
+    if (navRules[command]) {
+        validCommand(command)
+        dn.move(command)
+    } else if (command === "enter" && !entered) {
+        entered = true
+        validCommand(command)
+        dn.enter()
+    } else if (command === "exit" && entered) {
+        entered = false
+        validCommand(command)
+        dn.exit()
+        hideTooltip();
+    } else {
+        invalidCommand(command)
+    }
+}
+
+const validCommand = command => {
+    document.getElementById("alert").classList.remove("alert")
+    document.getElementById("alert").innerText = `Command valid. Attempting "${command}."`
+}
+
+const invalidCommand = command => {
+    document.getElementById("alert").classList.add("alert")
+    document.getElementById("alert").innerText = `"${command}" not recognized as a command! Possible commands are: ${commandsList}.`
+}
+
+const lowConfidence = command => {
+    document.getElementById("alert").classList.add("alert")
+    document.getElementById("alert").innerText = `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`
+}
+
+
+document.getElementById("form").addEventListener("submit",attemptSubmission)
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList
+const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpeechRecognitionEvent
+
+const commands = Object.keys(navRules)
+commands.push('enter')
+const commandsList = commands.join(', ')
+
+const recognition = new SpeechRecognition();
+if (SpeechGrammarList) {
+  // SpeechGrammarList is not currently available in Safari, and does not have any effect in any other browser.
+  // This code is provided as a demonstration of possible capability. You may choose not to use it.
+  const speechRecognitionList = new SpeechGrammarList();
+  const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + commands.join(' | ') + ' ;'
+  speechRecognitionList.addFromString(grammar, 1);
+  recognition.grammars = speechRecognitionList;
+}
+recognition.continuous = false;
+recognition.lang = 'en-US';
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+
+const bg = document.querySelector('html');
+
+// const colorHTML= '';
+// colors.forEach(function(v, i, a){
+//   console.log(v, i);
+//   colorHTML += '<span style="background-color:' + v + ';"> ' + v + ' </span>';
+// });
+// hints.innerHTML = 'Tap/click then say a color to change the background color of the app. Try ' + colorHTML + '.';
+
+const enableSpeech = ()=> {
+    recognition.start();
+    document.getElementById("alert").classList.remove("alert")
+    document.getElementById("alert").innerText = `Ready! Please speak a command.`
+}
+
+document.getElementById("enableSpeech").addEventListener("click",enableSpeech)
+
+recognition.onresult = (event) => {
+  // The SpeechRecognitionEvent results property returns a SpeechRecognitionResultList object
+  // The SpeechRecognitionResultList object contains SpeechRecognitionResult objects.
+  // It has a getter so it can be accessed like an array
+  // The first [0] returns the SpeechRecognitionResult at the last position.
+  // Each SpeechRecognitionResult object contains SpeechRecognitionAlternative objects that contain individual results.
+  // These also have getters so they can be accessed like arrays.
+  // The second [0] returns the SpeechRecognitionAlternative at position 0.
+  // We then return the transcript property of the SpeechRecognitionAlternative object
+  const command = event.results[0][0].transcript;
+//   bg.style.backgroundColor = color;
+  console.log('Result: ' + command);
+  console.log('Confidence: ' + event.results[0][0].confidence);
+  if (+event.results[0][0].confidence >= 0.65) {
+    commandHandler(command)
+  } else {
+    lowConfidence(command)
+  }
+}
+
+recognition.onspeechend = function() {
+  recognition.stop();
+}
+
+recognition.onnomatch = function(event) {
+  console.log("I didn't recognise that color.");
+}
+
+recognition.onerror = function(event) {
+  console.log('Error occurred in recognition: ' + event.error)
+}
+
+const setGeometryData = () => {
+    // Haven't resized in 100ms!
+    const currentWidth = +document.getElementById("chart").getBoundingClientRect().width
+    scale = currentWidth / 1200
+    const xAdjust = (1200 - currentWidth)/2
+    const entryButton = document.querySelector('.dn-entry-button')
+    const buttonRect = entryButton.getBoundingClientRect()
+    const yAdjust = (+buttonRect.height) / (scale*2) - 9
+    const buttonXAdjust = (buttonRect.width*scale*(1/scale) - buttonRect.width*scale)/2
+    document.querySelector('.dn-wrapper').style.transform = `scale(${scale}) translate(${-xAdjust}px,${-yAdjust}px)`
+    entryButton.style.transform = `scale(${1/scale}) translate(${buttonXAdjust}px,0px)`
+}
+
+let resizeTimer;
+window.onresize = () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(setGeometryData, 150);
+};
+
+setGeometryData()
