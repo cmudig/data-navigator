@@ -1,3 +1,13 @@
+body {
+    margin: 0 auto;
+    max-width: 50em;
+    padding: 50px;
+}
+
+img {
+    width: 100%;
+}
+
 .dn-root {
     position: relative;
 }
@@ -13,12 +23,13 @@
     padding: 0px;
     margin: 0px;
     overflow: visible;
-    border: 2px solid transparent;
+    border: 2px solid white;
+    outline: #000000 solid 2px;
 }
 
 .dn-node:focus {
     border: 2px solid white;
-    outline: #000000 solid 2px;
+    outline: #000000 solid 4px;
     /* outline-offset: 1px; */
 }
 
@@ -46,4 +57,57 @@
 .dn-entry-button {
     position: relative;
     top: -21px;
+}
+
+.wrapper {
+    position: relative;
+}
+
+.canvasbox {
+    border-radius: 3px;
+    margin-right: 10px;
+    width: 450px;
+    height: 338px;
+    border-bottom: 3px solid #0063FF;
+    box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.2), 0 4px 10px 0 #00000030;
+}
+
+.videobox {
+    display: none;
+}
+
+.hidden {
+    display: none;
+}
+
+.column {
+    float: left;
+}
+
+.left {
+    width: 400px;
+}
+
+.right {
+    max-width: 50%;
+}
+
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.alert {
+    color:darkred;
+}
+
+.tooltip {
+    position: absolute;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid black;
+    width: 200px;
+    top: 0;
+    left: 0;
 }
