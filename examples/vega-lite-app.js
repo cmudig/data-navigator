@@ -1,8 +1,14 @@
-import { dataNavigator, describeNode, buildNodeStructureFromVegaLite } from '../src/data-navigator';
+import { dataNavigator } from '../src/data-navigator';
+import { describeNode } from '../src/utilities';
 
 let view;
 let spec;
 let dn;
+let entered;
+let current;
+let previous;
+const getCurrent = () => current
+const getPrevious = () => previous
 const groupInclusionCriteria = (item, _i, _spec) => {
     return item.marktype && !(item.marktype === 'text'); // item.marktype !== 'group' && item.marktype !== 'text'
 };
@@ -34,10 +40,57 @@ const nodeDescriber = (d, item, level) => {
         }
     }
 };
-const exit = () => {
-    dn.exit();
-    return '';
+
+const initiateLifecycle = nextNode => {
+    const node = dn.rendering.render({
+        renderId: nextNode.renderId,
+        datum: nextNode
+    });
+    node.addEventListener("keydown",(e)=>{
+        // myFunction(e) // could run whatever here, of course
+        const direction = dn.input.keydownValidator(e)
+        if (direction) {
+            e.preventDefault();
+            move(direction)
+        }
+    })
+    node.addEventListener("blur",()=>{
+        entered = false;
+    })
+    // showTooltip(nextNode)
+    dn.input.focus(nextNode.renderId); // actually focuses the element
+    entered = true;
+    previous = current;
+    current = nextNode.id;
+    if (previous) {
+        dn.rendering.remove(dn.structure.nodes[previous].renderId);
+    }
+}
+
+const enter = () => {
+    const nextNode = dn.input.enter();
+    if (nextNode) {
+        entered = true;
+        initiateLifecycle(nextNode)
+    }
 };
+
+const move = direction => {
+    const nextNode = dn.input.move(current, direction); // .moveTo does the same thing but only uses NodeId
+    if (nextNode) {
+        initiateLifecycle(nextNode)
+    }
+};
+
+const exit = () => {
+    entered = false;
+    rendering.exitElement.style.display = 'block';
+    input.focus(rendering.exitElement.id); // actually focuses the element
+    previous = current;
+    current = null;
+    rendering.remove(previous);
+};
+
 fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
     // fetch('https://vega.github.io/vega/examples/bar-chart.vg.json')
     .then(res => {
@@ -48,7 +101,8 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
         return render(specification);
     })
     .then(v => {
-        const dnStructure = buildNodeStructureFromVegaLite({
+        const structure = dataNavigator.structure({
+            dataType: "vega-lite",
             vegaLiteView: v,
             vegaLiteSpec: spec,
             groupInclusionCriteria,
@@ -56,67 +110,52 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
             datumInclusionCriteria,
             keyRenamingHash: {},
             nodeDescriber,
+            getCurrent,
+            getPrevious,
             exitFunction: exit
         });
-        const dnBuildOptions = {
-            data: {
-                nodes: dnStructure.data.nodes,
-                edges: dnStructure.data.edges
-            },
-            navigation: {
-                right: {
-                    types: ['sibling'],
-                    key: 'ArrowRight',
-                    direction: 'target'
-                },
-                left: {
-                    types: ['sibling'],
-                    key: 'ArrowLeft',
-                    direction: 'source'
-                },
-                down: {
-                    types: ['level'],
-                    key: 'Enter',
-                    direction: 'target'
-                },
-                up: {
-                    types: ['level'],
-                    key: 'Backspace',
-                    direction: 'source'
-                },
-                exit: {
-                    types: ['exit'],
-                    key: 'Escape',
-                    direction: 'target'
-                },
-                undo: {
-                    types: ['undo'],
-                    key: 'Period',
-                    direction: 'target'
-                },
-                legend: {
-                    types: ['legend'],
-                    key: 'KeyL',
-                    direction: 'target'
-                }
-            },
-            id: 'data-navigator-schema', // required
-            // entryPoint: 'title',
-            // rendering: 'on-demand', // "full"
-            // manualEventHandling: false, // default is false/undefined
+
+        const rendering = dataNavigator.rendering({
+            elementData: structure.elementData,
+            suffixId: 'data-navigator-schema',
             root: {
                 id: 'view',
                 cssClass: '',
                 width: '100%',
                 height: 0
+            },
+            entryButton: {
+                include: true,
+                callbacks: {
+                    pressed: () => {
+                        enter();
+                    }
+                }
+            },
+            exitElement: {
+                include: true
             }
+        });
+        
+        // create data navigator
+        rendering.initialize();
+        const input = dataNavigator.input({
+            structure: {
+                nodes: structure.nodes,
+                edges: structure.edges
+            },
+            navigationRules: structure.navigationRules,
+            entryPoint: Object.keys(structure.nodes)[0],
+            exitPoint: rendering.exitElement.id
+        });
+
+        dn = {
+            structure,
+            input,
+            rendering
         };
-        // we build here
-        // console.log('dnBuildOptions', dnBuildOptions);
-        dn = dataNavigator(dnBuildOptions);
-        dn.build();
-        window.dn = dn;
-        return dnBuildOptions;
+        window.dn = dn
+        return dn;
     })
     .catch(err => console.error(err));
 

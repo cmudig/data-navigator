@@ -5,7 +5,7 @@
 /***/ 772:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
-/* unused harmony exports keyCodes, defaultKeyBindings, defaultDirections, NodeElementDefaults */
+/* unused harmony exports keyCodes, defaultKeyBindings, GenericFullNavigationRules, GenericLimitedNavigationRules, NodeElementDefaults */
 const keyCodes = {
     parent: 27, // ESCAPE
     child: 13, // ENTER
@@ -31,7 +31,7 @@ const defaultKeyBindings = {
     Enter: 'child'
 };
 
-const defaultDirections = {
+const GenericFullNavigationRules = {
     down: {
         keyCode: 'ArrowDown',
         direction: 'target'
@@ -69,6 +69,45 @@ const defaultDirections = {
         direction: 'target'
     }
 };
+
+const GenericLimitedNavigationRules = {
+    right: {
+        key: 'ArrowRight',
+        direction: 'target'
+    },
+    left: {
+        key: 'ArrowLeft',
+        direction: 'source'
+    },
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
+    },
+    up: {
+        key: 'ArrowUp',
+        direction: 'source'
+    },
+    child: {
+        key: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        key: 'Backspace',
+        direction: 'source'
+    },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
+    legend: {
+        key: 'KeyL',
+        direction: 'target'
+    }
+}
 
 const NodeElementDefaults = {
     cssClass: '',
@@ -156,7 +195,7 @@ const input = InputOptions => {
     let options = { ...InputOptions };
     let inputHandler = {};
     let keyBindings = defaultKeyBindings;
-    let directions = defaultDirections;
+    let directions = GenericFullNavigationRules;
 
     inputHandler.moveTo = id => {
         // console.log('moveTo', id);
@@ -241,7 +280,7 @@ const input = InputOptions => {
     inputHandler.setNavigationKeyBindings = navKeyBindings => {
         if (!navKeyBindings) {
             keyBindings = defaultKeyBindings;
-            directions = defaultDirections;
+            directions = GenericFullNavigationRules;
         } else {
             keyBindings = {};
             directions = navKeyBindings;

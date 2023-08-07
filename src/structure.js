@@ -1,8 +1,10 @@
+import {GenericLimitedNavigationRules} from './consts'
+
 export const structure = StructureOptions => {
     if (
-        StructureOptions.inputType === 'vega-lite' ||
-        StructureOptions.inputType === 'vl' ||
-        StructureOptions.inputType === 'Vega-Lite'
+        StructureOptions.dataType === 'vega-lite' ||
+        StructureOptions.dataType === 'vl' ||
+        StructureOptions.dataType === 'Vega-Lite'
     ) {
         return buildNodeStructureFromVegaLite(StructureOptions);
     } else {
@@ -14,8 +16,10 @@ export const structure = StructureOptions => {
 };
 
 export const buildNodeStructureFromVegaLite = options => {
+    let navigationRules = GenericLimitedNavigationRules
     let nodes = {};
     let edges = {};
+    let elementData = {};
     let total = 0;
 
     const includeGroup = options.groupInclusionCriteria ? options.groupInclusionCriteria : () => true;
@@ -51,7 +55,7 @@ export const buildNodeStructureFromVegaLite = options => {
                     edges[previousEdge] = {
                         source: previousId,
                         target: node.id,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -66,7 +70,7 @@ export const buildNodeStructureFromVegaLite = options => {
                     edges[nextEdge] = {
                         source: node.id,
                         target: nextId,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -83,7 +87,7 @@ export const buildNodeStructureFromVegaLite = options => {
                     edges[firstChildEdge] = {
                         source: node.id,
                         target: firstChildId,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -97,7 +101,7 @@ export const buildNodeStructureFromVegaLite = options => {
                     edges[parentEdge] = {
                         source: parentId,
                         target: node.id,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -106,36 +110,43 @@ export const buildNodeStructureFromVegaLite = options => {
             edgeList.push('any-exit');
             if (!edges['any-exit']) {
                 edges['any-exit'] = {
-                    source: (_d, current, _previous) => current,
+                    source: options.getCurrent,
                     target: options.exitFunction,
-                    type: 'exit'
+                    navigationRules: ['exit']
                 };
             }
         }
         edgeList.push('any-undo');
         if (!edges['any-undo']) {
             edges['any-undo'] = {
-                source: (_d, current, _previous) => current,
-                target: (_d, _current, previous) => previous,
-                type: 'undo'
+                source: options.getCurrent,
+                target: options.getPrevious,
+                navigationRules: ['undo']
             };
         }
         return edgeList;
     };
     const nodeBuilder = (item, level, offset, index, parent) => {
         const id = idBuilder(item, level);
+        const renderId = 'render-' + id;
         const o = offset || [0, 0];
         nodes[id] = {};
         nodes[id].d = {};
         nodes[id].id = id;
-        nodes[id].x = item.bounds.x1 + o[0];
-        nodes[id].y = item.bounds.y1 + o[1];
-        nodes[id].width = item.bounds.x2 - item.bounds.x1;
-        nodes[id].height = item.bounds.y2 - item.bounds.y1;
-        nodes[id].cssClass = 'dn-vega-lite-node';
+        nodes[id].renderId = renderId;
         nodes[id].index = index;
         nodes[id].level = level;
         nodes[id].parent = parent;
+
+        elementData[renderId] = {}
+        elementData[renderId].renderId = renderId
+        elementData[renderId].dimensions = {}
+        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
+        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
+        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].cssClass = 'dn-vega-lite-node';
+        
         if (item.datum) {
             Object.keys(item.datum).forEach(key => {
                 const value = item.datum[key];
@@ -146,7 +157,8 @@ export const buildNodeStructureFromVegaLite = options => {
                 }
             });
         }
-        nodes[id].description = options.nodeDescriber
+        elementData[renderId].semantics = {}
+        elementData[renderId].semantics.label = options.nodeDescriber
             ? options.nodeDescriber(nodes[id].d, item, level)
             : describeNode(nodes[id].d);
     };
@@ -171,7 +183,9 @@ export const buildNodeStructureFromVegaLite = options => {
     });
     return {
         nodes,
-        edges
+        edges,
+        elementData,
+        navigationRules
     };
 };
 
