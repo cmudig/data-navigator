@@ -26,7 +26,7 @@
     {"@context":"https://schema.org","@type":"WebSite","description":"A tool for auditing the accessibility of data experiences.","headline":"Workbook","name":"The Chartability Workbook","url":"https://chartability.github.io/POUR-CAF/"}</script>
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&amp;display=swap" rel="stylesheet"> -->
-        <link href="./src/style.css" rel="stylesheet" />
+        <link href="./examples/style.css" rel="stylesheet" />
         <style>
             /* .dn-node {
                 background: #000;
@@ -52,12 +52,27 @@
         </header>
         <main id="main">
             <h1>Data Navigator Static PNG Example</h1>
-            <p>Welcome to our first major case study and prototype for Data Navigator. This case study demonstrates that a static PNG can be navigated along two different tree-like structures at once. In addition, we are demonstrating that commands for movement may be typed into a text input, spoken, gestured using one hand or you may also use keyboard keys, touch swipes, mouse drags, and screen readers to navigate the content.</p>
-            <p>For now, we are not providing instructions for how to operate every control in this case study, but in a later release we will explain how to use each of these different input modalities.</p>
+            <p>
+                Welcome to our first major case study and prototype for Data Navigator. This case study demonstrates
+                that a static PNG can be navigated along two different tree-like structures at once. In addition, we are
+                demonstrating that commands for movement may be typed into a text input, spoken, gestured using one hand
+                or you may also use keyboard keys, touch swipes, mouse drags, and screen readers to navigate the
+                content.
+            </p>
+            <p>
+                For now, we are not providing instructions for how to operate every control in this case study, but in a
+                later release we will explain how to use each of these different input modalities.
+            </p>
             <div class="row">
                 <div class="column left">
                     <h2>Text-driven control</h2>
-                    <p>Issue a text command: <span><form id="form"><input type="text" id="textCommand"></input><input id="submit" type="submit"></input></form></span></p>
+                    <p>
+                        Issue a text command:
+                        <span
+                            ><form id="form">
+                                <input type="text" id="textCommand" /><input id="submit" type="submit" /></form
+                        ></span>
+                    </p>
                     <h2>Voice control</h2>
                     <button id="enableSpeech">Send a voice command?</button>
                     <p class="alert" id="alert"></p>
@@ -65,18 +80,14 @@
                 <div class="column right">
                     <h2>Gesture control</h2>
                     <button id="loadModel">Load Gesture Model</button>
-                    <br/>
+                    <br />
                     <button id="openWebcam" disabled>Use Hand Gestures</button>
-                    <br/>
+                    <br />
                     <button id="closeWebcam" disabled>Stop Using Gestures</button>
-                    <br/><br/>
+                    <br /><br />
                     <div id="status" class="hidden">
-                        <p>
-                            Ready for a command? <span id="ready">No. Try closing your hand.</span>
-                        </p>
-                        <p>
-                            Command used: <span id="command">(none yet)</span>
-                        </p>
+                        <p>Ready for a command? <span id="ready">No. Try closing your hand.</span></p>
+                        <p>Command used: <span id="command">(none yet)</span></p>
                     </div>
                     <video class="videobox canvasbox" autoplay="autoplay" id="feed"></video>
                     <canvas id="canvas" class="border canvasbox hidden"></canvas>
@@ -86,18 +97,22 @@
             <br />
             <!-- <div class="row">
                 <div class="column left"> -->
-                    <div class="wrapper">
-                        <div id="root" class="wrapper">
-                            <img id="chart" src="./assets/static.png" alt="Major trophies for some English teams. Stacked bar chart." />
-                        </div>
-                        <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false">
-                            <!-- <p id="dn-team"><b>Team: </b><span></span></p>
+            <div class="wrapper">
+                <div id="root" class="wrapper">
+                    <img
+                        id="chart"
+                        src="./assets/static.png"
+                        alt="Major trophies for some English teams. Stacked bar chart."
+                    />
+                </div>
+                <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false">
+                    <!-- <p id="dn-team"><b>Team: </b><span></span></p>
                             <p id="dn-contest"><b>Contest: </b><span></span></p>
                             <p id="dn-trophies"><b>Trophies: </b><span></span></p>
                             <p id="dn-contains"><b>Contains: </b><span></span></p> -->
-                        </div>
-                    </div>
-                <!-- </div>
+                </div>
+            </div>
+            <!-- </div>
                 <div class="column right">
                     <video autoplay="true" id="videoElement"></video>
                     <script>
@@ -109,7 +124,7 @@
                                 video.srcObject = stream;
                             })
                             .catch(function (err0r) {
-                                console.log("Something went wrong!");
+                                // console.log("Something went wrong!");
                             });
                         }
                     </script>
@@ -118,7 +133,7 @@
         </main>
         <footer></footer>
         <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/handtrackjs@latest/dist/handtrack.min.js"> </script>
+        <script src="https://cdn.jsdelivr.net/npm/handtrackjs@latest/dist/handtrack.min.js"></script>
         <script src="dist/static-bundle.js"></script>
     </body>
 </html>
