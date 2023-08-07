@@ -1,10 +1,10 @@
-import { defaultKeyBindings, defaultDirections } from './consts';
+import { defaultKeyBindings, GenericFullNavigationRules } from './consts';
 
 export const input = InputOptions => {
     let options = { ...InputOptions };
     let inputHandler = {};
     let keyBindings = defaultKeyBindings;
-    let directions = defaultDirections;
+    let directions = GenericFullNavigationRules;
 
     inputHandler.moveTo = id => {
         // console.log('moveTo', id);
@@ -89,7 +89,7 @@ export const input = InputOptions => {
     inputHandler.setNavigationKeyBindings = navKeyBindings => {
         if (!navKeyBindings) {
             keyBindings = defaultKeyBindings;
-            directions = defaultDirections;
+            directions = GenericFullNavigationRules;
         } else {
             keyBindings = {};
             directions = navKeyBindings;

@@ -6,9 +6,10 @@
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "Fg": () => (/* binding */ defaultDirections),
+/* harmony export */   "SC": () => (/* binding */ GenericLimitedNavigationRules),
 /* harmony export */   "YY": () => (/* binding */ NodeElementDefaults),
-/* harmony export */   "_4": () => (/* binding */ defaultKeyBindings)
+/* harmony export */   "_4": () => (/* binding */ defaultKeyBindings),
+/* harmony export */   "vx": () => (/* binding */ GenericFullNavigationRules)
 /* harmony export */ });
 /* unused harmony export keyCodes */
 const keyCodes = {
@@ -36,7 +37,7 @@ const defaultKeyBindings = {
     Enter: 'child'
 };
 
-const defaultDirections = {
+const GenericFullNavigationRules = {
     down: {
         keyCode: 'ArrowDown',
         direction: 'target'
@@ -74,6 +75,45 @@ const defaultDirections = {
         direction: 'target'
     }
 };
+
+const GenericLimitedNavigationRules = {
+    right: {
+        key: 'ArrowRight',
+        direction: 'target'
+    },
+    left: {
+        key: 'ArrowLeft',
+        direction: 'source'
+    },
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
+    },
+    up: {
+        key: 'ArrowUp',
+        direction: 'source'
+    },
+    child: {
+        key: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        key: 'Backspace',
+        direction: 'source'
+    },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
+    legend: {
+        key: 'KeyL',
+        direction: 'target'
+    }
+}
 
 const NodeElementDefaults = {
     cssClass: '',
@@ -118,7 +158,7 @@ const input = InputOptions => {
     let options = { ...InputOptions };
     let inputHandler = {};
     let keyBindings = _consts__WEBPACK_IMPORTED_MODULE_0__/* .defaultKeyBindings */ ._4;
-    let directions = _consts__WEBPACK_IMPORTED_MODULE_0__/* .defaultDirections */ .Fg;
+    let directions = _consts__WEBPACK_IMPORTED_MODULE_0__/* .GenericFullNavigationRules */ .vx;
 
     inputHandler.moveTo = id => {
         // console.log('moveTo', id);
@@ -203,7 +243,7 @@ const input = InputOptions => {
     inputHandler.setNavigationKeyBindings = navKeyBindings => {
         if (!navKeyBindings) {
             keyBindings = _consts__WEBPACK_IMPORTED_MODULE_0__/* .defaultKeyBindings */ ._4;
-            directions = _consts__WEBPACK_IMPORTED_MODULE_0__/* .defaultDirections */ .Fg;
+            directions = _consts__WEBPACK_IMPORTED_MODULE_0__/* .GenericFullNavigationRules */ .vx;
         } else {
             keyBindings = {};
             directions = navKeyBindings;
@@ -303,7 +343,7 @@ const rendering = RenderingOptions => {
             renderer.wrapper.appendChild(renderer.entryButton);
         }
 
-        root.appendChild(renderer.wrapper);
+        renderer.root.appendChild(renderer.wrapper);
 
         if (options.renderAll) {
             console.warn(
@@ -335,10 +375,10 @@ const rendering = RenderingOptions => {
                 }
             });
 
-            root.appendChild(renderer.exitElement);
+            renderer.root.appendChild(renderer.exitElement);
         }
         initialized = true;
-        return root;
+        return renderer.root;
     };
     renderer.render = nodeData => {
         const id = nodeData.renderId;
@@ -457,11 +497,14 @@ const rendering = RenderingOptions => {
 /* harmony export */   "Fh": () => (/* binding */ structure)
 /* harmony export */ });
 /* unused harmony exports buildNodeStructureFromVegaLite, buildNodeStructure */
+/* harmony import */ var _consts__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(772);
+
+
 const structure = StructureOptions => {
     if (
-        StructureOptions.inputType === 'vega-lite' ||
-        StructureOptions.inputType === 'vl' ||
-        StructureOptions.inputType === 'Vega-Lite'
+        StructureOptions.dataType === 'vega-lite' ||
+        StructureOptions.dataType === 'vl' ||
+        StructureOptions.dataType === 'Vega-Lite'
     ) {
         return buildNodeStructureFromVegaLite(StructureOptions);
     } else {
@@ -473,8 +516,10 @@ const structure = StructureOptions => {
 };
 
 const buildNodeStructureFromVegaLite = options => {
+    let navigationRules = _consts__WEBPACK_IMPORTED_MODULE_0__/* .GenericLimitedNavigationRules */ .SC
     let nodes = {};
     let edges = {};
+    let elementData = {};
     let total = 0;
 
     const includeGroup = options.groupInclusionCriteria ? options.groupInclusionCriteria : () => true;
@@ -510,7 +555,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[previousEdge] = {
                         source: previousId,
                         target: node.id,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -525,7 +570,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[nextEdge] = {
                         source: node.id,
                         target: nextId,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -542,7 +587,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[firstChildEdge] = {
                         source: node.id,
                         target: firstChildId,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -556,7 +601,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[parentEdge] = {
                         source: parentId,
                         target: node.id,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -565,36 +610,43 @@ const buildNodeStructureFromVegaLite = options => {
             edgeList.push('any-exit');
             if (!edges['any-exit']) {
                 edges['any-exit'] = {
-                    source: (_d, current, _previous) => current,
+                    source: options.getCurrent,
                     target: options.exitFunction,
-                    type: 'exit'
+                    navigationRules: ['exit']
                 };
             }
         }
         edgeList.push('any-undo');
         if (!edges['any-undo']) {
             edges['any-undo'] = {
-                source: (_d, current, _previous) => current,
-                target: (_d, _current, previous) => previous,
-                type: 'undo'
+                source: options.getCurrent,
+                target: options.getPrevious,
+                navigationRules: ['undo']
             };
         }
         return edgeList;
     };
     const nodeBuilder = (item, level, offset, index, parent) => {
         const id = idBuilder(item, level);
+        const renderId = 'render-' + id;
         const o = offset || [0, 0];
         nodes[id] = {};
         nodes[id].d = {};
         nodes[id].id = id;
-        nodes[id].x = item.bounds.x1 + o[0];
-        nodes[id].y = item.bounds.y1 + o[1];
-        nodes[id].width = item.bounds.x2 - item.bounds.x1;
-        nodes[id].height = item.bounds.y2 - item.bounds.y1;
-        nodes[id].cssClass = 'dn-vega-lite-node';
+        nodes[id].renderId = renderId;
         nodes[id].index = index;
         nodes[id].level = level;
         nodes[id].parent = parent;
+
+        elementData[renderId] = {}
+        elementData[renderId].renderId = renderId
+        elementData[renderId].dimensions = {}
+        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
+        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
+        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].cssClass = 'dn-vega-lite-node';
+        
         if (item.datum) {
             Object.keys(item.datum).forEach(key => {
                 const value = item.datum[key];
@@ -605,7 +657,8 @@ const buildNodeStructureFromVegaLite = options => {
                 }
             });
         }
-        nodes[id].description = options.nodeDescriber
+        elementData[renderId].semantics = {}
+        elementData[renderId].semantics.label = options.nodeDescriber
             ? options.nodeDescriber(nodes[id].d, item, level)
             : describeNode(nodes[id].d);
     };
@@ -630,7 +683,9 @@ const buildNodeStructureFromVegaLite = options => {
     });
     return {
         nodes,
-        edges
+        edges,
+        elementData,
+        navigationRules
     };
 };
 
@@ -694,9 +749,9 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 /* unused harmony exports stateHandler, dataNavigator */
-/* harmony import */ var _structure__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(36);
-/* harmony import */ var _input__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(674);
-/* harmony import */ var _rendering__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(949);
+/* harmony import */ var _structure__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(36);
+/* harmony import */ var _input__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(674);
+/* harmony import */ var _rendering__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(949);
 
 
 
@@ -714,9 +769,9 @@ const stateHandler = stateOptions => {
 };
 
 const dataNavigator = {
-    structure: _structure__WEBPACK_IMPORTED_MODULE_2__/* .structure */ .Fh,
-    input: _input__WEBPACK_IMPORTED_MODULE_0__/* .input */ .q,
-    rendering: _rendering__WEBPACK_IMPORTED_MODULE_1__/* .rendering */ .n
+    structure: _structure__WEBPACK_IMPORTED_MODULE_0__/* .structure */ .Fh,
+    input: _input__WEBPACK_IMPORTED_MODULE_1__/* .input */ .q,
+    rendering: _rendering__WEBPACK_IMPORTED_MODULE_2__/* .rendering */ .n
 };
 
 // {

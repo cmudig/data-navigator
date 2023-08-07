@@ -23,7 +23,7 @@ export const defaultKeyBindings = {
     Enter: 'child'
 };
 
-export const defaultDirections = {
+export const GenericFullNavigationRules = {
     down: {
         keyCode: 'ArrowDown',
         direction: 'target'
@@ -61,6 +61,45 @@ export const defaultDirections = {
         direction: 'target'
     }
 };
+
+export const GenericLimitedNavigationRules = {
+    right: {
+        key: 'ArrowRight',
+        direction: 'target'
+    },
+    left: {
+        key: 'ArrowLeft',
+        direction: 'source'
+    },
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
+    },
+    up: {
+        key: 'ArrowUp',
+        direction: 'source'
+    },
+    child: {
+        key: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        key: 'Backspace',
+        direction: 'source'
+    },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
+    legend: {
+        key: 'KeyL',
+        direction: 'target'
+    }
+}
 
 export const NodeElementDefaults = {
     cssClass: '',

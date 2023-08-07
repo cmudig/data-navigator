@@ -1,7 +1,169 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
-/******/ 	// The require scope
-/******/ 	var __webpack_require__ = {};
+/******/ 	var __webpack_modules__ = ({
+
+/***/ 772:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+/* unused harmony exports keyCodes, defaultKeyBindings, GenericFullNavigationRules, GenericLimitedNavigationRules, NodeElementDefaults */
+const keyCodes = {
+    parent: 27, // ESCAPE
+    child: 13, // ENTER
+    select: 32, // SPACEBAR
+    nextSibling: 39, // RIGHT ARROW
+    previousSibling: 37, // LEFT ARROW
+    nextCousin: 40, // DOWN ARROW
+    previousCousin: 38, // UP ARROW
+    nextCousinAlternate: 190, // PERIOD
+    previousCousinAlternate: 188, // COMMA
+    shift: 16, // SHIFT
+    tab: 9 // TAB
+};
+
+const defaultKeyBindings = {
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    Period: 'forward',
+    Comma: 'backward',
+    Escape: 'parent',
+    Enter: 'child'
+};
+
+const GenericFullNavigationRules = {
+    down: {
+        keyCode: 'ArrowDown',
+        direction: 'target'
+    },
+    left: {
+        keyCode: 'ArrowLeft',
+        direction: 'source'
+    },
+    right: {
+        keyCode: 'ArrowRight',
+        direction: 'target'
+    },
+    up: {
+        keyCode: 'ArrowUp',
+        direction: 'source'
+    },
+    backward: {
+        keyCode: 'Comma',
+        direction: 'source'
+    },
+    child: {
+        keyCode: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        keyCode: 'Backspace',
+        direction: 'source'
+    },
+    forward: {
+        keyCode: 'Period',
+        direction: 'target'
+    },
+    exit: {
+        keyCode: 'Escape',
+        direction: 'target'
+    }
+};
+
+const GenericLimitedNavigationRules = {
+    right: {
+        key: 'ArrowRight',
+        direction: 'target'
+    },
+    left: {
+        key: 'ArrowLeft',
+        direction: 'source'
+    },
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
+    },
+    up: {
+        key: 'ArrowUp',
+        direction: 'source'
+    },
+    child: {
+        key: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        key: 'Backspace',
+        direction: 'source'
+    },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
+    legend: {
+        key: 'KeyL',
+        direction: 'target'
+    }
+}
+
+const NodeElementDefaults = {
+    cssClass: '',
+    dimensions: {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        path: ''
+    },
+    semantics: {
+        label: '',
+        elementType: 'div',
+        role: 'image',
+        attributes: undefined
+    },
+    parentSemantics: {
+        label: '',
+        elementType: 'figure',
+        role: 'figure',
+        attributes: undefined
+    },
+    existingElement: {
+        useForDimensions: false,
+        dimensions: undefined
+    }
+};
+
+
+/***/ })
+
+/******/ 	});
+/************************************************************************/
+/******/ 	// The module cache
+/******/ 	var __webpack_module_cache__ = {};
+/******/ 	
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/ 		// Check if module is in cache
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 			// no module.id needed
+/******/ 			// no module.loaded needed
+/******/ 			exports: {}
+/******/ 		};
+/******/ 	
+/******/ 		// Execute the module function
+/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+/******/ 	
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
 /******/ 	
 /************************************************************************/
 /******/ 	/* webpack/runtime/define property getters */
@@ -23,12 +185,17 @@
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+(() => {
 /* unused harmony exports structure, buildNodeStructureFromVegaLite, buildNodeStructure */
+/* harmony import */ var _consts__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(772);
+
+
 const structure = StructureOptions => {
     if (
-        StructureOptions.inputType === 'vega-lite' ||
-        StructureOptions.inputType === 'vl' ||
-        StructureOptions.inputType === 'Vega-Lite'
+        StructureOptions.dataType === 'vega-lite' ||
+        StructureOptions.dataType === 'vl' ||
+        StructureOptions.dataType === 'Vega-Lite'
     ) {
         return buildNodeStructureFromVegaLite(StructureOptions);
     } else {
@@ -40,8 +207,10 @@ const structure = StructureOptions => {
 };
 
 const buildNodeStructureFromVegaLite = options => {
+    let navigationRules = GenericLimitedNavigationRules
     let nodes = {};
     let edges = {};
+    let elementData = {};
     let total = 0;
 
     const includeGroup = options.groupInclusionCriteria ? options.groupInclusionCriteria : () => true;
@@ -77,7 +246,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[previousEdge] = {
                         source: previousId,
                         target: node.id,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -92,7 +261,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[nextEdge] = {
                         source: node.id,
                         target: nextId,
-                        type: 'sibling'
+                        navigationRules: ['left', 'right']
                     };
                 }
             }
@@ -109,7 +278,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[firstChildEdge] = {
                         source: node.id,
                         target: firstChildId,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -123,7 +292,7 @@ const buildNodeStructureFromVegaLite = options => {
                     edges[parentEdge] = {
                         source: parentId,
                         target: node.id,
-                        type: 'level'
+                        navigationRules: ['parent', 'child']
                     };
                 }
             }
@@ -132,36 +301,43 @@ const buildNodeStructureFromVegaLite = options => {
             edgeList.push('any-exit');
             if (!edges['any-exit']) {
                 edges['any-exit'] = {
-                    source: (_d, current, _previous) => current,
+                    source: options.getCurrent,
                     target: options.exitFunction,
-                    type: 'exit'
+                    navigationRules: ['exit']
                 };
             }
         }
         edgeList.push('any-undo');
         if (!edges['any-undo']) {
             edges['any-undo'] = {
-                source: (_d, current, _previous) => current,
-                target: (_d, _current, previous) => previous,
-                type: 'undo'
+                source: options.getCurrent,
+                target: options.getPrevious,
+                navigationRules: ['undo']
             };
         }
         return edgeList;
     };
     const nodeBuilder = (item, level, offset, index, parent) => {
         const id = idBuilder(item, level);
+        const renderId = 'render-' + id;
         const o = offset || [0, 0];
         nodes[id] = {};
         nodes[id].d = {};
         nodes[id].id = id;
-        nodes[id].x = item.bounds.x1 + o[0];
-        nodes[id].y = item.bounds.y1 + o[1];
-        nodes[id].width = item.bounds.x2 - item.bounds.x1;
-        nodes[id].height = item.bounds.y2 - item.bounds.y1;
-        nodes[id].cssClass = 'dn-vega-lite-node';
+        nodes[id].renderId = renderId;
         nodes[id].index = index;
         nodes[id].level = level;
         nodes[id].parent = parent;
+
+        elementData[renderId] = {}
+        elementData[renderId].renderId = renderId
+        elementData[renderId].dimensions = {}
+        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
+        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
+        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].cssClass = 'dn-vega-lite-node';
+        
         if (item.datum) {
             Object.keys(item.datum).forEach(key => {
                 const value = item.datum[key];
@@ -172,7 +348,8 @@ const buildNodeStructureFromVegaLite = options => {
                 }
             });
         }
-        nodes[id].description = options.nodeDescriber
+        elementData[renderId].semantics = {}
+        elementData[renderId].semantics.label = options.nodeDescriber
             ? options.nodeDescriber(nodes[id].d, item, level)
             : describeNode(nodes[id].d);
     };
@@ -197,7 +374,9 @@ const buildNodeStructureFromVegaLite = options => {
     });
     return {
         nodes,
-        edges
+        edges,
+        elementData,
+        navigationRules
     };
 };
 
@@ -208,6 +387,8 @@ const buildNodeStructure = options => {
 
     return {};
 };
+
+})();
 
 /******/ })()
 ;

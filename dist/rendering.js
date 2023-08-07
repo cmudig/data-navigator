@@ -5,7 +5,7 @@
 /***/ 772:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
-/* unused harmony exports keyCodes, defaultKeyBindings, defaultDirections, NodeElementDefaults */
+/* unused harmony exports keyCodes, defaultKeyBindings, GenericFullNavigationRules, GenericLimitedNavigationRules, NodeElementDefaults */
 const keyCodes = {
     parent: 27, // ESCAPE
     child: 13, // ENTER
@@ -31,7 +31,7 @@ const defaultKeyBindings = {
     Enter: 'child'
 };
 
-const defaultDirections = {
+const GenericFullNavigationRules = {
     down: {
         keyCode: 'ArrowDown',
         direction: 'target'
@@ -69,6 +69,45 @@ const defaultDirections = {
         direction: 'target'
     }
 };
+
+const GenericLimitedNavigationRules = {
+    right: {
+        key: 'ArrowRight',
+        direction: 'target'
+    },
+    left: {
+        key: 'ArrowLeft',
+        direction: 'source'
+    },
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
+    },
+    up: {
+        key: 'ArrowUp',
+        direction: 'source'
+    },
+    child: {
+        key: 'Enter',
+        direction: 'target'
+    },
+    parent: {
+        key: 'Backspace',
+        direction: 'source'
+    },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
+    legend: {
+        key: 'KeyL',
+        direction: 'target'
+    }
+}
 
 const NodeElementDefaults = {
     cssClass: '',
@@ -225,7 +264,7 @@ const rendering = RenderingOptions => {
             renderer.wrapper.appendChild(renderer.entryButton);
         }
 
-        root.appendChild(renderer.wrapper);
+        renderer.root.appendChild(renderer.wrapper);
 
         if (options.renderAll) {
             console.warn(
@@ -257,10 +296,10 @@ const rendering = RenderingOptions => {
                 }
             });
 
-            root.appendChild(renderer.exitElement);
+            renderer.root.appendChild(renderer.exitElement);
         }
         initialized = true;
-        return root;
+        return renderer.root;
     };
     renderer.render = nodeData => {
         const id = nodeData.renderId;

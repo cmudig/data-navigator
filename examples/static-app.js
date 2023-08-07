@@ -9,25 +9,25 @@ const showTooltip = e => {
     // console.log('showing tooltip', e);
     const tooltip = document.getElementById('tooltip');
     tooltip.classList.remove('hidden');
-    tooltip.innerText = e.d.description;
-    // const xCenter = e.d.x + e.d.width/2
+    tooltip.innerText = e.semantics.label;
+    // const xCenter = e.x + e.width/2
     const bbox = tooltip.getBoundingClientRect();
     const offset = 5 * scale;
     const yOffset = bbox.height + offset;
-    // console.log(e.d.d.team);
+    // console.log(e.d.team);
     if (
-        !(e.d.d.team === 'Manchester United' || e.d.d.team === 'Liverpool' || (!e.d.d.team && e.d.d.contest === 'BPL'))
+        !(e.d.team === 'Manchester United' || e.d.team === 'Liverpool' || (!e.d.team && e.d.contest === 'BPL'))
     ) {
         tooltip.style.textAlign = 'left';
-        tooltip.style.transform = `translate(${e.d.x * scale - offset + 1}px,${e.d.y * scale - yOffset}px)`;
+        tooltip.style.transform = `translate(${e.dimensions.x * scale - offset + 1}px,${e.dimensions.y * scale - yOffset}px)`;
     } else {
         tooltip.style.textAlign = 'right';
-        // console.log(e.d.x);
-        // console.log(e.d.width);
-        // console.log(e.d.x + e.d.width);
+        // console.log(e.x);
+        // console.log(e.width);
+        // console.log(e.x + e.width);
         const xOffset = bbox.width;
-        tooltip.style.transform = `translate(${(e.d.x + e.d.width) * scale + offset - xOffset + 1}px,${
-            e.d.y * scale - yOffset
+        tooltip.style.transform = `translate(${(e.dimensions.x + e.dimensions.width) * scale + offset - xOffset + 1}px,${
+            e.dimensions.y * scale - yOffset
         }px)`;
     }
 };
@@ -954,15 +954,6 @@ const rendering = dataNavigator.rendering({
 // create data navigator
 rendering.initialize();
 
-// rendering.wrapper.addEventListener("blur",(e)=>{
-//     // myFunction(e) // could run whatever here, of course
-//     const direction = input.keydownValidator(e)
-//     if (direction) {
-//         e.preventDefault();
-//         // console.log("we want to move in ", direction, e)
-//     }
-// })
-
 const input = dataNavigator.input({
     structure,
     navigationRules,
@@ -996,6 +987,7 @@ const initiateLifecycle = nextNode => {
         // current = null;
         // rendering.remove(previous);
     })
+    showTooltip(nextNode)
     input.focus(nextNode.renderId); // actually focuses the element
     entered = true;
     previous = current;
