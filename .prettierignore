@@ -17,5 +17,6 @@
 **/*.prod
 **/*.staging
 **/build/
+**/dist/
 **/*.snap
 **/*.env

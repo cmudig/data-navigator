@@ -1,6 +1,4 @@
-import { dataNavigator, describeNode, extractStructureFromVegaLite } from './data-navigator';
-// import { cars } from './cars.js';
-console.log('yo');
+import { dataNavigator, describeNode, buildNodeStructureFromVegaLite } from '../src/data-navigator';
 
 let view;
 let spec;
@@ -50,7 +48,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
         return render(specification);
     })
     .then(v => {
-        const dnStructure = extractStructureFromVegaLite({
+        const dnStructure = buildNodeStructureFromVegaLite({
             vegaLiteView: v,
             vegaLiteSpec: spec,
             groupInclusionCriteria,
@@ -69,37 +67,37 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
                 right: {
                     types: ['sibling'],
                     key: 'ArrowRight',
-                    direction: 1
+                    direction: 'target'
                 },
                 left: {
                     types: ['sibling'],
                     key: 'ArrowLeft',
-                    direction: -1
+                    direction: 'source'
                 },
                 down: {
                     types: ['level'],
                     key: 'Enter',
-                    direction: 1
+                    direction: 'target'
                 },
                 up: {
                     types: ['level'],
                     key: 'Backspace',
-                    direction: -1
+                    direction: 'source'
                 },
                 exit: {
                     types: ['exit'],
                     key: 'Escape',
-                    direction: 1
+                    direction: 'target'
                 },
                 undo: {
                     types: ['undo'],
                     key: 'Period',
-                    direction: 1
+                    direction: 'target'
                 },
                 legend: {
                     types: ['legend'],
                     key: 'KeyL',
-                    direction: 1
+                    direction: 'target'
                 }
             },
             id: 'data-navigator-schema', // required
@@ -114,7 +112,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
             }
         };
         // we build here
-        console.log('dnBuildOptions', dnBuildOptions);
+        // console.log('dnBuildOptions', dnBuildOptions);
         dn = dataNavigator(dnBuildOptions);
         dn.build();
         window.dn = dn;

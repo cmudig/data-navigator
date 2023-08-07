@@ -26,38 +26,65 @@ export const defaultKeyBindings = {
 export const defaultDirections = {
     down: {
         keyCode: 'ArrowDown',
-        direction: 1
+        direction: 'target'
     },
     left: {
         keyCode: 'ArrowLeft',
-        direction: -1
+        direction: 'source'
     },
     right: {
         keyCode: 'ArrowRight',
-        direction: 1
+        direction: 'target'
     },
     up: {
         keyCode: 'ArrowUp',
-        direction: -1
+        direction: 'source'
     },
     backward: {
         keyCode: 'Comma',
-        direction: -1
+        direction: 'source'
     },
     child: {
         keyCode: 'Enter',
-        direction: 1
+        direction: 'target'
     },
     parent: {
         keyCode: 'Backspace',
-        direction: -1
+        direction: 'source'
     },
     forward: {
         keyCode: 'Period',
-        direction: 1
+        direction: 'target'
     },
     exit: {
         keyCode: 'Escape',
-        direction: 1
+        direction: 'target'
+    }
+};
+
+export const NodeElementDefaults = {
+    cssClass: '',
+    dimensions: {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        path: ''
+    },
+    semantics: {
+        label: '',
+        elementType: 'div',
+        role: 'image',
+        attributes: undefined
+    },
+    parentSemantics: {
+        label: '',
+        elementType: 'figure',
+        role: 'figure',
+        attributes: undefined
+    },
+    existingElement: {
+        useForDimensions: false,
+        dimensions: undefined
     }
 };

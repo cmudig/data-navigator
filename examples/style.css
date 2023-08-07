@@ -41,7 +41,8 @@ img {
 .dn-node-path {
     fill: none;
     stroke: #000000;
-    stroke-width: 2px;
+    stroke-width: 4px;
+    transform:translateY(2px)
 }
 
 .dn-exit-position {
@@ -68,7 +69,7 @@ img {
     margin-right: 10px;
     width: 450px;
     height: 338px;
-    border-bottom: 3px solid #0063FF;
+    border-bottom: 3px solid #0063ff;
     box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.2), 0 4px 10px 0 #00000030;
 }
 
@@ -93,13 +94,13 @@ img {
 }
 
 .row:after {
-    content: "";
+    content: '';
     display: table;
     clear: both;
 }
 
 .alert {
-    color:darkred;
+    color: darkred;
 }
 
 .tooltip {
