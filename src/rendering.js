@@ -73,7 +73,7 @@ export const rendering = RenderingOptions => {
             renderer.wrapper.appendChild(renderer.entryButton);
         }
 
-        root.appendChild(renderer.wrapper);
+        renderer.root.appendChild(renderer.wrapper);
 
         if (options.renderAll) {
             console.warn(
@@ -105,10 +105,10 @@ export const rendering = RenderingOptions => {
                 }
             });
 
-            root.appendChild(renderer.exitElement);
+            renderer.root.appendChild(renderer.exitElement);
         }
         initialized = true;
-        return root;
+        return renderer.root;
     };
     renderer.render = nodeData => {
         const id = nodeData.renderId;
