@@ -987,10 +987,7 @@ const initiateLifecycle = nextNode => {
         // current = null;
         // rendering.remove(previous);
     })
-    hideTooltip()
-    if (nextNode.d && (nextNode.d.team || nextNode.d.contest)) {
-        showTooltip(nextNode)
-    }
+    showTooltip(nextNode)
     input.focus(nextNode.renderId); // actually focuses the element
     entered = true;
     previous = current;
