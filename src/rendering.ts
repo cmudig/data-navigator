@@ -1,8 +1,7 @@
 import { NodeElementDefaults } from './consts';
 
-export const rendering = RenderingOptions => {
-    let options = { ...RenderingOptions };
-    let renderer = {};
+export const rendering = (options: RenderingOptions) => {
+    let renderer = {} as any;
     let initialized = false;
     let defaults = {
         cssClass: NodeElementDefaults.cssClass,
@@ -64,8 +63,8 @@ export const rendering = RenderingOptions => {
             renderer.entryButton.id = 'dn-entry-button-' + options.suffixId;
             renderer.entryButton.classList.add('dn-entry-button');
             renderer.entryButton.innerText = `Enter navigation area`;
-            if (options.entryButton.callbacks && options.entryButton.callbacks.pressed) {
-                renderer.entryButton.addEventListener('click', options.entryButton.callbacks.pressed);
+            if (options.entryButton.callbacks && options.entryButton.callbacks.click) {
+                renderer.entryButton.addEventListener('click', options.entryButton.callbacks.click);
             }
             if (options.entryButton.callbacks && options.entryButton.callbacks.focus) {
                 renderer.entryButton.addEventListener('focus', options.entryButton.callbacks.focus);
@@ -74,12 +73,6 @@ export const rendering = RenderingOptions => {
         }
 
         renderer.root.appendChild(renderer.wrapper);
-
-        if (options.renderAll) {
-            console.warn(
-                'Apologies, up front rendering of all node elements is not currently enabled in this version of Data Navigator. Please consider opening a PR on our Github to enable this capability. Initializing is continuing without rendering nodes...'
-            );
-        }
 
         if (options.exitElement && options.exitElement.include) {
             renderer.exitElement = document.createElement('div');
@@ -110,7 +103,7 @@ export const rendering = RenderingOptions => {
         initialized = true;
         return renderer.root;
     };
-    renderer.render = nodeData => {
+    renderer.render = (nodeData: NodeObject) => {
         const id = nodeData.renderId;
         let d = options.elementData[id];
         if (!d) {
@@ -124,7 +117,7 @@ export const rendering = RenderingOptions => {
         }
         let useExisting = false;
         let existingDimensions = {};
-        const resolveProp = (prop, subprop, checkExisting) => {
+        const resolveProp = (prop, subprop?, checkExisting?) => {
             const p1 = d[prop] || defaults[prop];
             const s1 = !(checkExisting && useExisting) ? p1[subprop] : existingDimensions[subprop];
             const s2 = defaults[prop][subprop];
@@ -166,8 +159,8 @@ export const rendering = RenderingOptions => {
         }
         nodeText.setAttribute('role', resolveProp('semantics', 'role'));
         nodeText.classList.add('dn-node-text');
-        if (options.showText) {
-            nodeText.innerText = d.description;
+        if (d.showText) {
+            nodeText.innerText = d.semantics.label;
         }
         const label = resolveProp('semantics', 'label');
         if (!label) {
@@ -183,11 +176,11 @@ export const rendering = RenderingOptions => {
             const totalWidth = width + x + 10;
             const totalHeight = height + y + 10;
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', totalWidth);
-            svg.setAttribute('height', totalHeight);
+            svg.setAttribute('width', totalWidth + '');
+            svg.setAttribute('height', totalHeight + '');
             svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
-            svg.style.left = -x;
-            svg.style.top = -y;
+            svg.style.left = -x + '';
+            svg.style.top = -y + '';
             svg.classList.add('dn-node-svg');
             svg.setAttribute('role', 'presentation');
             svg.setAttribute('focusable', 'false');

@@ -1,17 +1,3 @@
-export const keyCodes = {
-    parent: 27, // ESCAPE
-    child: 13, // ENTER
-    select: 32, // SPACEBAR
-    nextSibling: 39, // RIGHT ARROW
-    previousSibling: 37, // LEFT ARROW
-    nextCousin: 40, // DOWN ARROW
-    previousCousin: 38, // UP ARROW
-    nextCousinAlternate: 190, // PERIOD
-    previousCousinAlternate: 188, // COMMA
-    shift: 16, // SHIFT
-    tab: 9 // TAB
-};
-
 export const defaultKeyBindings = {
     ArrowLeft: 'left',
     ArrowRight: 'right',
@@ -21,7 +7,7 @@ export const defaultKeyBindings = {
     Comma: 'backward',
     Escape: 'parent',
     Enter: 'child'
-};
+} as DatumObject;
 
 export const GenericFullNavigationRules = {
     down: {
@@ -60,7 +46,7 @@ export const GenericFullNavigationRules = {
         keyCode: 'Escape',
         direction: 'target'
     }
-};
+} as NavigationRules;
 
 export const GenericLimitedNavigationRules = {
     right: {
@@ -99,7 +85,7 @@ export const GenericLimitedNavigationRules = {
         key: 'KeyL',
         direction: 'target'
     }
-}
+} as NavigationRules;
 
 export const NodeElementDefaults = {
     cssClass: '',
@@ -126,4 +112,4 @@ export const NodeElementDefaults = {
         useForDimensions: false,
         dimensions: undefined
     }
-};
+} as RenderObject;

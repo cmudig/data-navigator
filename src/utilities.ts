@@ -1,4 +1,4 @@
-export const describeNode = (d, descriptionOptions) => {
+export const describeNode = (d: DatumObject, descriptionOptions?: DescriptionOptions) => {
     const keys = Object.keys(d);
     let description = '';
     keys.forEach(key => {

@@ -1,8 +1,7 @@
 import { defaultKeyBindings, GenericFullNavigationRules } from './consts';
 
-export const input = InputOptions => {
-    let options = { ...InputOptions };
-    let inputHandler = {};
+export const input = (options: InputOptions) => {
+    let inputHandler = {} as any;
     let keyBindings = defaultKeyBindings;
     let directions = GenericFullNavigationRules;
 
@@ -29,12 +28,13 @@ export const input = InputOptions => {
                     if (!(rule === direction)) {
                         return null;
                     }
-                    let resolvedNodes = {};
-                    resolvedNodes.target =
-                        typeof edge.target === 'string' ? edge.target : edge.target(d, currentFocus);
-                    resolvedNodes.source =
-                        typeof edge.source === 'string' ? edge.source : edge.source(d, currentFocus);
-                    return !(resolvedNodes[navRule.direction] === currentFocus) ? resolvedNodes[navRule.direction] : null;
+                    let resolvedNodes = {
+                        target: typeof edge.target === 'string' ? edge.target : edge.target(d, currentFocus),
+                        source: typeof edge.source === 'string' ? edge.source : edge.source(d, currentFocus)
+                    };
+                    return !(resolvedNodes[navRule.direction] === currentFocus)
+                        ? resolvedNodes[navRule.direction]
+                        : null;
                 };
                 for (i = 0; i < d.edges.length; i++) {
                     const edge = options.structure.edges[d.edges[i]];

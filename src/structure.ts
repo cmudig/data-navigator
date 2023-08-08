@@ -1,12 +1,13 @@
-import {GenericLimitedNavigationRules} from './consts'
+import { GenericLimitedNavigationRules } from './consts';
+import { describeNode } from './utilities';
 
-export const structure = StructureOptions => {
+export const structure = (structureOptions: StructureOptions) => {
     if (
-        StructureOptions.dataType === 'vega-lite' ||
-        StructureOptions.dataType === 'vl' ||
-        StructureOptions.dataType === 'Vega-Lite'
+        structureOptions.dataType === 'vega-lite' ||
+        structureOptions.dataType === 'vl' ||
+        structureOptions.dataType === 'Vega-Lite'
     ) {
-        return buildNodeStructureFromVegaLite(StructureOptions);
+        return buildNodeStructureFromVegaLite(structureOptions);
     } else {
         console.warn(
             'Apologies, we currently only have structure scaffolding for Vega-Lite, generic scaffolding coming soon!'
@@ -16,7 +17,7 @@ export const structure = StructureOptions => {
 };
 
 export const buildNodeStructureFromVegaLite = options => {
-    let navigationRules = GenericLimitedNavigationRules
+    let navigationRules = GenericLimitedNavigationRules;
     let nodes = {};
     let edges = {};
     let elementData = {};
@@ -138,15 +139,15 @@ export const buildNodeStructureFromVegaLite = options => {
         nodes[id].level = level;
         nodes[id].parent = parent;
 
-        elementData[renderId] = {}
-        elementData[renderId].renderId = renderId
-        elementData[renderId].dimensions = {}
+        elementData[renderId] = {};
+        elementData[renderId].renderId = renderId;
+        elementData[renderId].dimensions = {};
         elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
         elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
         elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
         elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
         elementData[renderId].cssClass = 'dn-vega-lite-node';
-        
+
         if (item.datum) {
             Object.keys(item.datum).forEach(key => {
                 const value = item.datum[key];
@@ -157,7 +158,7 @@ export const buildNodeStructureFromVegaLite = options => {
                 }
             });
         }
-        elementData[renderId].semantics = {}
+        elementData[renderId].semantics = {};
         elementData[renderId].semantics.label = options.nodeDescriber
             ? options.nodeDescriber(nodes[id].d, item, level)
             : describeNode(nodes[id].d);
