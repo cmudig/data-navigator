@@ -1,13 +1,13 @@
 import { GenericLimitedNavigationRules } from './consts';
 import { describeNode } from './utilities';
 
-export const structure = (structureOptions: StructureOptions) => {
+export default (options: StructureOptions) => {
     if (
-        structureOptions.dataType === 'vega-lite' ||
-        structureOptions.dataType === 'vl' ||
-        structureOptions.dataType === 'Vega-Lite'
+        options.dataType === 'vega-lite' ||
+        options.dataType === 'vl' ||
+        options.dataType === 'Vega-Lite'
     ) {
-        return buildNodeStructureFromVegaLite(structureOptions);
+        return buildNodeStructureFromVegaLite(options);
     } else {
         console.warn(
             'Apologies, we currently only have structure scaffolding for Vega-Lite, generic scaffolding coming soon!'

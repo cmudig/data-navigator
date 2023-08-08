@@ -1,4 +1,4 @@
-import { dataNavigator } from '../src/index.ts';
+import { default as dataNavigator } from '../src/index.ts';
 import { describeNode } from '../src/utilities.ts';
 let scale;
 const hideTooltip = () => {
