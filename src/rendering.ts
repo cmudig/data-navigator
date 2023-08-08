@@ -74,7 +74,7 @@ export default (options: RenderingOptions) => {
 
         renderer.root.appendChild(renderer.wrapper);
 
-        if (options.exitElement && options.exitElement.include) {
+        if (options.exitElement?.include) {
             renderer.exitElement = document.createElement('div');
             renderer.exitElement.id = 'dn-exit-' + options.suffixId;
             renderer.exitElement.classList.add('dn-exit-position');
@@ -87,13 +87,13 @@ export default (options: RenderingOptions) => {
                 // console.log("focused!",renderer.exitElement)
                 renderer.exitElement.style.display = 'block';
                 renderer.clearStructure();
-                if (options.exitElement.callbacks && options.exitElement.callbacks.focus) {
+                if (options.exitElement?.callbacks?.focus) {
                     options.exitElement.callbacks.focus(e);
                 }
             });
             renderer.exitElement.addEventListener('blur', e => {
                 renderer.exitElement.style.display = 'none';
-                if (options.exitElement.callbacks && options.exitElement.callbacks.blur) {
+                if (options.exitElement?.callbacks?.blur) {
                     options.exitElement.callbacks.blur(e);
                 }
             });
@@ -104,7 +104,7 @@ export default (options: RenderingOptions) => {
         return renderer.root;
     };
     renderer.render = (nodeData: NodeObject) => {
-        const id = nodeData.renderId;
+        const id = nodeData.renderId + '';
         let d = options.elementData[id];
         if (!d) {
             console.warn(`Render data not found with renderId: ${id}. Failed to render.`);
