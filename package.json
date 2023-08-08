@@ -1,7 +1,7 @@
 {
     "name": "data-navigator",
     "author": "Frank Elavsky",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "main": "dist/index.jsm",
     "module": "dist/index",
     "types": "data-navigator.d.ts",
