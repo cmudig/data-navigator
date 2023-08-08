@@ -1,6 +1,6 @@
 import { defaultKeyBindings, GenericFullNavigationRules } from './consts';
 
-export const input = (options: InputOptions) => {
+export default (options: InputOptions) => {
     let inputHandler = {} as any;
     let keyBindings = defaultKeyBindings;
     let directions = GenericFullNavigationRules;

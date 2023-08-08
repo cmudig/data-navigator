@@ -1,6 +1,6 @@
 import { NodeElementDefaults } from './consts';
 
-export const rendering = (options: RenderingOptions) => {
+export default (options: RenderingOptions) => {
     let renderer = {} as any;
     let initialized = false;
     let defaults = {

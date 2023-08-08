@@ -1,9 +1,5 @@
-import { structure } from './structure';
-import { input } from './input';
-import { rendering } from './rendering';
+import { default as structure } from './structure';
+import { default as input } from './input';
+import { default as rendering } from './rendering';
 
-export const dataNavigator = {
-    structure,
-    input,
-    rendering
-};
+export default { structure, input, rendering }
