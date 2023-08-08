@@ -15,20 +15,20 @@ const showTooltip = e => {
     const offset = 5 * scale;
     const yOffset = bbox.height + offset;
     // console.log(e.d.team);
-    if (
-        !(e.d.team === 'Manchester United' || e.d.team === 'Liverpool' || (!e.d.team && e.d.contest === 'BPL'))
-    ) {
+    if (!(e.d.team === 'Manchester United' || e.d.team === 'Liverpool' || (!e.d.team && e.d.contest === 'BPL'))) {
         tooltip.style.textAlign = 'left';
-        tooltip.style.transform = `translate(${e.dimensions.x * scale - offset + 1}px,${e.dimensions.y * scale - yOffset}px)`;
+        tooltip.style.transform = `translate(${e.dimensions.x * scale - offset + 1}px,${
+            e.dimensions.y * scale - yOffset
+        }px)`;
     } else {
         tooltip.style.textAlign = 'right';
         // console.log(e.x);
         // console.log(e.width);
         // console.log(e.x + e.width);
         const xOffset = bbox.width;
-        tooltip.style.transform = `translate(${(e.dimensions.x + e.dimensions.width) * scale + offset - xOffset + 1}px,${
-            e.dimensions.y * scale - yOffset
-        }px)`;
+        tooltip.style.transform = `translate(${
+            (e.dimensions.x + e.dimensions.width) * scale + offset - xOffset + 1
+        }px,${e.dimensions.y * scale - yOffset}px)`;
     }
 };
 
@@ -592,7 +592,7 @@ let edges = {
     },
     'any-x_axis': {
         source: 'x_axis',
-        target: () => current, // this is because 'parent' moves backwards or towards the source! 
+        target: () => current, // this is because 'parent' moves backwards or towards the source!
         navigationRules: ['parent'] // we could have optionally made a new rule just for this, but went with parent instead
     },
     'any-return': {
@@ -941,7 +941,7 @@ const rendering = dataNavigator.rendering({
     entryButton: {
         include: true,
         callbacks: {
-            pressed: () => {
+            click: () => {
                 enter();
             }
         }
@@ -961,11 +961,11 @@ const input = dataNavigator.input({
     exitPoint: rendering.exitElement.id
 });
 
-window.dn = {
-    structure,
-    input,
-    rendering
-};
+// window.dn = {
+//     structure,
+//     input,
+//     rendering
+// };
 
 const initiateLifecycle = nextNode => {
     // console.log("moving to",nextNode)
@@ -973,40 +973,40 @@ const initiateLifecycle = nextNode => {
         renderId: nextNode.renderId,
         datum: nextNode
     });
-    node.addEventListener("keydown",(e)=>{
+    node.addEventListener('keydown', e => {
         // myFunction(e) // could run whatever here, of course
-        const direction = input.keydownValidator(e)
+        const direction = input.keydownValidator(e);
         if (direction) {
             e.preventDefault();
-            move(direction)
+            move(direction);
         }
-    })
-    node.addEventListener("blur",(e)=>{
+    });
+    node.addEventListener('blur', e => {
         entered = false;
         // previous = current;
         // current = null;
         // rendering.remove(previous);
-    })
-    showTooltip(nextNode)
+    });
+    showTooltip(nextNode);
     input.focus(nextNode.renderId); // actually focuses the element
     entered = true;
     previous = current;
     current = nextNode.id;
     rendering.remove(previous);
-}
+};
 
 const enter = () => {
     const nextNode = input.enter();
     if (nextNode) {
         entered = true;
-        initiateLifecycle(nextNode)
+        initiateLifecycle(nextNode);
     }
 };
 
 const move = direction => {
     const nextNode = input.move(current, direction); // .moveTo does the same thing but only uses NodeId
     if (nextNode) {
-        initiateLifecycle(nextNode)
+        initiateLifecycle(nextNode);
     }
 };
 

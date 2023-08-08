@@ -7,8 +7,8 @@ let dn;
 let entered;
 let current;
 let previous;
-const getCurrent = () => current
-const getPrevious = () => previous
+const getCurrent = () => current;
+const getPrevious = () => previous;
 const groupInclusionCriteria = (item, _i, _spec) => {
     return item.marktype && !(item.marktype === 'text'); // item.marktype !== 'group' && item.marktype !== 'text'
 };
@@ -46,17 +46,17 @@ const initiateLifecycle = nextNode => {
         renderId: nextNode.renderId,
         datum: nextNode
     });
-    node.addEventListener("keydown",(e)=>{
+    node.addEventListener('keydown', e => {
         // myFunction(e) // could run whatever here, of course
-        const direction = dn.input.keydownValidator(e)
+        const direction = dn.input.keydownValidator(e);
         if (direction) {
             e.preventDefault();
-            move(direction)
+            move(direction);
         }
-    })
-    node.addEventListener("blur",()=>{
+    });
+    node.addEventListener('blur', () => {
         entered = false;
-    })
+    });
     // showTooltip(nextNode)
     dn.input.focus(nextNode.renderId); // actually focuses the element
     entered = true;
@@ -65,30 +65,30 @@ const initiateLifecycle = nextNode => {
     if (previous) {
         dn.rendering.remove(dn.structure.nodes[previous].renderId);
     }
-}
+};
 
 const enter = () => {
     const nextNode = dn.input.enter();
     if (nextNode) {
         entered = true;
-        initiateLifecycle(nextNode)
+        initiateLifecycle(nextNode);
     }
 };
 
 const move = direction => {
     const nextNode = dn.input.move(current, direction); // .moveTo does the same thing but only uses NodeId
     if (nextNode) {
-        initiateLifecycle(nextNode)
+        initiateLifecycle(nextNode);
     }
 };
 
 const exit = () => {
     entered = false;
-    rendering.exitElement.style.display = 'block';
-    input.focus(rendering.exitElement.id); // actually focuses the element
+    dn.rendering.exitElement.style.display = 'block';
+    dn.input.focus(dn.rendering.exitElement.id); // actually focuses the element
     previous = current;
     current = null;
-    rendering.remove(previous);
+    dn.rendering.remove(previous);
 };
 
 fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
@@ -102,7 +102,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
     })
     .then(v => {
         const structure = dataNavigator.structure({
-            dataType: "vega-lite",
+            dataType: 'vega-lite',
             vegaLiteView: v,
             vegaLiteSpec: spec,
             groupInclusionCriteria,
@@ -127,7 +127,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
             entryButton: {
                 include: true,
                 callbacks: {
-                    pressed: () => {
+                    click: () => {
                         enter();
                     }
                 }
@@ -136,7 +136,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
                 include: true
             }
         });
-        
+
         // create data navigator
         rendering.initialize();
         const input = dataNavigator.input({
@@ -154,7 +154,7 @@ fetch('https://vega.github.io/vega/examples/scatter-plot.vg.json')
             input,
             rendering
         };
-        window.dn = dn
+        // window.dn = dn
         return dn;
     })
     .catch(err => console.error(err));

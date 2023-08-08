@@ -42,7 +42,7 @@ img {
     fill: none;
     stroke: #000000;
     stroke-width: 4px;
-    transform:translateY(2px)
+    transform: translateY(2px);
 }
 
 .dn-exit-position {
