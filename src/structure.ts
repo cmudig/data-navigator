@@ -44,7 +44,7 @@ export const buildNodeStructureFromVegaLite = options => {
         const index = node.index;
         const level = node.level;
         const parent = node.parent;
-        const edgeList = [];
+        const edgeList = [] as EdgeList;
         // previous and next use parent.items[]
         const previous = parent.items[index - 1];
         if (previous) {
