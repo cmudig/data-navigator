@@ -98,6 +98,11 @@ type DimensionsObject = {
     path?: DynamicString
 }
 
+type DescriptionOptions = {
+    omitKeyNames?: boolean,
+    semanticLabel?: string
+}
+
 type ExistingElement = {
     useForDimensions: boolean,
     dimensions?: Dimensions
