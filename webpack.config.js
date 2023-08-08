@@ -2,17 +2,12 @@ const path = require('path');
 
 module.exports = {
   entry: {
-    'index': './src/data-navigator.ts',
-    'input': './src/input.ts',
-    'rendering': './src/rendering.ts',
-    'structure': './src/structure.ts',
-    'utilities': './src/utilities.ts',
     'v-bundle': './examples/vega-lite-app.js',
     'static-bundle': './examples/static-app.js'
   },
   output: {
     filename: '[name].js',
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'app'),
   },
   resolve: {
     extensions: ["", ".webpack.js", ".web.js", ".ts", ".tsx", ".js"],

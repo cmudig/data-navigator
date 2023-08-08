@@ -1,5 +1,5 @@
-import { dataNavigator } from '../src/data-navigator';
-import { describeNode } from '../src/utilities';
+import { dataNavigator } from '../src/index.ts';
+import { describeNode } from '../src/utilities.ts';
 let scale;
 const hideTooltip = () => {
     document.getElementById('tooltip').classList.add('hidden');
