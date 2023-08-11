@@ -23,24 +23,29 @@ Visit [our landing page](http://dig.cmu.edu/data-navigator/) to try our demo, wh
 We also have [a vega-lite demo online](https://dig.cmu.edu/data-navigator/vega-lite.html), which (under the hood) shows how someone could write one schema that serves any chart in an ecosystem.
 
 ## Approach
-Data Navigator is organized into 3 separately composable modules: the first is a graph-based *structure* of nodes and edges, the second handles *input* and navigation logic, and the third *renders* the structure. These may be leveraged together or independently. Read our paper to learn more!
+
+Data Navigator is organized into 3 separately composable modules: the first is a graph-based _structure_ of nodes and edges, the second handles _input_ and navigation logic, and the third _renders_ the structure. These may be leveraged together or independently. Read our paper to learn more!
 
 ## Getting started
+
 You can install or use both esm and cjs modules in a variety of ways, in addition to importing all of data-navigator or just one part.
+
 ```
 # to install into a project
 npm install data-navigator
 ```
+
 ```js
 // to use it in a .js or .ts file
-import { default as dataNavigator } from 'data-navigator'
-console.log(dataNavigator)
+import { default as dataNavigator } from 'data-navigator';
+console.log(dataNavigator);
 ```
+
 ```html
 <!-- and even as a script tag module loaded from a cdn -->
 <script type="module">
-    import dataNavigator from "https://cdn.jsdelivr.net/npm/data-navigator@1.0.0/dist/index.mjs"
-    console.log(dataNavigator)
+    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.0.0/dist/index.mjs';
+    console.log(dataNavigator);
 </script>
 ```
 

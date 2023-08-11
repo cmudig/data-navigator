@@ -59,13 +59,89 @@
                 or you may also use keyboard keys, touch swipes, mouse drags, and screen readers to navigate the
                 content.
             </p>
+            <h2>Overall commands</h2>
             <p>
-                For now, we are not providing instructions for how to operate every control in this case study, but in a
-                later release we will explain how to use each of these different input modalities.
+                In the following demos of input using different modalities, the following commands are allowed: (each
+                section explains how to input these different commands)
             </p>
+            <div>
+                <details>
+                    <summary>View overall commands:</summary>
+                    <table class="table" data-header="header">
+                        <thead class="thead">
+                            <tr class="t-row">
+                                <th class="t-column" scope="col">Command</th>
+                                <th class="t-column" scope="col">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody class="tbody">
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Enter</th>
+                                <td class="cell">Enter the interface. (You must enter the interface before using any other command.)</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Exit</th>
+                                <td class="cell">Exit the interface.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Right</th>
+                                <td class="cell">Move right (across teams).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Left</th>
+                                <td class="cell">Move left  (across teams).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Up</th>
+                                <td class="cell">Move up (across legend items or between title/legend/axes).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Down</th>
+                                <td class="cell">Move down (across legend items or between title/legend/axes).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Child</th>
+                                <td class="cell">Drill into the x axis, legend, or childmost elements.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Parent</th>
+                                <td class="cell">Drill out toward the x axis.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Legend</th>
+                                <td class="cell">Drill out toward the legend.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Previous/Undo</th>
+                                <td class="cell">Move to a previous position.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </details>
+            </div>
             <div class="row">
                 <div class="column left">
-                    <h2>Text-driven control</h2>
+                    <h2>Text and Speech control</h2>
+                    <div>
+                        <details>
+                            <summary>View text and speech controls:</summary>
+                            <p>All of the commands from the previous section (Overall Commands) can simply be typed into the text input or spoken using the button. For example:</p>
+                            <table class="table" data-header="header">
+                                <thead class="thead">
+                                    <tr class="t-row">
+                                        <th class="t-column" scope="col">Command</th>
+                                        <th class="t-column" scope="col">Expected input</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="tbody">
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Enter</th>
+                                        <td class="cell">"Enter" "enter" and "EnTeR" are all valid.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </details>
+                    </div>
                     <p>
                         Issue a text command:
                         <span
@@ -73,30 +149,199 @@
                                 <input type="text" id="textCommand" /><input id="submit" type="submit" /></form
                         ></span>
                     </p>
-                    <h2>Voice control</h2>
-                    <button id="enableSpeech">Send a voice command?</button>
+                    <p>Press the following button and then speak a single-word command.</p>
+                    <button id="enableSpeech">Issue voice command</button>
                     <p class="alert" id="alert"></p>
                 </div>
-                <div class="column right">
+                <div class="column right limited">
                     <h2>Gesture control</h2>
+                    <p>The gesture control model is heavy, so we only load it if you want to try it. Click "Load Gesture Model" to load it and then activate the model with "Open Webcam" (it will need access to your camera).</p>
+                    <div>
+                        <details>
+                            <summary>View gesture controls:</summary>
+                            <p>Close your hand to set the gesture center (marked by an &#128074 emoji on the camera space). When ready, you can open your hand or point in a direction to move. Close your hand again to set the gesture center for a new gesture (and repeat).</p>
+                            <p>The model is slow and isn't very smart, so you will need to exaggerate your movement distances and hold your gesture for about a second. It fails often (apologies).</p>
+                            <table class="table" data-header="header">
+                                <thead class="thead">
+                                    <tr class="t-row">
+                                        <th class="t-column" scope="col">Command</th>
+                                        <th class="t-column" scope="col">Expected input</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="tbody">
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Enter</th>
+                                        <td class="cell">&#128400 Open your hand, facing the camera.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Exit</th>
+                                        <td class="cell">&#128400 Open your hand, facing the camera (once already entered).</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Right</th>
+                                        <td class="cell">&#128073 Point right of your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Left</th>
+                                        <td class="cell">&#128072 Point left of your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Up</th>
+                                        <td class="cell">&#9757 Point above your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Down</th>
+                                        <td class="cell">&#128071 Point below your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Child</th>
+                                        <td class="cell">&#128071 &#128073 Point below and to the right of your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Parent</th>
+                                        <td class="cell">&#9757 &#128072 Point above and to the left of your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Legend</th>
+                                        <td class="cell">&#9757 &#128073 Point above and to the right of your gesture center.</td>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <th scope="row" class="cell">Previous/Undo</th>
+                                        <td class="cell">&#128071 &#128072 Point below and to the left of your gesture center.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </details>
+                    </div>
                     <button id="loadModel">Load Gesture Model</button>
                     <br />
-                    <button id="openWebcam" disabled>Use Hand Gestures</button>
+                    <button id="openWebcam" disabled>Open Webcam</button>
                     <br />
-                    <button id="closeWebcam" disabled>Stop Using Gestures</button>
+                    <button id="closeWebcam" disabled>Close Model</button>
                     <br /><br />
                     <div id="status" class="hidden">
                         <p>Ready for a command? <span id="ready">No. Try closing your hand.</span></p>
                         <p>Command used: <span id="command">(none yet)</span></p>
                     </div>
-                    <video class="videobox canvasbox" autoplay="autoplay" id="feed"></video>
-                    <canvas id="canvas" class="border canvasbox hidden"></canvas>
+                    <div class="video-wrapper">
+                        <video class="videobox canvasbox" autoplay="autoplay" id="feed"></video>
+                        <canvas id="canvas" class="border canvasbox hidden"></canvas>
+                        <div id="fist">&#128074</div>
+                    </div>
                 </div>
             </div>
-            <h2>Keyboard, touch, mouse-drag, and screen reader control</h2>
+            <h2>Keyboard, screen reader, touch, and mouse-drag control</h2>
+            <div>
+                <details>
+                    <summary>View keyboard and desktop screen reader controls:</summary>
+                    <table class="table" data-header="header">
+                        <thead class="thead">
+                            <tr class="t-row">
+                                <th class="t-column" scope="col">Command</th>
+                                <th class="t-column" scope="col">Expected input</th>
+                            </tr>
+                        </thead>
+                        <tbody class="tbody">
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Enter</th>
+                                <td class="cell">Click the "Enter navigation area" button.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Exit</th>
+                                <td class="cell"><kbd>ESC</kbd> key.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Right</th>
+                                <td class="cell"><kbd>→</kbd> (right arrow key).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Left</th>
+                                <td class="cell"><kbd>←</kbd> (left arrow key).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Up</th>
+                                <td class="cell"><kbd>↑</kbd> (up arrow key).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Down</th>
+                                <td class="cell"><kbd>↓</kbd> (down arrow key).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Child</th>
+                                <td class="cell"><kbd>ENTER</kbd> key.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Parent</th>
+                                <td class="cell"><kbd>BACKSPACE</kbd> key.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Legend</th>
+                                <td class="cell"><kbd>L</kbd> key.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Previous/Undo</th>
+                                <td class="cell"><kbd>.</kbd> (period) key.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </details>
+            </div>
+            <div>
+                <details>
+                    <summary>View mobile screen reader, touch, and mouse-drag controls:</summary>
+                    <table class="table" data-header="header">
+                        <thead class="thead">
+                            <tr class="t-row">
+                                <th class="t-column" scope="col">Command</th>
+                                <th class="t-column" scope="col">Expected input</th>
+                            </tr>
+                        </thead>
+                        <tbody class="tbody">
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Enter</th>
+                                <td class="cell">Press and hold on the chart area or click the "Enter navigation area" button.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Exit</th>
+                                <td class="cell">Press and hold on the chart area (if you have entered already).</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Right</th>
+                                <td class="cell">&rarr; Press and swipe right.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Left</th>
+                                <td class="cell">&larr; Press and swipe left.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Up</th>
+                                <td class="cell">&uarr; Press and swipe left.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Down</th>
+                                <td class="cell">&darr; Press and swipe left.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Child</th>
+                                <td class="cell">&searr; Press and swipe down and to the right.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Parent</th>
+                                <td class="cell">&nwarr; Press and swipe up and to the left.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Legend</th>
+                                <td class="cell">&nearr; Press and swipe up and to the right.</td>
+                            </tr>
+                            <tr class="t-row">
+                                <th scope="row" class="cell">Previous/Undo</th>
+                                <td class="cell">&swarr; Press and swipe up and to the right.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </details>
+            </div>
             <br />
-            <!-- <div class="row">
-                <div class="column left"> -->
             <div class="wrapper">
                 <div id="root" class="wrapper">
                     <img
@@ -106,30 +351,8 @@
                     />
                 </div>
                 <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false">
-                    <!-- <p id="dn-team"><b>Team: </b><span></span></p>
-                            <p id="dn-contest"><b>Contest: </b><span></span></p>
-                            <p id="dn-trophies"><b>Trophies: </b><span></span></p>
-                            <p id="dn-contains"><b>Contains: </b><span></span></p> -->
                 </div>
             </div>
-            <!-- </div>
-                <div class="column right">
-                    <video autoplay="true" id="videoElement"></video>
-                    <script>
-                        var video = document.querySelector("#videoElement");
-
-                        if (navigator.mediaDevices.getUserMedia) {
-                        navigator.mediaDevices.getUserMedia({ video: true })
-                            .then(function (stream) {
-                                video.srcObject = stream;
-                            })
-                            .catch(function (err0r) {
-                                // console.log("Something went wrong!");
-                            });
-                        }
-                    </script>
-                </div>
-            </div> -->
         </main>
         <footer></footer>
         <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
