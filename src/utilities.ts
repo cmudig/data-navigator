@@ -4,6 +4,6 @@ export const describeNode = (d: DatumObject, descriptionOptions?: DescriptionOpt
     keys.forEach(key => {
         description += `${descriptionOptions && descriptionOptions.omitKeyNames ? '' : key + ': '}${d[key]}. `;
     });
-    description += descriptionOptions && descriptionOptions.semanticLabel || 'Data point.';
+    description += (descriptionOptions && descriptionOptions.semanticLabel) || 'Data point.';
     return description;
 };
