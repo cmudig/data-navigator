@@ -2,11 +2,7 @@ import { GenericLimitedNavigationRules } from './consts';
 import { describeNode } from './utilities';
 
 export default (options: StructureOptions) => {
-    if (
-        options.dataType === 'vega-lite' ||
-        options.dataType === 'vl' ||
-        options.dataType === 'Vega-Lite'
-    ) {
+    if (options.dataType === 'vega-lite' || options.dataType === 'vl' || options.dataType === 'Vega-Lite') {
         return buildNodeStructureFromVegaLite(options);
     } else {
         console.warn(

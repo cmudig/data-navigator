@@ -1,5 +1,6 @@
 import { default as dataNavigator } from '../src/index.ts';
 import { describeNode } from '../src/utilities.ts';
+
 let scale;
 const hideTooltip = () => {
     document.getElementById('tooltip').classList.add('hidden');
@@ -598,7 +599,7 @@ let edges = {
     'any-return': {
         source: () => current,
         target: () => previous,
-        navigationRules: ['previous position']
+        navigationRules: ['previous', 'undo']
     },
     'any-exit': {
         source: () => current,
@@ -906,7 +907,11 @@ let navigationRules = {
         key: 'Escape',
         direction: 'target'
     },
-    'previous position': {
+    previous: {
+        key: 'Period',
+        direction: 'target'
+    },
+    undo: {
         key: 'Period',
         direction: 'target'
     },
@@ -1032,11 +1037,11 @@ const handleMovement = ev => {
     const direction =
         ratio > 0.99 && ratio <= 2
             ? right && up
-                ? 'forward'
+                ? 'legend'
                 : right && down
                 ? 'child'
                 : left && down
-                ? 'backward'
+                ? 'previous'
                 : left && up
                 ? 'parent'
                 : null
@@ -1064,7 +1069,11 @@ touchHandler.on('press', ev => {
 });
 touchHandler.on('pressup', ev => {
     // entered = true;
-    enter();
+    if (entered) {
+        exit();
+    } else {
+        enter();
+    }
 });
 touchHandler.on('swipe', ev => {
     handleMovement(ev);
@@ -1075,6 +1084,8 @@ let isVideo = false;
 let ready = false;
 let timer;
 let command = null;
+let center = null;
+let frames = [];
 const video = document.getElementById('feed');
 const canvas = document.getElementById('canvas');
 const context = canvas.getContext('2d');
@@ -1092,6 +1103,7 @@ const modelParams = {
 
 const openCam = () => {
     document.getElementById('openWebcam').disabled = true;
+    document.getElementById('closeWebcam').disabled = false;
     document.getElementById('ready').innerText = 'No. Loading video feed...';
     handTrack.startVideo(video).then(status => {
         // console.log('video started', status);
@@ -1112,9 +1124,72 @@ const runDetection = () => {
     model.detect(video).then(predictions => {
         if (predictions.length) {
             model.renderPredictions(predictions, canvas, context, video);
-            // predictions.forEach(pred => {
-            //     attemptCommand(pred)
-            // })
+            predictions.forEach(pred => {
+                if (ready && (pred.label === 'point' || pred.label === 'open') && pred.score >= 0.6) {
+                    frames.push(pred);
+                } else if (!ready && pred.label === 'closed' && pred.score >= 0.6) {
+                    frames.push(pred);
+                    // console.log("closed...")
+                }
+            });
+            // check when frames >= 30
+            if (frames.length >= 8) {
+                // attempt aggregate analysis
+                if (!ready) {
+                    let total = [0, 0, 0, 0];
+                    // find average center of fist, set ready
+                    frames.forEach(frame => {
+                        total[0] += frame.bbox[0];
+                        total[1] += frame.bbox[1];
+                        total[2] += frame.bbox[2];
+                        total[3] += frame.bbox[3];
+                    });
+                    setReady([
+                        total[0] / frames.length,
+                        total[1] / frames.length,
+                        total[2] / frames.length,
+                        total[3] / frames.length
+                    ]);
+                } else {
+                    // console.log("attempting command...")
+                    // find dominant score, find average center, attempt command
+                    let totals = {};
+                    frames.forEach(frame => {
+                        if (!totals[frame.label]) {
+                            totals[frame.label] = {};
+                            totals[frame.label].bbox = [0, 0, 0, 0];
+                            totals[frame.label].count = 0;
+                            totals[frame.label].total = 0;
+                        }
+                        let total = totals[frame.label];
+                        total.count++;
+                        total.total += frame.score;
+                        total.bbox[0] += frame.bbox[0];
+                        total.bbox[1] += frame.bbox[1];
+                        total.bbox[2] += frame.bbox[2];
+                        total.bbox[3] += frame.bbox[3];
+                    });
+                    let highest = {
+                        score: 0,
+                        label: ''
+                    };
+                    Object.keys(totals).forEach(key => {
+                        if (!highest.label || highest.score < totals[key].total) {
+                            highest.label = key;
+                            highest.score = totals[key].total;
+                        }
+                    });
+                    let h = totals[highest.label];
+                    let c = h.count;
+                    let prediction = {
+                        bbox: [h.bbox[0] / c, h.bbox[1] / c, h.bbox[2] / c, h.bbox[3] / c],
+                        label: highest.label,
+                        score: highest.score / c
+                    };
+                    attemptCommand(prediction);
+                }
+                frames = [];
+            }
         }
         if (isVideo) {
             requestAnimationFrame(runDetection);
@@ -1125,19 +1200,26 @@ const runDetection = () => {
 const closeCam = () => {
     isVideo = false;
     handTrack.stopVideo(video);
-    document.getElementById('openWebcam').classList.add('hidden');
-    document.getElementById('canvas').classList.add('hidden');
-    document.getElementById('status').innerText = 'Video feed disabled. Model disposed!';
+    document.getElementById('openWebcam').remove();
+    document.getElementById('canvas').remove();
+    document.getElementById('loadModel').remove();
+    document.getElementById('closeWebcam').disabled = true;
+    document.getElementById('status').innerText =
+        'Video feed disabled. Model disposed! Reload page to try model again.';
     model.dispose();
 };
 
 const setReady = bbox => {
     ready = bbox;
     document.getElementById('ready').innerText = 'Yes!';
+    document.getElementById('fist').style.left = (ready[0] + ready[2]) / 2 - 16 + 'px';
+    document.getElementById('fist').style.top = (ready[1] + ready[3]) / 2 - 5 + 'px';
+    document.getElementById('fist').style.display = 'block';
 };
 const setNotReady = () => {
     ready = false;
     document.getElementById('ready').innerText = 'No.';
+    document.getElementById('fist').style.display = 'none';
 };
 const attemptCommand = pred => {
     if (ready) {
@@ -1148,22 +1230,18 @@ const attemptCommand = pred => {
                 deltaY: ready[3] - ready[1] - (pred.bbox[3] - pred.bbox[1])
             };
             handleMovement(ev);
-            setNotReady();
         }
         if (pred.label === 'open' && !entered) {
             // console.log('GOIN IN!');
             // entered = true;
             enter();
-            setNotReady();
         } else if (pred.label === 'open' && entered) {
-            if (current) {
-                move('child');
-                setNotReady();
-            }
+            exit();
+            // if (current) {
+            //     move('child');
+            // }
         }
-    } else if (pred.label === 'closed') {
-        // console.log('NOW READY');
-        setReady(pred.bbox);
+        setNotReady();
     }
 };
 
