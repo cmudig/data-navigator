@@ -1,6 +1,7 @@
 body {
+    font-size: 1.25em;
     margin: 0 auto;
-    max-width: 50em;
+    max-width: 40em;
     padding: 50px;
 }
 
@@ -122,12 +123,63 @@ img {
     display: none;
 }
 
+pre {
+    overflow: auto;
+    background: #f6f6f6;
+    padding: 0px 10px;
+    border-radius: 10px;
+}
+
+.bib {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    border: 1px dashed black;
+    cursor: pointer;
+}
+
+.bib:hover {
+    border: 1px solid black;
+}
+
+.bib:focus {
+    border-width: 2px;
+}
+
+.bib svg {
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
+.bib:active path {
+    fill: #015ee9;
+}
+
+.bib path {
+    fill: #444;
+}
+
+#copy-announcer {
+    font-size: 0.8em;
+    font-weight: 100;
+    color: #444;
+}
+
+p {
+    margin-top: 0;
+}
+
 .video-wrapper {
     position: relative;
 }
 
 th {
     text-align: left;
+}
+
+h3 {
+    margin-bottom: 0.2em;
 }
 
 .cell {
