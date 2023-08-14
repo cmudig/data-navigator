@@ -2,30 +2,43 @@
 <html lang="en-US">
     <head>
         <meta charset="UTF-8" />
-        <title>Data Navigator Examples</title>
+        <title>Data Navigator demo</title>
 
-        <!-- <meta http-equiv="x-ua-compatible" content="ie=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" /> -->
-        <!-- <meta name="application-name" content="The Chartability Workbook" /> -->
-        <!-- <meta name="theme-color" content="#21224A" />
-    <link rel="shortcut icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" href="/favicon.png" sizes="250x250" /> -->
-        <!-- <meta property="og:image" content="http://chartability.fizz.studio/images/preview.jpg">
-    <meta property="og:title" content="Workbook">
-    <meta property="og:locale" content="en_US">
-    <meta name="description" content="A tool for auditing the accessibility of data experiences.">
-    <meta property="og:description" content="A tool for auditing the accessibility of data experiences.">
-    <link rel="canonical" href="https://chartability.github.io/POUR-CAF/">
-    <meta property="og:url" content="https://chartability.github.io/POUR-CAF/">
-    <meta property="og:site_name" content="The Chartability Workbook">
-    <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary">
-    <meta property="twitter:title" content="Workbook">
-    <meta name="twitter:site" content="@frankelavsky">
-    <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"WebSite","description":"A tool for auditing the accessibility of data experiences.","headline":"Workbook","name":"The Chartability Workbook","url":"https://chartability.github.io/POUR-CAF/"}</script>
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&amp;display=swap" rel="stylesheet"> -->
+        <meta http-equiv="x-ua-compatible" content="ie=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Data Navigator demo" />
+        <meta name="theme-color" content="#21224A" />
+        <meta
+            property="og:image"
+            content="https://repository-images.githubusercontent.com/479978023/fa696c16-4c68-418b-9f28-fa256fff7a47"
+        />
+        <meta property="og:title" content="Data Navigator demo" />
+        <meta property="og:locale" content="en_US" />
+        <meta
+            name="description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <meta
+            property="og:description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <link rel="canonical" href="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:url" content="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:site_name" content="Data Navigator demo" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta property="twitter:title" content="Data Navigator demo" />
+        <meta name="twitter:site" content="@frankElavsky" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "description": "A JavaScript library that allows for accessible navigation of data structures.",
+                "headline": "Data Navigator demo",
+                "name": "Data Navigator demo",
+                "url": "https://dig.cmu.edu/data-navigator/"
+            }
+        </script>
         <link href="./examples/style.css" rel="stylesheet" />
         <style>
             /* .dn-node {
@@ -48,25 +61,73 @@
     <body>
         <a href="#main" class="skip">skip to main content</a>
         <header>
-            <nav class="nav"></nav>
+            <!-- <nav class="nav"></nav> -->
+            <h1>Data Navigator demo</h1>
+            <img
+                src="https://raw.githubusercontent.com/cmudig/data-navigator/main/assets/data_navigator.png"
+                alt="Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering."
+            />
         </header>
         <main id="main">
-            <h1>Data Navigator Static PNG Example</h1>
+            <h2>What is Data Navigator?</h2>
             <p>
-                Welcome to our first major case study and prototype for Data Navigator. This case study demonstrates
-                that a static PNG can be navigated along two different tree-like structures at once. In addition, we are
-                demonstrating that commands for movement may be typed into a text input, spoken, gestured using one hand
-                or you may also use keyboard keys, touch swipes, mouse drags, and screen readers to navigate the
-                content.
+                Data Navigator enables designers and developers to render a semantic, navigable structure on top of any
+                graphic. This structure can be used by a massive variety of different input modalities.
             </p>
-            <h2>Overall commands</h2>
             <p>
-                In the following demos of input using different modalities, the following commands are allowed: (each
-                section explains how to input these different commands)
+                If you want to learn more or get started, you can check out the
+                <a href="https://github.com/cmudig/data-navigator">repo for Data Navigator</a>,
+                <a href="https://www.npmjs.com/package/data-navigator?activeTab=readme"
+                    >install Data Navigator from NPM</a
+                >, or examine the specific
+                <a href="https://github.com/cmudig/data-navigator/blob/main/examples/static-app.js"
+                    >code for this demo</a
+                >
+                on GitHub.
+            </p>
+            <h2>Summary of our demo:</h2>
+            <p>
+                In this demo, you can use a bunch of different input modalities to navigate the data structure of a png
+                image of a chart.
+            </p>
+            <ul>
+                <li>The structure is bespoke but mostly follows common patterns.</li>
+                <li>You can use a lot of different inputs!</li>
+                <li>
+                    The chart itself is just a png image. The rendered elements (when you navigate) are semantic HTML
+                    with custom visuals.
+                </li>
+            </ul>
+            <h2>Why make Data Navigator?</h2>
+            <p>
+                Modern data visualization accessibility faces 3 challenges in design and development that we wanted to
+                help practitioners and researchers tackle:
+            </p>
+            <ol>
+                <li>
+                    Navigable structure is hard to build for data visualizations. Structure is important for
+                    understanding and usability but is often ignored.
+                </li>
+                <li>
+                    Only mouse input is treated well (with sporadic support for touch or screen reader input). Many
+                    other input modalities are unaddressed!
+                </li>
+                <li>
+                    Visualizations are often rendered as semantic-less SVG or raster (pngs, canvas, etc). If semantics
+                    are added at all they end up using low-level SVG, which is often not appropriate. Semantics help
+                    understanding and add functional interactivity.
+                </li>
+            </ol>
+            <h2>Demo</h2>
+            <h3>Overall instructions and commands</h3>
+            <p>You will need to "enter" Data Navigator's structure before you can begin navigating.</p>
+            <p>
+                The details of every command are outlined below, however note that each input modality specifies these
+                commands in different ways (see each section for more details):
             </p>
             <div>
                 <details>
-                    <summary>View overall commands:</summary>
+                    <summary>View commands:</summary>
                     <table class="table" data-header="header">
                         <thead class="thead">
                             <tr class="t-row">
@@ -77,7 +138,9 @@
                         <tbody class="tbody">
                             <tr class="t-row">
                                 <th scope="row" class="cell">Enter</th>
-                                <td class="cell">Enter the interface. (You must enter the interface before using any other command.)</td>
+                                <td class="cell">
+                                    Enter the interface. (You must enter the interface before using any other command.)
+                                </td>
                             </tr>
                             <tr class="t-row">
                                 <th scope="row" class="cell">Exit</th>
@@ -89,7 +152,7 @@
                             </tr>
                             <tr class="t-row">
                                 <th scope="row" class="cell">Left</th>
-                                <td class="cell">Move left  (across teams).</td>
+                                <td class="cell">Move left (across teams).</td>
                             </tr>
                             <tr class="t-row">
                                 <th scope="row" class="cell">Up</th>
@@ -119,13 +182,136 @@
                     </table>
                 </details>
             </div>
-            <div class="row">
-                <div class="column left">
-                    <h2>Text and Speech control</h2>
+            <h3>Keyboard, screen reader, touch, and mouse-drag</h3>
+            <details>
+                <summary>Show section</summary>
+                <div>
+                    <details>
+                        <summary>View keyboard and desktop screen reader controls:</summary>
+                        <table class="table" data-header="header">
+                            <thead class="thead">
+                                <tr class="t-row">
+                                    <th class="t-column" scope="col">Command</th>
+                                    <th class="t-column" scope="col">Expected input</th>
+                                </tr>
+                            </thead>
+                            <tbody class="tbody">
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Enter</th>
+                                    <td class="cell">Click the "Enter navigation area" button.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Exit</th>
+                                    <td class="cell"><kbd>ESC</kbd> key.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Right</th>
+                                    <td class="cell"><kbd>→</kbd> (right arrow key).</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Left</th>
+                                    <td class="cell"><kbd>←</kbd> (left arrow key).</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Up</th>
+                                    <td class="cell"><kbd>↑</kbd> (up arrow key).</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Down</th>
+                                    <td class="cell"><kbd>↓</kbd> (down arrow key).</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Child</th>
+                                    <td class="cell"><kbd>ENTER</kbd> key.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Parent</th>
+                                    <td class="cell"><kbd>BACKSPACE</kbd> key.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Legend</th>
+                                    <td class="cell"><kbd>L</kbd> key.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Previous/Undo</th>
+                                    <td class="cell"><kbd>.</kbd> (period) key.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </details>
+                </div>
+                <div>
+                    <details>
+                        <summary>View mobile screen reader, touch, and mouse-drag controls:</summary>
+                        <table class="table" data-header="header">
+                            <thead class="thead">
+                                <tr class="t-row">
+                                    <th class="t-column" scope="col">Command</th>
+                                    <th class="t-column" scope="col">Expected input</th>
+                                </tr>
+                            </thead>
+                            <tbody class="tbody">
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Enter</th>
+                                    <td class="cell">
+                                        Long press and release on the chart area or click the "Enter navigation area"
+                                        button.
+                                    </td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Exit</th>
+                                    <td class="cell">
+                                        Long press and release on the chart area (if you have entered already).
+                                    </td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Right</th>
+                                    <td class="cell">&rarr; Press and swipe right.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Left</th>
+                                    <td class="cell">&larr; Press and swipe left.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Up</th>
+                                    <td class="cell">&uarr; Press and swipe left.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Down</th>
+                                    <td class="cell">&darr; Press and swipe left.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Child</th>
+                                    <td class="cell">&searr; Press and swipe down and to the right.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Parent</th>
+                                    <td class="cell">&nwarr; Press and swipe up and to the left.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Legend</th>
+                                    <td class="cell">&nearr; Press and swipe up and to the right.</td>
+                                </tr>
+                                <tr class="t-row">
+                                    <th scope="row" class="cell">Previous/Undo</th>
+                                    <td class="cell">&swarr; Press and swipe up and to the right.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </details>
+                </div>
+            </details>
+            <h3>Text and speech</h3>
+            <details>
+                <summary>Show section</summary>
+                <div>
                     <div>
                         <details>
                             <summary>View text and speech controls:</summary>
-                            <p>All of the commands from the previous section (Overall Commands) can simply be typed into the text input or spoken using the button. For example:</p>
+                            <p>
+                                All of the commands from the previous section (Overall Commands) can simply be typed
+                                into the text input or spoken using the button. For example:
+                            </p>
                             <table class="table" data-header="header">
                                 <thead class="thead">
                                     <tr class="t-row">
@@ -142,25 +328,46 @@
                             </table>
                         </details>
                     </div>
-                    <p>
-                        Issue a text command:
-                        <span
-                            ><form id="form">
-                                <input type="text" id="textCommand" /><input id="submit" type="submit" /></form
-                        ></span>
-                    </p>
-                    <p>Press the following button and then speak a single-word command.</p>
-                    <button id="enableSpeech">Issue voice command</button>
-                    <p class="alert" id="alert"></p>
+                    <div class="row">
+                        <div class="column left">
+                            <p>
+                                Issue a text command:
+                                <span
+                                    ><form id="form">
+                                        <input type="text" id="textCommand" /><input id="submit" type="submit" /></form
+                                ></span>
+                            </p>
+                        </div>
+                        <div class="column right limited">
+                            <p>Speak a single-word command:</p>
+                            <button id="enableSpeech">Issue voice command</button>
+                            <p class="alert" id="alert"></p>
+                        </div>
+                    </div>
                 </div>
-                <div class="column right limited">
-                    <h2>Gesture control</h2>
-                    <p>The gesture control model is heavy, so we only load it if you want to try it. Click "Load Gesture Model" to load it and then activate the model with "Open Webcam" (it will need access to your camera).</p>
+            </details>
+            <h3>Gesture</h3>
+            <details>
+                <summary>Show section</summary>
+
+                <div>
+                    <p>
+                        The gesture control model is heavy, so we only load it if you want to try it. Click "Load
+                        Gesture Model" to load it and then activate the model with "Open Webcam" (it will need access to
+                        your camera).
+                    </p>
                     <div>
                         <details>
                             <summary>View gesture controls:</summary>
-                            <p>Close your hand to set the gesture center (marked by an &#128074 emoji on the camera space). When ready, you can open your hand or point in a direction to move. Close your hand again to set the gesture center for a new gesture (and repeat).</p>
-                            <p>The model is slow and isn't very smart, so you will need to exaggerate your movement distances and hold your gesture for about a second. It fails often (apologies).</p>
+                            <p>
+                                Close your hand to set the gesture center (marked by an &#128074; emoji on the camera
+                                space). When ready, you can open your hand or point in a direction to move. Close your
+                                hand again to set the gesture center for a new gesture (and repeat).
+                            </p>
+                            <p>
+                                The model is slow and isn't very smart, so you will need to exaggerate your movement
+                                distances and hold your gesture for about a second. It fails often (apologies).
+                            </p>
                             <table class="table" data-header="header">
                                 <thead class="thead">
                                     <tr class="t-row">
@@ -171,43 +378,53 @@
                                 <tbody class="tbody">
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Enter</th>
-                                        <td class="cell">&#128400 Open your hand, facing the camera.</td>
+                                        <td class="cell">&#128400; Open your hand, facing the camera.</td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Exit</th>
-                                        <td class="cell">&#128400 Open your hand, facing the camera (once already entered).</td>
+                                        <td class="cell">
+                                            &#128400; Open your hand, facing the camera (once already entered).
+                                        </td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Right</th>
-                                        <td class="cell">&#128073 Point right of your gesture center.</td>
+                                        <td class="cell">&#128073; Point right of your gesture center.</td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Left</th>
-                                        <td class="cell">&#128072 Point left of your gesture center.</td>
+                                        <td class="cell">&#128072; Point left of your gesture center.</td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Up</th>
-                                        <td class="cell">&#9757 Point above your gesture center.</td>
+                                        <td class="cell">&#9757; Point above your gesture center.</td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Down</th>
-                                        <td class="cell">&#128071 Point below your gesture center.</td>
+                                        <td class="cell">&#128071; Point below your gesture center.</td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Child</th>
-                                        <td class="cell">&#128071 &#128073 Point below and to the right of your gesture center.</td>
+                                        <td class="cell">
+                                            &#128071; &#128073; Point below and to the right of your gesture center.
+                                        </td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Parent</th>
-                                        <td class="cell">&#9757 &#128072 Point above and to the left of your gesture center.</td>
+                                        <td class="cell">
+                                            &#9757; &#128072; Point above and to the left of your gesture center.
+                                        </td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Legend</th>
-                                        <td class="cell">&#9757 &#128073 Point above and to the right of your gesture center.</td>
+                                        <td class="cell">
+                                            &#9757; &#128073; Point above and to the right of your gesture center.
+                                        </td>
                                     </tr>
                                     <tr class="t-row">
                                         <th scope="row" class="cell">Previous/Undo</th>
-                                        <td class="cell">&#128071 &#128072 Point below and to the left of your gesture center.</td>
+                                        <td class="cell">
+                                            &#128071; &#128072; Point below and to the left of your gesture center.
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -226,121 +443,10 @@
                     <div class="video-wrapper">
                         <video class="videobox canvasbox" autoplay="autoplay" id="feed"></video>
                         <canvas id="canvas" class="border canvasbox hidden"></canvas>
-                        <div id="fist">&#128074</div>
+                        <div id="fist">&#128074;</div>
                     </div>
                 </div>
-            </div>
-            <h2>Keyboard, screen reader, touch, and mouse-drag control</h2>
-            <div>
-                <details>
-                    <summary>View keyboard and desktop screen reader controls:</summary>
-                    <table class="table" data-header="header">
-                        <thead class="thead">
-                            <tr class="t-row">
-                                <th class="t-column" scope="col">Command</th>
-                                <th class="t-column" scope="col">Expected input</th>
-                            </tr>
-                        </thead>
-                        <tbody class="tbody">
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Enter</th>
-                                <td class="cell">Click the "Enter navigation area" button.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Exit</th>
-                                <td class="cell"><kbd>ESC</kbd> key.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Right</th>
-                                <td class="cell"><kbd>→</kbd> (right arrow key).</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Left</th>
-                                <td class="cell"><kbd>←</kbd> (left arrow key).</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Up</th>
-                                <td class="cell"><kbd>↑</kbd> (up arrow key).</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Down</th>
-                                <td class="cell"><kbd>↓</kbd> (down arrow key).</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Child</th>
-                                <td class="cell"><kbd>ENTER</kbd> key.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Parent</th>
-                                <td class="cell"><kbd>BACKSPACE</kbd> key.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Legend</th>
-                                <td class="cell"><kbd>L</kbd> key.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Previous/Undo</th>
-                                <td class="cell"><kbd>.</kbd> (period) key.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </details>
-            </div>
-            <div>
-                <details>
-                    <summary>View mobile screen reader, touch, and mouse-drag controls:</summary>
-                    <table class="table" data-header="header">
-                        <thead class="thead">
-                            <tr class="t-row">
-                                <th class="t-column" scope="col">Command</th>
-                                <th class="t-column" scope="col">Expected input</th>
-                            </tr>
-                        </thead>
-                        <tbody class="tbody">
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Enter</th>
-                                <td class="cell">Press and hold on the chart area or click the "Enter navigation area" button.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Exit</th>
-                                <td class="cell">Press and hold on the chart area (if you have entered already).</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Right</th>
-                                <td class="cell">&rarr; Press and swipe right.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Left</th>
-                                <td class="cell">&larr; Press and swipe left.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Up</th>
-                                <td class="cell">&uarr; Press and swipe left.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Down</th>
-                                <td class="cell">&darr; Press and swipe left.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Child</th>
-                                <td class="cell">&searr; Press and swipe down and to the right.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Parent</th>
-                                <td class="cell">&nwarr; Press and swipe up and to the left.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Legend</th>
-                                <td class="cell">&nearr; Press and swipe up and to the right.</td>
-                            </tr>
-                            <tr class="t-row">
-                                <th scope="row" class="cell">Previous/Undo</th>
-                                <td class="cell">&swarr; Press and swipe up and to the right.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </details>
-            </div>
+            </details>
             <br />
             <div class="wrapper">
                 <div id="root" class="wrapper">
@@ -350,13 +456,100 @@
                         alt="Major trophies for some English teams. Stacked bar chart."
                     />
                 </div>
-                <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false">
-                </div>
+                <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
             </div>
+
+            <h2>Advantages of Data Navigator</h2>
+            <p>
+                Data Navigator uses a graph-based infrastructure, comprised of nodes and edges. This allows us to do two
+                really interesting things: create almost any other possible structure (list, hierarchy, spatial,
+                network, etc) and prioritize direct relationships among data points. This underlying infrastructure is
+                different from HTML's, which prioritizes hierarchies and not direct relationships.
+            </p>
+            <p>
+                It might seem like anarchy to design a low-level building block like this, but this is actually
+                philosophically more empowering: designers and developers can add the structure and order that make the
+                most sense for what they are doing, rather than try to make everything fit into a hierarchy.
+            </p>
+            <p>
+                Data Navigator allows designers and developers to express both rich and unique structures in ways that
+                can handle making an entire library of charts more accessible or even take on unaddressed or bespoke
+                visualizations.
+            </p>
+            <p>
+                And navigation of a structure can also be built to fit: Data Navigator abstracts navigation rules into
+                namespaces, like "commands." Commands can be entirely customized to suit the needs of the structure they
+                support. The advantage of this abstraction is that Data Navigator can be made to work with nearly any
+                input modality as long as input is validated and converted into an existing command.
+            </p>
+            <p>
+                And lastly, Data Navigator can create an accessible rendering layer (using semantic HTML) on top of any
+                existing visuals (or no visuals at all). This approach lets designers and developers fully control how
+                navigation looks and feels for both screen readers and other input modalities without relying on
+                whatever was used to render the original visualization (SVG, png, canvas, etc). This means that
+                interactive elements in a visualization can be real "button" elements and not an SVG rectangle made from
+                scratch to emulate a button.
+            </p>
         </main>
-        <footer></footer>
+        <footer>
+            <h3>
+                Cite our paper
+                <button id="bib-copy" class="bib" href="#" title="Copy to clipboard" aria-label="Copy to clipboard">
+                    <span class="far fa-copy">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                            <!--! Font Awesome Pro 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. -->
+                            <path
+                                d="M208 0H332.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128h80v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z"
+                            />
+                        </svg>
+                    </span>
+                </button>
+                <span aria-live="polite" id="copy-announcer"></span>
+                <!-- <a id="bib-download" class="bib" href="data:text/plain;charset=utf-8,%40article%7B2023-elavsky-data-navigator%2C%0A%20%20title%20%3D%20%7B%7BRich%20Screen%20Reader%20Experiences%20for%20Accessible%20Data%20Visualization%7D%7D%2C%0A%20%20author%20%3D%20%7BJonathan%20Zong%20AND%20Crystal%20Lee%20AND%20Alan%20Lundgard%20AND%20JiWoong%20Jang%20AND%20Daniel%20Hajas%20AND%20Arvind%20Satyanarayan%7D%2C%0A%20%20journal%20%3D%20%7BComputer%20Graphics%20Forum%20(Proc.%20EuroVis)%7D%2C%0A%20%20year%20%3D%20%7B2022%7D%2C%0A%20%20doi%20%3D%20%7B10.1111%2Fcgf.14519%7D%2C%0A%20%20url%20%3D%20%7Bhttp%3A%2F%2Fvis.csail.mit.edu%2Fpubs%2Frich-screen-reader-vis-experiences%7D%0A%7D" title="Download Bibtex" download="rich-screen-reader-vis-experiences.bib"><i class="far fa-arrow-alt-circle-down" aria-hidden="true"></i></a> -->
+            </h3>
+            <pre focusable="true" tabindex="0"><code id="bibtex">
+@article{2023-elavsky-data-navigator,
+    title = {{Data Navigator}: An Accessibility-Centered Data Navigation Toolkit},
+    publisher = {{IEEE}},
+    author = {Frank Elavsky and Lucas Nadolskis and Dominik Moritz},
+    journal = {{IEEE} Transactions on Visualization and Computer Graphics},
+    year = {2023},
+    url = {http://dig.cmu.edu/data-navigator/}
+}
+            </code></pre>
+            <br />
+            <p>
+                See a bug in this demo?
+                <a href="https://github.com/cmudig/data-navigator/issues">Give us feedback on GitHub!</a>
+            </p>
+        </footer>
         <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/handtrackjs@latest/dist/handtrack.min.js"></script>
         <script src="app/static-bundle.js"></script>
+        <script>
+            // taken from the wonderful folks at MIT Vis Lab
+            // https://vis.csail.mit.edu/pubs/rich-screen-reader-vis-experiences/
+            document.addEventListener('DOMContentLoaded', function () {
+                document.getElementById('bib-copy').addEventListener('click', function (evt) {
+                    const announce = document.getElementById('copy-announcer');
+                    const setText = txt => () => {
+                        announce.innerText = txt;
+                        window.setTimeout(() => (announce.innerText = ''), 1500);
+                    };
+                    console.log(bibtex);
+                    navigator.permissions
+                        .query({
+                            name: 'clipboard-write'
+                        })
+                        .then(result => {
+                            if (result.state == 'granted' || result.state == 'prompt') {
+                                navigator.clipboard
+                                    .writeText(bibtex.innerText)
+                                    .then(setText(' Copied!'), setText(' Failed.'));
+                            }
+                        });
+                });
+            });
+        </script>
     </body>
 </html>

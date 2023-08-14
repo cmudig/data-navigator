@@ -7,15 +7,12 @@ const hideTooltip = () => {
 };
 
 const showTooltip = e => {
-    // console.log('showing tooltip', e);
     const tooltip = document.getElementById('tooltip');
     tooltip.classList.remove('hidden');
     tooltip.innerText = e.semantics.label;
-    // const xCenter = e.x + e.width/2
     const bbox = tooltip.getBoundingClientRect();
     const offset = 5 * scale;
     const yOffset = bbox.height + offset;
-    // console.log(e.d.team);
     if (!(e.d.team === 'Manchester United' || e.d.team === 'Liverpool' || (!e.d.team && e.d.contest === 'BPL'))) {
         tooltip.style.textAlign = 'left';
         tooltip.style.transform = `translate(${e.dimensions.x * scale - offset + 1}px,${
@@ -23,9 +20,6 @@ const showTooltip = e => {
         }px)`;
     } else {
         tooltip.style.textAlign = 'right';
-        // console.log(e.x);
-        // console.log(e.width);
-        // console.log(e.x + e.width);
         const xOffset = bbox.width;
         tooltip.style.transform = `translate(${
             (e.dimensions.x + e.dimensions.width) * scale + offset - xOffset + 1
@@ -604,10 +598,7 @@ let edges = {
     'any-exit': {
         source: () => current,
         target: () => {
-            // console.log("exiting!")
             exit();
-            hideTooltip();
-            // entered = false;
             return '';
         },
         navigationRules: ['exit']
@@ -615,9 +606,7 @@ let edges = {
     'x_axis-exit': {
         source: 'x_axis',
         target: () => {
-            // console.log('exiting!')
             exit();
-            hideTooltip();
             return '';
         },
         navigationRules: ['down']
@@ -966,34 +955,20 @@ const input = dataNavigator.input({
     exitPoint: rendering.exitElement.id
 });
 
-// window.dn = {
-//     structure,
-//     input,
-//     rendering
-// };
-
 const initiateLifecycle = nextNode => {
-    // console.log("moving to",nextNode)
     const node = rendering.render({
         renderId: nextNode.renderId,
         datum: nextNode
     });
     node.addEventListener('keydown', e => {
-        // myFunction(e) // could run whatever here, of course
         const direction = input.keydownValidator(e);
         if (direction) {
             e.preventDefault();
             move(direction);
         }
     });
-    node.addEventListener('blur', e => {
-        entered = false;
-        // previous = current;
-        // current = null;
-        // rendering.remove(previous);
-    });
     showTooltip(nextNode);
-    input.focus(nextNode.renderId); // actually focuses the element
+    input.focus(nextNode.renderId);
     entered = true;
     previous = current;
     current = nextNode.id;
@@ -1003,13 +978,12 @@ const initiateLifecycle = nextNode => {
 const enter = () => {
     const nextNode = input.enter();
     if (nextNode) {
-        entered = true;
         initiateLifecycle(nextNode);
     }
 };
 
 const move = direction => {
-    const nextNode = input.move(current, direction); // .moveTo does the same thing but only uses NodeId
+    const nextNode = input.move(current, direction);
     if (nextNode) {
         initiateLifecycle(nextNode);
     }
@@ -1018,15 +992,15 @@ const move = direction => {
 const exit = () => {
     entered = false;
     rendering.exitElement.style.display = 'block';
-    input.focus(rendering.exitElement.id); // actually focuses the element
+    input.focus(rendering.exitElement.id);
     previous = current;
     current = null;
     rendering.remove(previous);
+    hideTooltip();
 };
 
 const handleMovement = ev => {
     const larger = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? 'X' : 'Y';
-    // const smaller = ev.deltaX <= ev.deltaY ? ev.deltaX : ev.deltaY
     const ratio =
         (Math.abs(ev['delta' + larger]) + 0.000000001) /
         (Math.abs(ev['delta' + (larger === 'X' ? 'Y' : 'X')]) + 0.000000001);
@@ -1064,11 +1038,8 @@ touchHandler.get('rotate').set({ enable: false });
 touchHandler.get('pan').set({ enable: false });
 touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 });
 
-touchHandler.on('press', ev => {
-    // enter()
-});
+touchHandler.on('press', ev => {});
 touchHandler.on('pressup', ev => {
-    // entered = true;
     if (entered) {
         exit();
     } else {
@@ -1106,16 +1077,12 @@ const openCam = () => {
     document.getElementById('closeWebcam').disabled = false;
     document.getElementById('ready').innerText = 'No. Loading video feed...';
     handTrack.startVideo(video).then(status => {
-        // console.log('video started', status);
         document.getElementById('ready').innerText = 'Feed ready. Close your hand to prepare for gesture commands.';
         if (status) {
-            //   updateNote.innerText = "Video started. Now tracking";
             isVideo = true;
             document.getElementById('status').classList.remove('hidden');
             document.getElementById('canvas').classList.remove('hidden');
             runDetection();
-        } else {
-            //   updateNote.innerText = "Please enable video";
         }
     });
 };
@@ -1129,7 +1096,6 @@ const runDetection = () => {
                     frames.push(pred);
                 } else if (!ready && pred.label === 'closed' && pred.score >= 0.6) {
                     frames.push(pred);
-                    // console.log("closed...")
                 }
             });
             // check when frames >= 30
@@ -1151,7 +1117,6 @@ const runDetection = () => {
                         total[3] / frames.length
                     ]);
                 } else {
-                    // console.log("attempting command...")
                     // find dominant score, find average center, attempt command
                     let totals = {};
                     frames.forEach(frame => {
@@ -1224,7 +1189,6 @@ const setNotReady = () => {
 const attemptCommand = pred => {
     if (ready) {
         if (pred.label === 'point') {
-            // console.log('POINT');
             const ev = {
                 deltaX: ready[2] - ready[0] - (pred.bbox[2] - pred.bbox[0]),
                 deltaY: ready[3] - ready[1] - (pred.bbox[3] - pred.bbox[1])
@@ -1232,14 +1196,9 @@ const attemptCommand = pred => {
             handleMovement(ev);
         }
         if (pred.label === 'open' && !entered) {
-            // console.log('GOIN IN!');
-            // entered = true;
             enter();
         } else if (pred.label === 'open' && entered) {
             exit();
-            // if (current) {
-            //     move('child');
-            // }
         }
         setNotReady();
     }
@@ -1252,7 +1211,6 @@ const loadModel = () => {
     handTrack.load(modelParams).then(lmodel => {
         // detect objects in the image.
         model = lmodel;
-        // console.log(model);
         document.getElementById('openWebcam').disabled = false;
         document.getElementById('ready').innerText = 'No. Model loaded but webcam feed required.';
     });
@@ -1263,7 +1221,6 @@ document.getElementById('openWebcam').addEventListener('click', openCam);
 document.getElementById('closeWebcam').addEventListener('click', closeCam);
 
 const attemptSubmission = e => {
-    // console.log('form submission!');
     const command = document.getElementById('textCommand').value.toLowerCase();
     commandHandler(command);
     e.preventDefault();
@@ -1279,7 +1236,6 @@ const commandHandler = command => {
     } else if (command === 'exit' && entered) {
         validCommand(command);
         exit();
-        hideTooltip();
     } else {
         invalidCommand(command);
     }
@@ -1336,8 +1292,6 @@ document.getElementById('enableSpeech').addEventListener('click', enableSpeech);
 
 recognition.onresult = event => {
     const command = event.results[0][0].transcript;
-    // console.log('Result: ' + command);
-    // console.log('Confidence: ' + event.results[0][0].confidence);
     if (+event.results[0][0].confidence >= 0.65) {
         commandHandler(command);
     } else {
@@ -1349,16 +1303,7 @@ recognition.onspeechend = function () {
     recognition.stop();
 };
 
-recognition.onnomatch = function (event) {
-    // console.log("I didn't recognise that color.");
-};
-
-recognition.onerror = function (event) {
-    // console.log('Error occurred in recognition: ' + event.error);
-};
-
 const setGeometryData = () => {
-    // Haven't resized in 100ms!
     const currentWidth = +document.getElementById('chart').getBoundingClientRect().width;
     scale = currentWidth / 1200;
     const xAdjust = (1200 - currentWidth) / 2;
