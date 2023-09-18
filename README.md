@@ -4,16 +4,7 @@
 
 Data Navigator is a JavaScript library that allows for navigation of data structures. Data Navigator makes png, svg, canvas, and even webgl graphics accessible to a wide array of assistive technologies and input modalities.
 
-<div style="position:relative; overflow: hidden; width: 100%; padding-top: 56.25%;">
-  <iframe
-      style="position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%;"
-      src="https://www.youtube-nocookie.com/embed/-vl982QjVQ0?si=MXAb-VPHpAaLeVw6&cc_lang_pref=en&cc_load_policy=1"
-      title="YouTube video player"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen
-  ></iframe>
-</div>
+Check out [our online, interactive demo](http://dig.cmu.edu/data-navigator/) for a video introduction and to try out Data Navigator hands-on.
 
 ## Data Navigator's approach
 
