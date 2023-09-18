@@ -56,6 +56,22 @@
             img {
                 pointer-events: none;
             }
+            .container {
+                position: relative;
+                overflow: hidden;
+                width: 100%;
+                padding-top: 56.25%;
+            }
+
+            .responsive-iframe {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                height: 100%;
+            }
         </style>
     </head>
     <body>
@@ -67,6 +83,10 @@
                 src="https://raw.githubusercontent.com/cmudig/data-navigator/main/assets/data_navigator.png"
                 alt="Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering."
             />
+            <p>
+                This page is a live, interactive application that demos some of the coolest capabilities of our system,
+                Data Navigator.
+            </p>
         </header>
         <main id="main">
             <h2>What is Data Navigator?</h2>
@@ -74,22 +94,44 @@
                 Data Navigator enables designers and developers to render a semantic, navigable structure on top of any
                 graphic. This structure can be used by a massive variety of different input modalities.
             </p>
+            <p>If you want to learn more or get started, you can</p>
+            <ul>
+                <li>
+                    Read our accessible
+                    <a href="https://www.frank.computer/data-navigator/">HTML paper on Data Navigator</a>
+                </li>
+                <li>
+                    Check out the code repo for
+                    <a href="https://github.com/cmudig/data-navigator">Data Navigator on GitHub</a>
+                </li>
+                <li>
+                    Go and
+                    <a href="https://www.npmjs.com/package/data-navigator?activeTab=readme"
+                        >install Data Navigator from NPM</a
+                    >
+                </li>
+            </ul>
+
             <p>
-                If you want to learn more or get started, you can check out the
-                <a href="https://github.com/cmudig/data-navigator">repo for Data Navigator</a>,
-                <a href="https://www.npmjs.com/package/data-navigator?activeTab=readme"
-                    >install Data Navigator from NPM</a
-                >, or examine the specific
-                <a href="https://github.com/cmudig/data-navigator/blob/main/examples/static-app.js"
-                    >code for this demo</a
-                >
-                on GitHub.
+                Below is an introductory video, explaining a basic overview of what Data Navigator does, why we made it,
+                and what we hope our system is used for:
             </p>
-            <h2>Summary of our demo:</h2>
+            <div class="container">
+                <iframe
+                    class="responsive-iframe"
+                    src="https://www.youtube-nocookie.com/embed/-vl982QjVQ0?si=MXAb-VPHpAaLeVw6&cc_lang_pref=en&cc_load_policy=1"
+                    title="YouTube video player"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                ></iframe>
+            </div>
+            <h2>Demo</h2>
             <p>
                 In this demo, you can use a bunch of different input modalities to navigate the data structure of a png
                 image of a chart.
             </p>
+            <p>The core 3 subsystems within Data Navigator are Structure, Input, and Rendering:</p>
             <ul>
                 <li>The structure is bespoke but mostly follows common patterns.</li>
                 <li>You can use a lot of different inputs!</li>
@@ -98,32 +140,11 @@
                     with custom visuals.
                 </li>
             </ul>
-            <h2>Why make Data Navigator?</h2>
-            <p>
-                Modern data visualization accessibility faces 3 challenges in design and development that we wanted to
-                help practitioners and researchers tackle:
-            </p>
-            <ol>
-                <li>
-                    Navigable structure is hard to build for data visualizations. Structure is important for
-                    understanding and usability but is often ignored.
-                </li>
-                <li>
-                    Only mouse input is treated well (with sporadic support for touch or screen reader input). Many
-                    other input modalities are unaddressed!
-                </li>
-                <li>
-                    Visualizations are often rendered as semantic-less SVG or raster (pngs, canvas, etc). If semantics
-                    are added at all they end up using low-level SVG, which is often not appropriate. Semantics help
-                    understanding and add functional interactivity.
-                </li>
-            </ol>
-            <h2>Demo</h2>
             <h3>Overall instructions and commands</h3>
             <p>You will need to "enter" Data Navigator's structure before you can begin navigating.</p>
             <p>
-                The details of every command are outlined below, however note that each input modality specifies these
-                commands in different ways (see each section for more details):
+                The details of every input command are outlined below, however note that each input modality specifies
+                these commands in different ways (see each section for more details):
             </p>
             <div>
                 <details>
@@ -459,6 +480,26 @@
                 <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
             </div>
 
+            <h2>Why make Data Navigator?</h2>
+            <p>
+                Modern data visualization accessibility faces 3 challenges in design and development that we wanted to
+                help practitioners and researchers tackle:
+            </p>
+            <ol>
+                <li>
+                    Navigable structure is hard to build for data visualizations. Structure is important for
+                    understanding and usability but is often ignored.
+                </li>
+                <li>
+                    Only mouse input is treated well (with sporadic support for touch or screen reader input). Many
+                    other input modalities are unaddressed!
+                </li>
+                <li>
+                    Visualizations are often rendered as semantic-less SVG or raster (pngs, canvas, etc). If semantics
+                    are added at all they end up using low-level SVG, which is often not appropriate. Semantics help
+                    understanding and add functional interactivity.
+                </li>
+            </ol>
             <h2>Advantages of Data Navigator</h2>
             <p>
                 Data Navigator uses a graph-based infrastructure, comprised of nodes and edges. This allows us to do two

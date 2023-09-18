@@ -1,8 +1,21 @@
-# Data-Navigator
+# Data Navigator
 
 ![Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering.](https://raw.githubusercontent.com/cmudig/data-navigator/main/assets/data_navigator.png)
 
 Data Navigator is a JavaScript library that allows for navigation of data structures. Data Navigator makes png, svg, canvas, and even webgl graphics accessible to a wide array of assistive technologies and input modalities.
+
+<div style="position:relative; overflow: hidden; width: 100%; padding-top: 56.25%;">
+  <iframe
+      style="position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%;"
+      src="https://www.youtube-nocookie.com/embed/-vl982QjVQ0?si=MXAb-VPHpAaLeVw6&cc_lang_pref=en&cc_load_policy=1"
+      title="YouTube video player"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen
+  ></iframe>
+</div>
+
+## Data Navigator's approach
 
 Data Navigator has abstracted navigation into commands, which enables it to easily receive input from screen readers and keyboards to more interesting modalities like touch and mouse swiping, spoken commands, hand gestures, and even fabricated or totally novel interfaces, like bananas.
 
@@ -22,7 +35,7 @@ Visit [our landing page](http://dig.cmu.edu/data-navigator/) to try our demo, wh
 
 We also have [a vega-lite demo online](https://dig.cmu.edu/data-navigator/vega-lite.html), which (under the hood) shows how someone could write one schema that serves any chart in an ecosystem.
 
-## Approach
+## System design
 
 Data Navigator is organized into 3 separately composable modules: the first is a graph-based _structure_ of nodes and edges, the second handles _input_ and navigation logic, and the third _renders_ the structure. These may be leveraged together or independently. Read our paper to learn more!
 
@@ -53,7 +66,7 @@ console.log(dataNavigator);
 
 Data-Navigator was developed at CMU's [Data Interaction Group](https://dig.cmu.edu/) (CMU DIG), primarily by [Frank Elavsky](https://frank.computer).
 
-## Citing Data-Navigator
+## Citing Data Navigator
 
 ```bib
 @article{2023-data-navigator,
