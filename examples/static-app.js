@@ -1325,7 +1325,7 @@ const setGeometryData = () => {
 let resizeTimer;
 window.onresize = () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(setGeometryData, 150);
+    resizeTimer = setTimeout(setGeometryData, 50);
 };
 
 setGeometryData();
