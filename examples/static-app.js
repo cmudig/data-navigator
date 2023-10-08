@@ -1268,11 +1268,9 @@ const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpe
 
 if (!SpeechRecognition) {
     document.getElementById('enableSpeech').setAttribute('disabled', true);
-    document
-        .getElementById('alert')
-        .innerText(
-            `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`
-        );
+    document.getElementById(
+        'alert'
+    ).innerText = `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`;
 } else {
     const commands = Object.keys(navigationRules);
     commands.push('enter');
