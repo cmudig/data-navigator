@@ -179,8 +179,8 @@ export default (options: RenderingOptions) => {
             svg.setAttribute('width', totalWidth + '');
             svg.setAttribute('height', totalHeight + '');
             svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
-            svg.style.left = -x + '';
-            svg.style.top = -y + '';
+            svg.style.left = -x + 'px';
+            svg.style.top = -y + 'px';
             svg.classList.add('dn-node-svg');
             svg.setAttribute('role', 'presentation');
             svg.setAttribute('focusable', 'false');
