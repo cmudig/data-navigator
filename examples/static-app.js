@@ -1266,42 +1266,51 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
 const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpeechRecognitionEvent;
 
-const commands = Object.keys(navigationRules);
-commands.push('enter');
-const commandsList = commands.join(', ');
+if (!SpeechRecognition) {
+    document.getElementById('enableSpeech').setAttribute('disabled', true);
+    document
+        .getElementById('alert')
+        .innerText(
+            `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`
+        );
+} else {
+    const commands = Object.keys(navigationRules);
+    commands.push('enter');
+    const commandsList = commands.join(', ');
 
-const recognition = new SpeechRecognition();
-if (SpeechGrammarList) {
-    const speechRecognitionList = new SpeechGrammarList();
-    const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + commands.join(' | ') + ' ;';
-    speechRecognitionList.addFromString(grammar, 1);
-    recognition.grammars = speechRecognitionList;
-}
-recognition.continuous = false;
-recognition.lang = 'en-US';
-recognition.interimResults = false;
-recognition.maxAlternatives = 1;
-
-const enableSpeech = () => {
-    recognition.start();
-    document.getElementById('alert').classList.remove('alert');
-    document.getElementById('alert').innerText = `Ready! Please speak a command.`;
-};
-
-document.getElementById('enableSpeech').addEventListener('click', enableSpeech);
-
-recognition.onresult = event => {
-    const command = event.results[0][0].transcript;
-    if (+event.results[0][0].confidence >= 0.65) {
-        commandHandler(command);
-    } else {
-        lowConfidence(command);
+    const recognition = new SpeechRecognition();
+    if (SpeechGrammarList) {
+        const speechRecognitionList = new SpeechGrammarList();
+        const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + commands.join(' | ') + ' ;';
+        speechRecognitionList.addFromString(grammar, 1);
+        recognition.grammars = speechRecognitionList;
     }
-};
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-recognition.onspeechend = function () {
-    recognition.stop();
-};
+    const enableSpeech = () => {
+        recognition.start();
+        document.getElementById('alert').classList.remove('alert');
+        document.getElementById('alert').innerText = `Ready! Please speak a command.`;
+    };
+
+    document.getElementById('enableSpeech').addEventListener('click', enableSpeech);
+
+    recognition.onresult = event => {
+        const command = event.results[0][0].transcript;
+        if (+event.results[0][0].confidence >= 0.65) {
+            commandHandler(command);
+        } else {
+            lowConfidence(command);
+        }
+    };
+
+    recognition.onspeechend = function () {
+        recognition.stop();
+    };
+}
 
 const setGeometryData = () => {
     const currentWidth = +document.getElementById('chart').getBoundingClientRect().width;
