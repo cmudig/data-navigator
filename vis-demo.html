@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Data Navigator IEEE VIS Lemonstration</title>
+
+        <meta http-equiv="x-ua-compatible" content="ie=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Data Navigator demo" />
+        <meta name="theme-color" content="#21224A" />
+        <meta
+            property="og:image"
+            content="https://repository-images.githubusercontent.com/479978023/fa696c16-4c68-418b-9f28-fa256fff7a47"
+        />
+        <meta property="og:title" content="Data Navigator demo" />
+        <meta property="og:locale" content="en_US" />
+        <meta
+            name="description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <meta
+            property="og:description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <link rel="canonical" href="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:url" content="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:site_name" content="Data Navigator demo" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta property="twitter:title" content="Data Navigator demo" />
+        <meta name="twitter:site" content="@frankElavsky" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "description": "A JavaScript library that allows for accessible navigation of data structures.",
+                "headline": "Data Navigator demo",
+                "name": "Data Navigator demo",
+                "url": "https://dig.cmu.edu/data-navigator/"
+            }
+        </script>
+        <link href="./examples/style.css" rel="stylesheet" />
+        <style>
+            /* .dn-node {
+                background: #000;
+            } */
+            .dn-test-path {
+                margin: -2px;
+            }
+
+            .dn-test-path:focus {
+                border: 2px solid transparent;
+                outline: transparent solid 2px;
+                /* outline-offset: 1px; */
+            }
+            img {
+                pointer-events: none;
+            }
+            .container {
+                position: relative;
+                overflow: hidden;
+                width: 100%;
+                padding-top: 56.25%;
+            }
+
+            .responsive-iframe {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                height: 100%;
+            }
+            .row {
+                display: flex;
+            }
+
+            .column {
+                flex: 50%;
+                padding: 0vw 3vw;
+            }
+
+            .left {
+                flex: 30%;
+            }
+            body {
+                max-width: 70%;
+                padding-top:10px;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>Data Navigator IEEE VIS "Lemonstration" &#127819;</h1>
+            <br />
+        </header>
+        <main id="main">
+            <div class="row">
+                <div class="column left">
+                <p>
+                    Data Navigator is a project that allows all kinds of assistive technologies and input modalities to navigate data structures, even novel, fabricated fruit-based interfaces!
+                </p>
+                <h2>Instructions</h2>
+                <table class="table" data-header="header">
+                    <thead class="thead">
+                        <tr class="t-row">
+                            <th class="t-column" scope="col">Fruit</th>
+                            <th class="t-column" scope="col">Expected input</th>
+                        </tr>
+                    </thead>
+                    <tbody class="tbody">
+                        <tr class="t-row">
+                            <th scope="row" class="cell">L lemon</th>
+                            <td class="cell">Move left</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">R lemon</th>
+                            <td class="cell">Move right</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">U lemon</th>
+                            <td class="cell">Move up</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">D lemon</th>
+                            <td class="cell">Move down</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Lime</th>
+                            <td class="cell">Drill down (to children)</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Mandarin</th>
+                            <td class="cell">Drill up (towards x-axis)</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Apple</th>
+                            <td class="cell">Drill up (towards legend)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="row">
+            
+            <div class="wrapper">
+                <div id="root" class="wrapper">
+                    <img
+                        id="chart"
+                        src="./assets/static.png"
+                        alt="Major trophies for some English teams. Stacked bar chart."
+                    />
+                </div>
+                <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
+            </div>
+
+        </main>
+        <footer>
+            <h3>Check out our paper talk on Data Navigator this Thursday in 105</h3>
+            <p>(And read our paper to learn more!)</p>
+            <pre focusable="true" tabindex="0"><code id="bibtex">
+@article{2023-elavsky-data-navigator,
+    title = {{Data Navigator}: An Accessibility-Centered Data Navigation Toolkit},
+    publisher = {{IEEE}},
+    author = {Frank Elavsky and Lucas Nadolskis and Dominik Moritz},
+    journal = {{IEEE} Transactions on Visualization and Computer Graphics},
+    year = {2023},
+    url = {http://dig.cmu.edu/data-navigator/}
+}
+            </code></pre>
+            <br />
+            
+        </div>
+        </div>
+        </footer>
+        <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/handtrackjs@latest/dist/handtrack.min.js"></script>
+        <script src="app/vis.js"></script>
+        <script>
+            // taken from the wonderful folks at MIT Vis Lab
+            // https://vis.csail.mit.edu/pubs/rich-screen-reader-vis-experiences/
+            document.addEventListener('DOMContentLoaded', function () {
+                document.getElementById('bib-copy').addEventListener('click', function (evt) {
+                    const announce = document.getElementById('copy-announcer');
+                    const setText = txt => () => {
+                        announce.innerText = txt;
+                        window.setTimeout(() => (announce.innerText = ''), 1500);
+                    };
+                    console.log(bibtex);
+                    navigator.permissions
+                        .query({
+                            name: 'clipboard-write'
+                        })
+                        .then(result => {
+                            if (result.state == 'granted' || result.state == 'prompt') {
+                                navigator.clipboard
+                                    .writeText(bibtex.innerText)
+                                    .then(setText(' Copied!'), setText(' Failed.'));
+                            }
+                        });
+                });
+            });
+        </script>
+    </body>
+</html>

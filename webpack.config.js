@@ -3,7 +3,8 @@ const path = require('path');
 module.exports = {
   entry: {
     'v-bundle': './examples/vega-lite-app.js',
-    'static-bundle': './examples/static-app.js'
+    'static-bundle': './examples/static-app.js',
+    'vis': './examples/vis-demo.js'
   },
   output: {
     filename: '[name].js',
