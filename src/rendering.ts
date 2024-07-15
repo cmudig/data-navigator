@@ -49,6 +49,7 @@ export default (options: RenderingOptions) => {
         // build renderer.wrapper
         renderer.wrapper = document.createElement('div');
         renderer.wrapper.id = 'dn-wrapper-' + options.suffixId;
+        renderer.setAttribute('role', 'application')
         renderer.wrapper.classList.add('dn-wrapper');
         renderer.wrapper.style.width = options.root && options.root.width ? options.root.width : '100%';
         if (options.root && options.root.height) {
