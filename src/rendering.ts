@@ -148,7 +148,7 @@ export default (options: RenderingOptions) => {
         node.style.height = height + 'px';
         node.style.left = x + 'px';
         node.style.top = y + 'px';
-        node.setAttribute('tabindex', '-1');
+        node.setAttribute('tabindex', '0');
 
         const nodeText = document.createElement(resolveProp('semantics', 'elementType'));
         const attributes = resolveProp('semantics', 'attributes');
