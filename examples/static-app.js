@@ -1,6 +1,6 @@
 import { default as dataNavigator } from '../src/index.ts';
 import { describeNode } from '../src/utilities.ts';
-
+let commandsList = '';
 let scale;
 const hideTooltip = () => {
     document.getElementById('tooltip').classList.add('hidden');
@@ -1221,9 +1221,9 @@ document.getElementById('openWebcam').addEventListener('click', openCam);
 document.getElementById('closeWebcam').addEventListener('click', closeCam);
 
 const attemptSubmission = e => {
+    e.preventDefault();
     const command = document.getElementById('textCommand').value.toLowerCase();
     commandHandler(command);
-    e.preventDefault();
 };
 
 const commandHandler = command => {
@@ -1237,7 +1237,11 @@ const commandHandler = command => {
         validCommand(command);
         exit();
     } else {
-        invalidCommand(command);
+        if (command === 'exit' || command === 'enter') {
+            invalidCommand(command, true);
+        } else {
+            invalidCommand(command);
+        }
     }
 };
 
@@ -1246,11 +1250,10 @@ const validCommand = command => {
     document.getElementById('alert').innerText = `Command valid. Attempting "${command}."`;
 };
 
-const invalidCommand = command => {
+const invalidCommand = (command, already) => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `"${command}" not recognized as a command! Possible commands are: ${commandsList}.`;
+    const alert = already ? `"${command}" already issued as a command!` : `"${command}" not recognized as a command!`;
+    document.getElementById('alert').innerText = `${alert} Try another. (Commands are: ${commandsList}.)`;
 };
 
 const lowConfidence = command => {
@@ -1274,7 +1277,7 @@ if (!SpeechRecognition) {
 } else {
     const commands = Object.keys(navigationRules);
     commands.push('enter');
-    const commandsList = commands.join(', ');
+    commandsList = commands.join(', ');
 
     const recognition = new SpeechRecognition();
     if (SpeechGrammarList) {
