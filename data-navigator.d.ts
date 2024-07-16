@@ -69,6 +69,7 @@ type RenderObject = {
 type RootObject = {
     id: string,
     cssClass?: string,
+    description?: string,
     width?: string | number,
     height?: string | number
 }

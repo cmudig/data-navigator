@@ -1,6 +1,12 @@
 import { NodeElementDefaults } from './consts';
 
 export default (options: RenderingOptions) => {
+    const setActiveDescendant = e => {
+        renderer.wrapper.setAttribute('aria-activedescendant', e.srcElement.id);
+    };
+    const removeActiveDescendant = () => {
+        renderer.wrapper.setAttribute('aria-activedescendant', '');
+    };
     let renderer = {} as any;
     let initialized = false;
     let defaults = {
@@ -49,6 +55,9 @@ export default (options: RenderingOptions) => {
         // build renderer.wrapper
         renderer.wrapper = document.createElement('div');
         renderer.wrapper.id = 'dn-wrapper-' + options.suffixId;
+        renderer.wrapper.setAttribute('role', 'application');
+        renderer.wrapper.setAttribute('aria-label', options.root.description || 'Data navigation structure');
+        renderer.wrapper.setAttribute('aria-activedescendant', '');
         renderer.wrapper.classList.add('dn-wrapper');
         renderer.wrapper.style.width = options.root && options.root.width ? options.root.width : '100%';
         if (options.root && options.root.height) {
@@ -84,7 +93,6 @@ export default (options: RenderingOptions) => {
             renderer.exitElement.setAttribute('tabindex', '-1');
             renderer.exitElement.style.display = 'none';
             renderer.exitElement.addEventListener('focus', e => {
-                // console.log("focused!",renderer.exitElement)
                 renderer.exitElement.style.display = 'block';
                 renderer.clearStructure();
                 if (options.exitElement?.callbacks?.focus) {
@@ -148,7 +156,9 @@ export default (options: RenderingOptions) => {
         node.style.height = height + 'px';
         node.style.left = x + 'px';
         node.style.top = y + 'px';
-        node.setAttribute('tabindex', '-1');
+        node.setAttribute('tabindex', '0');
+        node.addEventListener('focus', setActiveDescendant);
+        node.addEventListener('blur', removeActiveDescendant);
 
         const nodeText = document.createElement(resolveProp('semantics', 'elementType'));
         const attributes = resolveProp('semantics', 'attributes');
@@ -196,7 +206,12 @@ export default (options: RenderingOptions) => {
     };
     renderer.remove = renderId => {
         const node = document.getElementById(renderId);
+        if (renderer.wrapper.getAttribute('aria-activedescendant') === renderId) {
+            renderer.wrapper.setAttribute('aria-activedescendant', '');
+        }
         if (node) {
+            node.removeEventListener('focus', setActiveDescendant);
+            node.removeEventListener('blur', removeActiveDescendant);
             node.remove();
         }
     };
