@@ -21,7 +21,7 @@ Check the [package.json](./package.json) for dev dependencies. Currently data-na
 
 ## Releasing
 (only from main branch, only core dev team can do this)
-- Bump version: `npm version`
+- Bump version: `npm version` and specify `major|minor|patch`
 - Get it out there: `npm publish`
 - Update repo: `git push`
 - Update repo tags: `git push --tags`
