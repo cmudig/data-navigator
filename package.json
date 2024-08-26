@@ -32,7 +32,7 @@
         "build": "yarn build:app && yarn build:index && yarn build:types && yarn build:modules",
         "build:app": "webpack",
         "build:index": "tsup src/index.ts --format cjs,esm",
-        "build:types": "tsup data-navigator.d.ts --format cjs,esm",
+        "build:types": "cp data-navigator.d.ts ./dist/",
         "build:modules": "tsup src/structure.ts src/input.ts src/rendering.ts src/utilities.ts  src/consts.ts --format cjs,esm --minify",
         "server": "python -m http.server",
         "prettier-all-check": "prettier --config  ./.prettierrc --ignore ./.prettierignore --debug-check \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
