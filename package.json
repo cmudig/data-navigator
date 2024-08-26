@@ -2,20 +2,20 @@
     "name": "data-navigator",
     "author": "Frank Elavsky",
     "version": "1.1.0",
-    "main": "dist/index.jsm",
-    "module": "dist/index",
-    "types": "data-navigator.d.ts",
+    "main": "./dist/index.jsm",
+    "module": "./dist/index",
+    "types": "./dist/data-navigator.d.ts",
     "files": [
         "dist/**/*"
     ],
     "exports": {
         ".": {
             "import": {
-                "types": "./data-navigator.d.ts",
+                "types": "./dist/data-navigator.d.ts",
                 "default": "./dist/index.js"
             },
             "require": {
-                "types": "./data-navigator.d.ts",
+                "types": "./dist/data-navigator.d.ts",
                 "default": "./dist/index.mjs"
             }
         }
@@ -29,9 +29,10 @@
     "description": "Data-navigator is a JavaScript library that allows for serial navigation of data structures using a variety of input modalities and assistive technologies.",
     "scripts": {
         "clean": "rm -rf ./dist && rm -rf ./app",
-        "build": "yarn build:app && yarn build:index && yarn build:modules",
+        "build": "yarn build:app && yarn build:index && yarn build:types && yarn build:modules",
         "build:app": "webpack",
         "build:index": "tsup src/index.ts --format cjs,esm",
+        "build:types": "tsup data-navigator.d.ts --format cjs,esm",
         "build:modules": "tsup src/structure.ts src/input.ts src/rendering.ts src/utilities.ts  src/consts.ts --format cjs,esm --minify",
         "server": "python -m http.server",
         "prettier-all-check": "prettier --config  ./.prettierrc --ignore ./.prettierignore --debug-check \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
