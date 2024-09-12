@@ -4,18 +4,18 @@
     "version": "1.2.3",
     "main": "./dist/index.jsm",
     "module": "./dist/index",
-    "types": "./dist/data-navigator.d.ts",
+    "types": "./dist/src/index.d.ts",
     "files": [
         "dist/**/*"
     ],
     "exports": {
         ".": {
             "import": {
-                "types": "./dist/data-navigator.d.ts",
+                "types": "./dist/src/index.d.ts",
                 "default": "./dist/index.js"
             },
             "require": {
-                "types": "./dist/data-navigator.d.ts",
+                "types": "./dist/src/index.d.ts",
                 "default": "./dist/index.mjs"
             }
         }

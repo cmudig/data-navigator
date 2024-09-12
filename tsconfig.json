@@ -5,5 +5,5 @@
         "target": "es5",
         "declaration": true
     },
-    "include": ["./src/**/*", "./examples/**/*", "data-navigator.ts"]
+    "include": ["./src/**/*", "./examples/**/*"]
 }

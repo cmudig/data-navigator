@@ -1,4 +1,5 @@
 import { NodeElementDefaults } from './consts';
+import type { RenderingOptions, NodeObject } from './data-navigator';
 
 export default (options: RenderingOptions) => {
     const setActiveDescendant = e => {

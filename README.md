@@ -30,6 +30,10 @@ We also have [a vega-lite demo online](https://dig.cmu.edu/data-navigator/vega-l
 
 Data Navigator is organized into 3 separately composable modules: the first is a graph-based _structure_ of nodes and edges, the second handles _input_ and navigation logic, and the third _renders_ the structure. These may be leveraged together or independently. Read our paper to learn more!
 
+### Types
+
+Our types are consolidated into a single [types export file](./src/data-navigator.ts), designed (mostly) as a grammar. Each major module is broken down into subparts, each with their own types, all the way to the primitive-most types used.
+
 ## Getting started
 
 You can install or use both esm and cjs modules in a variety of ways, in addition to importing all of data-navigator or just one part.
@@ -40,40 +44,21 @@ npm install data-navigator
 ```
 
 ```js
-// to use it in a .js file
+// to use it in a .js or .ts file
 import { default as dataNavigator } from "data-navigator"
-import rendering from "./node_modules/data-navigator/dist/rendering"
 
 // whole ecosystem
 console.log("dataNavigator", dataNavigator)
 
-// module within the ecosystem
+// one module in the ecosystem
 console.log("dataNavigator.rendering", dataNavigator.rendering)
-
-// just one module
-console.log("rendering", rendering)
-```
-
-```ts
-// to use it in a .ts file
-import { default as dataNavigator } from "./node_modules/data-navigator/dist"
-import rendering from "./node_modules/data-navigator/dist/rendering"
-
-// whole ecosystem
-console.log("dataNavigator", dataNavigator)
-
-// module within the ecosystem
-console.log("dataNavigator.rendering", dataNavigator.rendering)
-
-// just one module
-console.log("rendering", rendering)
 ```
 
 ```html
 <!-- and even as a script tag module loaded from a cdn -->
 <script type="module">
     // pay attention to the version! the latest may be higher than this example
-    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.2.3/dist/index.mjs';
+    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.2.4/dist/index.mjs';
     console.log(dataNavigator);
 </script>
 ```

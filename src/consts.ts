@@ -1,3 +1,5 @@
+import type {DatumObject, NavigationRules, RenderObject} from './data-navigator'
+
 export const defaultKeyBindings = {
     ArrowLeft: 'left',
     ArrowRight: 'right',

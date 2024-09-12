@@ -1,4 +1,5 @@
 import { defaultKeyBindings, GenericFullNavigationRules } from './consts';
+import type {InputOptions} from './data-navigator'
 
 export default (options: InputOptions) => {
     let inputHandler = {} as any;

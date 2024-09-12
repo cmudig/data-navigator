@@ -1,4 +1,5 @@
 import { GenericLimitedNavigationRules } from './consts';
+import { StructureOptions, EdgeList } from './data-navigator';
 import { describeNode } from './utilities';
 
 export default (options: StructureOptions) => {
