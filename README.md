@@ -40,15 +40,40 @@ npm install data-navigator
 ```
 
 ```js
-// to use it in a .js or .ts file
-import { default as dataNavigator } from 'data-navigator';
-console.log(dataNavigator);
+// to use it in a .js file
+import { default as dataNavigator } from "data-navigator"
+import rendering from "./node_modules/data-navigator/dist/rendering"
+
+// whole ecosystem
+console.log("dataNavigator", dataNavigator)
+
+// module within the ecosystem
+console.log("dataNavigator.rendering", dataNavigator.rendering)
+
+// just one module
+console.log("rendering", rendering)
+```
+
+```ts
+// to use it in a .ts file
+import { default as dataNavigator } from "./node_modules/data-navigator/dist"
+import rendering from "./node_modules/data-navigator/dist/rendering"
+
+// whole ecosystem
+console.log("dataNavigator", dataNavigator)
+
+// module within the ecosystem
+console.log("dataNavigator.rendering", dataNavigator.rendering)
+
+// just one module
+console.log("rendering", rendering)
 ```
 
 ```html
 <!-- and even as a script tag module loaded from a cdn -->
 <script type="module">
-    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.0.0/dist/index.mjs';
+    // pay attention to the version! the latest may be higher than this example
+    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.2.3/dist/index.mjs';
     console.log(dataNavigator);
 </script>
 ```
