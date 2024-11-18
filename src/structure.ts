@@ -1,4 +1,4 @@
-import { GenericLimitedNavigationRules } from './consts';
+import { GenericLimitedNavigationRules, GenericFullNavigationRules } from './consts';
 import { StructureOptions, EdgeList } from './data-navigator';
 import { describeNode } from './utilities';
 
@@ -138,11 +138,11 @@ export const buildNodeStructureFromVegaLite = options => {
 
         elementData[renderId] = {};
         elementData[renderId].renderId = renderId;
-        elementData[renderId].dimensions = {};
-        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
-        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
-        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
-        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].scopes = {};
+        elementData[renderId].scopes.x = item.bounds.x1 + o[0];
+        elementData[renderId].scopes.y = item.bounds.y1 + o[1];
+        elementData[renderId].scopes.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].scopes.height = item.bounds.y2 - item.bounds.y1;
         elementData[renderId].cssClass = 'dn-vega-lite-node';
 
         if (item.datum) {
@@ -187,10 +187,169 @@ export const buildNodeStructureFromVegaLite = options => {
     };
 };
 
-export const buildNodeStructure = options => {
+/*
+    this function creates an index for every datum in options.data,
+    adds that index to the datum (mutating the datum directly),
+    optionally can count the number of times a datum's keys have
+    already been seen in other datum, and will also (if a string),
+    count the number of times the value of that key has been seen
+*/
+export const addSimpleDataIDs = options => {
+    let i = 0;
+    let keyCounter = {}
+    options.data.forEach(d => {
+        const id = options.idKey || "id"
+        d[id] = i + ""
+        if (options.keys) {
+            options.keys.forEach(k => {
+                if (k in d) {
+                    if (typeof d[k] === "string") {
+                        if (!keyCounter[k]) {
+                            keyCounter[k] = 0
+                        }
+                        if (!keyCounter[d[k]]) {
+                            keyCounter[d[k]] = 0
+                        }
+                        d[id] += "_" + k + keyCounter[k] + "_" + d[k] + keyCounter[d[k]]
+
+                        keyCounter[k]++
+                        keyCounter[d[k]]++
+                    } else {
+                        if (!keyCounter[k]) {
+                            keyCounter[k] = 0
+                        }
+                        d[id] += "_" + k + keyCounter[k]
+                        keyCounter[k]++
+                    }
+                    
+                }
+            })
+        }
+        i++
+    })
+}
+
+
+// need lifecycle stuff for this (add/remove/etc) - this will be hard to do well!
+/*
+    This function creates a node for every relation type as well as a node 
+*/
+export const bulidNodes = options => {
+    let nodes = {};
     // this will eventually be our generic method for dn.structure()
 
-    // need to convert to a graph structure!
+    // convert all data to a graph structure!
+    options.data.forEach(d => {
+        if (!options.keys.id) {
+            console.error(`Building nodes. A key string must be supplied in options.keys.id to specify the id keys of every node.`)
+        }
 
-    return {};
+        const idKey = typeof options.keys.id === "function" ? options.keys.id(d) : options.keys.id
+        const id = d[idKey]
+        
+        if (!id) {
+            console.error(`Building nodes. Each datum in options.data must contain an id. When matching the id key string ${idKey}, this datum has no id: ${JSON.stringify(d)}.`)
+            return
+        }
+        
+        if (!nodes[id]) {
+            const renderIdKey = typeof options.keys.renderId === "function" ? options.keys.renderId(d) : options.keys.renderId
+            nodes[id] = {
+                id: id,
+                edges: [],
+                renderId: renderIdKey ? (d[renderIdKey] || "") : d.renderIdKey || "",
+                data: d
+            }
+        } else {
+            console.error(`Building nodes. Each id for data in options.data must be unique. This id is not unique: ${id}.`)
+            return
+        }
+    })
+
+    return nodes;
 };
+
+/*
+    scopes : [
+        {
+            "type": "categorical" | "numerical", // if type is missing, then derive based on first datum
+            "name": "", //optional, will use key if missing
+            "key": "", // required
+            "nestedSettings": {
+                "derivedParent": boolean,
+                "parentNode": {
+                    "id": (d, s) : string =>{} | string | undefined, // if derived is false, id is required, if derived is true and id is empty or undefined, then id will be generated
+                    "rendering": {
+                        "renderId": "",
+                        "strategy": "outlineEach" | "convexHull" | "singleSquare"
+                    } 
+                } | undefined // if nestedSettings.nested is true, then parentNode is required
+            },
+            "sortingFunction": (a, b, scope) : boolean => { return a < b}, // optional, will use data order if missing (for categorical) or use numerical order if missing (for numerical)
+        }
+    ]
+*/
+export const scaffoldScopes = (options, nodes) => {
+    let scopes = {};
+    
+    return scopes
+}
+
+
+export const buildEdges = (options, nodes, scopes?) => {
+    /*
+        export type EdgeObject = {
+            source: (() => NodeId) | NodeId;
+            target: (() => NodeId) | NodeId;
+            navigationRules: NavigationList;
+        }
+        scopes = {
+            key: {
+                values,
+                scopeKey,
+                type,
+                sortingFunction,
+                behavior
+            }
+        }
+        node = {
+            id: id,
+            edges: [],
+            renderId: renderIdKey ? (d[renderIdKey] || "") : d.renderIdKey || "",
+            data: d,
+            derivedNode?: true
+        }
+    */
+    let edges = {}
+    const scopeKeys = scopes ? Object.keys(scopes) : []
+    Object.keys(nodes).forEach(nodeKey => {
+        const node = nodes[nodeKey]
+        // for each node we want to find all the edges it has, so we need to search across scopes (if they exist)
+        scopeKeys.forEach(s => {
+            const scope = scopes[s]
+            if (s in node) {
+                // extents: ExtentType,
+                // bridgePrevious?: NodeId,
+                // bridgePost?: NodeId
+            }
+        })
+    })
+    return edges
+}
+
+export const buildRules = options => {
+
+}
+
+export const buildStructure = options => {
+    let nodes = bulidNodes(options)
+    let scopes = scaffoldScopes(options, nodes)
+    let edges = buildEdges(options, nodes, scopes)
+    let navigationRules = options.rules || GenericFullNavigationRules
+    return { 
+        nodes,
+        edges,
+        scopes,
+        navigationRules
+    }
+}
