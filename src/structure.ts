@@ -138,11 +138,11 @@ export const buildNodeStructureFromVegaLite = options => {
 
         elementData[renderId] = {};
         elementData[renderId].renderId = renderId;
-        elementData[renderId].scopes = {};
-        elementData[renderId].scopes.x = item.bounds.x1 + o[0];
-        elementData[renderId].scopes.y = item.bounds.y1 + o[1];
-        elementData[renderId].scopes.width = item.bounds.x2 - item.bounds.x1;
-        elementData[renderId].scopes.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].dimensions = {};
+        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
+        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
+        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
         elementData[renderId].cssClass = 'dn-vega-lite-node';
 
         if (item.datum) {
@@ -196,39 +196,37 @@ export const buildNodeStructureFromVegaLite = options => {
 */
 export const addSimpleDataIDs = options => {
     let i = 0;
-    let keyCounter = {}
+    let keyCounter = {};
     options.data.forEach(d => {
-        const id = options.idKey || "id"
-        d[id] = i + ""
+        const id = options.idKey || 'id';
+        d[id] = i + '';
         if (options.keys) {
             options.keys.forEach(k => {
                 if (k in d) {
-                    if (typeof d[k] === "string") {
+                    if (typeof d[k] === 'string') {
                         if (!keyCounter[k]) {
-                            keyCounter[k] = 0
+                            keyCounter[k] = 0;
                         }
                         if (!keyCounter[d[k]]) {
-                            keyCounter[d[k]] = 0
+                            keyCounter[d[k]] = 0;
                         }
-                        d[id] += "_" + k + keyCounter[k] + "_" + d[k] + keyCounter[d[k]]
+                        d[id] += '_' + k + keyCounter[k] + '_' + d[k] + keyCounter[d[k]];
 
-                        keyCounter[k]++
-                        keyCounter[d[k]]++
+                        keyCounter[k]++;
+                        keyCounter[d[k]]++;
                     } else {
                         if (!keyCounter[k]) {
-                            keyCounter[k] = 0
+                            keyCounter[k] = 0;
                         }
-                        d[id] += "_" + k + keyCounter[k]
-                        keyCounter[k]++
+                        d[id] += '_' + k + keyCounter[k];
+                        keyCounter[k]++;
                     }
-                    
                 }
-            })
+            });
         }
-        i++
-    })
-}
-
+        i++;
+    });
+};
 
 // need lifecycle stuff for this (add/remove/etc) - this will be hard to do well!
 /*
@@ -241,36 +239,45 @@ export const bulidNodes = options => {
     // convert all data to a graph structure!
     options.data.forEach(d => {
         if (!options.keys.id) {
-            console.error(`Building nodes. A key string must be supplied in options.keys.id to specify the id keys of every node.`)
+            console.error(
+                `Building nodes. A key string must be supplied in options.keys.id to specify the id keys of every node.`
+            );
         }
 
-        const idKey = typeof options.keys.id === "function" ? options.keys.id(d) : options.keys.id
-        const id = d[idKey]
-        
+        const idKey = typeof options.keys.id === 'function' ? options.keys.id(d) : options.keys.id;
+        const id = d[idKey];
+
         if (!id) {
-            console.error(`Building nodes. Each datum in options.data must contain an id. When matching the id key string ${idKey}, this datum has no id: ${JSON.stringify(d)}.`)
-            return
+            console.error(
+                `Building nodes. Each datum in options.data must contain an id. When matching the id key string ${idKey}, this datum has no id: ${JSON.stringify(
+                    d
+                )}.`
+            );
+            return;
         }
-        
+
         if (!nodes[id]) {
-            const renderIdKey = typeof options.keys.renderId === "function" ? options.keys.renderId(d) : options.keys.renderId
+            const renderIdKey =
+                typeof options.keys.renderId === 'function' ? options.keys.renderId(d) : options.keys.renderId;
             nodes[id] = {
                 id: id,
                 edges: [],
-                renderId: renderIdKey ? (d[renderIdKey] || "") : d.renderIdKey || "",
+                renderId: renderIdKey ? d[renderIdKey] || '' : d.renderIdKey || '',
                 data: d
-            }
+            };
         } else {
-            console.error(`Building nodes. Each id for data in options.data must be unique. This id is not unique: ${id}.`)
-            return
+            console.error(
+                `Building nodes. Each id for data in options.data must be unique. This id is not unique: ${id}.`
+            );
+            return;
         }
-    })
+    });
 
     return nodes;
 };
 
 /*
-    scopes : [
+    dimensions : [
         {
             "type": "categorical" | "numerical", // if type is missing, then derive based on first datum
             "name": "", //optional, will use key if missing
@@ -285,28 +292,105 @@ export const bulidNodes = options => {
                     } 
                 } | undefined // if nestedSettings.nested is true, then parentNode is required
             },
-            "sortingFunction": (a, b, scope) : boolean => { return a < b}, // optional, will use data order if missing (for categorical) or use numerical order if missing (for numerical)
+            "sortingFunction": (a, b, dimension) : boolean => { return a < b}, // optional, will use data order if missing (for categorical) or use numerical order if missing (for numerical)
         }
     ]
 */
-export const scaffoldScopes = (options, nodes) => {
-    let scopes = {};
-    
-    return scopes
-}
+export const scaffoldDimensions = (options, nodes) => {
+    let dimensions = {};
+    options.data.forEach(d => {
+        const idKey = typeof options.keys.id === 'function' ? options.keys.id(d) : options.keys.id;
+        const id = d[idKey];
 
+        let ods = options.dimensions || [];
+        ods.forEach(s => {
+            if (!s.key) {
+                console.error(
+                    `Building nodes, parsing dimensions. Each dimension in options.dimensions must contain a key. This dimension has no key: ${JSON.stringify(
+                        s
+                    )}.`
+                );
+                return;
+            }
+            if (s.key in d) {
+                let v = d[s.key];
+                let id = '';
+                if (s?.nestedSettings?.derivedParent) {
+                    // build parent node
+                    if (!s.nestedSettings.parentNode) {
+                        console.error(
+                            `Building nodes, parsing dimensions. The dimension using the key ${
+                                s.key
+                            } is nested, but dimension.parentNode property object is missing. parentNode.derived and parentNode.id should be supplied. ${JSON.stringify(
+                                s
+                            )}.`
+                        );
+                    }
+                    /*
+                        "parentNode": {
+                            "id": (d, s) : string =>{} | string | undefined, // if derived is false, id is required, if derived is true and id is empty or undefined, then id will be generated
+                            "rendering": {
+                                "renderId": "",
+                                "strategy": "outlineEach" | "convexHull" | "singleSquare"
+                            } 
+                        } | undefined // if nestedSettings.nested is true, then parentNode is required
+                    */
+                    let p = s.nestedSettings.parentNode;
+                    id = typeof p.id === 'function' ? p.id(d, s) : p.id;
+                    nodes[id] = {
+                        id: id,
+                        edges: [],
+                        derivedNode: true,
+                        renderId: p?.rendering?.renderId,
+                        renderingStrategy: p?.rendering?.strategy,
+                        data: s
+                    };
+                }
+                if (!dimensions[s.key]) {
+                    dimensions[s.key] = {
+                        values: [],
+                        dimensionKey: s.key,
+                        type: s.type ? s.type : typeof v === 'number' && !isNaN(v) ? 'numerical' : 'categorical',
+                        sortingFunction: s.sortingFunction,
+                        behavior: s.behavior || undefined
+                    };
+                    if (id) {
+                        dimensions[s.key].id = id;
+                    }
+                }
+                dimensions[s.key].values.push(nodes[id]);
+            }
+        });
+    });
 
-export const buildEdges = (options, nodes, scopes?) => {
+    Object.keys(dimensions).forEach(s => {
+        let dimension = dimensions[s];
+        let dimensionValues = dimension.values;
+        if (dimension.sortingFunction) {
+            dimensionValues.sort((a, b) => {
+                return dimension.sortingFunction(a, b, dimension);
+            });
+        } else if (dimension.type === 'numerical') {
+            dimensionValues.sort((a, b) => {
+                return a[dimension.dimensionKey] - b[dimension.dimensionKey];
+            });
+        }
+    });
+
+    return dimensions;
+};
+
+export const buildEdges = (options, nodes, dimensions?) => {
     /*
         export type EdgeObject = {
             source: (() => NodeId) | NodeId;
             target: (() => NodeId) | NodeId;
             navigationRules: NavigationList;
         }
-        scopes = {
+        dimensions = {
             key: {
                 values,
-                scopeKey,
+                dimensionKey,
                 type,
                 sortingFunction,
                 behavior
@@ -320,36 +404,34 @@ export const buildEdges = (options, nodes, scopes?) => {
             derivedNode?: true
         }
     */
-    let edges = {}
-    const scopeKeys = scopes ? Object.keys(scopes) : []
+    let edges = {};
+    const dimensionKeys = dimensions ? Object.keys(dimensions) : [];
     Object.keys(nodes).forEach(nodeKey => {
-        const node = nodes[nodeKey]
-        // for each node we want to find all the edges it has, so we need to search across scopes (if they exist)
-        scopeKeys.forEach(s => {
-            const scope = scopes[s]
+        const node = nodes[nodeKey];
+        // for each node we want to find all the edges it has, so we need to search across dimensions (if they exist)
+        dimensionKeys.forEach(s => {
+            const dimension = dimensions[s];
             if (s in node) {
                 // extents: ExtentType,
                 // bridgePrevious?: NodeId,
                 // bridgePost?: NodeId
             }
-        })
-    })
-    return edges
-}
+        });
+    });
+    return edges;
+};
 
-export const buildRules = options => {
-
-}
+export const buildRules = options => {};
 
 export const buildStructure = options => {
-    let nodes = bulidNodes(options)
-    let scopes = scaffoldScopes(options, nodes)
-    let edges = buildEdges(options, nodes, scopes)
-    let navigationRules = options.rules || GenericFullNavigationRules
-    return { 
+    let nodes = bulidNodes(options);
+    let dimensions = scaffoldDimensions(options, nodes);
+    let edges = buildEdges(options, nodes, dimensions);
+    let navigationRules = options.rules || GenericFullNavigationRules;
+    return {
         nodes,
         edges,
-        scopes,
+        dimensions,
         navigationRules
-    }
-}
+    };
+};

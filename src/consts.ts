@@ -1,4 +1,4 @@
-import type {DatumObject, NavigationRules, RenderObject} from './data-navigator'
+import type { DatumObject, NavigationRules, RenderObject } from './data-navigator';
 
 export const defaultKeyBindings = {
     ArrowLeft: 'left',
@@ -47,6 +47,10 @@ export const GenericFullNavigationRules = {
     exit: {
         keyCode: 'Escape',
         direction: 'target'
+    },
+    undo: {
+        keyCode: 'KeyZ',
+        direction: 'target'
     }
 } as NavigationRules;
 
@@ -91,7 +95,7 @@ export const GenericLimitedNavigationRules = {
 
 export const NodeElementDefaults = {
     cssClass: '',
-    dimensions: {
+    spatialProperties: {
         x: 0,
         y: 0,
         width: 0,
@@ -111,7 +115,7 @@ export const NodeElementDefaults = {
         attributes: undefined
     },
     existingElement: {
-        useForDimensions: false,
-        dimensions: undefined
+        useForSpatialProperties: false,
+        spatialProperties: undefined
     }
 } as RenderObject;
