@@ -45,13 +45,13 @@ npm install data-navigator
 
 ```js
 // to use it in a .js or .ts file
-import { default as dataNavigator } from "data-navigator"
+import { default as dataNavigator } from 'data-navigator';
 
 // whole ecosystem
-console.log("dataNavigator", dataNavigator)
+console.log('dataNavigator', dataNavigator);
 
 // one module in the ecosystem
-console.log("dataNavigator.rendering", dataNavigator.rendering)
+console.log('dataNavigator.rendering', dataNavigator.rendering);
 ```
 
 ```html

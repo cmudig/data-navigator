@@ -1,4 +1,4 @@
-import { DatumObject, DescriptionOptions } from "./data-navigator";
+import { DatumObject, DescriptionOptions } from './data-navigator';
 
 export const describeNode = (d: DatumObject, descriptionOptions?: DescriptionOptions) => {
     const keys = Object.keys(d);
