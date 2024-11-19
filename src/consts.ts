@@ -54,6 +54,25 @@ export const GenericFullNavigationRules = {
     }
 } as NavigationRules;
 
+export const GenericFullNavigationDimensions = [
+    ['left', 'right'],
+    ['up', 'down'],
+    ['backward', 'forward'],
+    ['parent', 'child']
+];
+export const GenericFullNavigationPairs = {
+    left: ['left', 'right'],
+    right: ['left', 'right'],
+    up: ['up', 'down'],
+    down: ['up', 'down'],
+    backward: ['backward', 'forward'],
+    forward: ['backward', 'forward'],
+    parent: ['parent', 'child'],
+    child: ['parent', 'child'],
+    exit: ['exit', 'undo'],
+    undo: ['undo', 'undo']
+};
+
 export const GenericLimitedNavigationRules = {
     right: {
         key: 'ArrowRight',

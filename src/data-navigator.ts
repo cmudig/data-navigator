@@ -47,6 +47,7 @@ export type NodeObject = {
     edges: EdgeList;
     renderId?: RenderId;
     renderingStrategy?: RenderingStrategy;
+    derivedNode?: boolean;
     [key: string | number]: any; // NodeObjects can be lazily used as generic objects (like ElementObjects) too
 };
 
@@ -61,6 +62,7 @@ export type DimensionObject = {
     dimensionKey: DimensionKey;
     type?: DimensionType;
     behavior?: DimensionBehavior;
+    navigationRules?: NavigationList;
     sortingFunction?: SortingFunction;
 };
 

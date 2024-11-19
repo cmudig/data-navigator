@@ -1,4 +1,4 @@
-import { GenericLimitedNavigationRules, GenericFullNavigationRules } from './consts';
+import { GenericLimitedNavigationRules, GenericFullNavigationRules, GenericFullNavigationDimensions } from './consts';
 import { StructureOptions, EdgeList } from './data-navigator';
 import { describeNode } from './utilities';
 
@@ -347,12 +347,22 @@ export const scaffoldDimensions = (options, nodes) => {
                     };
                 }
                 if (!dimensions[s.key]) {
+                    let rules = [...GenericFullNavigationDimensions];
+                    const createRules = () => {
+                        if (s.navigationRules) {
+                            rules = []; // we don't want to use any default rules if navrules was set for any dimension
+                            return s.navigationRules;
+                        }
+                        let rule = rules.shift();
+                        return rule || [];
+                    };
                     dimensions[s.key] = {
                         values: [],
                         dimensionKey: s.key,
                         type: s.type ? s.type : typeof v === 'number' && !isNaN(v) ? 'numerical' : 'categorical',
                         sortingFunction: s.sortingFunction,
-                        behavior: s.behavior || undefined
+                        behavior: s.behavior || { extents: 'circular' },
+                        navigationRules: createRules()
                     };
                     if (id) {
                         dimensions[s.key].id = id;
@@ -405,29 +415,95 @@ export const buildEdges = (options, nodes, dimensions?) => {
         }
     */
     let edges = {};
+
+    const createEdge = (source, target, rules?) => {
+        const id = `${source}-${target}`;
+        // create edge object
+        edges[id] = {
+            source,
+            target,
+            navigationRules: rules || []
+        };
+        // add edgeId to source and target's edges
+        nodes[source].edges.push(id);
+        nodes[target].edges.push(id);
+    };
+
     const dimensionKeys = dimensions ? Object.keys(dimensions) : [];
+    dimensionKeys.forEach(s => {
+        const dimension = dimensions[s];
+        let extents = dimension.behavior?.extents || 'circular'; // we default to circular
+        if (!dimension.values) {
+            console.error(
+                `Parsing dimensions. The dimension using the key ${s} is missing the values property. dimension.values should be supplied. ${JSON.stringify(
+                    dimension
+                )}.`
+            );
+        }
+        let i = 0;
+        /*
+            In the below loop, we are creating an edge between the current element and the next element
+            in the dimension. We only ever add links forward, since (like a linked list), the edges go
+            both ways. However, we DO need to check for a backwards bridge at the start, which could
+            end up creating some kind of double-edge situation. This needs more testing to figure out
+            the correct approach moving forward.
+        */
+        dimension.values.forEach(v => {
+            if (i === dimension.values.length - 1 && extents === 'circular') {
+                // we are at the end, create forwards loop to start of list
+                createEdge(v, dimension.values[0], dimension.navigationRules);
+            } else if (i === dimension.values.length - 1 && extents === 'bridged') {
+                // we are at the end, create forwards bridge to new element
+                createEdge(v, dimension.behavior.bridgePost, dimension.navigationRules);
+            } else if (i < dimension.values.length - 1 && extents !== 'terminal') {
+                // we are in the dimension but not at the end, create forwards step
+                createEdge(v, dimension.values[i], dimension.navigationRules);
+            }
+
+            if (!i && extents === 'bridge') {
+                // if we started the dimension and bridge is set, we need to create backwards bridge to new element
+                createEdge(dimension.behavior.bridgePrevious, v, dimension.navigationRules);
+            }
+            i++;
+        });
+        // }
+    });
+
     Object.keys(nodes).forEach(nodeKey => {
         const node = nodes[nodeKey];
         // for each node we want to find all the edges it has, so we need to search across dimensions (if they exist)
-        dimensionKeys.forEach(s => {
-            const dimension = dimensions[s];
-            if (s in node) {
-                // extents: ExtentType,
-                // bridgePrevious?: NodeId,
-                // bridgePost?: NodeId
-            }
-        });
+
+        if (node.derivedNode) {
+            createEdge(
+                node.id,
+                dimensions[node.data.key].values[0].id,
+                options.dimensions[node.data.key].navigationRules
+            );
+        }
+
+        if (options.genericEdges?.length) {
+            options.genericEdges.forEach(e => {
+                if (!edges[e.edgeId]) {
+                    edges[e.edgeId] = e.edge;
+                }
+                if ((e.conditional && e.conditional(node, e)) || !e.conditional) {
+                    node.edges.push(e.edgeId);
+                }
+            });
+        }
     });
     return edges;
 };
 
-export const buildRules = options => {};
+export const buildRules = options => {
+    return options.rules || GenericFullNavigationRules;
+};
 
 export const buildStructure = options => {
     let nodes = bulidNodes(options);
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
-    let navigationRules = options.rules || GenericFullNavigationRules;
+    let navigationRules = buildRules(options);
     return {
         nodes,
         edges,
