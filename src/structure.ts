@@ -1,19 +1,28 @@
 import { GenericLimitedNavigationRules, GenericFullNavigationRules, GenericFullNavigationDimensions } from './consts';
-import { StructureOptions, EdgeList } from './data-navigator';
+import {
+    StructureOptions,
+    EdgeList,
+    Structure,
+    Nodes,
+    Dimensions,
+    Edges,
+    EdgeObject,
+    EdgeId,
+    NodeObject,
+    NodeId,
+    NavigationList
+} from './data-navigator';
 import { describeNode } from './utilities';
 
-export default (options: StructureOptions) => {
+export default (options: StructureOptions): Structure => {
     if (options.dataType === 'vega-lite' || options.dataType === 'vl' || options.dataType === 'Vega-Lite') {
         return buildNodeStructureFromVegaLite(options);
     } else {
-        console.warn(
-            'Apologies, we currently only have structure scaffolding for Vega-Lite, generic scaffolding coming soon!'
-        );
-        return;
+        return buildStructure(options);
     }
 };
 
-export const buildNodeStructureFromVegaLite = options => {
+export const buildNodeStructureFromVegaLite = (options): Structure => {
     let navigationRules = GenericLimitedNavigationRules;
     let nodes = {};
     let edges = {};
@@ -138,11 +147,11 @@ export const buildNodeStructureFromVegaLite = options => {
 
         elementData[renderId] = {};
         elementData[renderId].renderId = renderId;
-        elementData[renderId].dimensions = {};
-        elementData[renderId].dimensions.x = item.bounds.x1 + o[0];
-        elementData[renderId].dimensions.y = item.bounds.y1 + o[1];
-        elementData[renderId].dimensions.width = item.bounds.x2 - item.bounds.x1;
-        elementData[renderId].dimensions.height = item.bounds.y2 - item.bounds.y1;
+        elementData[renderId].spatialProperties = {};
+        elementData[renderId].spatialProperties.x = item.bounds.x1 + o[0];
+        elementData[renderId].spatialProperties.y = item.bounds.y1 + o[1];
+        elementData[renderId].spatialProperties.width = item.bounds.x2 - item.bounds.x1;
+        elementData[renderId].spatialProperties.height = item.bounds.y2 - item.bounds.y1;
         elementData[renderId].cssClass = 'dn-vega-lite-node';
 
         if (item.datum) {
@@ -184,7 +193,7 @@ export const buildNodeStructureFromVegaLite = options => {
         edges,
         elementData,
         navigationRules
-    };
+    } as Structure;
 };
 
 /*
@@ -194,11 +203,11 @@ export const buildNodeStructureFromVegaLite = options => {
     already been seen in other datum, and will also (if a string),
     count the number of times the value of that key has been seen
 */
-export const addSimpleDataIDs = options => {
+export const addSimpleDataIDs = (options: StructureOptions): void => {
     let i = 0;
     let keyCounter = {};
     options.data.forEach(d => {
-        const id = options.idKey || 'id';
+        const id = typeof options.idKey === 'function' ? options.idKey(d) : options.idKey;
         d[id] = i + '';
         if (options.keys) {
             options.keys.forEach(k => {
@@ -232,19 +241,19 @@ export const addSimpleDataIDs = options => {
 /*
     This function creates a node for every relation type as well as a node 
 */
-export const bulidNodes = options => {
+export const bulidNodes = (options: StructureOptions): Nodes => {
     let nodes = {};
     // this will eventually be our generic method for dn.structure()
 
     // convert all data to a graph structure!
     options.data.forEach(d => {
-        if (!options.keys.id) {
+        if (!options.idKey) {
             console.error(
-                `Building nodes. A key string must be supplied in options.keys.id to specify the id keys of every node.`
+                `Building nodes. A key string must be supplied in options.idKey to specify the id keys of every node.`
             );
         }
 
-        const idKey = typeof options.keys.id === 'function' ? options.keys.id(d) : options.keys.id;
+        const idKey = typeof options.idKey === 'function' ? options.idKey(d) : options.idKey;
         const id = d[idKey];
 
         if (!id) {
@@ -258,13 +267,13 @@ export const bulidNodes = options => {
 
         if (!nodes[id]) {
             const renderIdKey =
-                typeof options.keys.renderId === 'function' ? options.keys.renderId(d) : options.keys.renderId;
+                typeof options.renderIdKey === 'function' ? options.renderIdKey(d) : options.renderIdKey;
             nodes[id] = {
                 id: id,
                 edges: [],
                 renderId: renderIdKey ? d[renderIdKey] || '' : d.renderIdKey || '',
                 data: d
-            };
+            } as NodeObject;
         } else {
             console.error(
                 `Building nodes. Each id for data in options.data must be unique. This id is not unique: ${id}.`
@@ -273,7 +282,7 @@ export const bulidNodes = options => {
         }
     });
 
-    return nodes;
+    return nodes as Nodes;
 };
 
 /*
@@ -296,45 +305,33 @@ export const bulidNodes = options => {
         }
     ]
 */
-export const scaffoldDimensions = (options, nodes) => {
+export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dimensions => {
     let dimensions = {};
     options.data.forEach(d => {
-        const idKey = typeof options.keys.id === 'function' ? options.keys.id(d) : options.keys.id;
-        const id = d[idKey];
-
         let ods = options.dimensions || [];
         ods.forEach(s => {
-            if (!s.key) {
+            if (!s.dimensionKey) {
                 console.error(
-                    `Building nodes, parsing dimensions. Each dimension in options.dimensions must contain a key. This dimension has no key: ${JSON.stringify(
+                    `Building nodes, parsing dimensions. Each dimension in options.dimensions must contain a dimensionKey. This dimension has no dimensionKey: ${JSON.stringify(
                         s
                     )}.`
                 );
                 return;
             }
-            if (s.key in d) {
-                let v = d[s.key];
+            if (s.dimensionKey in d) {
+                let v = d[s.dimensionKey];
                 let id = '';
                 if (s?.nestedSettings?.derivedParent) {
                     // build parent node
                     if (!s.nestedSettings.parentNode) {
                         console.error(
-                            `Building nodes, parsing dimensions. The dimension using the key ${
-                                s.key
+                            `Building nodes, parsing dimensions. The dimension using the dimensionKey ${
+                                s.dimensionKey
                             } is nested, but dimension.parentNode property object is missing. parentNode.derived and parentNode.id should be supplied. ${JSON.stringify(
                                 s
                             )}.`
                         );
                     }
-                    /*
-                        "parentNode": {
-                            "id": (d, s) : string =>{} | string | undefined, // if derived is false, id is required, if derived is true and id is empty or undefined, then id will be generated
-                            "rendering": {
-                                "renderId": "",
-                                "strategy": "outlineEach" | "convexHull" | "singleSquare"
-                            } 
-                        } | undefined // if nestedSettings.nested is true, then parentNode is required
-                    */
                     let p = s.nestedSettings.parentNode;
                     id = typeof p.id === 'function' ? p.id(d, s) : p.id;
                     nodes[id] = {
@@ -346,7 +343,7 @@ export const scaffoldDimensions = (options, nodes) => {
                         data: s
                     };
                 }
-                if (!dimensions[s.key]) {
+                if (!dimensions[s.dimensionKey]) {
                     let rules = [...GenericFullNavigationDimensions];
                     const createRules = () => {
                         if (s.navigationRules) {
@@ -356,19 +353,19 @@ export const scaffoldDimensions = (options, nodes) => {
                         let rule = rules.shift();
                         return rule || [];
                     };
-                    dimensions[s.key] = {
+                    dimensions[s.dimensionKey] = {
                         values: [],
-                        dimensionKey: s.key,
+                        dimensionKey: s.dimensionKey,
                         type: s.type ? s.type : typeof v === 'number' && !isNaN(v) ? 'numerical' : 'categorical',
                         sortingFunction: s.sortingFunction,
                         behavior: s.behavior || { extents: 'circular' },
                         navigationRules: createRules()
                     };
                     if (id) {
-                        dimensions[s.key].id = id;
+                        dimensions[s.dimensionKey].id = id;
                     }
                 }
-                dimensions[s.key].values.push(nodes[id]);
+                dimensions[s.dimensionKey].values.push(nodes[id]);
             }
         });
     });
@@ -387,43 +384,20 @@ export const scaffoldDimensions = (options, nodes) => {
         }
     });
 
-    return dimensions;
+    return dimensions as Dimensions;
 };
 
-export const buildEdges = (options, nodes, dimensions?) => {
-    /*
-        export type EdgeObject = {
-            source: (() => NodeId) | NodeId;
-            target: (() => NodeId) | NodeId;
-            navigationRules: NavigationList;
-        }
-        dimensions = {
-            key: {
-                values,
-                dimensionKey,
-                type,
-                sortingFunction,
-                behavior
-            }
-        }
-        node = {
-            id: id,
-            edges: [],
-            renderId: renderIdKey ? (d[renderIdKey] || "") : d.renderIdKey || "",
-            data: d,
-            derivedNode?: true
-        }
-    */
+export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?: Dimensions): Edges => {
     let edges = {};
 
-    const createEdge = (source, target, rules?) => {
-        const id = `${source}-${target}`;
+    const createEdge = (source: NodeId, target: NodeId, rules?: NavigationList): void => {
+        const id: EdgeId = `${source}-${target}`;
         // create edge object
         edges[id] = {
             source,
             target,
             navigationRules: rules || []
-        };
+        } as EdgeObject;
         // add edgeId to source and target's edges
         nodes[source].edges.push(id);
         nodes[target].edges.push(id);
@@ -451,18 +425,18 @@ export const buildEdges = (options, nodes, dimensions?) => {
         dimension.values.forEach(v => {
             if (i === dimension.values.length - 1 && extents === 'circular') {
                 // we are at the end, create forwards loop to start of list
-                createEdge(v, dimension.values[0], dimension.navigationRules);
+                createEdge(v.id, dimension.values[0].id, dimension.navigationRules);
             } else if (i === dimension.values.length - 1 && extents === 'bridged') {
                 // we are at the end, create forwards bridge to new element
-                createEdge(v, dimension.behavior.bridgePost, dimension.navigationRules);
+                createEdge(v.id, dimension.behavior.bridgePost, dimension.navigationRules);
             } else if (i < dimension.values.length - 1 && extents !== 'terminal') {
                 // we are in the dimension but not at the end, create forwards step
-                createEdge(v, dimension.values[i], dimension.navigationRules);
+                createEdge(v.id, dimension.values[i].id, dimension.navigationRules);
             }
 
-            if (!i && extents === 'bridge') {
+            if (!i && extents === 'bridged') {
                 // if we started the dimension and bridge is set, we need to create backwards bridge to new element
-                createEdge(dimension.behavior.bridgePrevious, v, dimension.navigationRules);
+                createEdge(dimension.behavior.bridgePrevious, v.id, dimension.navigationRules);
             }
             i++;
         });
@@ -486,20 +460,23 @@ export const buildEdges = (options, nodes, dimensions?) => {
                 if (!edges[e.edgeId]) {
                     edges[e.edgeId] = e.edge;
                 }
-                if ((e.conditional && e.conditional(node, e)) || !e.conditional) {
+                if (!e.conditional || (e.conditional && e.conditional(node, e))) {
                     node.edges.push(e.edgeId);
                 }
             });
         }
     });
-    return edges;
+    return edges as Edges;
 };
 
-export const buildRules = options => {
-    return options.rules || GenericFullNavigationRules;
+export const buildRules = (options: StructureOptions) => {
+    return options.navigationRules || GenericFullNavigationRules;
 };
 
-export const buildStructure = options => {
+export const buildStructure = (options: StructureOptions): Structure => {
+    if (options.addIds) {
+        addSimpleDataIDs(options);
+    }
     let nodes = bulidNodes(options);
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
@@ -509,5 +486,5 @@ export const buildStructure = options => {
         edges,
         dimensions,
         navigationRules
-    };
+    } as Structure;
 };
