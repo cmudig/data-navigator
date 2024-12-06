@@ -3,12 +3,12 @@
 export type StructureOptions = {
     data: GenericDataset;
     idKey: DynamicNodeIdKey;
-    keys: KeyList;
     renderIdKey?: DynamicRenderIdKey;
     dimensions?: DimensionOptions;
     genericEdges?: EdgeOptions;
     dataType?: DataType;
     addIds?: boolean;
+    keysForIdGeneration?: KeyList;
     navigationRules?: NavigationRules;
 };
 
@@ -28,6 +28,19 @@ export type RenderingOptions = {
     exitElement?: ExitObject;
 };
 
+export type DimensionOptions = {
+    values: DimensionList;
+    parentOptions?: {
+        level1Options?: {
+            order: AddOrReferenceNodeList;
+            behavior?: Level1Behavior;
+            navigationRules?: DimensionNavigationRules;
+        };
+        addLevel0?: NodeObject;
+    };
+    adjustDimensions?: AdjustingFunction;
+};
+
 export type Structure = {
     nodes: Nodes;
     edges: Edges;
@@ -41,12 +54,15 @@ export type Edges = Record<EdgeId, EdgeObject>;
 export type Dimensions = Record<DimensionKey, DimensionObject>;
 export type NavigationRules = Record<NavId, NavObject>;
 export type ElementData = Record<RenderId, RenderObject>;
+export type DimensionDivisions = Record<NodeId, DivisionObject>;
 
-export type NodeArray = Array<NodeObject>;
+export type AddOrReferenceNodeList = Array<NodeToAddOrReference>;
 export type EdgeList = Array<EdgeId>;
 export type GenericDataset = Array<DatumObject>;
 export type NavigationList = Array<NavId>;
-export type DimensionOptions = Array<DimensionDatum>;
+export type DimensionNavigationPair = [NavId, NavId];
+export type NumericalExtentsPair = [number, number];
+export type DimensionList = Array<DimensionDatum>;
 export type EdgeOptions = Array<EdgeDatum>;
 export type KeyList = Array<string>;
 
@@ -59,7 +75,7 @@ export type NodeObject = {
     edges: EdgeList;
     renderId?: RenderId;
     renderingStrategy?: RenderingStrategy;
-    derivedNode?: boolean;
+    derivedNode?: DerivedNode;
     [key: string | number]: any; // NodeObjects can be lazily used as generic objects (like ElementObjects) too
 };
 
@@ -76,38 +92,55 @@ export type EdgeDatum = {
     conditional?: ConditionalFunction;
 };
 
+// output
 export type DimensionObject = {
-    values: NodeArray;
+    nodeId: NodeId;
     dimensionKey: DimensionKey;
-    type?: DimensionType;
+    divisions: DimensionDivisions;
+    sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
     behavior?: DimensionBehavior;
-    navigationRules?: NavigationList;
-    sortingFunction?: SortingFunction;
+    navigationRules?: DimensionNavigationRules;
+    type?: DimensionType;
+    numericalExtents?: NumericalExtentsPair;
+    subdivisions?: NumericallySubdivide;
+    divisionOptions?: DivisionOptions;
 };
 
+// input
 export type DimensionDatum = {
     dimensionKey: DimensionKey;
-    nestedSettings: NestedSettings;
-    type?: DimensionType;
     behavior?: DimensionBehavior;
-    navigationRules?: NavigationList;
-    sortingFunction?: SortingFunction;
+    navigationRules?: DimensionNavigationRules;
+    type?: DimensionType;
+    operations?: DimensionOperations;
+    nodeId?: DynamicDimensionId;
+    renderId?: DynamicDimensionRenderId;
+    renderingStrategy?: RenderingStrategy;
+    divisionOptions?: DivisionOptions;
 };
 
-export type NestedSettings = {
-    nested: boolean;
-    derivedParent?: boolean;
-    parentNode?: NestedParent;
+export type DimensionNavigationRules = {
+    sibling_sibling: DimensionNavigationPair;
+    parent_child: DimensionNavigationPair;
 };
 
-export type NestedParent = {
-    id: DynamicNodeId;
-    rendering: ParentRendering;
+export type DivisionOptions = {
+    sortFunction?: SortingFunction; // by default does not sort
+    divisionNodeIds?: (dimensionKey: DimensionKey, keyValue: any, i: number) => string;
+    divisionRenderIds?: (dimensionKey: DimensionKey, keyValue: any, i: number) => string;
+    renderingStrategy?: RenderingStrategy;
 };
 
-export type ParentRendering = {
-    renderId: RenderId;
-    strategy: RenderingStrategy;
+export type DimensionOperations = {
+    filterFunction?: FilteringFunction;
+    sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
+    createNumericalSubdivisions?: NumericallySubdivide; // (if not set, defaults to 1)
+};
+
+export type DivisionObject = {
+    id: NodeId;
+    values: Nodes;
+    sortFunction?: SortingFunction; // by default does not sort
 };
 
 export type NavObject = {
@@ -159,8 +192,14 @@ export type SpatialObject = {
 
 export type DimensionBehavior = {
     extents: ExtentType;
-    bridgePrevious?: NodeId;
-    bridgePost?: NodeId;
+    customBridgePrevious?: NodeId;
+    customBridgePost?: NodeId;
+};
+
+export type Level1Behavior = {
+    extents: Level0ExtentType;
+    customBridgePrevious?: NodeId;
+    customBridgePost?: NodeId;
 };
 
 export type DescriptionOptions = {
@@ -203,7 +242,17 @@ export type DynamicNodeIdKey = ((d?: DatumObject) => string) | string;
 
 export type DynamicRenderIdKey = ((d?: DatumObject) => string) | string;
 
-export type SortingFunction = (a: DatumObject, b: DatumObject, c?: DimensionObject) => boolean;
+export type DynamicDimensionId = ((d?: DimensionDatum, a?: GenericDataset) => NodeId) | NodeId;
+
+export type DynamicDimensionRenderId = ((d?: DimensionDatum, a?: GenericDataset) => RenderId) | RenderId;
+
+export type NumericallySubdivide = ((d?: DimensionKey, n?: Nodes) => number) | number;
+
+export type AdjustingFunction = (d: Dimensions) => Dimensions;
+
+export type SortingFunction = (a: DatumObject, b: DatumObject, c?: any) => number;
+
+export type FilteringFunction = (a: DatumObject, b?: any) => boolean;
 
 export type ConditionalFunction = (n: NodeObject, d: EdgeDatum) => boolean;
 
@@ -215,7 +264,11 @@ export type RenderId = string;
 
 export type NavId = string;
 
+export type DimensionId = string;
+
 export type DimensionKey = string;
+
+export type NodeToAddOrReference = NodeObject | NodeId;
 
 export type Direction = 'target' | 'source';
 
@@ -223,6 +276,10 @@ export type RenderingStrategy = 'outlineEach' | 'convexHull' | 'singleSquare' | 
 
 export type DimensionType = 'numerical' | 'categorical';
 
-export type ExtentType = 'circular' | 'terminal' | 'bridged';
+export type ExtentType = 'circular' | 'terminal' | 'bridgedCousins' | 'bridgedCustom';
+
+export type Level0ExtentType = 'circular' | 'terminal' | 'bridgedCustom';
 
 export type DataType = 'vega-lite' | 'vl' | 'Vega-Lite' | 'generic' | 'default';
+
+export type DerivedNode = string;
