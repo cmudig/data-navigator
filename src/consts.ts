@@ -58,7 +58,7 @@ export const GenericFullNavigationDimensions = [
     ['left', 'right'],
     ['up', 'down'],
     ['backward', 'forward'],
-    ['parent', 'child']
+    ['previous', 'next']
 ];
 export const GenericFullNavigationPairs = {
     left: ['left', 'right'],
@@ -67,6 +67,8 @@ export const GenericFullNavigationPairs = {
     down: ['up', 'down'],
     backward: ['backward', 'forward'],
     forward: ['backward', 'forward'],
+    previous: ['previous', 'next'],
+    next: ['previous', 'next'],
     parent: ['parent', 'child'],
     child: ['parent', 'child'],
     exit: ['exit', 'undo'],
