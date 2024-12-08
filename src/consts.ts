@@ -13,43 +13,43 @@ export const defaultKeyBindings = {
 
 export const GenericFullNavigationRules = {
     down: {
-        keyCode: 'ArrowDown',
+        key: 'ArrowDown',
         direction: 'target'
     },
     left: {
-        keyCode: 'ArrowLeft',
+        key: 'ArrowLeft',
         direction: 'source'
     },
     right: {
-        keyCode: 'ArrowRight',
+        key: 'ArrowRight',
         direction: 'target'
     },
     up: {
-        keyCode: 'ArrowUp',
+        key: 'ArrowUp',
         direction: 'source'
     },
     backward: {
-        keyCode: 'Comma',
+        key: 'Comma',
         direction: 'source'
     },
     child: {
-        keyCode: 'Enter',
+        key: 'Enter',
         direction: 'target'
     },
     parent: {
-        keyCode: 'Backspace',
+        key: 'Backspace',
         direction: 'source'
     },
     forward: {
-        keyCode: 'Period',
+        key: 'Period',
         direction: 'target'
     },
     exit: {
-        keyCode: 'Escape',
+        key: 'Escape',
         direction: 'target'
     },
     undo: {
-        keyCode: 'KeyZ',
+        key: 'KeyZ',
         direction: 'target'
     }
 } as NavigationRules;

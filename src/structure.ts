@@ -651,10 +651,8 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
         let po = options.dimensions?.parentOptions || {};
         let extents = po.level1Options?.behavior?.extents || 'terminal';
         let level0 = po.addLevel0;
-        let parentRules = level0
-            ? po.level1Options?.navigationRules?.parent_child || ['parent_level0', 'child_level1']
-            : [];
-        let siblingRules = po.level1Options?.navigationRules?.sibling_sibling || ['previous_level1', 'next_level1'];
+        let parentRules = level0 ? po.level1Options?.navigationRules?.parent_child || ['parent', 'child'] : [];
+        let siblingRules = po.level1Options?.navigationRules?.sibling_sibling || ['left', 'right'];
         let firstLevel1Node: NodeObject =
             typeof order[0] === 'string' ? (hasOrder ? nodes[order[0]] : nodes[dimensions[order[0]].nodeId]) : order[0];
         if (level0) {
