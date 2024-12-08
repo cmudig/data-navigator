@@ -272,8 +272,6 @@ exports["default"] = (function (options) {
                 var navOption = navKeyBindings[direction];
                 keyBindings[navOption.key] = direction;
             });
-            console.log("navKeyBindings", navKeyBindings);
-            console.log("keyBindings", keyBindings);
         }
     };
     inputHandler.setNavigationKeyBindings(options.navigationRules);
@@ -499,7 +497,6 @@ exports["default"] = (function (options) {
         return node;
     };
     renderer.remove = function (renderId) {
-        console.log(renderer.root);
         var node = document.getElementById(renderId);
         if (renderer.wrapper.getAttribute('aria-activedescendant') === renderId) {
             renderer.wrapper.setAttribute('aria-activedescendant', '');
@@ -1130,9 +1127,7 @@ var buildEdges = function (options, nodes, dimensions) {
         var po_1 = ((_d = options.dimensions) === null || _d === void 0 ? void 0 : _d.parentOptions) || {};
         var extents_1 = ((_f = (_e = po_1.level1Options) === null || _e === void 0 ? void 0 : _e.behavior) === null || _f === void 0 ? void 0 : _f.extents) || 'terminal';
         var level0_1 = po_1.addLevel0;
-        var parentRules_1 = level0_1
-            ? ((_h = (_g = po_1.level1Options) === null || _g === void 0 ? void 0 : _g.navigationRules) === null || _h === void 0 ? void 0 : _h.parent_child) || ['parent', 'child']
-            : [];
+        var parentRules_1 = level0_1 ? ((_h = (_g = po_1.level1Options) === null || _g === void 0 ? void 0 : _g.navigationRules) === null || _h === void 0 ? void 0 : _h.parent_child) || ['parent', 'child'] : [];
         var siblingRules_1 = ((_k = (_j = po_1.level1Options) === null || _j === void 0 ? void 0 : _j.navigationRules) === null || _k === void 0 ? void 0 : _k.sibling_sibling) || ['left', 'right'];
         var firstLevel1Node_1 = typeof order_1[0] === 'string' ? (hasOrder_1 ? nodes[order_1[0]] : nodes[dimensions[order_1[0]].nodeId]) : order_1[0];
         if (level0_1) {
@@ -1498,19 +1493,19 @@ function ForceGraph(
         node.attr('cx', d => {
             // if nodes lack links, they will fly off screen
             // this keeps nodes within the svg
-            let limit = width/2 - nodeRadius
+            let limit = width / 2 - nodeRadius;
             if (d.x > limit || d.x < -limit) {
-                return limit
+                return limit;
             }
-            return d.x
+            return d.x;
         }).attr('cy', d => {
             // if nodes lack links, they will fly off screen
             // this keeps nodes within the svg
-            let limit = height/2 - nodeRadius
+            let limit = height / 2 - nodeRadius;
             if (d.y > limit || d.y < -limit) {
-                return limit
+                return limit;
             }
-            return d.y
+            return d.y;
         });
     }
 
@@ -1545,26 +1540,26 @@ var utilities = __webpack_require__(5);
 
 
 
-let exit = {}
+let exit = {};
 
 const convertToArray = (o, include, exclude) => {
     let x = [];
     if (include) {
         include.forEach(i => {
-            let n = {id: i}
-            x.push(n)
-        })
+            let n = { id: i };
+            x.push(n);
+        });
     }
     Object.keys(o).forEach(k => {
         if (exclude) {
-            let excluding = false
+            let excluding = false;
             exclude.forEach(e => {
                 if (k === e) {
-                    excluding = true
+                    excluding = true;
                 }
-            })
+            });
             if (excluding) {
-                return
+                return;
             }
         }
         x.push(o[k]);
@@ -1574,48 +1569,60 @@ const convertToArray = (o, include, exclude) => {
 
 const addRenderingProperties = (nodes, root, size) => {
     Object.keys(nodes).forEach(k => {
-        let node = nodes[k]
+        let node = nodes[k];
         if (!node.renderId) {
-            node.renderId = node.id
+            node.renderId = node.id;
         }
-        let label = ""
+        let label = '';
         node.existingElement = {
             useForSpatialProperties: true,
             spatialProperties: () => {
-                let box = document.getElementById(root).querySelector("#svg"+node.renderId).getBBox()
+                let box = document
+                    .getElementById(root)
+                    .querySelector('#svg' + node.renderId)
+                    .getBBox();
                 return {
-                    x: box.x + size/2 - 1.82,
-                    y: box.y + size/2 - 1.82,
+                    x: box.x + size / 2 - 0.91,
+                    y: box.y + size / 2 - 0.91,
                     width: box.width,
                     height: box.height
-                }
+                };
             }
-        }
+        };
         if (!node.derivedNode) {
-            label = (0,utilities.describeNode)(node.data,{})
+            label = (0,utilities.describeNode)(node.data, {});
         } else {
             if (node.data.dimensionKey) {
                 // dimension
-                let count = 0
-                let divisions = Object.keys(node.data.divisions)
+                let count = 0;
+                let divisions = Object.keys(node.data.divisions);
                 if (divisions.length) {
                     divisions.forEach(div => {
-                        count += Object.keys(node.data.divisions[div].values).length
-                    })
+                        count += Object.keys(node.data.divisions[div].values).length;
+                    });
                 }
-                label = `${node.derivedNode}.`
-                label += divisions.length && count ? ` Contains ${divisions.length} division${divisions.length > 1 ? "s" : ""} which contain ${count} datapoint${count > 1 ? "s" : ""} total.` : " Contains no child data points."
-                label += ` ${node.data.type} dimension.`
+                label = `${node.derivedNode}.`;
+                label +=
+                    divisions.length && count
+                        ? ` Contains ${divisions.length} division${
+                              divisions.length > 1 ? 's' : ''
+                          } which contain ${count} datapoint${count > 1 ? 's' : ''} total.`
+                        : ' Contains no child data points.';
+                label += ` ${node.data.type} dimension.`;
             } else {
                 // division
-                label = `${node.derivedNode}: ${node.data[node.derivedNode]}. Contains ${Object.keys(node.data.values).length} child data point${Object.keys(node.data.values).length > 1 ? "s" : ""}. Division of ${node.derivedNode} dimension.`
+                label = `${node.derivedNode}: ${node.data[node.derivedNode]}. Contains ${
+                    Object.keys(node.data.values).length
+                } child data point${Object.keys(node.data.values).length > 1 ? 's' : ''}. Division of ${
+                    node.derivedNode
+                } dimension.`;
             }
         }
         node.semantics = {
             label
-        }
-    })
-}
+        };
+    });
+};
 
 const createRenderer = (structure, id, enter) => {
     return src/* default */.Z.rendering({
@@ -1623,9 +1630,9 @@ const createRenderer = (structure, id, enter) => {
         defaults: {
             cssClass: 'dn-test-class'
         },
-        suffixId: 'data-navigator-schema-'+id,
+        suffixId: 'data-navigator-schema-' + id,
         root: {
-            id: "dn-root-"+id,
+            id: 'dn-root-' + id,
             cssClass: '',
             width: '100%',
             height: 0
@@ -1642,7 +1649,7 @@ const createRenderer = (structure, id, enter) => {
             include: true
         }
     });
-}
+};
 
 const hideTooltip = id => {
     document.getElementById(id).classList.add('hidden');
@@ -1656,7 +1663,7 @@ const showTooltip = (d, id, size, coloredBy) => {
     // const offset = bbox.width / 2;
     const yOffset = bbox.height / 2;
     tooltip.style.textAlign = 'left';
-    tooltip.style.transform = `translate(${size}px,${size/2 - yOffset}px)`;
+    tooltip.style.transform = `translate(${size}px,${size / 2 - yOffset}px)`;
 };
 
 const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
@@ -1664,11 +1671,11 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
     let previous;
     let current;
 
-    addRenderingProperties(structure.nodes, rootId, size)
-    
+    addRenderingProperties(structure.nodes, rootId, size);
+
     let graph = ForceGraph(
         {
-            nodes: convertToArray(structure.nodes, ["exit"]),
+            nodes: convertToArray(structure.nodes, ['exit']),
             links: convertToArray(structure.edges, [], ['any-exit'])
         },
         {
@@ -1683,20 +1690,20 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
         .getElementById(rootId)
         .querySelectorAll('circle')
         .forEach(c => {
-            c.id = "svg" + c.__data__?.id;
+            c.id = 'svg' + c.__data__?.id;
             c.addEventListener('mousemove', e => {
                 if (e.target?.__data__?.id) {
                     let d = e.target.__data__;
-                    showTooltip(structure.nodes[d.id], `${rootId}-tooltip`, size, colorBy);
+                    showTooltip(structure.nodes[d.id] || d, `${rootId}-tooltip`, size, colorBy);
                 }
             });
             c.addEventListener('mouseleave', () => {
                 hideTooltip(`${rootId}-tooltip`);
             });
         });
-    document
-        .getElementById("dn-root-"+rootId)
-        .addEventListener("blur", ()=> { hideTooltip(`${rootId}-tooltip`) })
+    document.getElementById('dn-root-' + rootId).addEventListener('blur', () => {
+        hideTooltip(`${rootId}-tooltip`);
+    });
 
     const enter = () => {
         const nextNode = input.enter();
@@ -1722,9 +1729,9 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
         hideTooltip(`${rootId}-tooltip`);
     };
 
-    const rendering = createRenderer(structure, rootId, enter)
+    const rendering = createRenderer(structure, rootId, enter);
     rendering.initialize();
-    console.log("structure.navigationRules",structure.navigationRules)
+    console.log('structure.navigationRules', structure.navigationRules);
     const input = src/* default */.Z.input({
         structure,
         navigationRules: structure.navigationRules,
@@ -1738,7 +1745,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
             datum: nextNode
         });
         node.addEventListener('keydown', e => {
-            console.log("keydown",e)
+            console.log('keydown', e);
             const direction = input.keydownValidator(e);
             if (direction) {
                 e.preventDefault();
@@ -1746,7 +1753,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
             }
         });
         showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
-        console.log("nextNode.renderId",nextNode.renderId)
+        console.log('nextNode.renderId', nextNode.renderId);
         input.focus(nextNode.renderId);
         entered = true;
         previous = current;
@@ -1801,11 +1808,11 @@ let simpleStructure = src/* default */.Z.structure({
     },
     genericEdges: [
         {
-            edgeId: "any-exit",
+            edgeId: 'any-exit',
             edge: {
                 source: (_d, c) => c,
                 target: () => {
-                    exit["simple"]();
+                    exit['simple']();
                     return '';
                 },
                 navigationRules: ['exit']
@@ -1814,7 +1821,13 @@ let simpleStructure = src/* default */.Z.structure({
     ]
 });
 console.log('simpleStructure', simpleStructure);
-buildGraph(simpleStructure, 'simple', 300, 'cat', simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId);
+buildGraph(
+    simpleStructure,
+    'simple',
+    300,
+    'cat',
+    simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId
+);
 
 let addDataTest = [...simpleDataTest];
 addDataTest.push({
@@ -1847,11 +1860,11 @@ let addedDataStructure = src/* default */.Z.structure({
     },
     genericEdges: [
         {
-            edgeId: "any-exit",
+            edgeId: 'any-exit',
             edge: {
                 source: (_d, c) => c,
                 target: () => {
-                    exit["added"]();
+                    exit['added']();
                     return '';
                 },
                 navigationRules: ['exit']
@@ -1860,7 +1873,13 @@ let addedDataStructure = src/* default */.Z.structure({
     ]
 });
 console.log('addedDataStructure', addedDataStructure);
-buildGraph(addedDataStructure, 'added', 300, 'cat', addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId);
+buildGraph(
+    addedDataStructure,
+    'added',
+    300,
+    'cat',
+    addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId
+);
 
 const largerData = [
     {
@@ -2183,7 +2202,7 @@ let largerStructure = src/* default */.Z.structure({
                 behavior: {
                     extents: 'circular'
                 }
-            },
+            }
             // {
             //     dimensionKey: 'value',
             //     type: 'numerical',
@@ -2202,11 +2221,11 @@ let largerStructure = src/* default */.Z.structure({
     },
     genericEdges: [
         {
-            edgeId: "any-exit",
+            edgeId: 'any-exit',
             edge: {
                 source: (_d, c) => c,
                 target: () => {
-                    exit["larger"]();
+                    exit['larger']();
                     return '';
                 },
                 navigationRules: ['exit']
@@ -2215,7 +2234,13 @@ let largerStructure = src/* default */.Z.structure({
     ]
 });
 console.log('largerStructure', largerStructure);
-buildGraph(largerStructure, 'larger', 300, 'category', largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId);
+buildGraph(
+    largerStructure,
+    'larger',
+    300,
+    'category',
+    largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId
+);
 
 /*
         checklist for edge creation: (we start low and work up)

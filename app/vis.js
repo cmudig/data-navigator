@@ -272,8 +272,6 @@ exports["default"] = (function (options) {
                 var navOption = navKeyBindings[direction];
                 keyBindings[navOption.key] = direction;
             });
-            console.log("navKeyBindings", navKeyBindings);
-            console.log("keyBindings", keyBindings);
         }
     };
     inputHandler.setNavigationKeyBindings(options.navigationRules);
@@ -499,7 +497,6 @@ exports["default"] = (function (options) {
         return node;
     };
     renderer.remove = function (renderId) {
-        console.log(renderer.root);
         var node = document.getElementById(renderId);
         if (renderer.wrapper.getAttribute('aria-activedescendant') === renderId) {
             renderer.wrapper.setAttribute('aria-activedescendant', '');
@@ -1130,9 +1127,7 @@ var buildEdges = function (options, nodes, dimensions) {
         var po_1 = ((_d = options.dimensions) === null || _d === void 0 ? void 0 : _d.parentOptions) || {};
         var extents_1 = ((_f = (_e = po_1.level1Options) === null || _e === void 0 ? void 0 : _e.behavior) === null || _f === void 0 ? void 0 : _f.extents) || 'terminal';
         var level0_1 = po_1.addLevel0;
-        var parentRules_1 = level0_1
-            ? ((_h = (_g = po_1.level1Options) === null || _g === void 0 ? void 0 : _g.navigationRules) === null || _h === void 0 ? void 0 : _h.parent_child) || ['parent', 'child']
-            : [];
+        var parentRules_1 = level0_1 ? ((_h = (_g = po_1.level1Options) === null || _g === void 0 ? void 0 : _g.navigationRules) === null || _h === void 0 ? void 0 : _h.parent_child) || ['parent', 'child'] : [];
         var siblingRules_1 = ((_k = (_j = po_1.level1Options) === null || _j === void 0 ? void 0 : _j.navigationRules) === null || _k === void 0 ? void 0 : _k.sibling_sibling) || ['left', 'right'];
         var firstLevel1Node_1 = typeof order_1[0] === 'string' ? (hasOrder_1 ? nodes[order_1[0]] : nodes[dimensions[order_1[0]].nodeId]) : order_1[0];
         if (level0_1) {

@@ -44,8 +44,8 @@ const addRenderingProperties = (nodes, root, size) => {
                     .querySelector('#svg' + node.renderId)
                     .getBBox();
                 return {
-                    x: box.x + size / 2 - 1.82,
-                    y: box.y + size / 2 - 1.82,
+                    x: box.x + size / 2 - 0.91,
+                    y: box.y + size / 2 - 0.91,
                     width: box.width,
                     height: box.height
                 };
@@ -156,7 +156,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
             c.addEventListener('mousemove', e => {
                 if (e.target?.__data__?.id) {
                     let d = e.target.__data__;
-                    showTooltip(structure.nodes[d.id], `${rootId}-tooltip`, size, colorBy);
+                    showTooltip(structure.nodes[d.id] || d, `${rootId}-tooltip`, size, colorBy);
                 }
             });
             c.addEventListener('mouseleave', () => {
