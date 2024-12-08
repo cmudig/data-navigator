@@ -11,53 +11,13 @@ export const defaultKeyBindings = {
     Enter: 'child'
 } as DatumObject;
 
-export const TypicallyUnreservedKeys = [
-    {
-        key: 'KeyW'
-    },
-    {
-        key: 'KeyJ'
-    },
-    {
-        key: 'LeftBracket'
-    },
-    {
-        key: 'RightBracket'
-    },
-    {
-        key: 'Slash'
-    },
-    {
-        key: 'Backslash'
-    }
-];
+export const TypicallyUnreservedKeys = ['KeyW', 'KeyJ', 'LeftBracket', 'RightBracket', 'Slash', 'Backslash'];
 
-export const TypicallyUnreservedSoloKeys = [
-    {
-        key: 'KeyW'
-    },
-    {
-        key: 'KeyJ'
-    }
-];
+export const TypicallyUnreservedSoloKeys = ['KeyW', 'KeyJ'];
 
 export const TypicallyUnreservedKeyPairs = [
-    [
-        {
-            key: 'LeftBracket'
-        },
-        {
-            key: 'RightBracket'
-        }
-    ],
-    [
-        {
-            key: 'Slash'
-        },
-        {
-            key: 'Backslash'
-        }
-    ]
+    ['LeftBracket', 'RightBracket'],
+    ['Slash', 'Backslash']
 ];
 
 export const GenericFullNavigationRules = {
