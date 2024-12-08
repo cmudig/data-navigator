@@ -2,55 +2,60 @@ import { default as dataNavigator } from '../src/index.ts';
 import { ForceGraph } from './force-graph.js';
 // import { describeNode } from '../src/utilities.ts';
 
-const convertToArray = (o) => {
-    let x = []
+const convertToArray = o => {
+    let x = [];
     Object.keys(o).forEach(k => {
-        x.push(o[k])
-    })
-    return x
-}
+        x.push(o[k]);
+    });
+    return x;
+};
 
-const hideTooltip = (id) => {
+const hideTooltip = id => {
     document.getElementById(id).classList.add('hidden');
 };
 
-const showTooltip = (d,id,size,coloredBy) => {
+const showTooltip = (d, id, size, coloredBy) => {
     const tooltip = document.getElementById(id);
     tooltip.classList.remove('hidden');
-    tooltip.innerText = d.semantics?.label || `${d.id}${d.data?.[coloredBy] ? ", " + d.data[coloredBy] : ""}`;
+    tooltip.innerText = d.semantics?.label || `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}`;
     const bbox = tooltip.getBoundingClientRect();
-    const offset = bbox.width/2;
+    const offset = bbox.width / 2;
     const yOffset = bbox.height;
     tooltip.style.textAlign = 'left';
-    tooltip.style.transform = `translate(${size/2 - offset}px,${size - yOffset}px)`;
+    tooltip.style.transform = `translate(${size / 2 - offset}px,${size - yOffset}px)`;
 };
 
 const buildGraph = (structure, rootId, size, colorBy) => {
-    let graph = ForceGraph({
-        nodes: convertToArray(structure.nodes),
-        links: convertToArray(structure.edges)
-    }, {
-        nodeId: d => d.id,
-        nodeGroup: d => { 
-            console.log(d, colorBy, d.data?.[colorBy]) 
-            return d.data?.[colorBy]
+    let graph = ForceGraph(
+        {
+            nodes: convertToArray(structure.nodes),
+            links: convertToArray(structure.edges)
         },
-        width: size,
-        height: size
-    })
-    document.getElementById(rootId).appendChild(graph)
-    document.getElementById(rootId).querySelectorAll("circle").forEach(c => {
-        c.id = c.__data__?.id
-        c.addEventListener("mousemove", (e)=> {
-            if (e.target?.__data__?.id) {
-                let d = e.target.__data__
-                console.log(d.id, d, structure.nodes[d.id])
-                showTooltip(structure.nodes[d.id],`${rootId}-tooltip`, size, colorBy)
-            }
-        })
-        c.addEventListener("mouseleave",()=> {hideTooltip(`${rootId}-tooltip`)})
-    })
-}
+        {
+            nodeId: d => d.id,
+            nodeGroup: d => d.data?.[colorBy],
+            width: size,
+            height: size
+        }
+    );
+    document.getElementById(rootId).appendChild(graph);
+    document
+        .getElementById(rootId)
+        .querySelectorAll('circle')
+        .forEach(c => {
+            c.id = c.__data__?.id;
+            c.addEventListener('mousemove', e => {
+                if (e.target?.__data__?.id) {
+                    let d = e.target.__data__;
+                    console.log(d.id, d, structure.nodes[d.id]);
+                    showTooltip(structure.nodes[d.id], `${rootId}-tooltip`, size, colorBy);
+                }
+            });
+            c.addEventListener('mouseleave', () => {
+                hideTooltip(`${rootId}-tooltip`);
+            });
+        });
+};
 
 const simpleDataTest = [
     {
@@ -74,7 +79,7 @@ const simpleDataTest = [
         num: 4
     }
 ];
-console.log("simpleDataTest",simpleDataTest)
+console.log('simpleDataTest', simpleDataTest);
 let simpleStructure = dataNavigator.structure({
     data: simpleDataTest,
     idKey: 'id',
@@ -97,18 +102,16 @@ let simpleStructure = dataNavigator.structure({
         ]
     }
 });
-console.log("simpleStructure",simpleStructure);
-buildGraph(simpleStructure, "simple", 300, "cat")
+console.log('simpleStructure', simpleStructure);
+buildGraph(simpleStructure, 'simple', 300, 'cat');
 
-let addDataTest = [...simpleDataTest]
-addDataTest.push(
-    {
-        id: 'e',
-        cat: 'bork',
-        num: 12
-    }
-)
-console.log("addDataTest",addDataTest)
+let addDataTest = [...simpleDataTest];
+addDataTest.push({
+    id: 'e',
+    cat: 'bork',
+    num: 12
+});
+console.log('addDataTest', addDataTest);
 let addedDataStructure = dataNavigator.structure({
     data: addDataTest,
     addIds: true,
@@ -131,9 +134,9 @@ let addedDataStructure = dataNavigator.structure({
             }
         ]
     }
-})
-console.log("addedDataStructure",addedDataStructure);
-buildGraph(addedDataStructure, "added", 300, "cat")
+});
+console.log('addedDataStructure', addedDataStructure);
+buildGraph(addedDataStructure, 'added', 300, 'cat');
 
 /*
         checklist for edge creation: (we start low and work up)

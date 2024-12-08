@@ -401,8 +401,8 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                     }
 
                     // if (dim.operations.aggregate) {
-                        // want some way to aggregate here across the dimension
-                        // we need an easy way to create lists as well as calculate
+                    // want some way to aggregate here across the dimension
+                    // we need an easy way to create lists as well as calculate
                     // }
 
                     // step 1: create dimension if it hasn't been made yet!
@@ -469,10 +469,10 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                                 renderId: divisionRenderId,
                                 derivedNode: dim.dimensionKey,
                                 edges: [],
-                                data: {...targetDivision} as DatumObject,
+                                data: { ...targetDivision } as DatumObject,
                                 renderingStrategy: dim.divisionOptions?.renderingStrategy || 'singleSquare' // not sure what defaults we want yet
                             } as NodeObject;
-                            nodes[divisionId].data[dim.dimensionKey] = value
+                            nodes[divisionId].data[dim.dimensionKey] = value;
                         }
                     } else {
                         // if this isn't categorical, we create a generic division (for now) and will split later
@@ -625,7 +625,7 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
         const id: EdgeId = `${source}-${target}`;
         // create edge object
         if (edges[id] && rules) {
-            edges[id].navigationRules.push(...rules );
+            edges[id].navigationRules.push(...rules);
         } else {
             edges[id] = {
                 source,
@@ -748,8 +748,13 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
 
                 // every division needs to go up to parent and down to first child
                 createEdge(division.id, dimension.nodeId, dimension.navigationRules.parent_child);
-                const firstChildId = typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
-                createEdge(division.id, division.values[valueKeys[0]][firstChildId], dimension.navigationRules.parent_child);
+                const firstChildId =
+                    typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
+                createEdge(
+                    division.id,
+                    division.values[valueKeys[0]][firstChildId],
+                    dimension.navigationRules.parent_child
+                );
 
                 // lastly, we prep the childmost level
                 let i = 0;
@@ -762,7 +767,10 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
 
                         if (i === valueKeys.length - 1 && extents === 'circular') {
                             // we are at the end, create forwards loop to start of list
-                            const targetId = typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
+                            const targetId =
+                                typeof options.idKey === 'function'
+                                    ? options.idKey(division.values[valueKeys[0]])
+                                    : options.idKey;
                             createEdge(
                                 v[id],
                                 division.values[valueKeys[0]][targetId],
@@ -771,7 +779,10 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                         } else if (i === valueKeys.length - 1 && extents === 'bridgedCousins') {
                             if (j !== divisionKeys.length - 1) {
                                 // we are at the end of values but not divisions, create forwards bridge to the first child of the next division
-                                const targetId = typeof options.idKey === 'function' ? options.idKey(dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]]) : options.idKey;
+                                const targetId =
+                                    typeof options.idKey === 'function'
+                                        ? options.idKey(dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]])
+                                        : options.idKey;
                                 createEdge(
                                     v[id],
                                     dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]][targetId],
@@ -779,7 +790,10 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                                 );
                             } else {
                                 // we are at the end of values and divisions, create forwards bridge to the first child of the first division
-                                const targetId = typeof options.idKey === 'function' ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]]) : options.idKey;
+                                const targetId =
+                                    typeof options.idKey === 'function'
+                                        ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]])
+                                        : options.idKey;
                                 createEdge(
                                     v[id],
                                     dimension.divisions[divisionKeys[0]].values[valueKeys[0]][targetId],
@@ -795,7 +809,10 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                             );
                         } else if (i < valueKeys.length - 1) {
                             // we are in the dimension but not at the end, create forwards step
-                            const targetId = typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[i + 1]]) : options.idKey;
+                            const targetId =
+                                typeof options.idKey === 'function'
+                                    ? options.idKey(division.values[valueKeys[i + 1]])
+                                    : options.idKey;
                             createEdge(
                                 v[id],
                                 division.values[valueKeys[i + 1]][targetId],
@@ -806,15 +823,31 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                         if (!i && extents === 'bridgedCousins') {
                             if (j !== 0) {
                                 // we are at the start of values (but not divisions) and bridge is set, we need to create backwards bridge to the previous division's last child
-                                const targetId = typeof options.idKey === 'function' ? options.idKey(dimension.divisions[divisionKeys[j - 1]].values[valueKeys[valueKeys.length - 1]]) : options.idKey;
+                                const targetId =
+                                    typeof options.idKey === 'function'
+                                        ? options.idKey(
+                                              dimension.divisions[divisionKeys[j - 1]].values[
+                                                  valueKeys[valueKeys.length - 1]
+                                              ]
+                                          )
+                                        : options.idKey;
                                 createEdge(
-                                    dimension.divisions[divisionKeys[j - 1]].values[valueKeys[valueKeys.length - 1]][targetId],
+                                    dimension.divisions[divisionKeys[j - 1]].values[valueKeys[valueKeys.length - 1]][
+                                        targetId
+                                    ],
                                     v[id],
                                     dimension.navigationRules.sibling_sibling
                                 );
                             } else {
                                 // we are at the start of values and divivions and bridge is set, we need to create backwards bridge to the last division's last child
-                                const targetId = typeof options.idKey === 'function' ? options.idKey(dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[valueKeys[valueKeys.length - 1]]) : options.idKey;
+                                const targetId =
+                                    typeof options.idKey === 'function'
+                                        ? options.idKey(
+                                              dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
+                                                  valueKeys[valueKeys.length - 1]
+                                              ]
+                                          )
+                                        : options.idKey;
                                 createEdge(
                                     dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
                                         valueKeys[valueKeys.length - 1]
@@ -869,7 +902,7 @@ export const buildStructure = (options: StructureOptions): Structure => {
     // console.log("nodes",nodes)
     let dimensions = scaffoldDimensions(options, nodes);
     // console.log("dimensions",dimensions)
-    
+
     let edges = buildEdges(options, nodes, dimensions);
     // console.log("edges",edges)
 
