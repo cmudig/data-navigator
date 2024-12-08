@@ -1,6 +1,11 @@
 // Copyright 2021-2024 Observable, Inc.
 // Released under the ISC license.
 // https://observablehq.com/@d3/force-directed-graph
+/*
+    @frankelavsky's NOTE: This works beautifully out of the box for my purposes, but I did make a few changes
+    Record of changes:
+        - Added a limit to the simulation so that nodes don't fly out of view if without links
+*/
 export function ForceGraph(
     {
         nodes, // an iterable of node objects (typically [{id}, …])
@@ -110,7 +115,23 @@ export function ForceGraph(
             .attr('x2', d => d.target.x)
             .attr('y2', d => d.target.y);
 
-        node.attr('cx', d => d.x).attr('cy', d => d.y);
+        node.attr('cx', d => {
+            // if nodes lack links, they will fly off screen
+            // this keeps nodes within the svg
+            let limit = width / 2 - nodeRadius;
+            if (d.x > limit || d.x < -limit) {
+                return limit;
+            }
+            return d.x;
+        }).attr('cy', d => {
+            // if nodes lack links, they will fly off screen
+            // this keeps nodes within the svg
+            let limit = height / 2 - nodeRadius;
+            if (d.y > limit || d.y < -limit) {
+                return limit;
+            }
+            return d.y;
+        });
     }
 
     function drag(simulation) {
