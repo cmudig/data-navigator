@@ -6,6 +6,7 @@ export type StructureOptions = {
     renderIdKey?: DynamicRenderIdKey;
     dimensions?: DimensionOptions;
     genericEdges?: EdgeOptions;
+    useDirectedEdges?: boolean;
     dataType?: DataType;
     addIds?: boolean;
     keysForIdGeneration?: KeyList;
