@@ -593,7 +593,7 @@ let edges = {
     'any-return': {
         source: () => current,
         target: () => previous,
-        navigationRules: ['previous', 'undo']
+        navigationRules: ['undo']
     },
     'any-exit': {
         source: () => current,
@@ -896,10 +896,6 @@ let navigationRules = {
         key: 'Escape',
         direction: 'target'
     },
-    previous: {
-        key: 'Period',
-        direction: 'target'
-    },
     undo: {
         key: 'Period',
         direction: 'target'
@@ -1015,7 +1011,7 @@ const handleMovement = ev => {
                 : right && down
                 ? 'child'
                 : left && down
-                ? 'previous'
+                ? 'undo'
                 : left && up
                 ? 'parent'
                 : null
