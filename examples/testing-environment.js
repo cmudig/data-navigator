@@ -47,7 +47,6 @@ const buildGraph = (structure, rootId, size, colorBy) => {
             c.addEventListener('mousemove', e => {
                 if (e.target?.__data__?.id) {
                     let d = e.target.__data__;
-                    console.log(d.id, d, structure.nodes[d.id]);
                     showTooltip(structure.nodes[d.id], `${rootId}-tooltip`, size, colorBy);
                 }
             });
@@ -137,6 +136,353 @@ let addedDataStructure = dataNavigator.structure({
 });
 console.log('addedDataStructure', addedDataStructure);
 buildGraph(addedDataStructure, 'added', 300, 'cat');
+
+const largerData = [
+    {
+        date: '2016-01-01',
+        category: 'Group A',
+        value: 120,
+        count: 420
+    },
+    {
+        date: '2016-02-01',
+        category: 'Group A',
+        value: 121,
+        count: 439
+    },
+    {
+        date: '2016-03-01',
+        category: 'Group A',
+        value: 119,
+        count: 402
+    },
+    {
+        date: '2016-04-01',
+        category: 'Group A',
+        value: 114,
+        count: 434
+    },
+    {
+        date: '2016-05-01',
+        category: 'Group A',
+        value: 102,
+        count: 395
+    },
+    {
+        date: '2016-06-01',
+        category: 'Group A',
+        value: 112,
+        count: 393
+    },
+    {
+        date: '2016-07-01',
+        category: 'Group A',
+        value: 130,
+        count: 445
+    },
+    {
+        date: '2016-08-01',
+        category: 'Group A',
+        value: 124,
+        count: 456
+    },
+    {
+        date: '2016-09-01',
+        category: 'Group A',
+        value: 119,
+        count: 355
+    },
+    {
+        date: '2016-10-01',
+        category: 'Group A',
+        value: 106,
+        count: 464
+    },
+    {
+        date: '2016-11-01',
+        category: 'Group A',
+        value: 123,
+        count: 486
+    },
+    {
+        date: '2016-12-01',
+        category: 'Group A',
+        value: 133,
+        count: 491
+    },
+    {
+        date: '2016-01-01',
+        category: 'Group B',
+        value: 89,
+        count: 342
+    },
+    {
+        date: '2016-02-01',
+        category: 'Group B',
+        value: 93,
+        count: 434
+    },
+    {
+        date: '2016-03-01',
+        category: 'Group B',
+        value: 82,
+        count: 378
+    },
+    {
+        date: '2016-04-01',
+        category: 'Group B',
+        value: 92,
+        count: 323
+    },
+    {
+        date: '2016-05-01',
+        category: 'Group B',
+        value: 90,
+        count: 434
+    },
+    {
+        date: '2016-06-01',
+        category: 'Group B',
+        value: 85,
+        count: 376
+    },
+    {
+        date: '2016-07-01',
+        category: 'Group B',
+        value: 88,
+        count: 404
+    },
+    {
+        date: '2016-08-01',
+        category: 'Group B',
+        value: 84,
+        count: 355
+    },
+    {
+        date: '2016-09-01',
+        category: 'Group B',
+        value: 90,
+        count: 432
+    },
+    {
+        date: '2016-10-01',
+        category: 'Group B',
+        value: 80,
+        count: 455
+    },
+    {
+        date: '2016-11-01',
+        category: 'Group B',
+        value: 92,
+        count: 445
+    },
+    {
+        date: '2016-12-01',
+        category: 'Group B',
+        value: 97,
+        count: 321
+    },
+    {
+        date: '2016-01-01',
+        category: 'Group C',
+        value: 73,
+        count: 456
+    },
+    {
+        date: '2016-02-01',
+        category: 'Group C',
+        value: 74,
+        count: 372
+    },
+    {
+        date: '2016-03-01',
+        category: 'Group C',
+        value: 68,
+        count: 323
+    },
+    {
+        date: '2016-04-01',
+        category: 'Group C',
+        value: 66,
+        count: 383
+    },
+    {
+        date: '2016-05-01',
+        category: 'Group C',
+        value: 72,
+        count: 382
+    },
+    {
+        date: '2016-06-01',
+        category: 'Group C',
+        value: 70,
+        count: 365
+    },
+    {
+        date: '2016-07-01',
+        category: 'Group C',
+        value: 74,
+        count: 296
+    },
+    {
+        date: '2016-08-01',
+        category: 'Group C',
+        value: 68,
+        count: 312
+    },
+    {
+        date: '2016-09-01',
+        category: 'Group C',
+        value: 75,
+        count: 334
+    },
+    {
+        date: '2016-10-01',
+        category: 'Group C',
+        value: 66,
+        count: 386
+    },
+    {
+        date: '2016-11-01',
+        category: 'Group C',
+        value: 85,
+        count: 487
+    },
+    {
+        date: '2016-12-01',
+        category: 'Group C',
+        value: 89,
+        count: 512
+    },
+    {
+        date: '2016-01-01',
+        category: 'Other',
+        value: 83,
+        count: 432
+    },
+    {
+        date: '2016-02-01',
+        category: 'Other',
+        value: 87,
+        count: 364
+    },
+    {
+        date: '2016-03-01',
+        category: 'Other',
+        value: 76,
+        count: 334
+    },
+    {
+        date: '2016-04-01',
+        category: 'Other',
+        value: 86,
+        count: 395
+    },
+    {
+        date: '2016-05-01',
+        category: 'Other',
+        value: 87,
+        count: 354
+    },
+    {
+        date: '2016-06-01',
+        category: 'Other',
+        value: 77,
+        count: 386
+    },
+    {
+        date: '2016-07-01',
+        category: 'Other',
+        value: 79,
+        count: 353
+    },
+    {
+        date: '2016-08-01',
+        category: 'Other',
+        value: 85,
+        count: 288
+    },
+    {
+        date: '2016-09-01',
+        category: 'Other',
+        value: 87,
+        count: 353
+    },
+    {
+        date: '2016-10-01',
+        category: 'Other',
+        value: 76,
+        count: 322
+    },
+    {
+        date: '2016-11-01',
+        category: 'Other',
+        value: 96,
+        count: 412
+    },
+    {
+        date: '2016-12-01',
+        category: 'Other',
+        value: 104,
+        count: 495
+    }
+];
+// {
+//     "date": "2016-01-01",
+//     "category": "Group A",
+//     "value": 120,
+//     "count": 420
+// }
+let largerStructure = dataNavigator.structure({
+    data: largerData,
+    idKey: 'id',
+    addIds: true,
+    dimensions: {
+        values: [
+            {
+                dimensionKey: 'date',
+                type: 'categorical',
+                behavior: {
+                    extents: 'circular'
+                },
+                operations: {
+                    sortFunction: (a, b, c) => {
+                        if (a.values) {
+                            let aDate = new Date(a.values[Object.keys(a.values)[0]].date);
+                            let bDate = new Date(b.values[Object.keys(b.values)[0]].date);
+                            return aDate - bDate;
+                        } else {
+                            return;
+                        }
+                    }
+                }
+            },
+            {
+                dimensionKey: 'category',
+                type: 'categorical',
+                behavior: {
+                    extents: 'circular'
+                }
+            },
+            {
+                dimensionKey: 'value',
+                type: 'numerical',
+                behavior: {
+                    extents: 'terminal'
+                }
+            },
+            {
+                dimensionKey: 'count',
+                type: 'numerical',
+                behavior: {
+                    extents: 'terminal'
+                }
+            }
+        ]
+    }
+});
+console.log('largerStructure', largerStructure);
+buildGraph(largerStructure, 'larger', 300, 'category');
 
 /*
         checklist for edge creation: (we start low and work up)
