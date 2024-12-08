@@ -1,13 +1,116 @@
 import { default as dataNavigator } from '../src/index.ts';
 import { ForceGraph } from './force-graph.js';
-// import { describeNode } from '../src/utilities.ts';
+import { describeNode } from '../src/utilities.ts';
 
-const convertToArray = o => {
+let exit = {};
+
+const convertToArray = (o, include, exclude) => {
     let x = [];
+    if (include) {
+        include.forEach(i => {
+            let n = { id: i };
+            x.push(n);
+        });
+    }
     Object.keys(o).forEach(k => {
+        if (exclude) {
+            let excluding = false;
+            exclude.forEach(e => {
+                if (k === e) {
+                    excluding = true;
+                }
+            });
+            if (excluding) {
+                return;
+            }
+        }
         x.push(o[k]);
     });
     return x;
+};
+
+const addRenderingProperties = (nodes, root, size) => {
+    Object.keys(nodes).forEach(k => {
+        let node = nodes[k];
+        if (!node.renderId) {
+            node.renderId = node.id;
+        }
+        let label = '';
+        node.existingElement = {
+            useForSpatialProperties: true,
+            spatialProperties: () => {
+                let box = document
+                    .getElementById(root)
+                    .querySelector('#svg' + node.renderId)
+                    .getBBox();
+                return {
+                    x: box.x + size / 2 - 1.82,
+                    y: box.y + size / 2 - 1.82,
+                    width: box.width,
+                    height: box.height
+                };
+            }
+        };
+        if (!node.derivedNode) {
+            label = describeNode(node.data, {});
+        } else {
+            if (node.data.dimensionKey) {
+                // dimension
+                let count = 0;
+                let divisions = Object.keys(node.data.divisions);
+                if (divisions.length) {
+                    divisions.forEach(div => {
+                        count += Object.keys(node.data.divisions[div].values).length;
+                    });
+                }
+                label = `${node.derivedNode}.`;
+                label +=
+                    divisions.length && count
+                        ? ` Contains ${divisions.length} division${
+                              divisions.length > 1 ? 's' : ''
+                          } which contain ${count} datapoint${count > 1 ? 's' : ''} total.`
+                        : ' Contains no child data points.';
+                label += ` ${node.data.type} dimension.`;
+            } else {
+                // division
+                label = `${node.derivedNode}: ${node.data[node.derivedNode]}. Contains ${
+                    Object.keys(node.data.values).length
+                } child data point${Object.keys(node.data.values).length > 1 ? 's' : ''}. Division of ${
+                    node.derivedNode
+                } dimension.`;
+            }
+        }
+        node.semantics = {
+            label
+        };
+    });
+};
+
+const createRenderer = (structure, id, enter) => {
+    return dataNavigator.rendering({
+        elementData: structure.nodes,
+        defaults: {
+            cssClass: 'dn-test-class'
+        },
+        suffixId: 'data-navigator-schema-' + id,
+        root: {
+            id: 'dn-root-' + id,
+            cssClass: '',
+            width: '100%',
+            height: 0
+        },
+        entryButton: {
+            include: true,
+            callbacks: {
+                click: () => {
+                    enter();
+                }
+            }
+        },
+        exitElement: {
+            include: true
+        }
+    });
 };
 
 const hideTooltip = id => {
@@ -19,17 +122,23 @@ const showTooltip = (d, id, size, coloredBy) => {
     tooltip.classList.remove('hidden');
     tooltip.innerText = d.semantics?.label || `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}`;
     const bbox = tooltip.getBoundingClientRect();
-    const offset = bbox.width / 2;
-    const yOffset = bbox.height;
+    // const offset = bbox.width / 2;
+    const yOffset = bbox.height / 2;
     tooltip.style.textAlign = 'left';
-    tooltip.style.transform = `translate(${size / 2 - offset}px,${size - yOffset}px)`;
+    tooltip.style.transform = `translate(${size}px,${size / 2 - yOffset}px)`;
 };
 
-const buildGraph = (structure, rootId, size, colorBy) => {
+const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
+    let entered;
+    let previous;
+    let current;
+
+    addRenderingProperties(structure.nodes, rootId, size);
+
     let graph = ForceGraph(
         {
-            nodes: convertToArray(structure.nodes),
-            links: convertToArray(structure.edges)
+            nodes: convertToArray(structure.nodes, ['exit']),
+            links: convertToArray(structure.edges, [], ['any-exit'])
         },
         {
             nodeId: d => d.id,
@@ -43,7 +152,7 @@ const buildGraph = (structure, rootId, size, colorBy) => {
         .getElementById(rootId)
         .querySelectorAll('circle')
         .forEach(c => {
-            c.id = c.__data__?.id;
+            c.id = 'svg' + c.__data__?.id;
             c.addEventListener('mousemove', e => {
                 if (e.target?.__data__?.id) {
                     let d = e.target.__data__;
@@ -54,6 +163,65 @@ const buildGraph = (structure, rootId, size, colorBy) => {
                 hideTooltip(`${rootId}-tooltip`);
             });
         });
+    document.getElementById('dn-root-' + rootId).addEventListener('blur', () => {
+        hideTooltip(`${rootId}-tooltip`);
+    });
+
+    const enter = () => {
+        const nextNode = input.enter();
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };
+
+    const move = direction => {
+        const nextNode = input.move(current, direction);
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };
+
+    exit[rootId] = () => {
+        entered = false;
+        rendering.exitElement.style.display = 'block';
+        input.focus(rendering.exitElement.id);
+        previous = current;
+        current = null;
+        rendering.remove(previous);
+        hideTooltip(`${rootId}-tooltip`);
+    };
+
+    const rendering = createRenderer(structure, rootId, enter);
+    rendering.initialize();
+    console.log('structure.navigationRules', structure.navigationRules);
+    const input = dataNavigator.input({
+        structure,
+        navigationRules: structure.navigationRules,
+        entryPoint,
+        exitPoint: rendering.exitElement.id
+    });
+
+    const initiateLifecycle = nextNode => {
+        const node = rendering.render({
+            renderId: nextNode.renderId,
+            datum: nextNode
+        });
+        node.addEventListener('keydown', e => {
+            console.log('keydown', e);
+            const direction = input.keydownValidator(e);
+            if (direction) {
+                e.preventDefault();
+                move(direction);
+            }
+        });
+        showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
+        console.log('nextNode.renderId', nextNode.renderId);
+        input.focus(nextNode.renderId);
+        entered = true;
+        previous = current;
+        current = nextNode.id;
+        rendering.remove(previous);
+    };
 };
 
 const simpleDataTest = [
@@ -99,10 +267,29 @@ let simpleStructure = dataNavigator.structure({
                 }
             }
         ]
-    }
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['simple']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
 });
 console.log('simpleStructure', simpleStructure);
-buildGraph(simpleStructure, 'simple', 300, 'cat');
+buildGraph(
+    simpleStructure,
+    'simple',
+    300,
+    'cat',
+    simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId
+);
 
 let addDataTest = [...simpleDataTest];
 addDataTest.push({
@@ -132,10 +319,29 @@ let addedDataStructure = dataNavigator.structure({
                 }
             }
         ]
-    }
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['added']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
 });
 console.log('addedDataStructure', addedDataStructure);
-buildGraph(addedDataStructure, 'added', 300, 'cat');
+buildGraph(
+    addedDataStructure,
+    'added',
+    300,
+    'cat',
+    addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId
+);
 
 const largerData = [
     {
@@ -427,12 +633,7 @@ const largerData = [
         count: 495
     }
 ];
-// {
-//     "date": "2016-01-01",
-//     "category": "Group A",
-//     "value": 120,
-//     "count": 420
-// }
+
 let largerStructure = dataNavigator.structure({
     data: largerData,
     idKey: 'id',
@@ -463,26 +664,45 @@ let largerStructure = dataNavigator.structure({
                 behavior: {
                     extents: 'circular'
                 }
-            },
-            {
-                dimensionKey: 'value',
-                type: 'numerical',
-                behavior: {
-                    extents: 'terminal'
-                }
-            },
-            {
-                dimensionKey: 'count',
-                type: 'numerical',
-                behavior: {
-                    extents: 'terminal'
-                }
             }
+            // {
+            //     dimensionKey: 'value',
+            //     type: 'numerical',
+            //     behavior: {
+            //         extents: 'terminal'
+            //     }
+            // },
+            // {
+            //     dimensionKey: 'count',
+            //     type: 'numerical',
+            //     behavior: {
+            //         extents: 'terminal'
+            //     }
+            // }
         ]
-    }
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['larger']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
 });
 console.log('largerStructure', largerStructure);
-buildGraph(largerStructure, 'larger', 300, 'category');
+buildGraph(
+    largerStructure,
+    'larger',
+    300,
+    'category',
+    largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId
+);
 
 /*
         checklist for edge creation: (we start low and work up)
