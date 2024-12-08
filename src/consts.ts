@@ -11,11 +11,56 @@ export const defaultKeyBindings = {
     Enter: 'child'
 } as DatumObject;
 
-export const GenericFullNavigationRules = {
-    down: {
-        key: 'ArrowDown',
-        direction: 'target'
+export const TypicallyUnreservedKeys = [
+    {
+        key: 'KeyW'
     },
+    {
+        key: 'KeyJ'
+    },
+    {
+        key: 'LeftBracket'
+    },
+    {
+        key: 'RightBracket'
+    },
+    {
+        key: 'Slash'
+    },
+    {
+        key: 'Backslash'
+    }
+];
+
+export const TypicallyUnreservedSoloKeys = [
+    {
+        key: 'KeyW'
+    },
+    {
+        key: 'KeyJ'
+    }
+];
+
+export const TypicallyUnreservedKeyPairs = [
+    [
+        {
+            key: 'LeftBracket'
+        },
+        {
+            key: 'RightBracket'
+        }
+    ],
+    [
+        {
+            key: 'Slash'
+        },
+        {
+            key: 'Backslash'
+        }
+    ]
+];
+
+export const GenericFullNavigationRules = {
     left: {
         key: 'ArrowLeft',
         direction: 'source'
@@ -28,9 +73,9 @@ export const GenericFullNavigationRules = {
         key: 'ArrowUp',
         direction: 'source'
     },
-    backward: {
-        key: 'Comma',
-        direction: 'source'
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
     },
     child: {
         key: 'Enter',
@@ -40,12 +85,28 @@ export const GenericFullNavigationRules = {
         key: 'Backspace',
         direction: 'source'
     },
+    backward: {
+        key: 'Comma',
+        direction: 'source'
+    },
     forward: {
         key: 'Period',
         direction: 'target'
     },
+    previous: {
+        key: 'Semicolon',
+        direction: 'source'
+    },
+    next: {
+        key: 'Quote',
+        direction: 'target'
+    },
     exit: {
         key: 'Escape',
+        direction: 'target'
+    },
+    help: {
+        key: 'KeyY',
         direction: 'target'
     },
     undo: {
