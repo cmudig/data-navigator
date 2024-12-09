@@ -1,4 +1,10 @@
-import { GenericLimitedNavigationRules, GenericFullNavigationRules, GenericFullNavigationDimensions } from './consts';
+import {
+    GenericLimitedNavigationRules,
+    GenericFullNavigationRules,
+    GenericFullNavigationDimensions,
+    TypicallyUnreservedKeys,
+    TypicallyUnreservedKeyPairs
+} from './consts';
 import {
     StructureOptions,
     EdgeList,
@@ -365,6 +371,12 @@ export const bulidNodes = (options: StructureOptions): Nodes => {
 export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dimensions => {
     let dimensions = {};
 
+    // step 0, if we want to have a level 0 in our structure, we need to create a node for it!
+    if (options.dimensions?.parentOptions?.addLevel0) {
+        let level0 = options.dimensions.parentOptions.addLevel0;
+        nodes[level0.id] = { ...level0, dimensionLevel: 0 } as NodeObject;
+    }
+
     let rules = [...GenericFullNavigationDimensions];
 
     const setExtents = (val: number, dim: DimensionObject) => {
@@ -439,6 +451,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                             renderId,
                             derivedNode: dim.dimensionKey,
                             edges: [],
+                            dimensionLevel: 1,
                             data: dimensions[dim.dimensionKey],
                             renderingStrategy: dim.renderingStrategy || 'singleSquare' // not sure what defaults we want yet
                         } as NodeObject;
@@ -469,6 +482,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                                 renderId: divisionRenderId,
                                 derivedNode: dim.dimensionKey,
                                 edges: [],
+                                dimensionLevel: 2,
                                 data: { ...targetDivision } as DatumObject,
                                 renderingStrategy: dim.divisionOptions?.renderingStrategy || 'singleSquare' // not sure what defaults we want yet
                             } as NodeObject;
@@ -569,6 +583,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         derivedNode: s,
                         edges: [],
                         data: dimension.divisions[divisionId],
+                        dimensionLevel: 2,
                         renderingStrategy: dimension.divisionOptions?.renderingStrategy || 'singleSquare' // not sure what defaults we want yet
                     } as NodeObject;
 
@@ -621,25 +636,58 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
 export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?: Dimensions): Edges => {
     let edges = {};
 
-    const createEdge = (source: NodeId, target: NodeId, rules?: NavigationList): void => {
-        const id: EdgeId = `${source}-${target}`;
-        // create edge object
-        if (edges[id] && rules) {
-            edges[id].navigationRules.push(...rules);
-        } else {
-            edges[id] = {
-                source,
-                target,
-                navigationRules: rules ? [...rules] : []
-            } as EdgeObject;
+    const addEdgeToNode = (nodeId, edgeId) => {
+        if (nodes[nodeId].edges.indexOf(edgeId) === -1) {
+            nodes[nodeId].edges.push(edgeId);
         }
+    };
 
-        // add edgeId to source and target's edges
-        if (nodes[source].edges.indexOf(id) === -1) {
-            nodes[source].edges.push(id);
+    const createEdge = (source: NodeId, target: NodeId, rules?: NavigationList, addTo?: string): void => {
+        const id: EdgeId = `${source}-${target}`;
+        let targetId: EdgeId = !options.useDirectedEdges ? id : `${target}-${id}`;
+        let addToSource = !addTo || addTo === 'source';
+        let addToTarget = !addTo || addTo === 'target';
+
+        // for siblings
+        // create edge
+        // add edge to both
+
+        // for siblings when directed:
+        // create edge and target edge
+        // add edge to both
+
+        // for parent-child and (child-parent when directed)
+        // create edge
+        // add edge to source
+
+        // for child-parent when not directed
+        // create edge
+        // add edge to target
+
+        const checkEdgeRules = eId => {
+            if (edges[eId]) {
+                // edge already exists, add new rules to edge
+                edges[eId].navigationRules.push(...(rules || []));
+            } else {
+                // create edge object
+                edges[eId] = {
+                    source,
+                    target,
+                    navigationRules: rules ? [...rules] : []
+                } as EdgeObject;
+            }
+        };
+        checkEdgeRules(id);
+        if (options.useDirectedEdges && addToTarget) {
+            checkEdgeRules(targetId);
         }
-        if (nodes[target].edges.indexOf(id) === -1) {
-            nodes[target].edges.push(id);
+        if (addToSource) {
+            // we add the edge we created to the source node
+            addEdgeToNode(source, id);
+        }
+        if (addToTarget) {
+            // we add the edge we created to the target node
+            addEdgeToNode(target, targetId);
         }
     };
 
@@ -657,7 +705,7 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
             typeof order[0] === 'string' ? (hasOrder ? nodes[order[0]] : nodes[dimensions[order[0]].nodeId]) : order[0];
         if (level0) {
             // we make a way for the level0 to go to the first child
-            createEdge(level0.id, firstLevel1Node.id, parentRules);
+            createEdge(level0.id, firstLevel1Node.id, parentRules, 'source');
         }
         order.forEach(n => {
             let level1Node: NodeObject =
@@ -666,9 +714,15 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 // since the order list allows creation of nodes at level 1, we add them here if passed in and not already part of nodes
                 nodes[level1Node.id] = level1Node;
             }
-            // the first thing that every dimension needs is a connection to the level0 node, if it exists
+            // the first thing that every dimension needs is a one-way connection to the level0 node, if it exists
             if (level0) {
-                createEdge(level1Node.id, level0.id, parentRules);
+                // in an undirected graph, we always have parents as the source and children as targets
+                // but the child is the node that should have this edge added
+                if (!options.useDirectedEdges) {
+                    createEdge(level0.id, level1Node.id, parentRules, 'target');
+                } else {
+                    createEdge(level1Node.id, level0.id, parentRules, 'source');
+                }
             }
 
             if (l === order.length - 1 && extents === 'circular') {
@@ -710,6 +764,29 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                     )}.`
                 );
             }
+            let divisionKeys = Object.keys(dimension.divisions);
+
+            // since we already looped over level1 and made connections up,
+            // the first thing a dimension needs is a one-way connection to its first division
+            // if there is only one division, we skip it and go straight to the first child of that division
+            const firstDivision = dimension.divisions[divisionKeys[0]];
+            if (divisionKeys.length !== 1) {
+                createEdge(dimension.nodeId, firstDivision.id, dimension.navigationRules.parent_child, 'source');
+            } else {
+                let valueKeys = Object.keys(firstDivision.values);
+                let firstChildId =
+                    typeof options.idKey === 'function'
+                        ? options.idKey(firstDivision.values[valueKeys[0]])
+                        : options.idKey;
+
+                createEdge(
+                    dimension.nodeId,
+                    firstDivision.values[valueKeys[0]][firstChildId],
+                    dimension.navigationRules.parent_child,
+                    'source'
+                );
+            }
+
             /*
                 In the below loop, we are creating an edge between the current element and the next element
                 in the dimension. We only ever add links forward, since (like a linked list), the edges go
@@ -717,7 +794,6 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 end up creating some kind of double-edge situation. This needs more testing to figure out
                 the correct approach moving forward.
             */
-            let divisionKeys = Object.keys(dimension.divisions);
             let j = 0;
             divisionKeys.forEach(d => {
                 let division = dimension.divisions[d] as DivisionObject;
@@ -745,13 +821,22 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 let valueKeys = Object.keys(division.values);
 
                 // every division needs to go up to parent and down to first child
-                createEdge(division.id, dimension.nodeId, dimension.navigationRules.parent_child);
+
+                // in an undirected graph, we always have parents as the source and children as targets
+                if (!options.useDirectedEdges) {
+                    createEdge(dimension.nodeId, division.id, dimension.navigationRules.parent_child, 'target');
+                } else {
+                    createEdge(division.id, dimension.nodeId, dimension.navigationRules.parent_child, 'source');
+                }
+
+                // set up edge to first child
                 const firstChildId =
                     typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
                 createEdge(
                     division.id,
                     division.values[valueKeys[0]][firstChildId],
-                    dimension.navigationRules.parent_child
+                    dimension.navigationRules.parent_child,
+                    'source'
                 );
 
                 // lastly, we prep the childmost level
@@ -761,7 +846,15 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                         let v = division.values[vk] as DatumObject;
                         const id = typeof options.idKey === 'function' ? options.idKey(v) : options.idKey;
                         // every child needs to be able to go up to their parent
-                        createEdge(v[id], division.id, dimension.navigationRules.parent_child);
+                        // just like at the dimension level, if we only have 1 division, we need to make sure we
+                        // create an edge from the children up to the dimension level and skip the division parent
+                        let parentId = divisionKeys.length !== 1 ? division.id : dimension.nodeId;
+                        // in an undirected graph, we always have parents as the source and children as targets
+                        if (!options.useDirectedEdges) {
+                            createEdge(parentId, v[id], dimension.navigationRules.parent_child, 'target');
+                        } else {
+                            createEdge(v[id], parentId, dimension.navigationRules.parent_child, 'source');
+                        }
 
                         if (i === valueKeys.length - 1 && extents === 'circular') {
                             // we are at the end, create forwards loop to start of list
@@ -867,7 +960,6 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 }
                 j++;
             });
-            // }
         });
     }
 
@@ -887,9 +979,131 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
     return edges as Edges;
 };
 
-export const buildRules = (options: StructureOptions) => {
-    console.log('buildRules() still needs to be sorted out! we are making rules when we buildEdges');
-    return options.navigationRules || GenericFullNavigationRules;
+export const buildRules = (options: StructureOptions, edges: Edges, dimensions: Dimensions) => {
+    let rules = options.navigationRules;
+    if (!rules) {
+        let dimKeys = Object.keys(dimensions || {});
+        if (dimKeys.length > 6) {
+            console.error(
+                `Building navigationRules. Dimension count is too high to automatically generate key commands. It is recommend you reduce your dimensions to 6 or fewer for end-user experience. If not, you must provide your own navigation rules in options.navigationRules. Details: Count is ${
+                    dimKeys.length
+                }. Dimensions counted: ${dimKeys.join(', ')}.`
+            );
+        }
+        let importedRules = {};
+        let used = {};
+        let needsKeys = {};
+        let sparePairs = [...TypicallyUnreservedKeyPairs];
+        let spareKeys = [...TypicallyUnreservedKeys];
+        const checkKeys = (k1, k2?) => {
+            let isPair = k1 && k2;
+            let k1Assigned = false;
+            let k2Assigned = false;
+            if (importedRules[k1] || used[k1]) {
+                used[k1] = { ...importedRules[k1] };
+                k1Assigned = true;
+            }
+            if (k2 && (importedRules[k2] || used[k2])) {
+                used[k2] = { ...importedRules[k2] };
+                k2Assigned = true;
+            }
+            if (isPair && !k1Assigned && !k2Assigned) {
+                if (!sparePairs.length) {
+                    console.error(
+                        `Building navigationRules. Dimension count is too high to automatically generate key commands, we have run out of keyboard key pairs to assign. You must either provide your own navigation rules in options.navigationRules, provide rules when generating dimensions, or reduce dimension count.`
+                    );
+                }
+                let pair = [...sparePairs.shift()];
+                spareKeys.splice(spareKeys.indexOf(pair[0]), 1);
+                spareKeys.splice(spareKeys.indexOf(pair[1]), 1);
+
+                used[k1] = {
+                    direction: options.useDirectedEdges ? 'target' : 'source',
+                    key: pair[0]
+                };
+                used[k2] = {
+                    direction: 'target',
+                    key: pair[1]
+                };
+            } else {
+                if (!used[k1] && spareKeys.length) {
+                    let key = spareKeys.shift();
+                    let newPairs = [];
+                    sparePairs.forEach(p => {
+                        if (key !== p[0] && key !== p[1]) {
+                            newPairs.push(p);
+                        }
+                    });
+                    sparePairs = newPairs;
+                    used[k1] = {
+                        direction: options.useDirectedEdges ? 'target' : 'source',
+                        key: key
+                    };
+                }
+                if (!used[k2] && spareKeys.length) {
+                    let key = spareKeys.shift();
+                    let newPairs = [];
+                    sparePairs.forEach(p => {
+                        if (key !== p[0] && key !== p[1]) {
+                            newPairs.push(p);
+                        }
+                    });
+                    sparePairs = newPairs;
+                    used[k2] = {
+                        direction: 'target',
+                        key: key
+                    };
+                }
+                if (!spareKeys.length && (!used[k1] || !used[k2])) {
+                    console.log('out of keys!');
+                    if (!used[k1]) {
+                        needsKeys[k1];
+                    }
+                    if (!used[k2]) {
+                        needsKeys[k2];
+                    }
+                }
+            }
+        };
+        // import rules
+        Object.keys(GenericFullNavigationRules).forEach(r => {
+            let rule = { ...GenericFullNavigationRules[r] };
+            if (options.useDirectedEdges) {
+                // if edges are directed, then every rule moves from towards the target
+                rule.direction = 'target';
+            }
+            importedRules[r] = rule;
+        });
+
+        // find every rule created across all dimensions
+        // check if found rules have keys assigned already in import
+        // if no key assigned, assign a new key
+        if (dimKeys.length) {
+            dimKeys.forEach(d => {
+                let pc = dimensions[d].navigationRules.parent_child;
+                let ss = dimensions[d].navigationRules.sibling_sibling;
+                checkKeys(pc[0], pc[1]);
+                checkKeys(ss[0], ss[1]);
+            });
+        }
+
+        // now check edges for any missing rules (typically from genericEdges)
+        Object.keys(edges).forEach(e => {
+            edges[e].navigationRules.forEach(rule => {
+                if (!used[rule]) {
+                    console.log('rule', rule);
+                }
+            });
+        });
+
+        // repeat previous but now check edges
+
+        // check if any keys were unused from imports, those can now be assigned
+        // if keys are still needed, throw error
+
+        rules = used;
+    }
+    return rules;
 };
 
 export const buildStructure = (options: StructureOptions): Structure => {
@@ -897,14 +1111,9 @@ export const buildStructure = (options: StructureOptions): Structure => {
         addSimpleDataIDs(options);
     }
     let nodes = bulidNodes(options);
-    // console.log("nodes",nodes)
     let dimensions = scaffoldDimensions(options, nodes);
-    // console.log("dimensions",dimensions)
-
     let edges = buildEdges(options, nodes, dimensions);
-    // console.log("edges",edges)
-
-    let navigationRules = buildRules(options);
+    let navigationRules = buildRules(options, edges, dimensions);
     return {
         nodes,
         edges,
