@@ -22,7 +22,7 @@ import {
     DivisionObject,
     DatumObject
 } from './data-navigator';
-import { describeNode } from './utilities';
+import { describeNode, createValidId } from './utilities';
 
 export default (options: StructureOptions): Structure => {
     if (options.dataType === 'vega-lite' || options.dataType === 'vl' || options.dataType === 'Vega-Lite') {
@@ -206,11 +206,6 @@ export const buildNodeStructureFromVegaLite = (options): Structure => {
     } as Structure;
 };
 
-export const createValidId = s => {
-    // We start the string with an underscore, then replace all invalid characters with underscores
-    return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
-};
-
 /*
     this function creates an index for every datum in options.data,
     adds that index to the datum (mutating the datum directly),
@@ -256,7 +251,7 @@ export const addSimpleDataIDs = (options: StructureOptions): void => {
 /*
     This function creates a node for every relation type as well as a node 
 */
-export const bulidNodes = (options: StructureOptions): Nodes => {
+export const buildNodes = (options: StructureOptions): Nodes => {
     let nodes = {};
     // this will eventually be our generic method for dn.structure()
 
@@ -648,22 +643,6 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
         let targetId: EdgeId = !options.useDirectedEdges ? id : `${target}-${id}`;
         let addToSource = !addTo || addTo === 'source';
         let addToTarget = !addTo || addTo === 'target';
-
-        // for siblings
-        // create edge
-        // add edge to both
-
-        // for siblings when directed:
-        // create edge and target edge
-        // add edge to both
-
-        // for parent-child and (child-parent when directed)
-        // create edge
-        // add edge to source
-
-        // for child-parent when not directed
-        // create edge
-        // add edge to target
 
         const checkEdgeRules = eId => {
             if (edges[eId]) {
@@ -1138,7 +1117,7 @@ export const buildStructure = (options: StructureOptions): Structure => {
     if (options.addIds) {
         addSimpleDataIDs(options);
     }
-    let nodes = bulidNodes(options);
+    let nodes = buildNodes(options);
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
     let navigationRules = buildRules(options, edges, dimensions);

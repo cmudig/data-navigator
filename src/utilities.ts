@@ -9,3 +9,8 @@ export const describeNode = (d: DatumObject, descriptionOptions?: DescriptionOpt
     description += (descriptionOptions && descriptionOptions.semanticLabel) || 'Data point.';
     return description;
 };
+
+export const createValidId = (s: string): string => {
+    // We start the string with an underscore, then replace all invalid characters with underscores
+    return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
+};
