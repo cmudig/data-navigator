@@ -1055,7 +1055,6 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
                     };
                 }
                 if (!spareKeys.length && (!used[k1] || !used[k2])) {
-                    console.log('out of keys!');
                     if (!used[k1]) {
                         needsKeys[k1];
                     }
@@ -1079,6 +1078,14 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
         // check if found rules have keys assigned already in import
         // if no key assigned, assign a new key
         if (dimKeys.length) {
+            // first check for level0, then loop over dimensions
+            if (options.dimensions?.parentOptions?.addLevel0) {
+                let rules = options.dimensions.parentOptions.level1Options?.navigationRules?.parent_child || [
+                    'parent',
+                    'child'
+                ];
+                checkKeys(rules[0], rules[1]);
+            }
             dimKeys.forEach(d => {
                 let pc = dimensions[d].navigationRules.parent_child;
                 let ss = dimensions[d].navigationRules.sibling_sibling;
@@ -1091,15 +1098,19 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
         Object.keys(edges).forEach(e => {
             edges[e].navigationRules.forEach(rule => {
                 if (!used[rule]) {
-                    console.log('rule', rule);
+                    checkKeys(rule);
                 }
             });
         });
 
-        // repeat previous but now check edges
-
         // check if any keys were unused from imports, those can now be assigned
         // if keys are still needed, throw error
+        if (Object.keys(needsKeys).length) {
+            console.log('We need keys!!');
+        } else {
+            console.log('sparePairs', sparePairs);
+            console.log('spareKeys', spareKeys);
+        }
 
         rules = used;
     }
