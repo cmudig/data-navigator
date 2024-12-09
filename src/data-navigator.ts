@@ -1,5 +1,3 @@
-// StructureOptions is still under development!
-// Our next major step is to build functions to automatically produce Structure
 export type StructureOptions = {
     data: GenericDataset;
     idKey: DynamicNodeIdKey;
