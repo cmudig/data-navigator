@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Data Navigator demo</title>
+
+        <meta http-equiv="x-ua-compatible" content="ie=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Data Navigator demo" />
+        <meta name="theme-color" content="#21224A" />
+        <meta
+            property="og:image"
+            content="https://repository-images.githubusercontent.com/479978023/fa696c16-4c68-418b-9f28-fa256fff7a47"
+        />
+        <meta property="og:title" content="Data Navigator demo" />
+        <meta property="og:locale" content="en_US" />
+        <meta
+            name="description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <meta
+            property="og:description"
+            content="A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <link rel="canonical" href="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:url" content="https://dig.cmu.edu/data-navigator/" />
+        <meta property="og:site_name" content="Data Navigator demo" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta property="twitter:title" content="Data Navigator demo" />
+        <meta name="twitter:site" content="@frankElavsky" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "description": "A JavaScript library that allows for accessible navigation of data structures.",
+                "headline": "Data Navigator demo",
+                "name": "Data Navigator demo",
+                "url": "https://dig.cmu.edu/data-navigator/"
+            }
+        </script>
+        <link href="./examples/style.css" rel="stylesheet" />
+        <style>
+            /* .dn-node {
+                background: #000;
+            } */
+            .dn-test-path {
+                margin: -2px;
+            }
+
+            .dn-test-path:focus {
+                border: 2px solid transparent;
+                outline: transparent solid 2px;
+                /* outline-offset: 1px; */
+            }
+            img {
+                pointer-events: none;
+            }
+            .container {
+                position: relative;
+                overflow: hidden;
+                width: 100%;
+                padding-top: 56.25%;
+            }
+
+            .responsive-iframe {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="testing-environment">
+            <div class="wrapper">
+                <h2>Simple test (colors = dimension level)</h2>
+                <div id="dn-root-simple" class="wrapper">
+                    <div id="simple"></div>
+                </div>
+                <div id="simple-tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
+            </div>
+            <hr />
+            <div class="wrapper">
+                <h2>Testing added data and generic edges -> rules generation</h2>
+                <div id="dn-root-added" class="wrapper">
+                    <div id="added"></div>
+                </div>
+                <div id="added-tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
+            </div>
+            <hr />
+            <div class="wrapper">
+                <h2>Testing larger data (a stacked bar chart)</h2>
+                <div id="dn-root-larger" class="wrapper">
+                    <div id="larger"></div>
+                </div>
+                <div id="larger-tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
+            </div>
+            <hr />
+        </div>
+    </body>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="app/testing-bundle.js"></script>
+</html>

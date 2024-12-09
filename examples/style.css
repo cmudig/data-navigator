@@ -205,3 +205,25 @@ kbd {
     border-radius: 3px;
     padding: 2px 5px;
 }
+
+#testing-environment .dn-node {
+    border: 1px solid white;
+    outline: #000000 solid 1px;
+}
+
+#testing-environment .dn-node:focus {
+    outline: #000000 solid 2px;
+}
+
+#testing-environment .dn-node-path {
+    stroke-width: 2px;
+    transform: translateY(1px);
+}
+
+#testing-environment .dn-exit-position {
+    bottom: 0px;
+}
+
+#testing-environment .dn-entry-button {
+    top: 0px;
+}

@@ -12,16 +12,16 @@ export default (options: RenderingOptions) => {
     let initialized = false;
     let defaults = {
         cssClass: NodeElementDefaults.cssClass,
-        dimensions: { ...NodeElementDefaults.dimensions },
+        spatialProperties: { ...NodeElementDefaults.spatialProperties },
         semantics: { ...NodeElementDefaults.semantics },
         parentSemantics: { ...NodeElementDefaults.parentSemantics },
         existingElement: { ...NodeElementDefaults.existingElement }
     };
     if (options.defaults) {
         defaults.cssClass = options.defaults.cssClass || defaults.cssClass;
-        defaults.dimensions = options.defaults.dimensions
-            ? { ...defaults.dimensions, ...options.defaults.dimensions }
-            : defaults.dimensions;
+        defaults.spatialProperties = options.defaults.spatialProperties
+            ? { ...defaults.spatialProperties, ...options.defaults.spatialProperties }
+            : defaults.spatialProperties;
         defaults.semantics = options.defaults.semantics
             ? { ...defaults.semantics, ...options.defaults.semantics }
             : defaults.semantics;
@@ -125,10 +125,10 @@ export default (options: RenderingOptions) => {
             return;
         }
         let useExisting = false;
-        let existingDimensions = {};
+        let existingSpatialProperties = {};
         const resolveProp = (prop, subprop?, checkExisting?) => {
             const p1 = d[prop] || defaults[prop];
-            const s1 = !(checkExisting && useExisting) ? p1[subprop] : existingDimensions[subprop];
+            const s1 = !(checkExisting && useExisting) ? p1[subprop] : existingSpatialProperties[subprop];
             const s2 = defaults[prop][subprop];
             return typeof p1 === 'function'
                 ? p1(d, nodeData.datum)
@@ -136,12 +136,12 @@ export default (options: RenderingOptions) => {
                 ? s1(d, nodeData.datum)
                 : s1 || s2 || (!subprop ? p1 : undefined);
         };
-        useExisting = resolveProp('existingElement', 'useForDimensions');
-        existingDimensions = resolveProp('existingElement', 'dimensions');
-        const width = parseFloat(resolveProp('dimensions', 'width', true) || 0);
-        const height = parseFloat(resolveProp('dimensions', 'height', true) || 0);
-        const x = parseFloat(resolveProp('dimensions', 'x', true) || 0);
-        const y = parseFloat(resolveProp('dimensions', 'y', true) || 0);
+        useExisting = resolveProp('existingElement', 'useForSpatialProperties');
+        existingSpatialProperties = resolveProp('existingElement', 'spatialProperties');
+        const width = parseFloat(resolveProp('spatialProperties', 'width', true) || 0);
+        const height = parseFloat(resolveProp('spatialProperties', 'height', true) || 0);
+        const x = parseFloat(resolveProp('spatialProperties', 'x', true) || 0);
+        const y = parseFloat(resolveProp('spatialProperties', 'y', true) || 0);
         const node = document.createElement(resolveProp('parentSemantics', 'elementType'));
         const wrapperAttrs = resolveProp('parentSemantics', 'attributes');
         if (typeof wrapperAttrs === 'object') {
@@ -182,7 +182,7 @@ export default (options: RenderingOptions) => {
         nodeText.setAttribute('aria-label', label);
 
         node.appendChild(nodeText);
-        const hasPath = resolveProp('dimensions', 'path');
+        const hasPath = resolveProp('spatialProperties', 'path');
         if (hasPath) {
             const totalWidth = width + x + 10;
             const totalHeight = height + y + 10;

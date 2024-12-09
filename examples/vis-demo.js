@@ -15,15 +15,15 @@ const showTooltip = e => {
     const yOffset = bbox.height + offset;
     if (!(e.d.team === 'Manchester United' || e.d.team === 'Liverpool' || (!e.d.team && e.d.contest === 'BPL'))) {
         tooltip.style.textAlign = 'left';
-        tooltip.style.transform = `translate(${e.dimensions.x * scale - offset + 1}px,${
-            e.dimensions.y * scale - yOffset
+        tooltip.style.transform = `translate(${e.spatialProperties.x * scale - offset + 1}px,${
+            e.spatialProperties.y * scale - yOffset
         }px)`;
     } else {
         tooltip.style.textAlign = 'right';
         const xOffset = bbox.width;
         tooltip.style.transform = `translate(${
-            (e.dimensions.x + e.dimensions.width) * scale + offset - xOffset + 1
-        }px,${e.dimensions.y * scale - yOffset}px)`;
+            (e.spatialProperties.x + e.spatialProperties.width) * scale + offset - xOffset + 1
+        }px,${e.spatialProperties.y * scale - yOffset}px)`;
     }
 };
 
@@ -37,7 +37,7 @@ let nodes = {
         d: {
             title: 'Major Trophies for some English teams'
         },
-        dimensions: { x: 12, y: 9, width: 686, height: 56 },
+        spatialProperties: { x: 12, y: 9, width: 686, height: 56 },
         id: 'title',
         renderId: 'title',
         edges: ['any-return', 'any-exit', 'title-legend'],
@@ -47,7 +47,7 @@ let nodes = {
         d: {
             legend: 'Contests Included: BPL, FA Cup, CL'
         },
-        dimensions: { x: 160, y: 162, width: 398, height: 49 },
+        spatialProperties: { x: 160, y: 162, width: 398, height: 49 },
         id: 'legend',
         renderId: 'legend',
         edges: ['any-return', 'any-exit', 'title-legend', 'legend-y_axis', 'legend-bpl'],
@@ -57,7 +57,7 @@ let nodes = {
         d: {
             'Y Axis': 'Label: Count trophies. Values range from 0 to 30 on a numerical scale.'
         },
-        dimensions: { x: 21, y: 311, width: 39, height: 194 },
+        spatialProperties: { x: 21, y: 311, width: 39, height: 194 },
         id: 'y_axis',
         renderId: 'y_axis',
         edges: ['any-return', 'any-exit', 'legend-y_axis', 'y_axis-x_axis'],
@@ -67,7 +67,7 @@ let nodes = {
         d: {
             'X Axis': 'Teams included: Arsenal, Chelsea, Liverpool, Manchester United.'
         },
-        dimensions: { x: 191, y: 736, width: 969, height: 44 },
+        spatialProperties: { x: 191, y: 736, width: 969, height: 44 },
         id: 'x_axis',
         renderId: 'x_axis',
         edges: ['any-return', 'any-exit', 'y_axis-x_axis', 'x_axis-arsenal'],
@@ -80,7 +80,7 @@ let nodes = {
             team: 'Arsenal',
             'total trophies': 17
         },
-        dimensions: { x: 194, y: 370, width: 122, height: 357 },
+        spatialProperties: { x: 194, y: 370, width: 122, height: 357 },
         id: 'arsenal',
         renderId: 'arsenal',
         edges: [
@@ -109,7 +109,7 @@ let nodes = {
             team: 'Chelsea',
             'total trophies': 15
         },
-        dimensions: { x: 458, y: 414, width: 122, height: 312 },
+        spatialProperties: { x: 458, y: 414, width: 122, height: 312 },
         id: 'chelsea',
         renderId: 'chelsea',
         edges: [
@@ -137,7 +137,7 @@ let nodes = {
             team: 'Liverpool',
             'total trophies': 15
         },
-        dimensions: { x: 722, y: 414, width: 122, height: 312 },
+        spatialProperties: { x: 722, y: 414, width: 122, height: 312 },
         id: 'liverpool',
         renderId: 'liverpool',
         edges: [
@@ -165,7 +165,7 @@ let nodes = {
             team: 'Manchester United',
             'total trophies': 28
         },
-        dimensions: { x: 986, y: 138, width: 122, height: 589 },
+        spatialProperties: { x: 986, y: 138, width: 122, height: 589 },
         id: 'manchester',
         renderId: 'manchester',
         edges: [
@@ -193,7 +193,7 @@ let nodes = {
             contest: 'BPL',
             'total trophies': 22
         },
-        dimensions: {
+        spatialProperties: {
             x: 194,
             y: 138,
             width: 918,
@@ -219,7 +219,7 @@ let nodes = {
             contest: 'FA Cup',
             'total trophies': 42
         },
-        dimensions: {
+        spatialProperties: {
             x: 194,
             y: 414,
             width: 918,
@@ -245,7 +245,7 @@ let nodes = {
             contest: 'CL',
             'total trophies': 11
         },
-        dimensions: {
+        spatialProperties: {
             x: 194,
             y: 609,
             width: 918,
@@ -272,7 +272,7 @@ let nodes = {
             team: 'Arsenal',
             trophies: 3
         },
-        dimensions: { x: 194, y: 370, width: 122, height: 62 },
+        spatialProperties: { x: 194, y: 370, width: 122, height: 62 },
         id: 'bpl1',
         renderId: 'bpl1',
         edges: [
@@ -303,7 +303,7 @@ let nodes = {
             team: 'Arsenal',
             trophies: 14
         },
-        dimensions: { x: 194, y: 436, width: 122, height: 291 },
+        spatialProperties: { x: 194, y: 436, width: 122, height: 291 },
         id: 'fa1',
         renderId: 'fa1',
         edges: [
@@ -334,7 +334,7 @@ let nodes = {
             team: 'Arsenal',
             trophies: 0
         },
-        dimensions: { x: 194, y: 727, width: 122, height: 0 },
+        spatialProperties: { x: 194, y: 727, width: 122, height: 0 },
         id: 'cl1',
         renderId: 'cl1',
         edges: [
@@ -365,7 +365,7 @@ let nodes = {
             team: 'Chelsea',
             trophies: 5
         },
-        dimensions: { x: 458, y: 414, width: 122, height: 103 },
+        spatialProperties: { x: 458, y: 414, width: 122, height: 103 },
         id: 'bpl2',
         renderId: 'bpl2',
         edges: [
@@ -395,7 +395,7 @@ let nodes = {
             team: 'Chelsea',
             trophies: 8
         },
-        dimensions: { x: 458, y: 521, width: 122, height: 165 },
+        spatialProperties: { x: 458, y: 521, width: 122, height: 165 },
         id: 'fa2',
         renderId: 'fa2',
         edges: ['any-return', 'chelsea-fa2', 'any-exit', 'any-legend', 'bpl2-fa2', 'fa2-cl2', 'fa1-fa2', 'fa2-fa3'],
@@ -416,7 +416,7 @@ let nodes = {
             team: 'Chelsea',
             trophies: 2
         },
-        dimensions: { x: 458, y: 691, width: 122, height: 35 },
+        spatialProperties: { x: 458, y: 691, width: 122, height: 35 },
         id: 'cl2',
         renderId: 'cl2',
         edges: ['any-return', 'any-exit', 'any-legend', 'chelsea-cl2', 'fa2-cl2', 'cl2-bpl2', 'cl1-cl2', 'cl2-cl3'],
@@ -437,7 +437,7 @@ let nodes = {
             team: 'Liverpool',
             trophies: 1
         },
-        dimensions: { x: 722, y: 414, width: 122, height: 18 },
+        spatialProperties: { x: 722, y: 414, width: 122, height: 18 },
         id: 'bpl3',
         renderId: 'bpl3',
         edges: [
@@ -467,7 +467,7 @@ let nodes = {
             contest: 'FA Cup',
             team: 'Liverpool'
         },
-        dimensions: { x: 722, y: 437, width: 122, height: 165 },
+        spatialProperties: { x: 722, y: 437, width: 122, height: 165 },
         id: 'fa3',
         renderId: 'fa3',
         edges: ['any-return', 'any-exit', 'any-legend', 'liverpool-fa3', 'bpl3-fa3', 'fa3-cl3', 'fa2-fa3', 'fa3-fa4'],
@@ -488,7 +488,7 @@ let nodes = {
             team: 'Liverpool',
             trophies: 6
         },
-        dimensions: { x: 722, y: 607, width: 122, height: 119 },
+        spatialProperties: { x: 722, y: 607, width: 122, height: 119 },
         id: 'cl3',
         renderId: 'cl3',
         edges: ['any-return', 'any-exit', 'any-legend', 'liverpool-cl3', 'fa3-cl3', 'cl3-bpl3', 'cl2-cl3', 'cl3-cl4'],
@@ -509,7 +509,7 @@ let nodes = {
             team: 'Manchester United',
             trophies: 13
         },
-        dimensions: { x: 986, y: 138, width: 122, height: 273 },
+        spatialProperties: { x: 986, y: 138, width: 122, height: 273 },
         id: 'bpl4',
         renderId: 'bpl4',
         edges: [
@@ -539,7 +539,7 @@ let nodes = {
             team: 'Manchester United',
             trophies: 12
         },
-        dimensions: { x: 986, y: 414, width: 122, height: 250 },
+        spatialProperties: { x: 986, y: 414, width: 122, height: 250 },
         id: 'fa4',
         renderId: 'fa4',
         edges: ['any-return', 'any-exit', 'any-legend', 'manchester-fa4', 'bpl4-fa4', 'fa4-cl4', 'fa3-fa4', 'fa4-fa1'],
@@ -560,7 +560,7 @@ let nodes = {
             team: 'Manchester United',
             trophies: 3
         },
-        dimensions: { x: 986, y: 667, width: 122, height: 58 },
+        spatialProperties: { x: 986, y: 667, width: 122, height: 58 },
         id: 'cl4',
         renderId: 'cl4',
         edges: ['any-return', 'any-exit', 'any-legend', 'manchester-cl4', 'fa4-cl4', 'cl4-bpl4', 'cl3-cl4', 'cl4-cl1'],
@@ -919,7 +919,7 @@ const rendering = dataNavigator.rendering({
     elementData: structure.nodes,
     defaults: {
         cssClass: (a, _b) => {
-            if (!a.dimensions.path) {
+            if (!a.spatialProperties.path) {
                 return 'dn-test-class';
             }
             return 'dn-test-path';

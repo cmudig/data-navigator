@@ -4,6 +4,7 @@ module.exports = {
   entry: {
     'v-bundle': './examples/vega-lite-app.js',
     'static-bundle': './examples/static-app.js',
+    'testing-bundle': './examples/testing-environment.js',
     'vis': './examples/vis-demo.js'
   },
   output: {

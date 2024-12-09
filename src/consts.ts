@@ -1,4 +1,14 @@
-import type {DatumObject, NavigationRules, RenderObject} from './data-navigator'
+import type { DatumObject, NavigationRules, RenderObject } from './data-navigator';
+
+export const SemanticKeys = {
+    Escape: true,
+    Enter: true,
+    Backspace: true,
+    ArrowLeft: true,
+    ArrowRight: true,
+    ArrowUp: true,
+    ArrowDown: true
+};
 
 export const defaultKeyBindings = {
     ArrowLeft: 'left',
@@ -11,44 +21,90 @@ export const defaultKeyBindings = {
     Enter: 'child'
 } as DatumObject;
 
+export const TypicallyUnreservedKeys = ['KeyW', 'KeyJ', 'LeftBracket', 'RightBracket', 'Slash', 'Backslash'];
+
+export const TypicallyUnreservedSoloKeys = ['KeyW', 'KeyJ'];
+
+export const TypicallyUnreservedKeyPairs = [
+    ['LeftBracket', 'RightBracket'],
+    ['Slash', 'Backslash']
+];
+
 export const GenericFullNavigationRules = {
-    down: {
-        keyCode: 'ArrowDown',
-        direction: 'target'
-    },
     left: {
-        keyCode: 'ArrowLeft',
+        key: 'ArrowLeft',
         direction: 'source'
     },
     right: {
-        keyCode: 'ArrowRight',
+        key: 'ArrowRight',
         direction: 'target'
     },
     up: {
-        keyCode: 'ArrowUp',
+        key: 'ArrowUp',
         direction: 'source'
     },
-    backward: {
-        keyCode: 'Comma',
-        direction: 'source'
+    down: {
+        key: 'ArrowDown',
+        direction: 'target'
     },
     child: {
-        keyCode: 'Enter',
+        key: 'Enter',
         direction: 'target'
     },
     parent: {
-        keyCode: 'Backspace',
+        key: 'Backspace',
+        direction: 'source'
+    },
+    backward: {
+        key: 'Comma',
         direction: 'source'
     },
     forward: {
-        keyCode: 'Period',
+        key: 'Period',
+        direction: 'target'
+    },
+    previous: {
+        key: 'Semicolon',
+        direction: 'source'
+    },
+    next: {
+        key: 'Quote',
         direction: 'target'
     },
     exit: {
-        keyCode: 'Escape',
+        key: 'Escape',
+        direction: 'target'
+    },
+    help: {
+        key: 'KeyY',
+        direction: 'target'
+    },
+    undo: {
+        key: 'KeyZ',
         direction: 'target'
     }
 } as NavigationRules;
+
+export const GenericFullNavigationDimensions = [
+    ['left', 'right'],
+    ['up', 'down'],
+    ['backward', 'forward'],
+    ['previous', 'next']
+];
+export const GenericFullNavigationPairs = {
+    left: ['left', 'right'],
+    right: ['left', 'right'],
+    up: ['up', 'down'],
+    down: ['up', 'down'],
+    backward: ['backward', 'forward'],
+    forward: ['backward', 'forward'],
+    previous: ['previous', 'next'],
+    next: ['previous', 'next'],
+    parent: ['parent', 'child'],
+    child: ['parent', 'child'],
+    exit: ['exit', 'undo'],
+    undo: ['undo', 'undo']
+};
 
 export const GenericLimitedNavigationRules = {
     right: {
@@ -91,7 +147,7 @@ export const GenericLimitedNavigationRules = {
 
 export const NodeElementDefaults = {
     cssClass: '',
-    dimensions: {
+    spatialProperties: {
         x: 0,
         y: 0,
         width: 0,
@@ -111,7 +167,7 @@ export const NodeElementDefaults = {
         attributes: undefined
     },
     existingElement: {
-        useForDimensions: false,
-        dimensions: undefined
+        useForSpatialProperties: false,
+        spatialProperties: undefined
     }
 } as RenderObject;
