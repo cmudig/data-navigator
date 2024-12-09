@@ -142,7 +142,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
         },
         {
             nodeId: d => d.id,
-            nodeGroup: d => d.data?.[colorBy],
+            nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
             width: size,
             height: size
         }
@@ -193,7 +193,6 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
 
     const rendering = createRenderer(structure, rootId, enter);
     rendering.initialize();
-    console.log('structure.navigationRules', structure.navigationRules);
     const input = dataNavigator.input({
         structure,
         navigationRules: structure.navigationRules,
@@ -207,7 +206,6 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
             datum: nextNode
         });
         node.addEventListener('keydown', e => {
-            console.log('keydown', e);
             const direction = input.keydownValidator(e);
             if (direction) {
                 e.preventDefault();
@@ -215,7 +213,6 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
             }
         });
         showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
-        console.log('nextNode.renderId', nextNode.renderId);
         input.focus(nextNode.renderId);
         entered = true;
         previous = current;
@@ -246,7 +243,6 @@ const simpleDataTest = [
         num: 4
     }
 ];
-console.log('simpleDataTest', simpleDataTest);
 let simpleStructure = dataNavigator.structure({
     data: simpleDataTest,
     idKey: 'id',
@@ -287,17 +283,19 @@ buildGraph(
     simpleStructure,
     'simple',
     300,
-    'cat',
+    'dimensionLevel', // 'cat',
     simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId
 );
 
-let addDataTest = [...simpleDataTest];
+let addDataTest = [];
+simpleDataTest.forEach(d => {
+    addDataTest.push({ ...d });
+});
 addDataTest.push({
     id: 'e',
     cat: 'bork',
     num: 12
 });
-console.log('addDataTest', addDataTest);
 let addedDataStructure = dataNavigator.structure({
     data: addDataTest,
     addIds: true,
