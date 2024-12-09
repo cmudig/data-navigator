@@ -1381,6 +1381,7 @@ var buildEdges = function (options, nodes, dimensions) {
 };
 exports.buildEdges = buildEdges;
 var buildRules = function (options, edges, dimensions) {
+    var _a, _b, _c, _d;
     var rules = options.navigationRules;
     if (!rules) {
         var dimKeys = Object.keys(dimensions || {});
@@ -1450,7 +1451,6 @@ var buildRules = function (options, edges, dimensions) {
                     };
                 }
                 if (!spareKeys_1.length && (!used_1[k1] || !used_1[k2])) {
-                    console.log('out of keys!');
                     if (!used_1[k1]) {
                         needsKeys_1[k1];
                     }
@@ -1473,6 +1473,14 @@ var buildRules = function (options, edges, dimensions) {
         // check if found rules have keys assigned already in import
         // if no key assigned, assign a new key
         if (dimKeys.length) {
+            // first check for level0, then loop over dimensions
+            if ((_b = (_a = options.dimensions) === null || _a === void 0 ? void 0 : _a.parentOptions) === null || _b === void 0 ? void 0 : _b.addLevel0) {
+                var rules_1 = ((_d = (_c = options.dimensions.parentOptions.level1Options) === null || _c === void 0 ? void 0 : _c.navigationRules) === null || _d === void 0 ? void 0 : _d.parent_child) || [
+                    'parent',
+                    'child'
+                ];
+                checkKeys_1(rules_1[0], rules_1[1]);
+            }
             dimKeys.forEach(function (d) {
                 var pc = dimensions[d].navigationRules.parent_child;
                 var ss = dimensions[d].navigationRules.sibling_sibling;
@@ -1484,13 +1492,19 @@ var buildRules = function (options, edges, dimensions) {
         Object.keys(edges).forEach(function (e) {
             edges[e].navigationRules.forEach(function (rule) {
                 if (!used_1[rule]) {
-                    console.log('rule', rule);
+                    checkKeys_1(rule);
                 }
             });
         });
-        // repeat previous but now check edges
         // check if any keys were unused from imports, those can now be assigned
         // if keys are still needed, throw error
+        if (Object.keys(needsKeys_1).length) {
+            console.log('We need keys!!');
+        }
+        else {
+            console.log('sparePairs', sparePairs_1);
+            console.log('spareKeys', spareKeys_1);
+        }
         rules = used_1;
     }
     return rules;
@@ -1855,7 +1869,9 @@ const hideTooltip = id => {
 const showTooltip = (d, id, size, coloredBy) => {
     const tooltip = document.getElementById(id);
     tooltip.classList.remove('hidden');
-    tooltip.innerText = d.semantics?.label || `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}`;
+    tooltip.innerText =
+        d.semantics?.label ||
+        `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}, (generic node, edges hidden).`;
     const bbox = tooltip.getBoundingClientRect();
     // const offset = bbox.width / 2;
     const yOffset = bbox.height / 2;

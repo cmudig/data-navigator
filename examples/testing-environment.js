@@ -120,7 +120,9 @@ const hideTooltip = id => {
 const showTooltip = (d, id, size, coloredBy) => {
     const tooltip = document.getElementById(id);
     tooltip.classList.remove('hidden');
-    tooltip.innerText = d.semantics?.label || `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}`;
+    tooltip.innerText =
+        d.semantics?.label ||
+        `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}, (generic node, edges hidden).`;
     const bbox = tooltip.getBoundingClientRect();
     // const offset = bbox.width / 2;
     const yOffset = bbox.height / 2;
