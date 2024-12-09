@@ -122,7 +122,7 @@ const showTooltip = (d, id, size, coloredBy) => {
     tooltip.classList.remove('hidden');
     tooltip.innerText =
         d.semantics?.label ||
-        `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''}, (generic node, edges hidden).`;
+        `${d.id}${d.data?.[coloredBy] ? ', ' + d.data[coloredBy] : ''} (generic node, edges hidden).`;
     const bbox = tooltip.getBoundingClientRect();
     // const offset = bbox.width / 2;
     const yOffset = bbox.height / 2;
@@ -130,7 +130,7 @@ const showTooltip = (d, id, size, coloredBy) => {
     tooltip.style.transform = `translate(${size}px,${size / 2 - yOffset}px)`;
 };
 
-const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
+const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, exclusions) => {
     let entered;
     let previous;
     let current;
@@ -139,8 +139,8 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint) => {
 
     let graph = ForceGraph(
         {
-            nodes: convertToArray(structure.nodes, ['exit']),
-            links: convertToArray(structure.edges, [], ['any-exit'])
+            nodes: convertToArray(structure.nodes, inclusions),
+            links: convertToArray(structure.edges, [], exclusions)
         },
         {
             nodeId: d => d.id,
@@ -286,7 +286,9 @@ buildGraph(
     'simple',
     300,
     'dimensionLevel', // 'cat',
-    simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId
+    simpleStructure.dimensions[Object.keys(simpleStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit']
 );
 
 let addDataTest = [];
@@ -331,6 +333,46 @@ let addedDataStructure = dataNavigator.structure({
                 },
                 navigationRules: ['exit']
             }
+        },
+        {
+            edgeId: 'test1',
+            edge: {
+                source: 'testA',
+                target: 'testB',
+                navigationRules: ['test1']
+            }
+        },
+        {
+            edgeId: 'test2',
+            edge: {
+                source: 'testA',
+                target: 'testB',
+                navigationRules: ['test2']
+            }
+        },
+        {
+            edgeId: 'test3',
+            edge: {
+                source: 'testA',
+                target: 'testB',
+                navigationRules: ['test3']
+            }
+        },
+        {
+            edgeId: 'test4',
+            edge: {
+                source: 'testA',
+                target: 'testB',
+                navigationRules: ['test4']
+            }
+        },
+        {
+            edgeId: 'test5',
+            edge: {
+                source: 'testA',
+                target: 'testB',
+                navigationRules: ['test5']
+            }
         }
     ]
 });
@@ -340,7 +382,9 @@ buildGraph(
     'added',
     300,
     'cat',
-    addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId
+    addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit', 'test1', 'test2', 'test3', 'test4', 'test5']
 );
 
 const largerData = [
@@ -701,7 +745,9 @@ buildGraph(
     'larger',
     300,
     'category',
-    largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId
+    largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit']
 );
 
 /*
