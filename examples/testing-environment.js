@@ -381,7 +381,7 @@ buildGraph(
     addedDataStructure,
     'added',
     300,
-    'cat',
+    'dimensionLevel',
     addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId,
     ['exit'],
     ['any-exit', 'test1', 'test2', 'test3', 'test4', 'test5']
@@ -744,7 +744,7 @@ buildGraph(
     largerStructure,
     'larger',
     300,
-    'category',
+    'dimensionLevel',
     largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId,
     ['exit'],
     ['any-exit']
