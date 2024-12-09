@@ -3,7 +3,8 @@ import {
     GenericFullNavigationRules,
     GenericFullNavigationDimensions,
     TypicallyUnreservedKeys,
-    TypicallyUnreservedKeyPairs
+    TypicallyUnreservedKeyPairs,
+    SemanticKeys
 } from './consts';
 import {
     StructureOptions,
@@ -1040,7 +1041,7 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
                         key: key
                     };
                 }
-                if (!used[k2] && spareKeys.length) {
+                if (k2 && !used[k2] && spareKeys.length) {
                     let key = spareKeys.shift();
                     let newPairs = [];
                     sparePairs.forEach(p => {
@@ -1054,12 +1055,12 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
                         key: key
                     };
                 }
-                if (!spareKeys.length && (!used[k1] || !used[k2])) {
+                if (!spareKeys.length) {
                     if (!used[k1]) {
-                        needsKeys[k1];
+                        needsKeys[k1] = k1;
                     }
-                    if (!used[k2]) {
-                        needsKeys[k2];
+                    if (k2 && !used[k2]) {
+                        needsKeys[k2] = k2;
                     }
                 }
             }
@@ -1106,12 +1107,28 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
         // check if any keys were unused from imports, those can now be assigned
         // if keys are still needed, throw error
         if (Object.keys(needsKeys).length) {
-            console.log('We need keys!!');
-        } else {
-            console.log('sparePairs', sparePairs);
-            console.log('spareKeys', spareKeys);
+            let usedKeys = {};
+            Object.keys(used).forEach(k => {
+                usedKeys[used[k].key] = used[k].key;
+            });
+            Object.keys(importedRules).forEach(r => {
+                if (!usedKeys[importedRules[r].key] && !SemanticKeys[importedRules[r].key]) {
+                    spareKeys.push(importedRules[r].key);
+                }
+            });
+            let recheckKeys = { ...needsKeys };
+            needsKeys = {};
+            Object.keys(recheckKeys).forEach(key => {
+                checkKeys(key);
+            });
+            if (Object.keys(needsKeys).length) {
+                console.error(
+                    `Building navigationRules. There are no more keys left to assign automatically. Recommended fixes: use fewer dimensions, use fewer GenericEdges, or build your own navigationRules. Rules remaining without keyboard keys: ${Object.keys(
+                        needsKeys
+                    ).join(', ')}.`
+                );
+            }
         }
-
         rules = used;
     }
     return rules;
