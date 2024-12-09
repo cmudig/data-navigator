@@ -7,9 +7,7 @@ export default (options: InputOptions) => {
     let directions = GenericFullNavigationRules;
 
     inputHandler.moveTo = id => {
-        // console.log('moveTo', id);
         const target = options.structure.nodes[id];
-        // console.log('target', target);
         if (target) {
             return target;
         }
