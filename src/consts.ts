@@ -1,5 +1,15 @@
 import type { DatumObject, NavigationRules, RenderObject } from './data-navigator';
 
+export const SemanticKeys = {
+    Escape: true,
+    Enter: true,
+    Backspace: true,
+    ArrowLeft: true,
+    ArrowRight: true,
+    ArrowUp: true,
+    ArrowDown: true
+};
+
 export const defaultKeyBindings = {
     ArrowLeft: 'left',
     ArrowRight: 'right',
