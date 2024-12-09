@@ -460,7 +460,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         let divisionId =
                             typeof dim.divisionOptions?.divisionNodeIds === 'function'
                                 ? dim.divisionOptions.divisionNodeIds(dim.dimensionKey, value, i)
-                                : dimension.nodeId + '_' + value;
+                                : createValidId(dimension.nodeId + '_' + value);
                         targetDivision = dimension.divisions[divisionId];
                         if (!targetDivision) {
                             targetDivision = dimension.divisions[divisionId] = {
