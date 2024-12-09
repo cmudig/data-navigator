@@ -77,6 +77,7 @@ export type NodeObject = {
     renderId?: RenderId;
     renderingStrategy?: RenderingStrategy;
     derivedNode?: DerivedNode;
+    dimensionLevel?: DimensionLevel;
     [key: string | number]: any; // NodeObjects can be lazily used as generic objects (like ElementObjects) too
 };
 
@@ -282,5 +283,7 @@ export type ExtentType = 'circular' | 'terminal' | 'bridgedCousins' | 'bridgedCu
 export type Level0ExtentType = 'circular' | 'terminal' | 'bridgedCustom';
 
 export type DataType = 'vega-lite' | 'vl' | 'Vega-Lite' | 'generic' | 'default';
+
+export type DimensionLevel = 0 | 1 | 2 | 3;
 
 export type DerivedNode = string;
