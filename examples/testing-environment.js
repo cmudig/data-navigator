@@ -1,6 +1,6 @@
 import { default as dataNavigator } from '../src/index.ts';
 import { ForceGraph } from './force-graph.js';
-import { describeNode } from '../src/utilities.ts';
+import { describeNode, createValidId } from '../src/utilities.ts';
 
 let exit = {};
 
@@ -713,6 +713,11 @@ let largerStructure = dataNavigator.structure({
             {
                 dimensionKey: 'category',
                 type: 'categorical',
+                divisionOptions: {
+                    divisionNodeIds: (dimensionKey, keyValue, i) => {
+                        return createValidId(dimensionKey + keyValue + i);
+                    }
+                },
                 behavior: {
                     extents: 'circular'
                 }
