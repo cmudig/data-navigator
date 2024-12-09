@@ -165,9 +165,6 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
                 hideTooltip(`${rootId}-tooltip`);
             });
         });
-    document.getElementById('dn-root-' + rootId).addEventListener('blur', () => {
-        hideTooltip(`${rootId}-tooltip`);
-    });
 
     const enter = () => {
         const nextNode = input.enter();
@@ -203,18 +200,25 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
     });
 
     const initiateLifecycle = nextNode => {
-        const node = rendering.render({
+        // should we remove existing nodes?
+
+        const renderedNode = rendering.render({
             renderId: nextNode.renderId,
             datum: nextNode
         });
-        node.addEventListener('keydown', e => {
+        renderedNode.addEventListener('keydown', e => {
             const direction = input.keydownValidator(e);
             if (direction) {
                 e.preventDefault();
                 move(direction);
             }
         });
-        showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
+        renderedNode.addEventListener('blur', _e => {
+            hideTooltip(`${rootId}-tooltip`);
+        });
+        renderedNode.addEventListener('focus', _e => {
+            showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
+        });
         input.focus(nextNode.renderId);
         entered = true;
         previous = current;
@@ -308,6 +312,7 @@ let addedDataStructure = dataNavigator.structure({
         values: [
             {
                 dimensionKey: 'cat',
+                nodeId: '_cat2',
                 type: 'categorical',
                 behavior: {
                     extents: 'circular'
@@ -315,6 +320,9 @@ let addedDataStructure = dataNavigator.structure({
             },
             {
                 dimensionKey: 'num',
+                nodeId: (a, _b) => {
+                    return a.dimensionKey + '2';
+                },
                 type: 'numerical',
                 behavior: {
                     extents: 'terminal'
@@ -749,39 +757,6 @@ buildGraph(
     ['exit'],
     ['any-exit']
 );
-
-/*
-        checklist for edge creation: (we start low and work up)
-        within divisions:
-            self-siblingForward (each)
-            self-parentDivision (each)
-            parentDivision-firstChild (1x)
-        across divisions:
-            divisionSelf-divisionForward (each)
-            divisionSelf-dimension (each)
-            parentDimension-firstDivision (1x)
-        across dimensions (check if level1Order):
-            dimensionSelf-forward (each)
-            dimensionSelf-level0Node (each, if level0 set)
-            level0Node-firstDimension (1x, if level0 set)
-        final stage (if generic edges):
-            item-genericEdge
-
-        DimensionOptions = {
-            values: DimensionList;
-            parentOptions: {
-                level1Options?: {
-                    order: AddOrReferenceNodeList;
-                    behavior?: DimensionBehavior;
-                    navigationRules?: DimensionNavigationRules;
-                };
-                addLevel0?: NodeObject;
-            };
-            adjustDimensions?: AdjustingFunction;
-        }
-            ["previous_" + dim.dimensionKey, "next_" + dim.dimensionKey],
-            ["parent_" + dim.dimensionKey, "child"]
-    */
 
 // const dataTest = [
 //     {
