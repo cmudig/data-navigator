@@ -207,12 +207,13 @@ kbd {
 }
 
 #testing-environment .dn-node {
-    border: 1px solid white;
-    outline: #000000 solid 1px;
+    border-radius: 7px;
+    border: 0px solid white;
+    outline: #000000 solid 0px;
 }
 
 #testing-environment .dn-node:focus {
-    outline: #000000 solid 2px;
+    outline: #000000 solid 0px;
 }
 
 #testing-environment .dn-node-path {

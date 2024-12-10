@@ -113,12 +113,15 @@ const createRenderer = (structure, id, enter) => {
     });
 };
 
-const hideTooltip = id => {
-    document.getElementById(id).classList.add('hidden');
+const hideTooltip = (id, hideIndicator) => {
+    document.getElementById(id + '-tooltip').classList.add('hidden');
+    if (hideIndicator) {
+        document.getElementById(id + '-focus-indicator').classList.add('hidden');
+    }
 };
 
-const showTooltip = (d, id, size, coloredBy) => {
-    const tooltip = document.getElementById(id);
+const showTooltip = (d, id, size, coloredBy, showIndicator) => {
+    const tooltip = document.getElementById(id + '-tooltip');
     tooltip.classList.remove('hidden');
     tooltip.innerText =
         d.semantics?.label ||
@@ -128,6 +131,26 @@ const showTooltip = (d, id, size, coloredBy) => {
     const yOffset = bbox.height / 2;
     tooltip.style.textAlign = 'left';
     tooltip.style.transform = `translate(${size}px,${size / 2 - yOffset}px)`;
+    if (showIndicator) {
+        const svg = document.getElementById('dn-root-' + id).querySelector('svg');
+        let indicator = document.getElementById(id + '-focus-indicator');
+        if (!indicator) {
+            indicator = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            indicator.id = id + '-focus-indicator';
+            indicator.setAttribute('class', 'dn-focus-indicator hidden');
+            indicator.setAttribute('cx', 0);
+            indicator.setAttribute('cy', 0);
+            indicator.setAttribute('r', 6.5);
+            indicator.setAttribute('fill', 'none');
+            indicator.setAttribute('stroke', '#000');
+            indicator.setAttribute('stroke-width', '2');
+            svg.appendChild(indicator);
+        }
+        let target = svg.querySelector('#svg' + d.renderId);
+        indicator.setAttribute('cx', target.getAttribute('cx'));
+        indicator.setAttribute('cy', target.getAttribute('cy'));
+        indicator.classList.remove('hidden');
+    }
 };
 
 const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, exclusions) => {
@@ -158,11 +181,11 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
             c.addEventListener('mousemove', e => {
                 if (e.target?.__data__?.id) {
                     let d = e.target.__data__;
-                    showTooltip(structure.nodes[d.id] || d, `${rootId}-tooltip`, size, colorBy);
+                    showTooltip(structure.nodes[d.id] || d, rootId, size, colorBy);
                 }
             });
             c.addEventListener('mouseleave', () => {
-                hideTooltip(`${rootId}-tooltip`);
+                hideTooltip(rootId);
             });
         });
 
@@ -187,7 +210,6 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
         previous = current;
         current = null;
         rendering.remove(previous);
-        hideTooltip(`${rootId}-tooltip`);
     };
 
     const rendering = createRenderer(structure, rootId, enter);
@@ -214,10 +236,10 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
             }
         });
         renderedNode.addEventListener('blur', _e => {
-            hideTooltip(`${rootId}-tooltip`);
+            hideTooltip(rootId, true);
         });
         renderedNode.addEventListener('focus', _e => {
-            showTooltip(nextNode, `${rootId}-tooltip`, size, colorBy);
+            showTooltip(nextNode, rootId, size, colorBy, true);
         });
         input.focus(nextNode.renderId);
         entered = true;
