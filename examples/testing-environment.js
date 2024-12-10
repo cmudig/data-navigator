@@ -391,7 +391,7 @@ buildGraph(
     300,
     'dimensionLevel',
     addedDataStructure.dimensions[Object.keys(addedDataStructure.dimensions)[0]].nodeId,
-    ['exit'],
+    ['exit', 'test1', 'test2', 'test3', 'test4', 'test5'],
     ['any-exit', 'test1', 'test2', 'test3', 'test4', 'test5']
 );
 
