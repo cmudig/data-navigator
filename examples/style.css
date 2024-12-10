@@ -227,3 +227,7 @@ kbd {
 #testing-environment .dn-entry-button {
     top: 0px;
 }
+
+#dn-wrapper-data-navigator-schema-added {
+    width: inherit !important;
+}
