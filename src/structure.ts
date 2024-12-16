@@ -429,7 +429,10 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                             divisions: {},
                             numericalExtents: [Infinity, -Infinity],
                             type: dim.type,
-                            sortFunction: dim.operations?.sortFunction || undefined,
+                            operations: {
+                                compressSparseDivisions: dim.operations?.compressSparseDivisions || false,
+                                sortFunction: dim.operations?.sortFunction || undefined,
+                            },
                             behavior: dim.behavior || {
                                 extents: 'circular'
                             },
@@ -525,7 +528,6 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     });
 
     // create division points using min and max (if numerical)
-
     // sort the dimensions' divisions
     Object.keys(dimensions).forEach(s => {
         let dimension = dimensions[s] as DimensionObject;
@@ -536,8 +538,8 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
 
             divisions[dimension.nodeId].values = Object.fromEntries(
                 Object.entries(divisions[dimension.nodeId].values).sort((a, b) => {
-                    return typeof dimension.sortFunction === 'function'
-                        ? dimension.sortFunction(a[1], b[1], dimension)
+                    return typeof dimension.operations?.sortFunction === 'function'
+                        ? dimension.operations.sortFunction(a[1], b[1], dimension)
                         : a[1][s] - b[1][s];
                 })
             );
@@ -599,11 +601,11 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 }
                 delete divisions[s];
             }
-        } else if (typeof dimension.sortFunction === 'function') {
+        } else if (typeof dimension.operations?.sortFunction === 'function') {
             // otherwise, we sort the keys of the categorical divisions
             dimension.divisions = Object.fromEntries(
                 Object.entries(divisions).sort((a, b) => {
-                    return dimension.sortFunction(a[1], b[1], dimension);
+                    return dimension.operations.sortFunction(a[1], b[1], dimension);
                 })
             );
         }
@@ -615,13 +617,51 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
             if (typeof division.sortFunction === 'function') {
                 division.values = Object.fromEntries(
                     Object.entries(division.values).sort((a, b) => {
-                        return dimension.sortFunction(a[1], b[1], division);
+                        return division.sortFunction(a[1], b[1], division);
                     })
                 );
             }
         });
     });
 
+    // penultimate step: check each dimension after sorting and filtering,
+    // if operations.compressSparseDivisions is true, we check divisions and compress
+    Object.keys(dimensions).forEach(s => {
+        let dimension = dimensions[s] as DimensionObject;
+        
+        if (dimension.operations.compressSparseDivisions) {
+            const divisionKeys = Object.keys(dimension.divisions);
+            const values = {}
+            let sparse = true
+            divisionKeys.forEach(d => {
+                const division = dimension.divisions[d] as DivisionObject;
+                const valueKeys = Object.keys(division.values)
+                if (valueKeys.length <= 1) {
+                    valueKeys.forEach(vk => {
+                        values[vk] = {...division.values[vk]}
+                    })
+                } else { 
+                    sparse = false
+                }
+            });
+            if (sparse) {
+                // we clear all the divisions that used to exist and replace it with a single division
+                // later, when edges are being built, this will be skipped (same as numerical divisions with 1 subdiv)
+                const newDivision = {
+                    id: dimension.nodeId,
+                    values
+                }
+                // we need to delete nodes of the old divisions
+                divisionKeys.forEach(d =>{
+                    delete nodes[d]
+                })
+                dimension.divisions = {}
+                dimension.divisions[dimension.nodeId] = newDivision
+            }
+        }
+    });
+
+    // final step: if any addition adjustments are to be made, then a callback is used at this point
     if (options.dimensions.adjustDimensions) {
         dimensions = options.dimensions.adjustDimensions(dimensions);
     }

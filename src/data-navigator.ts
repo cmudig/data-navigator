@@ -97,7 +97,10 @@ export type DimensionObject = {
     nodeId: NodeId;
     dimensionKey: DimensionKey;
     divisions: DimensionDivisions;
-    sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
+    operations: {
+        compressSparseDivisions: boolean;  // if no division more than 1 child, create 1 division with all children, runs after filtering and sorting
+        sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
+    };
     behavior?: DimensionBehavior;
     navigationRules?: DimensionNavigationRules;
     type?: DimensionType;
@@ -135,6 +138,7 @@ export type DimensionOperations = {
     filterFunction?: FilteringFunction;
     sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
     createNumericalSubdivisions?: NumericallySubdivide; // (if not set, defaults to 1)
+    compressSparseDivisions?: boolean; // if no division more than 1 child, create 1 division with all children, runs after filtering and sorting
 };
 
 export type DivisionObject = {

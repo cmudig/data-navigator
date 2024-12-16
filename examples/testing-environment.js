@@ -785,6 +785,108 @@ buildGraph(
     ['any-exit']
 );
 
+const sparseCategoryTest = [
+    {
+        cat: 'meow',
+        num: 3
+    },
+    {
+        cat: 'quack',
+        num: 1
+    },
+    {
+        cat: 'moo',
+        num: 2
+    },
+    {
+        cat: 'bork',
+        num: 4
+    }
+];
+let sparseStructure = dataNavigator.structure({
+    data: sparseCategoryTest,
+    idKey: 'cat',
+    dimensions: {
+        values: [
+            {
+                dimensionKey: 'cat',
+                type: 'categorical',
+                behavior: {
+                    extents: 'circular'
+                }
+            }
+        ]
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['sparse']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
+});
+console.log('sparseStructure', sparseStructure);
+buildGraph(
+    sparseStructure,
+    'sparse',
+    300,
+    'dimensionLevel', // 'cat',
+    sparseStructure.dimensions[Object.keys(sparseStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit']
+);
+
+
+let listStructure = dataNavigator.structure({
+    data: sparseCategoryTest,
+    idKey: 'catKey',
+    keysForIdGeneration: ['cat'],
+    addIds: true,
+    dimensions: {
+        values: [
+            {
+                dimensionKey: 'cat',
+                type: 'categorical',
+                behavior: {
+                    extents: 'circular'
+                },
+                operations: {
+                    compressSparseDivisions: true,
+                }
+            }
+        ]
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['sparse']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
+});
+console.log('listStructure', listStructure);
+buildGraph(
+    listStructure,
+    'list',
+    300,
+    'dimensionLevel', // 'cat',
+    listStructure.dimensions[Object.keys(listStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit']
+);
+
 // const dataTest = [
 //     {
 //         state: "California",
