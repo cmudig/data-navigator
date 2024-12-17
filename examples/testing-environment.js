@@ -868,7 +868,7 @@ let listStructure = dataNavigator.structure({
             edge: {
                 source: (_d, c) => c,
                 target: () => {
-                    exit['sparse']();
+                    exit['list']();
                     return '';
                 },
                 navigationRules: ['exit']
