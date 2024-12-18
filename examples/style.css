@@ -232,3 +232,9 @@ kbd {
 #dn-wrapper-data-navigator-schema-added {
     width: inherit !important;
 }
+
+code {
+    background: #333;
+    padding: .1em .35em;
+    color: white;
+}

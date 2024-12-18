@@ -77,6 +77,61 @@
     <body>
         <div id="testing-environment">
             <div class="wrapper">
+                <h2>Instructions</h2>
+                <p>Technically this is just a test environment for different structures as I am creating the <code>dimensions</code> API for Data Navigator. But that being said, if someone comes across this page, here are the keyboard instructions:</p>
+                <hr>
+                <table class="table" data-header="header">
+                    <thead class="thead">
+                        <tr class="t-row">
+                            <th class="t-column" scope="col">Command</th>
+                            <th class="t-column" scope="col">Expected input</th>
+                        </tr>
+                    </thead>
+                    <tbody class="tbody">
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Enter</b> the visualization</th>
+                            <td class="cell">Activate the "Enter navigation area" button.</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Exit</b> the visualization</th>
+                            <td class="cell"><kbd>ESC</kbd> key.</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Right</b>: Forward along category or dimension</th>
+                            <td class="cell"><kbd>→</kbd> (right arrow key).</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Left</b>: Backward along category or dimension</th>
+                            <td class="cell"><kbd>←</kbd> (left arrow key).</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Up</b>: Backward along sorted metric</th>
+                            <td class="cell"><kbd>↑</kbd> (up arrow key).</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell"><b>Down</b>: Forward along sorted metric</th>
+                            <td class="cell"><kbd>↓</kbd> (down arrow key).</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Drill down to <b>child</b></th>
+                            <td class="cell"><kbd>ENTER</kbd> key.</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Drill up to <b>parent-cat</b>egory node</th>
+                            <td class="cell"><kbd>W</kbd> key.</td>
+                        </tr>
+                        <tr class="t-row">
+                            <th scope="row" class="cell">Drill up to <b>parent-num</b>eric node</th>
+                            <td class="cell"><kbd>J</kbd> key.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <hr>
+                <p>The dimensions API does a few things to the navigation experience by default, notably both are about the creation of "divisions" of that dimension: if a metric/numeric value is used, then it simply becomes a sorted list of all values in the dataset in ascending order. The api can be used to <code>numericallySubdivide</code> metrics. For categorical dimensions, they will be nested by default. However, if a category contains all unique values (see last 2 examples), then the dimension can be compressed using <code>compressSparseDivisions</code>.</p>
+                <h2>Description of visualizations</h2>
+                All of these visualizations are visual representations of the structure created from different datasets that have been sent into Data Navigator's <code>dimensions</code> API. I'm playing with the declarative props for the API with these different visualizations as well as testing to see if the structure looks as expected (and the API performs as expected).
+            </div>
+            <div class="wrapper">
                 <h2>Simple test (colors = dimension level)</h2>
                 <div id="dn-root-simple" class="wrapper">
                     <div id="simple"></div>
