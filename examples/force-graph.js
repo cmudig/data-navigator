@@ -5,6 +5,7 @@
     @frankelavsky's NOTE: This works beautifully out of the box for my purposes, but I did make a few changes
     Record of changes:
         - Added a limit to the simulation so that nodes don't fly out of view if without links
+        - Hide root svg and circle elements from screen readers
 */
 export function ForceGraph(
     {
@@ -74,6 +75,7 @@ export function ForceGraph(
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', [-width / 2, -height / 2, width, height])
+        .attr('role','presentation')
         .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
 
     const link = svg
@@ -96,8 +98,9 @@ export function ForceGraph(
         .data(nodes)
         .join('circle')
         .attr('r', nodeRadius)
+        .attr('role','presentation')
         .call(drag(simulation));
-
+    
     if (W) link.attr('stroke-width', ({ index: i }) => W[i]);
     if (L) link.attr('stroke', ({ index: i }) => L[i]);
     if (G) node.attr('fill', ({ index: i }) => color(G[i]));
