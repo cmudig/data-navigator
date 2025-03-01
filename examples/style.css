@@ -233,8 +233,8 @@ kbd {
     width: inherit !important;
 }
 
-code {
+#testing-environment code {
     background: #333;
-    padding: .1em .35em;
+    padding: 0.1em 0.35em;
     color: white;
 }

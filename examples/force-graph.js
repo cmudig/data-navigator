@@ -75,7 +75,7 @@ export function ForceGraph(
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', [-width / 2, -height / 2, width, height])
-        .attr('role','presentation')
+        .attr('role', 'presentation')
         .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
 
     const link = svg
@@ -98,9 +98,9 @@ export function ForceGraph(
         .data(nodes)
         .join('circle')
         .attr('r', nodeRadius)
-        .attr('role','presentation')
+        .attr('role', 'presentation')
         .call(drag(simulation));
-    
+
     if (W) link.attr('stroke-width', ({ index: i }) => W[i]);
     if (L) link.attr('stroke', ({ index: i }) => L[i]);
     if (G) node.attr('fill', ({ index: i }) => color(G[i]));
