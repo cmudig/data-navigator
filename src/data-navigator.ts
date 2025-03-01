@@ -98,7 +98,7 @@ export type DimensionObject = {
     dimensionKey: DimensionKey;
     divisions: DimensionDivisions;
     operations: {
-        compressSparseDivisions: boolean;  // if no division more than 1 child, create 1 division with all children, runs after filtering and sorting
+        compressSparseDivisions: boolean; // if no division more than 1 child, create 1 division with all children, runs after filtering and sorting
         sortFunction?: SortingFunction; // by default sorts numerical in ascending, does not sort categorical
     };
     behavior?: DimensionBehavior;
@@ -198,6 +198,8 @@ export type DimensionBehavior = {
     extents: ExtentType;
     customBridgePrevious?: NodeId;
     customBridgePost?: NodeId;
+    childmostNavigation?: ChildmostNavigationStrategy;
+    childmostMatching?: ChildmostMatchingStrategy;
 };
 
 export type Level1Behavior = {
@@ -252,6 +254,13 @@ export type DynamicDimensionRenderId = ((d?: DimensionDatum, a?: GenericDataset)
 
 export type NumericallySubdivide = ((d?: DimensionKey, n?: Nodes) => number) | number;
 
+export type ChildmostMatchingStrategy = (
+    index?: number,
+    currentDivisionChild?: DatumObject,
+    currentDivision?: DivisionObject,
+    nextDivision?: DivisionObject
+) => DatumObject | undefined;
+
 export type AdjustingFunction = (d: Dimensions) => Dimensions;
 
 export type SortingFunction = (a: DatumObject, b: DatumObject, c?: any) => number;
@@ -281,6 +290,8 @@ export type RenderingStrategy = 'outlineEach' | 'convexHull' | 'singleSquare' | 
 export type DimensionType = 'numerical' | 'categorical';
 
 export type ExtentType = 'circular' | 'terminal' | 'bridgedCousins' | 'bridgedCustom';
+
+export type ChildmostNavigationStrategy = 'within' | 'across';
 
 export type Level0ExtentType = 'circular' | 'terminal' | 'bridgedCustom';
 

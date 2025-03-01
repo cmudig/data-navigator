@@ -20,7 +20,8 @@ import {
     NavigationList,
     DimensionObject,
     DivisionObject,
-    DatumObject
+    DatumObject,
+    ChildmostMatchingStrategy
 } from './data-navigator';
 import { describeNode, createValidId } from './utilities';
 
@@ -431,7 +432,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                             type: dim.type,
                             operations: {
                                 compressSparseDivisions: dim.operations?.compressSparseDivisions || false,
-                                sortFunction: dim.operations?.sortFunction || undefined,
+                                sortFunction: dim.operations?.sortFunction || undefined
                             },
                             behavior: dim.behavior || {
                                 extents: 'circular'
@@ -628,20 +629,20 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     // if operations.compressSparseDivisions is true, we check divisions and compress
     Object.keys(dimensions).forEach(s => {
         let dimension = dimensions[s] as DimensionObject;
-        
+
         if (dimension.operations.compressSparseDivisions) {
             const divisionKeys = Object.keys(dimension.divisions);
-            const values = {}
-            let sparse = true
+            const values = {};
+            let sparse = true;
             divisionKeys.forEach(d => {
                 const division = dimension.divisions[d] as DivisionObject;
-                const valueKeys = Object.keys(division.values)
+                const valueKeys = Object.keys(division.values);
                 if (valueKeys.length <= 1) {
                     valueKeys.forEach(vk => {
-                        values[vk] = {...division.values[vk]}
-                    })
-                } else { 
-                    sparse = false
+                        values[vk] = { ...division.values[vk] };
+                    });
+                } else {
+                    sparse = false;
                 }
             });
             if (sparse) {
@@ -650,13 +651,13 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 const newDivision = {
                     id: dimension.nodeId,
                     values
-                }
+                };
                 // we need to delete nodes of the old divisions
-                divisionKeys.forEach(d =>{
-                    delete nodes[d]
-                })
-                dimension.divisions = {}
-                dimension.divisions[dimension.nodeId] = newDivision
+                divisionKeys.forEach(d => {
+                    delete nodes[d];
+                });
+                dimension.divisions = {};
+                dimension.divisions[dimension.nodeId] = newDivision;
             }
         }
     });
@@ -776,7 +777,16 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
         // now that level1 (dimensions plus optional stuff) and the root are taken care of, we handle divisions + children
         dimensionKeys.forEach(s => {
             const dimension = dimensions[s];
+            const strat = dimension.behavior?.childmostNavigation || 'within'; // we default to within
+            const matchByIndex: ChildmostMatchingStrategy = (i, _a, _b, c) => {
+                return c.values[Object.keys(c.values)[i]] || undefined;
+            };
+            const match =
+                strat === 'across' && dimension.behavior?.childmostMatching
+                    ? dimension.behavior?.childmostMatching
+                    : matchByIndex; // by default we just match by index
             let extents = dimension.behavior?.extents || 'circular'; // we default to circular
+
             if (!dimension.divisions) {
                 console.error(
                     `Parsing dimensions. The dimension using the key ${s} is missing the divisions property. dimension.divisions should be supplied. ${JSON.stringify(
@@ -876,104 +886,153 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                             createEdge(v[id], parentId, dimension.navigationRules.parent_child, 'source');
                         }
 
-                        if (i === valueKeys.length - 1 && extents === 'circular') {
-                            // we are at the end, create forwards loop to start of list
-                            const targetId =
-                                typeof options.idKey === 'function'
-                                    ? options.idKey(division.values[valueKeys[0]])
-                                    : options.idKey;
-                            createEdge(
-                                v[id],
-                                division.values[valueKeys[0]][targetId],
-                                dimension.navigationRules.sibling_sibling
-                            );
-                        } else if (i === valueKeys.length - 1 && extents === 'bridgedCousins') {
-                            if (j !== divisionKeys.length - 1) {
-                                // we are at the end of values but not divisions, create forwards bridge to the first child of the next division
+                        if (strat === 'within') {
+                            // childmost elements of a division use their navigation rules to navigate to each other
+                            // this navigation stays "within" the division (compared to "across" divisions)
+                            // this strategy makes sense for hierarchies, single-dimension charts, and sets
+                            if (i === valueKeys.length - 1 && extents === 'circular') {
+                                // we are at the end, create forwards loop to start of list
                                 const targetId =
                                     typeof options.idKey === 'function'
-                                        ? options.idKey(dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]])
+                                        ? options.idKey(division.values[valueKeys[0]])
                                         : options.idKey;
                                 createEdge(
                                     v[id],
-                                    dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]][targetId],
+                                    division.values[valueKeys[0]][targetId],
                                     dimension.navigationRules.sibling_sibling
                                 );
-                            } else {
-                                // we are at the end of values and divisions, create forwards bridge to the first child of the first division
+                            } else if (i === valueKeys.length - 1 && extents === 'bridgedCousins') {
+                                if (j !== divisionKeys.length - 1) {
+                                    // we are at the end of values but not divisions, create forwards bridge to the first child of the next division
+                                    const targetId =
+                                        typeof options.idKey === 'function'
+                                            ? options.idKey(
+                                                  dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]]
+                                              )
+                                            : options.idKey;
+                                    createEdge(
+                                        v[id],
+                                        dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]][targetId],
+                                        dimension.navigationRules.sibling_sibling
+                                    );
+                                } else {
+                                    // we are at the end of values and divisions, create forwards bridge to the first child of the first division
+                                    const targetId =
+                                        typeof options.idKey === 'function'
+                                            ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]])
+                                            : options.idKey;
+                                    createEdge(
+                                        v[id],
+                                        dimension.divisions[divisionKeys[0]].values[valueKeys[0]][targetId],
+                                        dimension.navigationRules.sibling_sibling
+                                    );
+                                }
+                            } else if (i === valueKeys.length - 1 && extents === 'bridgedCustom') {
+                                // we are at the end, create forwards bridge to new element
+                                createEdge(
+                                    v[id],
+                                    dimension.behavior.customBridgePost,
+                                    dimension.navigationRules.sibling_sibling
+                                );
+                            } else if (i < valueKeys.length - 1) {
+                                // we are in the dimension but not at the end, create forwards step
                                 const targetId =
                                     typeof options.idKey === 'function'
-                                        ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]])
+                                        ? options.idKey(division.values[valueKeys[i + 1]])
                                         : options.idKey;
                                 createEdge(
                                     v[id],
-                                    dimension.divisions[divisionKeys[0]].values[valueKeys[0]][targetId],
+                                    division.values[valueKeys[i + 1]][targetId],
                                     dimension.navigationRules.sibling_sibling
                                 );
                             }
-                        } else if (i === valueKeys.length - 1 && extents === 'bridgedCustom') {
-                            // we are at the end, create forwards bridge to new element
-                            createEdge(
-                                v[id],
-                                dimension.behavior.customBridgePost,
-                                dimension.navigationRules.sibling_sibling
-                            );
-                        } else if (i < valueKeys.length - 1) {
-                            // we are in the dimension but not at the end, create forwards step
-                            const targetId =
-                                typeof options.idKey === 'function'
-                                    ? options.idKey(division.values[valueKeys[i + 1]])
-                                    : options.idKey;
-                            createEdge(
-                                v[id],
-                                division.values[valueKeys[i + 1]][targetId],
-                                dimension.navigationRules.sibling_sibling
-                            );
-                        }
 
-                        if (!i && extents === 'bridgedCousins') {
-                            if (j !== 0) {
-                                // we are at the start of values (but not divisions) and bridge is set, we need to create backwards bridge to the previous division's last child
-                                const targetId =
-                                    typeof options.idKey === 'function'
-                                        ? options.idKey(
-                                              dimension.divisions[divisionKeys[j - 1]].values[
-                                                  valueKeys[valueKeys.length - 1]
-                                              ]
-                                          )
-                                        : options.idKey;
+                            if (!i && extents === 'bridgedCousins') {
+                                if (j !== 0) {
+                                    // we are at the start of values (but not divisions) and bridge is set, we need to create backwards bridge to the previous division's last child
+                                    const targetId =
+                                        typeof options.idKey === 'function'
+                                            ? options.idKey(
+                                                  dimension.divisions[divisionKeys[j - 1]].values[
+                                                      valueKeys[valueKeys.length - 1]
+                                                  ]
+                                              )
+                                            : options.idKey;
+                                    createEdge(
+                                        dimension.divisions[divisionKeys[j - 1]].values[
+                                            valueKeys[valueKeys.length - 1]
+                                        ][targetId],
+                                        v[id],
+                                        dimension.navigationRules.sibling_sibling
+                                    );
+                                } else {
+                                    // we are at the start of values and divivions and bridge is set, we need to create backwards bridge to the last division's last child
+                                    const targetId =
+                                        typeof options.idKey === 'function'
+                                            ? options.idKey(
+                                                  dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
+                                                      valueKeys[valueKeys.length - 1]
+                                                  ]
+                                              )
+                                            : options.idKey;
+                                    createEdge(
+                                        dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
+                                            valueKeys[valueKeys.length - 1]
+                                        ][targetId],
+                                        v[id],
+                                        dimension.navigationRules.sibling_sibling
+                                    );
+                                }
+                            } else if (!i && extents === 'bridgedCustom') {
+                                // if we started the dimension and bridge is set, we need to create backwards bridge to new element
                                 createEdge(
-                                    dimension.divisions[divisionKeys[j - 1]].values[valueKeys[valueKeys.length - 1]][
-                                        targetId
-                                    ],
-                                    v[id],
-                                    dimension.navigationRules.sibling_sibling
-                                );
-                            } else {
-                                // we are at the start of values and divivions and bridge is set, we need to create backwards bridge to the last division's last child
-                                const targetId =
-                                    typeof options.idKey === 'function'
-                                        ? options.idKey(
-                                              dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                                  valueKeys[valueKeys.length - 1]
-                                              ]
-                                          )
-                                        : options.idKey;
-                                createEdge(
-                                    dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                        valueKeys[valueKeys.length - 1]
-                                    ][targetId],
+                                    dimension.behavior.customBridgePrevious,
                                     v[id],
                                     dimension.navigationRules.sibling_sibling
                                 );
                             }
-                        } else if (!i && extents === 'bridgedCustom') {
-                            // if we started the dimension and bridge is set, we need to create backwards bridge to new element
-                            createEdge(
-                                dimension.behavior.customBridgePrevious,
-                                v[id],
-                                dimension.navigationRules.sibling_sibling
-                            );
+                        } else {
+                            // we navigate "across" divisions, rather than "within," at the childmost level
+                            // this type makes the most sense for common visualizations like stacked bars, line charts, etc
+                            // note: extents cannot be "bridgedCousins" since we are already navigating across cousins
+
+                            if (j === divisionKeys.length - 1 && extents === 'bridgedCustom') {
+                                // we are at the end of our divisions and we are using a custom bridge
+                                // create forwards bridge to new element
+                                createEdge(
+                                    v[id],
+                                    dimension.behavior.customBridgePost,
+                                    dimension.navigationRules.sibling_sibling
+                                );
+                            } else if (!j && extents === 'bridgedCustom') {
+                                // if we started the divisions and bridge is set, we need to create backwards bridge to new element
+                                createEdge(
+                                    dimension.behavior.customBridgePrevious,
+                                    v[id],
+                                    dimension.navigationRules.sibling_sibling
+                                );
+                            } else {
+                                // if we aren't using custom bridges and at the ends, then we run this block
+
+                                // first, we determine which division to use
+                                const targetDivision =
+                                    j === divisionKeys.length - 1 && extents === 'circular'
+                                        ? dimension.divisions[divisionKeys[0]]
+                                        : dimension.divisions[divisionKeys[j + 1]];
+
+                                if (targetDivision) {
+                                    // it is possible that we don't have a target division!
+                                    // but most of the time we do, so proceed:
+                                    const target = match(i, v[id], division, targetDivision);
+
+                                    // it is also possible we don't have a target, since this matches using a function
+                                    if (target) {
+                                        const targetId =
+                                            typeof options.idKey === 'function' ? options.idKey(target) : options.idKey;
+                                        createEdge(v[id], target[targetId], dimension.navigationRules.sibling_sibling);
+                                    }
+                                }
+                            }
                         }
                         i++;
                     });

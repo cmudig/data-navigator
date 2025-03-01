@@ -785,6 +785,85 @@ buildGraph(
     ['any-exit']
 );
 
+let stackedStructure = dataNavigator.structure({
+    data: largerData,
+    idKey: 'id',
+    addIds: true,
+    dimensions: {
+        values: [
+            {
+                dimensionKey: 'date',
+                type: 'categorical',
+                behavior: {
+                    extents: 'circular',
+                    childmostNavigation: 'across'
+                },
+                operations: {
+                    sortFunction: (a, b, c) => {
+                        if (a.values) {
+                            let aDate = new Date(a.values[Object.keys(a.values)[0]].date);
+                            let bDate = new Date(b.values[Object.keys(b.values)[0]].date);
+                            return aDate - bDate;
+                        } else {
+                            return;
+                        }
+                    }
+                }
+            },
+            {
+                dimensionKey: 'category',
+                type: 'categorical',
+                divisionOptions: {
+                    divisionNodeIds: (dimensionKey, keyValue, i) => {
+                        return createValidId(dimensionKey + keyValue + i);
+                    }
+                },
+                behavior: {
+                    extents: 'circular',
+                    childmostNavigation: 'across'
+                }
+            }
+            // {
+            //     dimensionKey: 'value',
+            //     type: 'numerical',
+            //     behavior: {
+            //         extents: 'terminal'
+            //     }
+            // },
+            // {
+            //     dimensionKey: 'count',
+            //     type: 'numerical',
+            //     behavior: {
+            //         extents: 'terminal'
+            //     }
+            // }
+        ]
+    },
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => {
+                    exit['larger']();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        }
+    ]
+});
+console.log('stackedStructure', stackedStructure);
+buildGraph(
+    stackedStructure,
+    'stacked',
+    300,
+    'dimensionLevel',
+    largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId,
+    ['exit'],
+    ['any-exit']
+);
+
 const sparseCategoryTest = [
     {
         cat: 'meow',
@@ -842,7 +921,6 @@ buildGraph(
     ['any-exit']
 );
 
-
 let listStructure = dataNavigator.structure({
     data: sparseCategoryTest,
     idKey: 'catKey',
@@ -857,7 +935,7 @@ let listStructure = dataNavigator.structure({
                     extents: 'circular'
                 },
                 operations: {
-                    compressSparseDivisions: true,
+                    compressSparseDivisions: true
                 }
             }
         ]
