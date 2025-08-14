@@ -1281,7 +1281,7 @@
                                 </div>
                             </div>
                             <br />
-
+                            <h5 id="troubleWithFocusIndication">Trouble with focus indication</h5>
                             <p>
                                 We have nearly finished our first, navigable data structure. But what is still missing?
                                 A
@@ -1310,6 +1310,7 @@
                                 <code>spatialProperties</code> for our rendered node's data. An example of a perfect
                                 render node's data might look like the following:
                             </p>
+                            <h5>We are missing spatialProperties</h5>
                             <pre><code class="language-javascript">_0: {
         id: "_1",
         data: {
@@ -1371,6 +1372,7 @@
                                     ></div>
                                 </div>
                             </div>
+                            <h5 id="makingAFocusIndicatorWorkForBokeh">Making a focus indicator work for Bokeh</h5>
                             <p>
                                 So what do we do? How can we fix this? Unfortunately for Bokeh, the library would have
                                 to pass up coordinates and geometry data to the frontend or enable some kind of way to
@@ -1402,6 +1404,7 @@
                                 navigable by default. Or, at the very least, Bokeh allows an interface where element
                                 information can be accessed as-needed.
                             </p>
+                            <h5>Focusing the whole chart but drawing a small indicator</h5>
                             <p>
                                 So, our final step is to add <code>spatialProperties</code> to our elements and then
                                 also add a function to highlight our Bokeh chart elements when our Data Navigator
