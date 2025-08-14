@@ -247,6 +247,7 @@ kbd {
     color: rgb(248, 248, 242);
     padding: 0.1em 0.35em;
     border-radius: 3px;
+    font-size: 0.85em;
 }
 
 #docs .hljs-string {
