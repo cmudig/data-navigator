@@ -33,7 +33,9 @@ export function ForceGraph(
         colors = d3.schemeTableau10, // an array of color strings, for the node groups
         width = 640, // outer width, in pixels
         height = 400, // outer height, in pixels
-        invalidation // when this promise resolves, stop the simulation
+        invalidation, // when this promise resolves, stop the simulation
+        description,
+        hide
     } = {}
 ) {
     // Compute values.
@@ -50,6 +52,12 @@ export function ForceGraph(
     // Replace the input nodes and links with mutable objects for the simulation.
     nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
     links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
+
+    description =
+        (typeof description === 'function' ? description(nodes, links) : description) ||
+        `Node-link graph. Contains ${nodes.length} node${nodes.length !== 1 ? 's' : ''} and ${links.length} link${
+            links.length !== 1 ? 's' : ''
+        }.`;
 
     // Compute default domains.
     if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
@@ -75,7 +83,8 @@ export function ForceGraph(
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', [-width / 2, -height / 2, width, height])
-        .attr('role', 'presentation')
+        .attr('role', hide ? 'presentation' : 'img')
+        .attr('aria-label', hide ? null : description)
         .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
 
     const link = svg
