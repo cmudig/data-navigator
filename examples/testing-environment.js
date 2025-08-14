@@ -965,6 +965,83 @@ buildGraph(
     ['any-exit']
 );
 
+let shortlistStructure = {
+    nodes: {
+        _0_cat0_meow0: {
+            id: '_0_cat0_meow0',
+            edges: ['_0_cat0_meow0-_1_cat1_quack0', 'any-exit'],
+            renderId: '_0_cat0_meow0',
+            data: { cat: 'meow', num: 3, catKey: '_0_cat0_meow0' },
+            existingElement: { useForSpatialProperties: true },
+            semantics: { label: 'cat: meow. num: 3. catKey: _0_cat0_meow0. Data point.' }
+        },
+        _1_cat1_quack0: {
+            id: '_1_cat1_quack0',
+            edges: ['_0_cat0_meow0-_1_cat1_quack0', '_1_cat1_quack0-_2_cat2_moo0', 'any-exit'],
+            renderId: '_1_cat1_quack0',
+            data: { cat: 'quack', num: 1, catKey: '_1_cat1_quack0' },
+            existingElement: { useForSpatialProperties: true },
+            semantics: { label: 'cat: quack. num: 1. catKey: _1_cat1_quack0. Data point.' }
+        },
+        _2_cat2_moo0: {
+            id: '_2_cat2_moo0',
+            edges: ['_1_cat1_quack0-_2_cat2_moo0', '_2_cat2_moo0-_3_cat3_bork0', 'any-exit'],
+            renderId: '_2_cat2_moo0',
+            data: { cat: 'moo', num: 2, catKey: '_2_cat2_moo0' },
+            existingElement: { useForSpatialProperties: true },
+            semantics: { label: 'cat: moo. num: 2. catKey: _2_cat2_moo0. Data point.' }
+        },
+        _3_cat3_bork0: {
+            id: '_3_cat3_bork0',
+            edges: ['_2_cat2_moo0-_3_cat3_bork0', 'any-exit'],
+            renderId: '_3_cat3_bork0',
+            data: { cat: 'bork', num: 4, catKey: '_3_cat3_bork0' },
+            existingElement: { useForSpatialProperties: true },
+            semantics: { label: 'cat: bork. num: 4. catKey: _3_cat3_bork0. Data point.' }
+        }
+    },
+    edges: {
+        '_0_cat0_meow0-_1_cat1_quack0': {
+            source: '_0_cat0_meow0',
+            target: '_1_cat1_quack0',
+            navigationRules: ['left', 'right']
+        },
+        '_1_cat1_quack0-_2_cat2_moo0': {
+            source: '_1_cat1_quack0',
+            target: '_2_cat2_moo0',
+            navigationRules: ['left', 'right']
+        },
+        '_2_cat2_moo0-_3_cat3_bork0': {
+            source: '_2_cat2_moo0',
+            target: '_3_cat3_bork0',
+            navigationRules: ['left', 'right']
+        },
+        'any-exit': {
+            source: (_d, c) => c,
+            target: () => {
+                exit['shortlist']();
+                return '';
+            },
+            navigationRules: ['exit']
+        }
+    },
+    navigationRules: {
+        left: { key: 'ArrowLeft', direction: 'source' },
+        right: { key: 'ArrowRight', direction: 'target' },
+        exit: { key: 'Escape', direction: 'target' }
+    }
+};
+console.log('shortlistStructure', shortlistStructure);
+buildGraph(
+    shortlistStructure,
+    'shortlist',
+    300,
+    'dimensionLevel', // 'cat',
+    shortlistStructure.nodes[Object.keys(shortlistStructure.nodes)[0]].id,
+    ['exit'],
+    ['any-exit']
+);
+
 // const dataTest = [
 //     {
 //         state: "California",
