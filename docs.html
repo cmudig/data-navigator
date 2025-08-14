@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Data Navigator Docs</title>
+
+        <meta http-equiv="x-ua-compatible" content="ie=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Data Navigator Docs" />
+        <meta name="theme-color" content="#21224A" />
+        <meta
+            property="og:image"
+            content="https://repository-images.githubusercontent.com/479978023/fa696c16-4c68-418b-9f28-fa256fff7a47"
+        />
+        <meta property="og:title" content="Data Navigator Docs" />
+        <meta property="og:locale" content="en_US" />
+        <meta
+            name="description"
+            content="Data Navigator: A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <meta
+            property="og:description"
+            content="Data Navigator: A JavaScript library that allows for accessible navigation of data structures."
+        />
+        <link rel="canonical" href="https://dig.cmu.edu/data-navigator/docs" />
+        <meta property="og:url" content="https://dig.cmu.edu/data-navigator/docs" />
+        <meta property="og:site_name" content="Data Navigator demo" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta property="twitter:title" content="Data Navigator Docs" />
+        <meta name="twitter:site" content="@frankElavsky" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "description": "Data Navigator: A JavaScript library that allows for accessible navigation of data structures.",
+                "headline": "Data Navigator Docs",
+                "name": "Data Navigator Docs",
+                "url": "https://dig.cmu.edu/data-navigator/docs"
+            }
+        </script>
+        <link href="./examples/style.css" rel="stylesheet" />
+        <!-- <script src="https://cdn.jsdelivr.net/npm/bokehjs@3.7.3/build/js/lib/bokeh.min.js"></script> -->
+        <style>
+            html {
+                line-height: 1.2;
+                font-family: Georgia, serif;
+                font-size: 20px;
+                color: #1a1a1a;
+                background-color: #fdfdfd;
+            }
+            body {
+                margin: 0 auto;
+                max-width: 36em;
+                padding-left: 50px;
+                padding-right: 50px;
+                padding-top: 50px;
+                padding-bottom: 50px;
+                hyphens: auto;
+                overflow-wrap: break-word;
+                text-rendering: optimizeLegibility;
+                font-kerning: normal;
+            }
+            @media (max-width: 600px) {
+                body {
+                    font-size: 0.9em;
+                    padding: 1em;
+                }
+                h1 {
+                    font-size: 1.8em;
+                }
+            }
+            @media print {
+                body {
+                    background-color: transparent;
+                    color: black;
+                    font-size: 12pt;
+                }
+                p,
+                h2,
+                h3 {
+                    orphans: 3;
+                    widows: 3;
+                }
+                h2,
+                h3,
+                h4 {
+                    page-break-after: avoid;
+                }
+            }
+            p {
+                margin: 1em 0;
+            }
+            a {
+                color: #1a1a1a;
+            }
+            a:visited {
+                color: #1a1a1a;
+            }
+            img {
+                max-width: 100%;
+            }
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6 {
+                margin-top: 1.4em;
+            }
+            h5 {
+                font-size: 1.2em;
+                font-style: italic;
+            }
+            h6 {
+                font-size: 1em;
+                font-style: italic;
+                font-weight: normal;
+            }
+            ol,
+            ul {
+                padding-left: 1.7em;
+                margin-top: 1em;
+            }
+            li > ol,
+            li > ul {
+                margin-top: 0;
+            }
+            blockquote {
+                margin: 1em 0 1em 1.7em;
+                padding-left: 1em;
+                border-left: 2px solid #e6e6e6;
+                color: #606060;
+            }
+            pre {
+                margin: 1em 0;
+                overflow: auto;
+            }
+            hr {
+                background-color: #1a1a1a;
+                border: none;
+                height: 1px;
+                margin: 1em 0;
+            }
+            header {
+                margin-bottom: 4em;
+                text-align: center;
+            }
+            #TOC li {
+                list-style: none;
+            }
+            #TOC ul {
+                padding-left: 1.3em;
+            }
+            #TOC > ul {
+                padding-left: 0;
+            }
+            #TOC a:not(:hover) {
+                text-decoration: none;
+            }
+            span.smallcaps {
+                font-variant: small-caps;
+            }
+            span.underline {
+                text-decoration: underline;
+            }
+            div.column {
+                display: inline-block;
+                vertical-align: top;
+                width: 50%;
+            }
+            div.hanging-indent {
+                margin-left: 1.5em;
+                text-indent: -1.5em;
+            }
+            ul.task-list {
+                list-style: none;
+            }
+            .display.math {
+                display: block;
+                text-align: center;
+                margin: 0.5rem auto;
+            }
+            div.csl-bib-body {
+            }
+            div.csl-entry {
+                clear: both;
+            }
+            .hanging div.csl-entry {
+                margin-left: 2em;
+                text-indent: -2em;
+            }
+            div.csl-left-margin {
+                min-width: 2em;
+                float: left;
+            }
+            div.csl-right-inline {
+                margin-left: 2em;
+                padding-left: 1em;
+            }
+            div.csl-indent {
+                margin-left: 2em;
+            }
+
+            :root {
+                --text-color: #333;
+                --med-text-color: #454545;
+                --light-text-color: #767676;
+                --brand-color: #1e3369;
+                --brand-light: #6780c0;
+                --link-hover: #008463;
+                --link-color: #174b3f;
+            }
+
+            html {
+                background-color: white;
+            }
+
+            body {
+                max-width: 60em;
+            }
+
+            body {
+                color: var(--text-color);
+            }
+
+            h1,
+            h2,
+            h3 {
+                color: var(--brand-color);
+            }
+
+            header {
+                font-size: 0.9em;
+                text-align: left;
+            }
+
+            header h2 {
+                font-size: 1.25em;
+            }
+
+            header ol {
+                list-style-type: none;
+                padding-inline-start: 1em;
+                margin-top: 0;
+            }
+
+            a {
+                text-decoration-skip-ink: auto;
+            }
+
+            nav a {
+                text-decoration: none;
+            }
+
+            nav a:hover,
+            nav a:focus {
+                text-decoration: underline;
+            }
+
+            a:visited {
+                color: inherit;
+            }
+
+            .main-wrapper a {
+                color: var(--link-color);
+                text-decoration-color: var(--link-color);
+            }
+
+            .main-wrapper a:hover,
+            .main-wrapper a:focus {
+                color: var(--link-hover);
+                text-decoration-color: var(--link-hover);
+                transition: color 0.15s ease-in-out, text-decoration-color 0.15s ease-in-out;
+            }
+
+            .title,
+            .author {
+                text-align: center;
+            }
+
+            .main-wrapper li p {
+                margin: 0;
+            }
+            nav > ol > li > a {
+                padding-right: 2em;
+            }
+            details {
+                position: relative;
+            }
+            details:not([open]) {
+                text-align: right;
+            }
+            summary {
+                cursor: pointer;
+                list-style: none;
+                display: flex;
+            }
+            summary::-webkit-details-marker {
+                display: none;
+            }
+            summary:after {
+                background: white;
+                border-radius: 50%;
+                content: '+';
+                outline: var(--text-color) solid 1px;
+                outline-offset: -2px;
+                color: var(--text-color);
+                vertical-align: middle;
+                padding: 0;
+                text-align: center;
+                width: 1.5em;
+                height: 1.5em;
+                margin: auto 0.1em 0px auto;
+                flex-shrink: 0;
+            }
+            summary a {
+                padding-right: 0.3em;
+            }
+            details[open] summary:after {
+                content: '-';
+                font-weight: 600;
+            }
+            details:not([open]) summary:after {
+                content: '+';
+                font-weight: normal;
+            }
+            .nav-level-1 {
+                line-height: 1.5em;
+            }
+            summary:hover::after,
+            summary:focus::after {
+                outline: var(--text-color) solid 2px;
+            }
+            #fn1 {
+                list-style-type: '†';
+            }
+            header {
+                max-width: 280px;
+            }
+            .top-link {
+                display: block;
+            }
+
+            @media screen and (min-width: 48em) {
+                * {
+                    -webkit-box-sizing: border-box;
+                    -moz-box-sizing: border-box;
+                    box-sizing: border-box;
+                }
+                .main-wrapper {
+                    float: left;
+                    max-width: 75%;
+                }
+                main,
+                footer {
+                    margin: 0em 0em 0em 2em;
+                }
+                div.abstract {
+                    margin: 2em 2em 2em 2em;
+                    text-align: left;
+                    font-size: 85%;
+                }
+                div.abstract-title {
+                    font-weight: bold;
+                    text-align: center;
+                    padding: 0;
+                    margin-bottom: 0.5em;
+                }
+                header {
+                    top: 1.4em;
+                    float: left;
+                    max-width: 25%;
+                    border-right: 1px solid #949494;
+                    position: sticky;
+                    align-self: start;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                }
+                header ol,
+                header a,
+                header details,
+                header summary {
+                    color: var(--light-text-color);
+                    transition: all 50ms ease-in-out; /* 💡 This small transition makes setting of the active state smooth */
+                }
+                header a:hover,
+                header a:focus,
+                summary:hover,
+                summary:focus,
+                details[open] summary {
+                    color: var(--med-text-color);
+                }
+                header li li:not(.active),
+                header li:not(.active) summary {
+                    border-right: 0.25em solid transparent;
+                }
+                header li li.active,
+                header li.active summary {
+                    border-right: 0.25em solid var(--brand-light);
+                }
+                header li li li:not(.active) {
+                    border-right: 0.25em solid white;
+                }
+                li li ol {
+                    position: relative;
+                }
+                li li li {
+                    position: relative;
+                    right: -0.25em;
+                }
+                header .active > a {
+                    color: var(--text-color);
+                    font-weight: 600;
+                }
+                body:after {
+                    content: '.';
+                    display: block;
+                    height: 0;
+                    clear: both;
+                    visibility: hidden;
+                }
+                /* url("data:image/svg+xml;base64,CiAgICA8c3ZnCiAgICAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgICAgd2lkdGg9IjEwMDIuNjY3IgogICAgICBoZWlnaHQ9IjEwMDIuNjY3IgogICAgICB2aWV3Qm94PSIwIDAgNzUyIDc1MiIKICAgID4KICAgICAgPHBhdGgKICAgICAgICBmaWxsPSIjMWUzMzY5IgogICAgICAgIGQ9Im01MDEuNSAzNzYtMzUuMzcxLTIwLjQyMi0xNzkuOTYtMTA0LjE5LTM1LjY2OC0yMC43MTl2MjkwLjY2bDM1LjY2OC0yMC43MTkgMTc5Ljk2LTEwNC4xOSAzNS4zNjctMjAuNDIyem0tOTQuNDIyIDAtMTA5LjIyIDYzLjE5NXYtMTI2LjM5eiIKICAgICAgLz4KICAgIDwvc3ZnPg==") */
+                /* url("data:image/svg+xml;base64,PHN2ZwogICAgICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgICAgIHdpZHRoPSIxMDAyLjY2NyIKICAgICAgaGVpZ2h0PSIxMDAyLjY2NyIKICAgICAgdmlld0JveD0iMCAwIDc1MiA3NTIiCiAgICA+CiAgICAgIDxkZWZzPgogICAgICAgIDxjbGlwUGF0aCBpZD0iQSI+PHBhdGggZD0iTTE5NCAzMTJoMjkxdjI1M0gxOTR6IiAvPjwvY2xpcFBhdGg+CiAgICAgICAgPGNsaXBQYXRoIGlkPSJCIj48cGF0aCBkPSJtNDYyLjY3IDUyLjUzOSAyMzYuNzkgNDEwLjEzLTQxMC4xMyAyMzYuNzktMjM2Ljc5LTQxMC4xM3oiIC8+PC9jbGlwUGF0aD4KICAgICAgPC9kZWZzPgogICAgICA8ZyBjbGlwLXBhdGg9InVybCgjQSkiPgogICAgICAgIDxnIGNsaXAtcGF0aD0idXJsKCNCKSI+CiAgICAgICAgICA8cGF0aAogICAgICAgICAgICBmaWxsPSIjMWUzMzY5IgogICAgICAgICAgICBkPSJNNDg0LjY5IDMxMy4yNWgtNDAuODQ0bC0yMDcuOTUtLjI1LTQxLjI0Ni0uMTA5IDEyNC43NiAyMTYuMDkgMjAuNTcgMzUuNjI5IDIwLjUyNy0zNS43NzcgMTAzLjc2LTE4MC4yMSAyMC40MjItMzUuMzcxem0tODEuNzcgNDcuMjExbC02Mi45OTIgMTA5LjM0LTYzLjE5NS0xMDkuNDUgMTI2LjE4LjExM3oiCiAgICAgICAgICAvPgogICAgICAgIDwvZz4KICAgICAgPC9nPgogICAgPC9zdmc+") */
+            }
+        </style>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js"
+            crossorigin="anonymous"
+        ></script>
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/a11y-dark.min.css"
+        />
+    </head>
+    <body>
+        <header>
+            <h2>Table of Contents</h2>
+            <nav>
+                <ol>
+                    <li><a href="#Introduction">Introduction to Data Navigator</a></li>
+                    <li>
+                        <a href="#GettingStarted">Getting started</a>
+                        <ol>
+                            <li><a href="#StartingDataset">Example, starting dataset</a></li>
+                            <li><a href="#StartingVisualization">Example, starting visualization</a></li>
+                            <li>
+                                <a href="#BuildingBasics">Building basics</a>
+                                <ol>
+                                    <li>
+                                        <a href="#Structure">Structure</a>
+                                        <!-- <details></details> -->
+                                    </li>
+                                    <li>
+                                        <a href="#Input">Input</a>
+                                        <!-- <details></details> -->
+                                    </li>
+                                    <li>
+                                        <a href="#Rendering">Rendering</a>
+                                        <!-- <details></details> -->
+                                    </li>
+                                </ol>
+                            </li>
+                            <li><a href="#FirstNavigableChart">Our first, navigable chart</a></li>
+                        </ol>
+                    </li>
+                </ol>
+            </nav>
+        </header>
+        <div class="main-wrapper">
+            <main id="docs">
+                <div id="Introduction" class="section">
+                    <h1>Introduction to Data Navigator</h1>
+                    <p>
+                        Data Navigator is a library for making data structures navigable using a keyboard, screen
+                        reader, or other navigational input device or modality. This page is dedicated to documentation
+                        for how to apply Data Navigator practically. For details about what Data Navigator is, see
+                        <a href="https://dig.cmu.edu/data-navigator/">Data Navigator's landing page</a>. For more
+                        technical, research-oriented details (motivation, concepts, system design), see our
+                        <a href="https://www.frank.computer/data-navigator/">paper on Data Navigator</a>.
+                    </p>
+                    <!-- Getting Started -->
+                </div>
+                <div id="GettingStarted" class="section">
+                    <h2>Getting started</h2>
+                    <p>First, let's install Data Navigator and get it into a project:</p>
+                    <pre><code class="language-shell"># to install dn into a project, use npm, yarn, or equivalent
+    npm install data-navigator</code></pre>
+                    <pre><code class="language-js">// and then you may use it in a .js or .ts file, like so:
+    import { default as dataNavigator } from "data-navigator";
+
+    // whole ecosystem
+    console.log("dataNavigator", dataNavigator);
+
+    // one module in the ecosystem
+    console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
+
+                    <pre><code class="language-html">&lt;!-- you can also import as an HTML script tag (module or not): --&gt;
+    &lt;script type="module"&gt;
+        // pay attention to the version! the latest may be higher than this example
+        import dataNavigator from "https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/index.mjs";
+        console.log(dataNavigator);
+    &lt;/script&gt;</code></pre>
+
+                    <div id="StartingDataset" class="section">
+                        <h3>Example, starting dataset</h3>
+                        <p>
+                            For our first example, we will be using a super simple chart that only has 4 data points,
+                            like so:
+                        </p>
+                        <pre><code class="language-js">const data = [
+        {
+            fruit: "apple",
+            store: "a",
+            cost: 3
+        },
+        {
+            fruit: "banana",
+            store: "a",
+            cost: 0.75
+        },
+        {
+            fruit: "apple",
+            store: "b",
+            cost: 2.75
+        },
+        {
+            fruit: "banana",
+            store: "b",
+            cost: 1.25
+        },
+    ]</code></pre>
+                    </div>
+                    <div id="StartingVisualization" class="section">
+                        <h3>Example, starting visualization</h3>
+                        <p>
+                            We're going to use
+                            <a href="https://docs.bokeh.org/en/latest/docs/user_guide/advanced/bokehjs.html">BokehJS</a>
+                            to create a bar chart of this data. You can use <i>any</i> method of producing a data
+                            visualization (Bokeh is not necessary). We're going to make sure our method works with
+                            whatever you choose. As long as you can get a chart rendered into HTML, whether that is a
+                            png loaded in an image, or using a visualization library, this demo should work for you.
+                        </p>
+                        <p>
+                            As a note: Bokeh is a bit tricky when it comes to getting Data Navigator's
+                            <code class="language-js">rendering</code> module to work correctly, but we will discuss
+                            that in a later section and go over some options.
+                        </p>
+                        <p>So here is a BokehJS stacked bar chart, using the above data:</p>
+                        <div id="slot1-wrapper">
+                            <div id="slot1"></div>
+                        </div>
+                        <p>
+                            Now, Bokeh renders charts as <code>&lt;canvas&gt;</code> elements. That means it is just
+                            pixels! This is perfect for us to demonstrate Data Navigator. Try to use a screen reader (or
+                            even just tabbing with your keyboard) on that chart. It isn't helpful, is it? (Apologies to
+                            screen reader users, as the inaccessibility of that visualization is part of the point.) As
+                            an aside, for anyone interested in details about Bokeh and accessibility, we have published
+                            our
+                            <a href="https://bokeh-a11y-audit.readthedocs.io/"
+                                >comprehensive accessibility evaluation of Bokeh's ecosystem</a
+                            >
+                            online (this was in partnership with Quansight and Anaconda folks and part of a separate
+                            project from Data Navigator).
+                        </p>
+                    </div>
+                    <div id="BuildingBasics" class="section">
+                        <h3>Building basics</h3>
+                        <p>
+                            Data Navigator has 3 modularized subsystems: <code>structure</code>, <code>input</code>, and
+                            <code>rendering</code>. We will go over an introduction to each of these below.
+                        </p>
+
+                        <div id="Structure" class="section">
+                            <h4>Structure</h4>
+                            <p>
+                                Structure in Data Navigator are the bones, so to speak, of an accessible navigation
+                                experience. We want to specify which elements matter and which elements can be navigated
+                                to and from other elements. This is ultimately a <i>graph</i> data structure: it has
+                                <i>nodes</i> and <i>edges</i> (nodes are sometimes also referred to as vertices, while
+                                edges are sometimes called links). Structure, therefore, is about relationships between
+                                things!
+                            </p>
+                            <p>
+                                So first, let's just make a list structure using Data Navigator. We will do this
+                                "manually" for now, just to demonstrate all the pieces of the library and how they work.
+                            </p>
+                            <h5>Nodes</h5>
+                            <p>
+                                First thing to do is to create a <code>structure</code> variable that will hold nodes
+                                that represent our data. Our nodes will be stored in an object, for fast lookup. For
+                                now, we will just create 1 node per datum:
+                            </p>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+
+    // nodes need to have the following properties: an id and
+    // a reference to (or copy of) the datum it represents
+
+    let structure = {
+        nodes: {
+            _0: {
+                id: "_0",
+                data: {
+                    fruit: "apple",
+                    store: "a",
+                    cost: 3
+                },
+            },
+            _1: {
+                id: "_1",
+                data: {
+                    fruit: "banana",
+                    store: "a",
+                    cost: 0.75
+                },
+            },
+            _2: {
+                id: "_2",
+                data: {
+                    fruit: "apple",
+                    store: "b",
+                    cost: 2.75
+                },
+            },
+            _3: {
+                id: "_3",
+                data: {
+                    fruit: "banana",
+                    store: "b",
+                    cost: 1.25
+                },
+            }
+        }
+    }</code></pre>
+                            <p>
+                                While this isn't going to be helpful yet, we can visualize our 4 nodes that don't have
+                                any edges below: (keep in mind that this visualization is not part of Data Navigator,
+                                but just used to help illustrate our structure as we go)
+                            </p>
+                            <div class="wrapper">
+                                <div id="dn-root-nodesOnly" class="wrapper">
+                                    <div id="nodesOnly"></div>
+                                </div>
+                                <div
+                                    id="nodesOnly-tooltip"
+                                    role="presentation"
+                                    class="tooltip hidden"
+                                    focusable="false"
+                                ></div>
+                            </div>
+                            <h5>Edges</h5>
+                            <p>
+                                So for our next step, we need to create edges and add references to those edges in our
+                                nodes. Now our structure looks like the following:
+                            </p>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+                    
+    // each of these nodes now have a property, edges, that hold
+    // an array containing strings of ids, which reference edges in the structure.
+
+    let structure = {
+        nodes: {
+            _0: {
+                id: "_0",
+                data: {
+                    fruit: "apple",
+                    store: "a",
+                    cost: 3
+                },
+                edges: ["_0-_1"]
+            },
+            _1: {
+                id: "_1",
+                data: {
+                    fruit: "banana",
+                    store: "a",
+                    cost: 0.75
+                },
+                edges: ["_0-_1", "_1-_2"]
+            },
+            _2: {
+                id: "_2",
+                data: {
+                    fruit: "apple",
+                    store: "b",
+                    cost: 2.75
+                },
+                edges: ["_1-_2", "_2-_3"]
+            },
+            _3: {
+                id: "_3",
+                data: {
+                    fruit: "banana",
+                    store: "b",
+                    cost: 1.25
+                },
+                edges: ["_2-_3"]
+            }
+        },
+        edges: {
+            "_0-_1" : {
+                source: "_0",
+                target: "_1"
+            },
+            "_1-_2" : {
+                source: "_1",
+                target: "_2"
+            },
+            "_2-_3" : {
+                source: "_2",
+                target: "_3"
+            }
+        }
+    }</code></pre>
+                            <p>So now we can visualize our graph with nodes and edges, as a list:</p>
+                            <div class="wrapper">
+                                <div id="dn-root-basicList" class="wrapper">
+                                    <div id="basicList"></div>
+                                </div>
+                                <div
+                                    id="basicList-tooltip"
+                                    role="presentation"
+                                    class="tooltip hidden"
+                                    focusable="false"
+                                ></div>
+                            </div>
+                        </div>
+                        <div id="Input" class="section">
+                            <h4>Input</h4>
+                            <p>
+                                Now that we have a structure, we need to be able to navigate it! So let's set a few more
+                                pieces up to make this possible. First, we set <code>navigationRules</code> in our
+                                <code>structure</code>. We will enable navigation right and left through the structure,
+                                as well as give users a way to exit the structure (<kbd>TAB</kbd> is one way to exit
+                                without using Data Navigator, but having a library-provided way via <kbd>ESC</kbd> is
+                                good too).
+                            </p>
+
+                            <h5>Adding navigation rules</h5>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+                    
+    let structure = {
+        nodes: {
+            ...
+        },
+        edges: {
+            ...
+        },
+        navigationRules: {
+            left: { key: "ArrowLeft", direction: "source" }, // moves backward when pressing ArrowLeft on the keyboard
+            right: { key: "ArrowRight", direction: "target" }, // moves forward when pressing ArrowRight on the keyboard
+            exit: { key: "Escape", direction: "target" } // exits the structure when pressing Escape on the keyboard
+        }
+    };</code></pre>
+
+                            <p>
+                                Now that we have rules set up, we want to add our
+                                <code class="hljs-string">"left"</code> and
+                                <code class="hljs-string">"right"</code> rules to each existing edge.
+                            </p>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+                    
+    let structure = {
+        nodes: {
+            ...
+        },
+        edges: {
+            "_0-_1" : {
+                source: "_0",
+                target: "_1",
+                navigationRules: ["left", "right"]
+            },
+            "_1-_2" : {
+                source: "_1",
+                target: "_2",
+                navigationRules: ["left", "right"]
+            },
+            "_2-_3" : {
+                source: "_2",
+                target: "_3",
+                navigationRules: ["left", "right"]
+            }
+        },
+        navigationRules: {
+            left: { key: "ArrowLeft", direction: "source" }, // moves backward when pressing ArrowLeft on the keyboard
+            right: { key: "ArrowRight", direction: "target" }, // moves forward when pressing ArrowRight on the keyboard
+            exit: { key: "Escape", direction: "target" } // exits the structure when pressing Escape on the keyboard
+        }
+    }</code></pre>
+
+                            <h5>Generic edges</h5>
+                            <p>
+                                Our next step is to create a new edge for nodes to call the
+                                <code class="hljs-string">"exit"</code> rule. We will give this edge the id
+                                <code class="hljs-string">"any-exit"</code> and add it to every node.
+                            </p>
+
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+
+    let structure = {
+        nodes: {
+            _0: {
+                id: "_0",
+                data: {
+                    fruit: "apple",
+                    store: "a",
+                    cost: 3
+                },
+                edges: ["_0-_1", "any-exit"]
+            },
+            _1: {
+                id: "_1",
+                data: {
+                    fruit: "banana",
+                    store: "a",
+                    cost: 0.75
+                },
+                edges: ["_0-_1", "_1-_2", "any-exit"]
+            },
+            _2: {
+                id: "_2",
+                data: {
+                    fruit: "apple",
+                    store: "b",
+                    cost: 2.75
+                },
+                edges: ["_1-_2", "_2-_3", "any-exit"]
+            },
+            _3: {
+                id: "_3",
+                data: {
+                    fruit: "banana",
+                    store: "b",
+                    cost: 1.25
+                },
+                edges: ["_2-_3", "any-exit"]
+            }
+        },
+        edges: {
+            ...,
+            "any-exit": {
+                source: (_d, c) =&gt; c,
+                target: () =&gt; {
+                    exit();
+                    return "";
+                },
+                navigationRules: ["exit"]
+            }
+        }
+    }</code></pre>
+
+                            <p>
+                                Even though <code class="hljs-string">"any-exit"</code> is a single edge in our code
+                                that belongs to every node, we will represent it in our schema graph as a disconnected
+                                node (since navigating to it actually will exit the graph).
+                            </p>
+                            <div class="wrapper">
+                                <div id="dn-root-listWithExit" class="wrapper">
+                                    <div id="listWithExit"></div>
+                                </div>
+                                <div
+                                    id="listWithExit-tooltip"
+                                    role="presentation"
+                                    class="tooltip hidden"
+                                    focusable="false"
+                                ></div>
+                            </div>
+
+                            <p>
+                                Our <code class="hljs-string">"any-exit"</code> edge is a
+                                <a
+                                    href="https://www.frank.computer/data-navigator/#specific-edge-instances-and-generic-edges"
+                                    ><i>generic</i></a
+                                >
+                                edge. When applied to a node, the <code>source</code> is a function, instead of an id.
+                                The node's function will always return itself as the source id. For the
+                                <code>target</code>, it is also a function instead of an id string. The target function
+                                will return a an empty string (anything falsey will suffice) but before it does, run an
+                                <code><span class="hljs-title function_">exit</span>()</code> function. The exit
+                                function is what matters about this generic edge. We will create it below, as well.
+                            </p>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+
+    let structure = {
+        nodes: {
+            ...
+        },
+        edges: {
+            ...,
+            "any-exit": {
+                source: (_d, c) =&gt; c,
+                target: () =&gt; {
+                    exit();
+                    return "";
+                },
+                navigationRules: ["exit"]
+            }
+        }
+    }
+
+    const exit = () =&gt; {
+        // we use our rendering api to show the exit element (which we scaffold later)
+        // rendering.exitElement.style.display = 'block';
+        input.focus(exitPoint);
+        previous = current;
+        current = null;
+        // we use our rendering api to remove the previous element we no longer need
+        // rendering.remove(previous);
+    }</code></pre>
+
+                            <h5>Scaffolding our input handler</h5>
+                            <p>
+                                Let's finish scaffolding our <code>input</code> handler. This module's primary job is to
+                                take a location (as a node id) combined with input command (that corresponds to a
+                                navigation rule) and convert that into a new location (a new node id). Data Navigator's
+                                <code>input</code> handles movement across the <code>structure</code>. So at a bare
+                                minimum, we want to help the user get in and out of our structure.
+                            </p>
+                            <pre><code class="language-javascript">import { default as dataNavigator } from "data-navigator";
+
+    let structure = {
+        ...
+    }
+
+    // first, we create an "entry" point (the first node navigated to)
+    // The below pattern navigates to whatever node is first in our structure
+    const entryPoint = structure.nodes[Object.keys(structure.nodes)[0]].id || structure.nodes[Object.keys(structure.nodes)[0]].nodeId;
+
+    // let's make the string we used for our exit function reference a variable instead
+    // we will use this below in our input variable too
+    const exitPoint = "exit";
+
+    // when we exit, there is no generic method to exit, so we call focus on the exit node
+    const exit = () =&gt; {
+        rendering.exitElement.style.display = 'block';
+        input.focus(exitPoint);
+        previous = current;
+        current = null;
+        rendering.remove(previous);
+    }
+
+    const input = dataNavigator.input({
+        structure,
+        navigationRules: structure.navigationRules,
+        entryPoint,
+        exitPoint
+    })
+
+    // when we enter, our input handler knows where our entry point is, so it can take us into the structure
+    const enter = () => {
+        const nextNode = input.enter();
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };</code></pre>
+                            <p>
+                                Before we move on, there is a function I've created called
+                                <code class="hljs-title function_">initiateLifecycle</code> inside our
+                                <code class="hljs-title function_">enter</code> function. Let's just make an empty
+                                function right now, and then we can finish it in the next section when we go over
+                                <code>rendering</code>.
+                            </p>
+                            <pre><code class="language-javascript">const initiateLifecycle = nextNode => {
+        // contents to be added shortly
+    };</code></pre>
+                            <p>
+                                Additionally, our <code><span class="hljs-title function_">exit</span>()</code> event
+                                moves the user's focus to an element with the id
+                                <code><span class="hljs-string">"exit"</span></code
+                                >. As of right now, we don't have an element like that in our HTML. So, now we're done
+                                setting up our <code>input</code> handling. Let's use Data Navigator's
+                                <code>rendering</code> module to actually put interactive elements in place.
+                            </p>
+                        </div>
+                        <div id="Rendering" class="section">
+                            <h4>Rendering</h4>
+                            <p>
+                                This is where the magic comes together. First, let's set up our HTML. Below is a pattern
+                                that I like to use. There's a <code>&lt;div&gt;</code> that holds 2 elements: 1.
+                                currently shown, which is where we will render our visualization (the bokeh chart) and
+                                2. eventually a <code>&lt;div&gt;</code> we will render using our
+                                <code>rendering</code> module. The chart is placed before (aka <i>under</i>) the
+                                elements we will add for accessibility, which is how they will appear on top.
+                            </p>
+
+                            <h5>Adding our HTML + CSS skeleton</h5>
+                            <pre><code class="language-html">&lt;div id="dn-root-chart" class="wrapper"&gt;
+        &lt;div id="chart"&gt;&lt;/div&gt;
+        &lt;!-- our Data Navigator elements will render here later, after the chart 
+        &lt;div id="dn-wrapper-chart" role="application" aria-label="Data navigation structure" aria-activedescendant="" class="dn-wrapper" style="width: 100%;"&gt;
+            &lt;button id="dn-entry-button-chart" class="dn-entry-button"&gt;Enter navigation area&lt;/button&gt;
+            &lt;figure role="figure" id="_0" class="dn-node dn-test-class" tabindex="0" style="width: 0px; height: 0px; left: 0px; top: 0px;"&gt;
+                &lt;div role="image" class="dn-node-text" aria-label="fruit: apple. store: a. cost: 3. Data point.">&lt;/div&gt;
+            &lt;/figure&gt;
+        &lt;/div&gt; --&gt;
+    &lt;/div&gt;</code></pre>
+                            <pre><code class="language-css">.dn-root {
+        position: relative;
+    }
+
+    .dn-wrapper {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+    }
+
+    .dn-node {
+        position: absolute;
+        padding: 0px;
+        margin: 0px;
+        overflow: visible;
+        border: 2px solid white;
+        outline: #000000 solid 1px;
+    }
+
+    .dn-node:focus {
+        border: 2px solid white;
+        outline: #000000 solid 3px;
+    }
+
+    .dn-node-text {
+        width: 100%;
+        pointer-events: none;
+    }</code></pre>
+
+                            <h5>Using the rendering api</h5>
+                            <p>
+                                Now, we can use Data Navigator's rendering function. The renderer needs
+                                <code>elementData</code>, which ideally contains information about everything that we
+                                want to render. It is fine to pass in our nodes to this, however they will be missing
+                                spatial information and semantics (which we cover after this). Additionally, we have to
+                                specify what our root id is (which we just created in our HTML, above), and also specify
+                                whether we want the renderer to create an exit element and an entry button for us.
+                            </p>
+                            <pre><code class="language-javascript">
+    let structure = {
+        ...
+    }
+
+    const entryPoint = structure.nodes[Object.keys(structure.nodes)[0]].id || structure.nodes[Object.keys(structure.nodes)[0]].nodeId;
+
+    const exitPoint = "exit";
+
+    const exit = () => {
+        rendering.exitElement.style.display = 'block';
+        input.focus(exitPoint);
+        previous = current;
+        current = null;
+        rendering.remove(previous);
+    }
+
+    const input = dataNavigator.input({
+        ...
+    })
+
+    // when we enter, our input handler knows where our entry point is, so it can take us into the structure
+    const enter = () => {
+        const nextNode = input.enter();
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };
+
+    // this id is used by all other ids in the structure
+    const id = "chart";
+
+    // our renderer
+    const rendering = dataNavigator.rendering({
+        elementData: structure.nodes, // these become rendered HTML elements
+        defaults: {
+            cssClass: 'dn-test-class' // a class applied to every node, could be anything
+        },
+        suffixId: 'data-navigator-schema-' + id, // this is a suffix id added to other ids, to help uniqueness
+        root: {
+            id: 'dn-root-' + id, // this is the id given to the structure's root in our HTML
+            cssClass: '', // we can add a class, if we want
+            width: '100%', // this helps dn stretch to fit the chart already in the HTML wrapper
+        },
+        entryButton: {
+            include: true, // this adds a button to the UI, which conveniently enters the structure
+            callbacks: {
+                click: () =&gt; {
+                    enter(); // our button just runs the enter function we made earlier
+                }
+            }
+        },
+        exitElement: {
+            include: true // we create an exit element, for convenience
+        }
+    });
+    rendering.initialize(); // this actually initializes our renderer</code></pre>
+
+                            <h5>Adding semantics</h5>
+                            <p>
+                                We have one more step to do, in order for our rendering engine to be able to render: we
+                                need to generate data that helps us actually create DOM elements. As we mentioned
+                                earlier, Bokeh currently creates pixels, which have no information and are only made
+                                interactive to mouse input. So we need to make elements that have
+                                <a href="https://developer.mozilla.org/en-US/docs/Glossary/Semantics">semantics</a>.
+                                Let's prep our semantics, using our data:
+                            </p>
+                            <pre><code class="language-javascript">// first, we are going to add a new import to our project
+    // this is imported from data navigator's utility functions
+    import { describeNode} from './node_modules/data-navigator/dist/src/utilities.js'
+
+    const addRenderingProperties = nodes =&gt; {
+        // we want to loop over all of our nodes:
+        Object.keys(nodes).forEach(k =&gt; {
+            let node = nodes[k];
+            // our rendering engine looks for a "renderId", we will just use our id
+            if (!node.renderId) {
+                node.renderId = node.id;
+            }
+
+            // this is where we add our semantics
+            node.semantics = {
+                label: describeNode(node.data, {})
+            };
+        });
+    };
+    addRenderingProperties(structure.nodes);</code></pre>
+
+                            <h5>Building a minimalist lifecycle</h5>
+                            <p>
+                                With our <code>rendering</code> engine set up, we can revisit our
+                                <code class="hljs-title function_">initiateLifecycle</code> function and finish it. Our
+                                lifecycle is hand-baked, which we will be using vanilla JavaScript for. While our little
+                                lifecycle handler can
+                                <a href="https://www.frank.computer/data-navigator/#discussion-1"
+                                    >scale outrageously well</a
+                                >
+                                (since we will only ever render 1 element at a time), some ecosystems, such as React,
+                                don't play nice when you use JavaScript to mess with the DOM. For a deep dive into
+                                integrating Data Navigator into a React visualization ecosystem, check out
+                                <a href="https://github.com/adobe/react-spectrum-charts/pull/483"
+                                    >our contribution to Adobe's React Spectrum Charts library</a
+                                >.
+                            </p>
+                            <p>
+                                In the lifecycle, we do a few things: first, we create an element to render. Then, we
+                                add event listeners for keydown, blur, and focus. Then we focus the new element, and
+                                update our variables that keep track of
+                                <code>current</code> and <code>previous</code> node ids. Lastly, we delete the previous
+                                element.
+                            </p>
+                            <pre><code class="language-javascript">// first, we create 2 variables for keeping track of things
+    let current = null;
+    let previous = null;
+
+    const initiateLifecycle = nextNode =&gt; {
+        // we make a node to turn into an element
+        const renderedNode = rendering.render({
+            renderId: nextNode.renderId,
+            datum: nextNode
+        });
+
+        // we add event listeners
+        renderedNode.addEventListener('keydown', e =&gt; {
+            // input has a keydown validator
+            const direction = input.keydownValidator(e);
+            if (direction) {
+                e.preventDefault();
+                move(direction); // we need to add this function still
+            }
+        });
+        renderedNode.addEventListener('focus', _e =&gt; {
+            // if we want a tooltip, this is when we would show it
+        });
+        renderedNode.addEventListener('blur', _e =&gt; {
+            // if we have a tooltip, we hide it here
+        });
+
+        // focus the new element, using the renderId for it
+        input.focus(nextNode.renderId);
+
+        // set state variables
+        previous = current;
+        current = nextNode.id;
+
+        // delete the old element
+        rendering.remove(previous);
+    };</code></pre>
+
+                            <h5>Enabling movement</h5>
+                            <p>
+                                We have a renderer that enables us to enter our structure using the provided button and
+                                exit the structure using the escape key. Now, let's enable movement (the left and right
+                                part):
+                            </p>
+                            <pre><code>// the final piece:
+    const move = direction =&gt; {
+        const nextNode = input.move(current, direction);
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };</code></pre>
+                            <p>
+                                Woohoo, we technically have an accessible, navigable chart! You can try this below. On
+                                the left is the chart. On the right, in our graph, we show a summary of the navigation
+                                state.
+                            </p>
+                            <p>Instructions for using: (it's always good to provide interaction instructions)</p>
+
+                            <hr />
+                            <table class="table" data-header="header">
+                                <thead class="thead">
+                                    <tr class="t-row">
+                                        <th class="t-column" scope="col">Expected input</th>
+                                        <th class="t-column" scope="col">Navigation result</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="tbody">
+                                    <tr class="t-row">
+                                        <td class="cell">Activate "Enter navigation area" button.</td>
+                                        <th scope="row" class="cell"><b>Enter</b> the visualization</th>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <td class="cell"><kbd>ESC</kbd> key.</td>
+                                        <th scope="row" class="cell"><b>Exit</b> the visualization</th>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <td class="cell"><kbd>←</kbd> (left arrow key).</td>
+                                        <th scope="row" class="cell"><b>Left</b>: Backward through data</th>
+                                    </tr>
+                                    <tr class="t-row">
+                                        <td class="cell"><kbd>→</kbd> (right arrow key).</td>
+                                        <th scope="row" class="cell"><b>Right</b>: Forward through data</th>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <hr />
+                            <br />
+                            <div>
+                                <div class="side-by-side">
+                                    <div id="chart-wrapper" class="wrapper">
+                                        <div id="chart"></div>
+                                    </div>
+                                    <div
+                                        id="chart-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                                <div class="side-by-side">
+                                    <div id="dn-root-enterExitOnly" class="wrapper">
+                                        <div id="enterExitOnly"></div>
+                                    </div>
+                                    <div
+                                        id="enterExitOnly-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                            </div>
+                            <br />
+
+                            <p>
+                                We have nearly finished our first, navigable data structure. But what is still missing?
+                                A
+                                <i>visual focus indicator</i> on the chart as we navigate.
+                            </p>
+                            <p>
+                                Notice how our graph schema above provides a visual indication of where the focus is at,
+                                during navigation? The indicator is a thick black stroke on the node that is currently
+                                focused. Well, normally this graph schema isn't shown; we hand-baked this to help
+                                explain what Data Navigator is doing, for our docs. When using Data Navigator in the
+                                wild, there'd be no way for a user to know <i>where</i> they are at visually, using our
+                                code so far.
+                            </p>
+                            <p>
+                                Providing a visual indication of navigation is important for accessibility. Many people
+                                who use screen readers still have some degree of sight and many people who use other
+                                navigational assistive technologies (such as a sip and puff device) also have sight. So
+                                while a screen reader user who is completely blind might not notice any downsides to the
+                                experience so far, many others will have no idea where they are currently navigating.
+                            </p>
+                            <p>
+                                There <i>is</i> a focus indicator that appears on the bar chart, however it is small and
+                                in the wrong location. It is a tiny black box in the upper left of our visualization
+                                (you can see it once you enter the chart). Our final step is to put that indicator in
+                                the right location and at the right size. We do that by setting the
+                                <code>spatialProperties</code> for our rendered node's data. An example of a perfect
+                                render node's data might look like the following:
+                            </p>
+                            <pre><code class="language-javascript">_0: {
+        id: "_1",
+        data: {
+            "fruit": "banana",
+            "store": "a",
+            "cost": 0.75
+        },
+        edges: [
+            "_0-_1",
+            "_1-_2",
+            "any-exit"
+        ],
+        renderId: "_1",
+        semantics: {
+            label: "fruit: banana. store: a. cost: 0.75. Data point."
+        },
+        // this is the important bit we are missing:
+        spatialProperties: {
+            height: 33.545448303222656,
+            width: 110.3,
+            x: 32,
+            y: 103.7727279663086
+        },
+    }</code></pre>
+                            <p>
+                                In our data visualization, those are the actual coordinates we would need to have in
+                                order to show a focus indicator on the chart. The problem? This data isn't available to
+                                us unless we export the chart as an SVG and run some code to extract coordinates from
+                                the SVG file (which is exactly how I got those
+                                <code>spatialProperties</code> above). That won't work in practice.
+                            </p>
+                            <p>
+                                But try navigating into this chart below and pressing <kbd>→</kbd> (right arrow) to move
+                                to the second data point. You'll notice that a focus indicator appears where we want it,
+                                using the correct <code>spatialProperties</code>.
+                            </p>
+                            <br />
+                            <div>
+                                <div class="side-by-side">
+                                    <div id="focusIndicatorChart-wrapper" class="wrapper">
+                                        <div id="focusIndicatorChart"></div>
+                                    </div>
+                                    <div
+                                        id="focusIndicatorChart-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                                <div class="side-by-side">
+                                    <div id="dn-root-focusIndicator" class="wrapper">
+                                        <div id="focusIndicator"></div>
+                                    </div>
+                                    <div
+                                        id="focusIndicator-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                            </div>
+                            <p>
+                                So what do we do? How can we fix this? Unfortunately for Bokeh, the library would have
+                                to pass up coordinates and geometry data to the frontend or enable some kind of way to
+                                query this information and generate it on-demand. As far as I know, this isn't possible.
+                            </p>
+                            <p>
+                                We have a few options forward, but none are ideal. However, for a visualization this
+                                small, we have a solution that is pretty good. What we will do is wrap our Data
+                                Navigator element around the entire chart and then programmatically render a visible
+                                outline on the appropriate chart elements in
+                                <code>canvas</code> using BokehJS.
+                            </p>
+                            <p>
+                                The basic pattern here has one downside: if a user zooms in very far (which is common
+                                for folks who are low vision), their screen is expected to move to the location of the
+                                element that is in focus. For a small enough chart, this is fine. But if we had a
+                                full-screen data visualization (which is actually helpful for some low vision folks),
+                                then they would have no way of knowing where their focus actually is without panning and
+                                scrolling the screen with every key press. (This is considered an accessibility failure
+                                in both WCAG and Chartability.)
+                            </p>
+                            <p>
+                                When it comes to our focus indicator problem (and getting element coordinates
+                                on-demand):
+                                <b>Most data visualization libraries will not help us solve this problem.</b>
+                                Getting a focus indicator to work correctly is quite difficult. This is why it is so
+                                important for tool-makers, like those at Bokeh, to commit to accessibility rather than
+                                expecting user-developers to make visualizations accessible. Ideally, Bokeh makes charts
+                                navigable by default. Or, at the very least, Bokeh allows an interface where element
+                                information can be accessed as-needed.
+                            </p>
+                            <p>
+                                So, our final step is to add <code>spatialProperties</code> to our elements and then
+                                also add a function to highlight our Bokeh chart elements when our Data Navigator
+                                elements receive focus. Every node will always be at position 0,0 and have a height and
+                                width that match the visualization's height and width.
+                            </p>
+                            <pre><code class="language-javascript">import { describeNode} from './node_modules/data-navigator/dist/src/utilities.js'
+
+    // the first thing we want to do is create some variables (or use ones)
+    // ideally width and height are known and used to render the visualization
+    // however, you can also just query the element to get its current size
+    // or even use "100%" - since these will be css values in our renderer
+    const width = 300;
+    const height = 300;
+
+    const addRenderingProperties = nodes => {
+        // we want to loop over all of our nodes:
+        Object.keys(nodes).forEach(k => {
+            let node = nodes[k];
+            
+            if (!node.renderId) {
+                node.renderId = node.id;
+            }
+
+            node.semantics = {
+                label: describeNode(node.data, {})
+            };
+
+            // all of our elements will start at 0,0 and be full width/height
+            node.spatialProperties = {
+                x: 0,
+                y: 0,
+                width,
+                height
+            }
+        });
+    };
+    addRenderingProperties(structure.nodes);</code></pre>
+                            <p>
+                                Now we just add a function that programmatically adds an additional bar to the chart
+                                when we focus, but as an outline. (This is Bokeh-specific, so keep that in mind.) First,
+                                we prep some data that just makes it more convenient to calculate what Bokeh needs in
+                                order to render outlines, then we dynamically send in our outline data to our plotting
+                                interface for our Bokeh chart. I'm sure there are more elegant ways to do this, but
+                                since BokehJS is not my area of expertise, I'm essentially deleting and redrawing the
+                                chart with a visible focus
+                            </p>
+                            <pre><code class="language-javascript">// first, we prep some data that let's us dynamically send in what bokeh needs to draw
+    const interactiveData = {
+        data: [
+            [[3, 2.75],[0, 0]],
+            [[3.75, 4], [3, 2.75]],
+        ],
+        indices: {
+            fruit: {
+                apple: 0,
+                banana: 1
+            }, 
+            store: {
+                a: 0,
+                b: 1
+            }
+        }
+    }
+
+    ...
+
+    const initiateLifecycle = nextNode => {
+        const renderedNode = rendering.render({
+            ...
+        });
+        renderedNode.addEventListener('keydown', e => {
+            ...
+        });
+        renderedNode.addEventListener('blur', _e => {
+            ...
+        });
+        renderedNode.addEventListener('focus', _e => {
+            // we use the data from our interaction, aka nextNode, to pass focus info to bokeh
+            const i = interactiveData.indices.fruit[nextNode.data.fruit];
+            const d = interactiveData.data[i]
+            const target = interactiveData.indices.store[nextNode.data.store];
+            const line_color = target ? ['none', '#000000'] : ['#000000', 'none']
+            document.getElementById("wrappedIndicatorChart").innerHTML = ""; 
+            plot('wrappedIndicatorChart',{
+                top: d[0],
+                bottom: d[1],
+                line_color
+            })
+        });
+
+        ...
+    };
+    </code></pre>
+                            <p>
+                                And since we are providing our own focus indicator inside the chart, we can hide the one
+                                that is visible through css.
+                            </p>
+                            <pre><code class="language-css">
+.dn-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    border: 1px solid white;
+    outline: #00000000 solid 1px;
+}
+
+.dn-node:focus {
+    border: 1px solid white;
+    outline: #313131 solid 1px;
+}</code></pre>
+                        </div>
+                        <div id="FirstNavigableChart" class="section">
+                            <h3>Our first, navigable chart</h3>
+                            <br />
+                            <div>
+                                <div class="side-by-side">
+                                    <div id="wrappedIndicatorChart-wrapper" class="wrapper">
+                                        <div id="wrappedIndicatorChart"></div>
+                                    </div>
+                                    <div
+                                        id="wrappedIndicatorChart-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                                <div class="side-by-side">
+                                    <div id="dn-root-wrappedIndicator" class="wrapper">
+                                        <div id="wrappedIndicator"></div>
+                                    </div>
+                                    <div
+                                        id="wrappedIndicator-tooltip"
+                                        role="presentation"
+                                        class="tooltip hidden"
+                                        focusable="false"
+                                    ></div>
+                                </div>
+                            </div>
+                            <br />
+                            <p>
+                                And that's it! We've technically made a navigable visualization that is pretty
+                                accessible. From a design standpoint, 4 data points can probably be handled using just
+                                alt text or a simple table. But for the sake of keeping this introduction simple, we
+                                didn't want to overwhelm with complex architectures.
+                            </p>
+                            <details>
+                                <summary>You can find our final code for this below:</summary>
+                                <p>
+                                    We have a
+                                    <a href="./examples/basic_list/basic_list.html"
+                                        >standalone webpage where you can view this example</a
+                                    >.
+                                </p>
+                                <details>
+                                    <summary>HTML</summary>
+                                    <pre><code class="language-html">&lt;!DOCTYPE html&gt;
+    &lt;html lang="en-US"&gt;
+        &lt;head&gt;
+            &lt;meta charset="UTF-8" /&gt;
+            &lt;title&gt;Data Navigator Basic List&lt;/title&gt;
+            &lt;link href="./basic_list.css" rel="stylesheet" /&gt;
+        &lt;/head&gt;
+        &lt;body&gt;
+            &lt;main id="main"&gt;
+                &lt;div id="chart-wrapper" class="wrapper"&gt;
+                    &lt;div id="chart"&gt;&lt;/div&gt;
+                    &lt;!-- our Data Navigator elements will render here later, after the chart 
+                    &lt;div id="dn-wrapper-chart" role="application" aria-label="Data navigation structure" aria-activedescendant="" class="dn-wrapper" style="width: 100%;"&gt;
+                        &lt;button id="dn-entry-button-chart" class="dn-entry-button"&gt;Enter navigation area&lt;/button&gt;
+                        &lt;figure role="figure" id="_0" class="dn-node dn-test-class" tabindex="0" style="width: 0px; height: 0px; left: 0px; top: 0px;"&gt;
+                            &lt;div role="image" class="dn-node-text" aria-label="fruit: apple. store: a. cost: 3. Data point."&gt;&lt;/div&gt;
+                        &lt;/figure&gt;
+                    &lt;/div&gt; --&gt;
+                &lt;/div&gt;
+            &lt;/main&gt;
+        &lt;/body&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script
+            type="text/javascript"
+            src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js"
+            crossorigin="anonymous"
+        &gt;&lt;/script&gt;
+        &lt;script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"&gt;&lt;/script&gt;
+
+        &lt;script type="module" src="./basic_list.js"&gt;&lt;/script&gt;
+    &lt;/html&gt;</code></pre>
+                                </details>
+                                <details>
+                                    <summary>CSS</summary>
+                                    <pre><code class="language-css">main {
+        padding-top: 20px;
+    }
+
+    .dn-root {
+        position: relative;
+    }
+
+    .dn-wrapper {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+    }
+
+    .dn-node {
+        position: absolute;
+        padding: 0px;
+        margin: 0px;
+        overflow: visible;
+        border: 1px solid white;
+        outline: #00000000 solid 1px;
+    }
+
+    .dn-node:focus {
+        border: 1px solid white;
+        outline: #313131 solid 1px;
+    }
+
+    .dn-node-text {
+        width: 100%;
+        pointer-events: none;
+    }
+
+    .dn-entry-button {
+        position: relative;
+        top: -20px;
+        z-index: 999;
+    }</code></pre>
+                                </details>
+                                <details>
+                                    <summary>JavaScript</summary>
+                                    <pre><code class="language-javascript">import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/index.mjs';
+    import { describeNode } from 'https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/utilities.mjs';
+    import { plot } from './bokeh.js';
+
+    const width = 300;
+    const height = 300;
+    const id = 'chart';
+    let current = null;
+    let previous = null;
+
+    const interactiveData = {
+        data: [
+            [
+                [3, 2.75],
+                [0, 0]
+            ],
+            [
+                [3.75, 4],
+                [3, 2.75]
+            ]
+        ],
+        indices: {
+            fruit: {
+                apple: 0,
+                banana: 1
+            },
+            store: {
+                a: 0,
+                b: 1
+            }
+        }
+    };
+
+    // begin structure scaffolding
+
+    const structure = {
+        nodes: {
+            _0: {
+                id: '_0',
+                data: {
+                    fruit: 'apple',
+                    store: 'a',
+                    cost: 3
+                },
+                edges: ['_0-_1', 'any-exit']
+            },
+            _1: {
+                id: '_1',
+                data: {
+                    fruit: 'banana',
+                    store: 'a',
+                    cost: 0.75
+                },
+                edges: ['_0-_1', '_1-_2', 'any-exit']
+            },
+            _2: {
+                id: '_2',
+                data: {
+                    fruit: 'apple',
+                    store: 'b',
+                    cost: 2.75
+                },
+                edges: ['_1-_2', '_2-_3', 'any-exit']
+            },
+            _3: {
+                id: '_3',
+                data: {
+                    fruit: 'banana',
+                    store: 'b',
+                    cost: 1.25
+                },
+                edges: ['_2-_3', 'any-exit']
+            }
+        },
+        edges: {
+            '_0-_1': {
+                source: '_0',
+                target: '_1',
+                navigationRules: ['left', 'right']
+            },
+            '_1-_2': {
+                source: '_1',
+                target: '_2',
+                navigationRules: ['left', 'right']
+            },
+            '_2-_3': {
+                source: '_2',
+                target: '_3',
+                navigationRules: ['left', 'right']
+            },
+            'any-exit': {
+                source: (_d, c) => c,
+                target: () => {
+                    exit();
+                    return '';
+                },
+                navigationRules: ['exit']
+            }
+        },
+        navigationRules: {
+            left: { key: 'ArrowLeft', direction: 'source' }, // moves backward when pressing ArrowLeft on the keyboard
+            right: { key: 'ArrowRight', direction: 'target' }, // moves forward when pressing ArrowRight on the keyboard
+            exit: { key: 'Escape', direction: 'target' } // exits the structure when pressing Escape on the keyboard
+        }
+    };
+
+    // begin rendering scaffolding
+
+    const addRenderingProperties = nodes => {
+        // we want to loop over all of our nodes:
+        Object.keys(nodes).forEach(k => {
+            let node = nodes[k];
+
+            if (!node.renderId) {
+                node.renderId = node.id;
+            }
+
+            node.semantics = {
+                label: describeNode(node.data, {})
+            };
+
+            // all of our elements will start at 0,0 and be full width/height
+            node.spatialProperties = {
+                x: -2,
+                y: -2,
+                width: width,
+                height: height
+            };
+        });
+    };
+    addRenderingProperties(structure.nodes);
+
+    const rendering = dataNavigator.rendering({
+        elementData: structure.nodes,
+        defaults: {
+            cssClass: 'dn-test-class'
+        },
+        suffixId: id,
+        root: {
+            id: id + '-wrapper',
+            cssClass: '',
+            width: '100%'
+        },
+        entryButton: {
+            include: true,
+            callbacks: {
+                click: () => {
+                    enter();
+                }
+            }
+        },
+        exitElement: {
+            include: true
+        }
+    });
+
+    // initialize
+    plot('chart');
+    rendering.initialize();
+
+    // begin input scaffolding
+    const exit = () => {
+        rendering.exitElement.style.display = 'block';
+        input.focus(exitPoint);
+        previous = current;
+        current = null;
+        rendering.remove(previous);
+    };
+
+    const enter = () => {
+        const nextNode = input.enter();
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };
+
+    const move = direction => {
+        const nextNode = input.move(current, direction);
+
+        if (nextNode) {
+            initiateLifecycle(nextNode);
+        }
+    };
+
+    const initiateLifecycle = nextNode => {
+        // we make a node to turn into an element
+        const renderedNode = rendering.render({
+            renderId: nextNode.renderId,
+            datum: nextNode
+        });
+
+        // we add event listeners
+        renderedNode.addEventListener('keydown', e => {
+            // input has a keydown validator
+            const direction = input.keydownValidator(e);
+            if (direction) {
+                e.preventDefault();
+                move(direction); // we need to add this function still
+            }
+        });
+
+        renderedNode.addEventListener('blur', _e => {});
+
+        renderedNode.addEventListener('focus', _e => {
+            const i = interactiveData.indices.fruit[nextNode.data.fruit];
+            const d = interactiveData.data[i];
+            const target = interactiveData.indices.store[nextNode.data.store];
+            const line_color = target ? ['none', '#000000'] : ['#000000', 'none'];
+            document.getElementById('chart').innerHTML = '';
+            plot('chart', {
+                top: d[0],
+                bottom: d[1],
+                line_color
+            });
+        });
+
+        // focus the new element, using the renderId for it
+        input.focus(nextNode.renderId);
+
+        // set state variables
+        previous = current;
+        current = nextNode.id;
+
+        // delete the old element
+        rendering.remove(previous);
+    };
+
+    const entryPoint =
+        structure.nodes[Object.keys(structure.nodes)[0]].id || structure.nodes[Object.keys(structure.nodes)[0]].nodeId;
+    const exitPoint = rendering.exitElement.id;
+
+    const input = dataNavigator.input({
+        structure,
+        navigationRules: structure.navigationRules,
+        entryPoint,
+        exitPoint
+    });</code></pre>
+                                </details>
+                                <details>
+                                    <summary>Bokeh code</summary>
+                                    <pre><code class="language-javascript">export const plot = (id, focusData) => {
+        const stores = ['a', 'b'];
+        const plt = Bokeh.Plotting;
+
+        const p = plt.figure({
+            x_range: stores,
+            y_range: [0, 5.5],
+            height: 300,
+            width: 300,
+            title: 'Fruit cost by store',
+            output_backend: 'svg',
+            toolbar_location: null,
+            tools: ''
+        });
+
+        p.vbar({
+            x: stores,
+            top: [3, 2.75],
+            bottom: [0, 0],
+            width: 0.8,
+            color: ['#FCB5B6', '#FCB5B6'],
+            line_color: ['#8F0002', '#8F0002']
+        });
+
+        p.vbar({
+            x: stores,
+            top: [3.75, 4],
+            bottom: [3, 2.75],
+            width: 0.8,
+            color: ['#F9E782', '#F9E782'],
+            line_color: ['#766500', '#766500']
+        });
+
+        if (focusData) {
+            p.vbar({
+                x: stores,
+                top: focusData.top,
+                bottom: focusData.bottom,
+                width: 0.8,
+                line_width: 3,
+                color: ['none', 'none'],
+                line_color: focusData.line_color
+            });
+        }
+
+        const r1 = p.square([-10000], [-10000], { color: '#FCB5B6', line_color: '#8F0002' });
+        const r2 = p.square([-10000], [-10000], { color: '#F9E782', line_color: '#766500' });
+
+        const legend_items = [
+            new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
+            new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
+        ];
+        const legend = new Bokeh.Legend({ items: legend_items, location: 'top_left', orientation: 'horizontal' });
+        p.add_layout(legend);
+
+        plt.show(p, `#${id}`);
+        const plotToHide = document.getElementById(id);
+        if (plotToHide) {
+            plotToHide.inert = true; //we need to do this in order to disable the bad accessibility bokeh currently has
+        }
+        const wrapper = document.getElementById(`${id}-wrapper`);
+        wrapper.setAttribute('aria-label', 'Fruit cost by store. Bokeh stacked bar chart.');
+    };</code></pre>
+                                </details>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+                <!-- <hr />
+                <h3>Improving structure</h3>
+                <p></p>
+                <h4>A circular list with a parent</h4>
+                <p></p>
+                <h4>Tree-like</h4>
+                <p></p>
+                <h4>Intersecting-tree</h4>
+                <p></p>
+                <h4>Spatial navigation</h4>
+                <p></p>
+                <h4>Graph navigation</h4>
+                <p></p>
+                <hr />
+                
+                <h3>Improving input</h3>
+                <p></p>
+                <h4>Providing instructions</h4>
+                <p></p>
+                <h4>Enabling re-mapping</h4>
+                <p></p>
+                <h4>Text input</h4>
+                <p></p>
+                <h4>Voice input</h4>
+                <p></p>
+                <h4>Gesture input</h4>
+                <p></p>
+                <hr />
+
+                <h3>Improving rendering</h3>
+                <p></p>
+                <h4>Mobile-friendly strategy</h4>
+                <p></p>
+                <h4>Pre-rendering vs on-demand</h4>
+                <p></p>
+                <h4>Visual debugging</h4>
+                <p></p>
+
+                <h3>Examples</h3>
+                <h4>Bar chart</h4>
+                <h4>Clustered bar chart</h4>
+                <h4>Stacked bar chart</h4>
+                <h4>Clustered, stacked bar chart</h4>
+                <h4>Line chart (with points)</h4>
+                <h4>Multi-line chart (with points)</h4>
+                <h4>Line chart (continuous)</h4>
+                <h4>Scatterplot</h4>
+                <h4>Scatterplot with categories</h4>
+                <h4>Heatmap</h4>
+                <h4>Hexbin</h4>
+                <h4>Pie chart</h4>
+                <h4>Map</h4>
+                <h4>Map with data overlaid</h4>
+                <h4>Photograph/image</h4>
+                <h4>Diagram</h4>
+                <h4>Infographic</h4> -->
+            </main>
+        </div>
+    </body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="app/docs.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+    <script>
+        // credit to the legendary Chris Coyer, https://css-tricks.com/sticky-table-of-contents-with-scrolling-active-states/
+        window.addEventListener('DOMContentLoaded', () => {
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    const id = entry.target.getAttribute('id');
+                    const navLink = id ? `a[href="#${id}"]` : `nav li a[href="#"]`;
+                    const li = document.querySelector(navLink).parentElement;
+                    const detailsParent =
+                        li.parentElement.parentElement.tagName === 'DETAILS'
+                            ? li.parentElement.parentElement
+                            : li.parentElement.parentElement.parentElement.parentElement.tagName === 'DETAILS'
+                            ? li.parentElement.parentElement.parentElement.parentElement
+                            : null;
+                    const mod = entry.intersectionRatio > 0 ? 'add' : 'remove';
+                    li.classList[mod]('active');
+                    if (detailsParent) {
+                        detailsParent.open = detailsParent.querySelectorAll('.active').length > 0;
+                        if (entry.intersectionRatio > 0) {
+                            detailsParent.parentNode.parentNode.parentNode.scrollTop = detailsParent.offsetTop;
+                        }
+                    }
+                });
+            });
+
+            // Track all sections that have an `id` applied
+            document
+                .querySelector('.main-wrapper')
+                .querySelectorAll('.section')
+                .forEach(section => {
+                    observer.observe(section);
+                });
+        });
+    </script>
+</html>

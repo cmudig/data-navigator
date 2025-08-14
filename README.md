@@ -6,6 +6,8 @@ Data Navigator is a JavaScript library that allows for navigation of data struct
 
 Check out [our online, interactive demo](http://dig.cmu.edu/data-navigator/) for a video introduction and to try out Data Navigator hands-on.
 
+Check out [our docs](http://dig.cmu.edu/data-navigator/docs.html) to learn more about getting started.
+
 ## Data Navigator's approach
 
 Data Navigator has abstracted navigation into commands, which enables it to easily receive input from screen readers and keyboards to more interesting modalities like touch and mouse swiping, spoken commands, hand gestures, and even fabricated or totally novel interfaces, like bananas.
@@ -36,6 +38,8 @@ Our types are consolidated into a single [types export file](./src/data-navigato
 
 ## Getting started
 
+We have a thorough introduction to building a navigable visualization on [our docs site](http://dig.cmu.edu/data-navigator/docs.html). But for basic installation, see below:
+
 You can install or use both esm and cjs modules in a variety of ways, in addition to importing all of data-navigator or just one part.
 
 ```
@@ -58,7 +62,7 @@ console.log('dataNavigator.rendering', dataNavigator.rendering);
 <!-- and even as a script tag module loaded from a cdn -->
 <script type="module">
     // pay attention to the version! the latest may be higher than this example
-    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@1.2.4/dist/index.mjs';
+    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/index.mjs';
     console.log(dataNavigator);
 </script>
 ```

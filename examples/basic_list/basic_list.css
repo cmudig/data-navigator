@@ -1,0 +1,38 @@
+main {
+    padding-top: 20px;
+}
+
+.dn-root {
+    position: relative;
+}
+
+.dn-wrapper {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.dn-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    border: 1px solid white;
+    outline: #00000000 solid 1px;
+}
+
+.dn-node:focus {
+    border: 1px solid white;
+    outline: #313131 solid 1px;
+}
+
+.dn-node-text {
+    width: 100%;
+    pointer-events: none;
+}
+
+.dn-entry-button {
+    position: relative;
+    top: -20px;
+    z-index: 999;
+}

@@ -88,6 +88,43 @@
                 max-width: 70%;
                 padding-top: 10px;
             }
+
+            pre {
+                overflow: auto;
+                background: #f6f6f6;
+                padding: 0px 10px;
+                border-radius: 10px;
+            }
+
+            .bib {
+                width: 32px;
+                height: 32px;
+                border-radius: 16px;
+                border: 1px dashed black;
+                cursor: pointer;
+            }
+
+            .bib:hover {
+                border: 1px solid black;
+            }
+
+            .bib:focus {
+                border-width: 2px;
+            }
+
+            .bib svg {
+                width: 16px;
+                height: 16px;
+                pointer-events: none;
+            }
+
+            .bib:active path {
+                fill: #015ee9;
+            }
+
+            .bib path {
+                fill: #444;
+            }
         </style>
     </head>
     <body>
