@@ -531,8 +531,8 @@
             </nav>
         </header>
         <div class="main-wrapper">
-            <main id="docs">
-                <div id="Introduction" class="section">
+            <main id="docs" tabindex="-1">
+                <div id="Introduction" class="section" tabindex="-1">
                     <h1>Introduction to Data Navigator</h1>
                     <p>
                         Data Navigator is a library for making data structures navigable using a keyboard, screen
@@ -544,7 +544,7 @@
                     </p>
                     <!-- Getting Started -->
                 </div>
-                <div id="GettingStarted" class="section">
+                <div id="GettingStarted" class="section" tabindex="-1">
                     <h2>Getting started</h2>
                     <p>First, let's install Data Navigator and get it into a project:</p>
                     <pre><code class="language-shell"># to install dn into a project, use npm, yarn, or equivalent
@@ -565,7 +565,7 @@ console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
     console.log(dataNavigator);
 &lt;/script&gt;</code></pre>
 
-                    <div id="StartingDataset" class="section">
+                    <div id="StartingDataset" class="section" tabindex="-1">
                         <h3>Example, starting dataset</h3>
                         <p>
                             For our first example, we will be using a super simple chart that only has 4 data points,
@@ -594,7 +594,7 @@ console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
         },
     ]</code></pre>
                     </div>
-                    <div id="StartingVisualization" class="section">
+                    <div id="StartingVisualization" class="section" tabindex="-1">
                         <h3>Example, starting visualization</h3>
                         <p>
                             We're going to use
@@ -627,14 +627,14 @@ console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
                             project from Data Navigator).
                         </p>
                     </div>
-                    <div id="BuildingBasics" class="section">
+                    <div id="BuildingBasics" class="section" tabindex="-1">
                         <h3>Building basics</h3>
                         <p>
                             Data Navigator has 3 modularized subsystems: <code>structure</code>, <code>input</code>, and
                             <code>rendering</code>. We will go over an introduction to each of these below.
                         </p>
 
-                        <div id="Structure" class="section">
+                        <div id="Structure" class="section" tabindex="-1">
                             <h4>Structure</h4>
                             <p>
                                 Structure in Data Navigator are the bones, so to speak, of an accessible navigation
@@ -788,7 +788,7 @@ console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
                                 ></div>
                             </div>
                         </div>
-                        <div id="Input" class="section">
+                        <div id="Input" class="section" tabindex="-1">
                             <h4>Input</h4>
                             <p>
                                 Now that we have a structure, we need to be able to navigate it! So let's set a few more
@@ -1035,7 +1035,7 @@ console.log("dataNavigator.rendering", dataNavigator.rendering);</code></pre>
                                 <code>rendering</code> module to actually put interactive elements in place.
                             </p>
                         </div>
-                        <div id="Rendering" class="section">
+                        <div id="Rendering" class="section" tabindex="-1">
                             <h4>Rendering</h4>
                             <p>
                                 This is where the magic comes together. First, let's set up our HTML. Below is a pattern
@@ -1554,7 +1554,7 @@ const initiateLifecycle = nextNode => {
     outline: #313131 solid 1px;
 }</code></pre>
                         </div>
-                        <div id="FirstNavigableChart" class="section">
+                        <div id="FirstNavigableChart" class="section" tabindex="-1">
                             <h3>Our first, navigable chart</h3>
                             <br />
                             <div>
@@ -2005,88 +2005,88 @@ const input = dataNavigator.input({
                         </div>
                         <hr />
                         <br />
-                        <div id="Deeper" class="section">
+                        <div id="Deeper" class="section" tabindex="-1">
                             <h2>Deeper concepts and designs</h2>
                             <blockquote>
                                 <p>(This section is under construction!)</p>
                                 <p>Planned headings below:</p>
-                                <div id="ImprovingStructure" class="section">
+                                <div id="ImprovingStructure" class="section" tabindex="-1">
                                     <h3>Improving structure</h3>
                                     <p></p>
 
-                                    <div id="DimensionsAPI" class="section">
+                                    <div id="DimensionsAPI" class="section" tabindex="-1">
                                         <h4>Using the dimensions API</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="Treelike" class="section">
+                                    <div id="Treelike" class="section" tabindex="-1">
                                         <h4>Tree-like structure</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="IntersectingTree" class="section">
+                                    <div id="IntersectingTree" class="section" tabindex="-1">
                                         <h4>Intersecting tree structure</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="SpatialNavigation" class="section">
+                                    <div id="SpatialNavigation" class="section" tabindex="-1">
                                         <h4>Spatial navigation structure</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="GraphNavigation" class="section">
+                                    <div id="GraphNavigation" class="section" tabindex="-1">
                                         <h4>Graph navigation structure</h4>
                                         <p></p>
                                     </div>
                                     <hr />
                                 </div>
 
-                                <div id="ImprovingInput" class="section">
+                                <div id="ImprovingInput" class="section" tabindex="-1">
                                     <h3>Improving input</h3>
                                     <p></p>
 
-                                    <div id="TextInput" class="section">
+                                    <div id="TextInput" class="section" tabindex="-1">
                                         <h4>Text input</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="VoiceInput" class="section">
+                                    <div id="VoiceInput" class="section" tabindex="-1">
                                         <h4>Voice input</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="GestureInput" class="section">
+                                    <div id="GestureInput" class="section" tabindex="-1">
                                         <h4>Gesture input</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="ProvidingInstructions" class="section">
+                                    <div id="ProvidingInstructions" class="section" tabindex="-1">
                                         <h4>Providing instructions</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="EnablingRemapping" class="section">
+                                    <div id="EnablingRemapping" class="section" tabindex="-1">
                                         <h4>Enabling re-mapping</h4>
                                         <p></p>
                                     </div>
                                     <hr />
                                 </div>
 
-                                <div id="ImprovingRendering" class="section">
+                                <div id="ImprovingRendering" class="section" tabindex="-1">
                                     <h3>Improving rendering</h3>
                                     <p></p>
 
-                                    <div id="MobileFriendly" class="section">
+                                    <div id="MobileFriendly" class="section" tabindex="-1">
                                         <h4>Mobile-friendly strategy</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="PrerenderingVsOndemand" class="section">
+                                    <div id="PrerenderingVsOndemand" class="section" tabindex="-1">
                                         <h4>Pre-rendering vs on-demand</h4>
                                         <p></p>
                                     </div>
 
-                                    <div id="VisualDebugging" class="section">
+                                    <div id="VisualDebugging" class="section" tabindex="-1">
                                         <h4>Visual debugging</h4>
                                         <p></p>
                                     </div>
@@ -2095,7 +2095,7 @@ const input = dataNavigator.input({
                             <hr />
                         </div>
                         <br />
-                        <div id="Examples" class="section">
+                        <div id="Examples" class="section" tabindex="-1">
                             <h2>Examples</h2>
                             <blockquote>
                                 <p>(This section is under construction!)</p>
