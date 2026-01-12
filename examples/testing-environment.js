@@ -223,6 +223,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
 
     const initiateLifecycle = nextNode => {
         // should we remove existing nodes?
+            console.log("lifecycle nextNode",nextNode)
 
         const renderedNode = rendering.render({
             renderId: nextNode.renderId,
@@ -715,6 +716,18 @@ let largerStructure = dataNavigator.structure({
     dimensions: {
         values: [
             {
+                dimensionKey: 'category',
+                type: 'categorical',
+                divisionOptions: {
+                    divisionNodeIds: (dimensionKey, keyValue, i) => {
+                        return createValidId(dimensionKey + keyValue + i);
+                    }
+                },
+                behavior: {
+                    extents: 'circular'
+                }
+            },
+            {
                 dimensionKey: 'date',
                 type: 'categorical',
                 behavior: {
@@ -730,18 +743,6 @@ let largerStructure = dataNavigator.structure({
                             return;
                         }
                     }
-                }
-            },
-            {
-                dimensionKey: 'category',
-                type: 'categorical',
-                divisionOptions: {
-                    divisionNodeIds: (dimensionKey, keyValue, i) => {
-                        return createValidId(dimensionKey + keyValue + i);
-                    }
-                },
-                behavior: {
-                    extents: 'circular'
                 }
             }
             // {
@@ -778,7 +779,7 @@ console.log('largerStructure', largerStructure);
 buildGraph(
     largerStructure,
     'larger',
-    300,
+    325,
     'dimensionLevel',
     largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId,
     ['exit'],
@@ -791,6 +792,20 @@ let stackedStructure = dataNavigator.structure({
     addIds: true,
     dimensions: {
         values: [
+            {
+                dimensionKey: 'category',
+                type: 'categorical',
+                divisionOptions: {
+                    divisionNodeIds: (dimensionKey, keyValue, i) => {
+                        return createValidId(dimensionKey + keyValue + i);
+                    }
+                },
+                behavior: {
+                    extents: 'circular',
+                    childmostNavigation: 'across'
+                }
+            },
+
             {
                 dimensionKey: 'date',
                 type: 'categorical',
@@ -809,34 +824,7 @@ let stackedStructure = dataNavigator.structure({
                         }
                     }
                 }
-            },
-            {
-                dimensionKey: 'category',
-                type: 'categorical',
-                divisionOptions: {
-                    divisionNodeIds: (dimensionKey, keyValue, i) => {
-                        return createValidId(dimensionKey + keyValue + i);
-                    }
-                },
-                behavior: {
-                    extents: 'circular',
-                    childmostNavigation: 'across'
-                }
             }
-            // {
-            //     dimensionKey: 'value',
-            //     type: 'numerical',
-            //     behavior: {
-            //         extents: 'terminal'
-            //     }
-            // },
-            // {
-            //     dimensionKey: 'count',
-            //     type: 'numerical',
-            //     behavior: {
-            //         extents: 'terminal'
-            //     }
-            // }
         ]
     },
     genericEdges: [
@@ -853,11 +841,11 @@ let stackedStructure = dataNavigator.structure({
         }
     ]
 });
-console.log('stackedStructure', stackedStructure);
+console.log('stackedStructure1', stackedStructure);
 buildGraph(
     stackedStructure,
     'stacked',
-    300,
+    325,
     'dimensionLevel',
     largerStructure.dimensions[Object.keys(largerStructure.dimensions)[0]].nodeId,
     ['exit'],
@@ -1042,436 +1030,8 @@ buildGraph(
     ['any-exit']
 );
 
-// const dataTest = [
-//     {
-//         state: "California",
-//         region: "West",
-//         leaning: "Liberal",
-//         rank: 1,
-//         quality: 10,
-//         resilience: 5,
-//         pop: 39
-//     },
-//     {
-//         state: "Washington",
-//         region: "West",
-//         leaning: "Liberal",
-//         rank: 2,
-//         quality: 10,
-//         resilience: 9,
-//         pop: 8
-//     },
-//     {
-//         state: "Oregon",
-//         region: "West",
-//         leaning: "Liberal",
-//         rank: 15,
-//         quality: 7,
-//         resilience: 9,
-//         pop: 4
-//     },
-//     {
-//         state: "Illinois",
-//         region: "Central",
-//         leaning: "Liberal",
-//         rank: 10,
-//         quality: 7,
-//         resilience: 5,
-//         pop: 13
-//     },
-//     {
-//         state: "Michigan",
-//         region: "Central",
-//         leaning: "Conservative",
-//         rank: 21,
-//         quality: 5,
-//         resilience: 5,
-//         pop: 10
-//     },
-//     {
-//         state: "Massachusetts",
-//         region: "East",
-//         leaning: "Liberal",
-//         rank: 3,
-//         quality: 10,
-//         resilience: 7,
-//         pop: 7
-//     },
-//     {
-//         state: "New York",
-//         region: "East",
-//         leaning: "Liberal",
-//         rank: 9,
-//         quality: 8,
-//         resilience: 6,
-//         pop: 20
-//     },
-//     {
-//         state: "Pennsylvania",
-//         region: "East",
-//         leaning: "Conservative",
-//         rank: 13,
-//         quality: 7,
-//         resilience: 5,
-//         pop: 13
-//     },
-//     {
-//         state: "Georgia",
-//         region: "East",
-//         leaning: "Conservative",
-//         rank: 20,
-//         quality: 4,
-//         resilience: 4,
-//         pop: 11
-//     },
-//     {
-//         state: "Colorado",
-//         region: "Mountain",
-//         leaning: "Liberal",
-//         rank: 4,
-//         quality: 8,
-//         resilience: 10,
-//         pop: 6
-//     },
-//     {
-//         state: "Wyoming",
-//         region: "Mountain",
-//         leaning: "Conservative",
-//         rank: 50,
-//         quality: 1,
-//         resilience: 5,
-//         pop: 1
-//     },
-//     {
-//         state: "Idaho",
-//         region: "Mountain",
-//         leaning: "Conservative",
-//         rank: 40,
-//         quality: 1,
-//         resilience: 6,
-//         pop: 2
-//     },
-// ]
-
-// data: GenericDataset;
-// idKey: DynamicNodeIdKey;
-// keys: KeyList;
-// renderIdKey?: DynamicRenderIdKey;
-// dimensions?: DimensionOptions;
-// genericEdges?: EdgeOptions;
-// dataType?: DataType;
-// addIds?: boolean;
-// navigationRules?: NavigationRules;
-
-// dimensionKey: DimensionKey;
-// nestedSettings?: NestedSettings;
-// type?: DimensionType;
-// behavior?: DimensionBehavior;
-// navigationRules?: NavigationList;
-// sortingFunction?: SortingFunction;
-
-let parentIdGenerator = (d, s) => {
-    return d[s.dimensionKey];
-};
-let ascendingSort = (a, b, c) => a[c.dimensionKey] - b[c.dimensionKey];
-let descendingSort = (a, b, c) => b[c.dimensionKey] - a[c.dimensionKey];
-
-/*
-let structureTestWithStateIds = buildStructure({
-    data: dataTest,
-    idKey: "state",
-    dimensions:{ 
-        values: [
-            {
-                dimensionKey: "region",
-                type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "leaning",
-                // type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "rank",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: ascendingSort
-            },
-            {
-                dimensionKey: "quality",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "resilience",
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "pop",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            }
-    ]}
-})
-console.log(structureTestWithStateIds)
-
-let structureTestWithShortIds = buildStructure({
-    data: dataTest,
-    idKey: "id",
-    dimensions: { 
-        values: [
-            {
-                dimensionKey: "region",
-                type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "leaning",
-                // type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "rank",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: ascendingSort
-            },
-            {
-                dimensionKey: "quality",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "resilience",
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "pop",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            }
-        ]
-    },
-    addIds: true
-})
-console.log(structureTestWithLongIds)
-
-let structureTestWithLongIds = buildStructure({
-    data: dataTest,
-    idKey: "id",
-    dimensions: {
-        values: [
-            {
-                dimensionKey: "region",
-                type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "leaning",
-                // type: 'categorical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            },
-            {
-                dimensionKey: "rank",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: ascendingSort
-            },
-            {
-                dimensionKey: "quality",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "resilience",
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                },
-                sortingFunction: descendingSort
-            },
-            {
-                dimensionKey: "pop",
-                type: 'numerical',
-                behavior: {
-                    extents: 'circular'
-                },
-                nestedSettings: {
-                    nested: true,
-                    derivedParent: true,
-                    parentNode: {
-                        id: parentIdGenerator
-                    }
-                }
-            }
-        ],
-    },
-    addIds: true,
-    keysForIdGeneration: [
-        "state", // unique! but we don't do anything with this
-        "region", // categorical
-        "leaning", // categorical but no type sent
-        "rank", // low to high, numerical
-        "quality", // high to low, numerical
-        "resilience", // high to low, numerical but no type sent
-        "pop" // low to high, numerical, no sortingFunc sent
-    ],
-})
-console.log(structureTestWithLongIds)
-*/
+// let parentIdGenerator = (d, s) => {
+//     return d[s.dimensionKey];
+// };
+// let ascendingSort = (a, b, c) => a[c.dimensionKey] - b[c.dimensionKey];
+// let descendingSort = (a, b, c) => b[c.dimensionKey] - a[c.dimensionKey];
