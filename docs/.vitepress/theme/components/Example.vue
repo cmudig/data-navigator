@@ -87,7 +87,7 @@ defineExpose({ containerRef, ready })
 .loading-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid var(--vp-c-divider);
+  border: 1px solid var(--vp-c-divider);
   border-top-color: var(--vp-c-brand-1);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

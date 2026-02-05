@@ -42,21 +42,20 @@
   font-weight: 500;
   color: var(--vp-c-brand-1);
   background: var(--vp-c-bg);
-  border: 2px solid var(--vp-c-brand-1);
+  /* Border and outline set by global button styles */
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   margin-bottom: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .dn-entry-button:hover {
   background: var(--vp-c-brand-soft);
 }
 
-.dn-entry-button:focus {
-  outline: 2px solid var(--vp-c-brand-1);
-  outline-offset: 2px;
-}
+/* Focus state handled by global styles */
 
 .dn-node {
   position: absolute;
@@ -138,13 +137,140 @@
   display: none;
 }
 
-/* Accessibility */
+/* ============================================
+   ACCESSIBILITY STYLES
+   ============================================ */
+
+/* Borders on interactive elements */
+button,
+input,
+select,
+textarea,
+.dn-entry-button,
+summary {
+  border: 1px solid var(--vp-c-border);
+}
+
+/* Enhanced focus state for keyboard navigation */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+.dn-entry-button:focus,
+summary:focus,
+a:focus {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+  border-color: var(--vp-c-brand-1);
+}
+
+/* Focus-visible for better UX (keyboard vs mouse) */
 *:focus-visible {
-  outline: 2px solid var(--vp-c-brand-1);
+  outline: 3px solid var(--vp-c-brand-1);
   outline-offset: 2px;
 }
 
+/* Ensure links are always underlined */
+a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* VitePress nav links override */
+.VPNav a,
+.VPSidebar a,
+.VPFeature a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Minimum touch target size (44x44px) */
+button,
+input[type="button"],
+input[type="submit"],
+.dn-entry-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+}
+
+/* Form inputs */
+input[type="text"],
+input[type="email"],
+input[type="search"],
+textarea {
+  border: 1px solid var(--vp-c-border);
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  font-size: 1rem;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+textarea:focus {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 1px;
+  border-color: var(--vp-c-brand-1);
+}
+
+/* Details/Summary */
+summary {
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+summary:focus {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
+/* Disabled state - still meets contrast */
+button:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  outline-color: var(--vp-c-text-3);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  button,
+  input,
+  select,
+  textarea,
+  .dn-entry-button {
+    outline-width: 3px;
+  }
+
+  *:focus,
+  *:focus-visible {
+    outline-width: 4px;
+  }
+}
+
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .dn-entry-button,
   .dn-node {
     transition: none;

@@ -54,10 +54,11 @@ export default defineConfig({
 
     // Navigation
     nav: [
+      { text: 'Demo', link: '/demo' },
       { text: 'Guide', link: '/getting-started/' },
       { text: 'Examples', link: '/examples/' },
       { text: 'API', link: '/api/' },
-      { 
+      {
         text: 'Resources',
         items: [
           { text: 'Paper', link: 'https://www.frank.computer/data-navigator/' },
