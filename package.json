@@ -2,6 +2,7 @@
     "name": "data-navigator",
     "author": "Frank Elavsky",
     "version": "2.2.0",
+    "type": "module",
     "main": "./dist/index.jsm",
     "module": "./dist/index",
     "types": "./dist/src/index.d.ts",
@@ -35,9 +36,14 @@
         "build:modules": "tsup src/structure.ts src/input.ts src/rendering.ts src/utilities.ts  src/consts.ts --format cjs,esm --minify",
         "server": "python -m http.server",
         "prettier-all-check": "prettier --config  ./.prettierrc --ignore ./.prettierignore --debug-check \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
-        "prettier-all": "prettier --config  ./.prettierrc --ignore ./.prettierignore --write \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\""
+        "prettier-all": "prettier --config  ./.prettierrc --ignore ./.prettierignore --write \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
+        "docs:dev": "vitepress dev docs",
+        "docs:build": "vitepress build docs",
+        "docs:preview": "vitepress preview docs"
     },
     "devDependencies": {
+        "vitepress": "^1.4.0",
+        "vue": "^3.5.0",
         "@swc/core": "^1.3.75",
         "prettier": "^2.6.2",
         "source-map-loader": "^4.0.1",
