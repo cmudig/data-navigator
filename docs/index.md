@@ -30,10 +30,10 @@ features:
     details: Support keyboard, touch, voice, gesture, and custom input modalities through a unified command system.
   - icon: 🎯
     title: Semantic Rendering
-    details: Render accessible HTML overlays on top of any visualization—SVG, Canvas, images, or WebGL.
+    details: Render accessible HTML underlays for any visualization -> SVG, Canvas, images, or WebGL.
   - icon: 🔧
     title: Framework Agnostic
-    details: Works with any visualization library (D3, Vega, Bokeh, Chart.js, etc.) and any web framework.
+    details: Works with any visualization library (D3, Vega-lite, Bokeh, etc.) and any web framework (React, Svelte, Vue, etc.).
 ---
 
 ## What is Data Navigator?
