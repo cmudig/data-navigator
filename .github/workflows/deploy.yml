@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Build library
+        run: yarn build
+
       - name: Build with VitePress
         run: yarn docs:build
 

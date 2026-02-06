@@ -3,8 +3,8 @@
     "author": "Frank Elavsky",
     "version": "2.2.0",
     "type": "module",
-    "main": "./dist/index.jsm",
-    "module": "./dist/index",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
     "types": "./dist/src/index.d.ts",
     "files": [
         "dist/**/*"
@@ -17,7 +17,7 @@
             },
             "require": {
                 "types": "./dist/src/index.d.ts",
-                "default": "./dist/index.mjs"
+                "default": "./dist/index.cjs"
             }
         }
     },
