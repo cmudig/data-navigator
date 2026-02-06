@@ -1,0 +1,469 @@
+/* ============================================
+   DEMO ACCESSIBILITY STYLES
+   ============================================ */
+
+body {
+    /* font-size: 1.25em; */
+    margin: 0 auto;
+    max-width: 40em;
+    padding: 50px;
+}
+
+img {
+    width: 100%;
+}
+
+/* Borders on interactive elements */
+button,
+input,
+select,
+textarea {
+    border: 1px solid #767676;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+/* Enhanced focus state */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+summary:focus {
+    outline: 3px solid #0063ff;
+    outline-offset: 2px;
+    border-color: #0063ff;
+}
+
+/* Focus-visible for keyboard navigation */
+*:focus-visible {
+    outline: 3px solid #0063ff;
+    outline-offset: 2px;
+}
+
+/* Links always underlined */
+a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+a:hover {
+    text-decoration-thickness: 2px;
+}
+
+/* Form inputs */
+input[type="text"],
+input[type="submit"] {
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+input[type="text"] {
+    background: #fff;
+    color: #000;
+}
+
+input[type="submit"] {
+    background: #0063ff;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+input[type="submit"]:hover {
+    background: #0052cc;
+}
+
+/* Summary elements */
+summary {
+    cursor: pointer;
+    padding: 0.5rem;
+    border: 1px solid #767676;
+    border-radius: 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+summary:focus {
+    outline: 3px solid #0063ff;
+    outline-offset: 2px;
+}
+
+.dn-root {
+    position: relative;
+}
+
+.dn-wrapper {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.dn-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    border: 2px solid white;
+    outline: #000000 solid 1px;
+}
+
+.dn-node:focus {
+    border: 2px solid white;
+    outline: #000000 solid 3px;
+}
+
+.dn-manual-focus-node {
+    border: 1px solid white;
+    outline: #00000000 solid 1px;
+}
+
+.dn-manual-focus-node:focus {
+    border: 1px solid white;
+    outline: #313131 solid 1px;
+}
+
+.dn-node-svg {
+    position: absolute;
+    pointer-events: none;
+}
+
+.dn-node-path {
+    fill: none;
+    stroke: #000000;
+    stroke-width: 4px;
+    transform: translateY(2px);
+}
+
+.dn-exit-position {
+    display: none;
+    position: absolute;
+    bottom: -18px;
+}
+
+.dn-exit-position:focus {
+    display: block;
+}
+
+.dn-entry-button {
+    position: relative;
+    top: -21px;
+    z-index: 999;
+}
+
+.wrapper {
+    position: relative;
+}
+
+.canvasbox {
+    border-radius: 3px;
+    margin-right: 10px;
+    width: 450px;
+    height: 338px;
+    border-bottom: 3px solid #0063ff;
+    box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.2), 0 4px 10px 0 #00000030;
+}
+
+.videobox {
+    display: none;
+}
+
+.hidden {
+    display: none;
+}
+
+.column {
+    float: left;
+    padding-right: 15px;
+}
+
+.left {
+    width: 400px;
+}
+
+.right {
+    max-width: 50%;
+}
+
+.row:after {
+    content: '';
+    display: table;
+    clear: both;
+}
+
+.alert {
+    color: darkred;
+}
+
+.tooltip {
+    position: absolute;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid black;
+    width: 200px;
+    top: 0;
+    left: 0;
+}
+
+#docs .tooltip {
+    border: 1px solid rgba(0, 0, 0, 0.6);
+    border-left: 1px solid white;
+}
+
+#fist {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 2em;
+    display: none;
+}
+
+#copy-announcer {
+    font-size: 0.8em;
+    font-weight: 100;
+    color: #444;
+}
+
+p {
+    margin-top: 0;
+}
+
+.video-wrapper {
+    position: relative;
+}
+
+th {
+    text-align: left;
+}
+
+h1 {
+    font-size: 2em;
+}
+
+h2 {
+    font-size: 1.8em;
+}
+
+h3 {
+    margin-bottom: 0.2em;
+    font-size: 1.6em;
+}
+
+h4 {
+    margin-bottom: 0.2em;
+    font-size: 1.4em;
+}
+
+h5 {
+    margin-bottom: 0.2em;
+    font-size: 1.2em;
+}
+
+.cell {
+    padding: 2px 10px 2px 0px;
+    font-weight: normal;
+}
+
+.t-column {
+    padding-right: 10px;
+}
+
+/* Override earlier summary styles for details elements */
+details > summary {
+    padding-bottom: 10px;
+    font-style: italic;
+    list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details > summary::before {
+    content: '▶ ';
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+details[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    details > summary::before {
+        transition: none;
+    }
+}
+
+.limited {
+    max-width: 365px;
+}
+
+kbd {
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 0px 0.35em;
+    background: #f5f5f5;
+    font-weight: 500;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    button,
+    input,
+    select,
+    textarea,
+    summary {
+        outline-width: 3px;
+        border-width: 3px;
+    }
+
+    *:focus,
+    *:focus-visible {
+        outline-width: 4px;
+    }
+}
+
+#testing-environment .dn-node {
+    border-radius: 7px;
+    border: 0px solid white;
+    outline: #000000 solid 0px;
+}
+
+#testing-environment .dn-node:focus {
+    outline: #000000 solid 0px;
+}
+
+#testing-environment .dn-node-path {
+    stroke-width: 2px;
+    transform: translateY(1px);
+}
+
+#testing-environment .dn-exit-position {
+    bottom: 0px;
+}
+
+#testing-environment .dn-entry-button {
+    top: 0px;
+}
+
+#dn-wrapper-data-navigator-schema-added {
+    width: inherit !important;
+}
+
+#testing-environment code {
+    background: #333;
+    padding: 0.1em 0.35em;
+    color: white;
+}
+
+#testing-environment code.block {
+    display: block;
+    overflow: auto;
+    white-space: pre;
+}
+
+#docs code {
+    background-color: rgb(43, 43, 43);
+    color: rgb(248, 248, 242);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.85em;
+}
+
+#docs .hljs-string {
+    color: #abe338;
+}
+
+#docs .function_ {
+    color: #00e0e0;
+}
+
+#docs pre code {
+    font-size: 0.75em;
+    border-radius: 20px;
+    padding: 1.5em;
+}
+
+#docs svg {
+    border: 1px solid rgba(0, 0, 0, 0.6);
+}
+
+.side-by-side {
+    display: inline-block;
+    margin-right: 2em;
+}
+
+/* Citation copy button - ensure it meets accessibility standards */
+.bib {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Demo-specific buttons */
+#loadModel,
+#openWebcam,
+#closeWebcam,
+#enableSpeech {
+    background: #0063ff;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+}
+
+#loadModel:hover,
+#openWebcam:hover,
+#closeWebcam:hover,
+#enableSpeech:hover {
+    background: #0052cc;
+}
+
+#loadModel:disabled,
+#openWebcam:disabled,
+#closeWebcam:disabled,
+#enableSpeech:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #999;
+}
+
+/* Ensure color contrast for alerts */
+.alert {
+    color: #c00;
+    font-weight: 600;
+}
+
+/* Table accessibility */
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    text-align: left;
+    padding: 0.5rem;
+    border: 1px solid #666;
+}
+
+th {
+    background: #f5f5f5;
+    font-weight: 600;
+}

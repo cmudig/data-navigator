@@ -2143,7 +2143,6 @@ const input = dataNavigator.input({
                 entries.forEach(entry => {
                     const id = entry.target.getAttribute('id');
                     const navLink = id ? `a[href="#${id}"]` : `nav li a[href="#"]`;
-                    console.log(entry, navLink);
                     const li = document.querySelector(navLink).parentElement;
                     const detailsParent =
                         li.parentElement.parentElement.tagName === 'DETAILS'

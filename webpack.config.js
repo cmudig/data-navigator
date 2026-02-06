@@ -1,6 +1,10 @@
-const path = require('path');
+import path from 'path';
 
-module.exports = {
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const config = {
   entry: {
     'v-bundle': './examples/vega-lite-app.js',
     'static-bundle': './examples/static-app.js',
@@ -25,3 +29,4 @@ module.exports = {
     minimize: true
   },
 };
+export default config

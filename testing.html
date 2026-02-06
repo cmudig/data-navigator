@@ -163,6 +163,9 @@
             <hr />
             <div class="wrapper">
                 <h2>Testing larger data (a stacked bar chart)</h2>
+                <div class="chart-wrapper">
+                    <div id="stack-wrapper1"></div>
+                </div>
                 <div id="dn-root-larger" class="wrapper">
                     <div id="larger"></div>
                 </div>
@@ -171,6 +174,13 @@
             <hr />
             <div class="wrapper">
                 <h2>Testing maintaining stacked bar chart child nav direction</h2>
+                <div class="chart-wrapper">
+                    <div id="stack-wrapper2"></div>
+                </div>
+                <div id="dn-root-stacked" class="wrapper">
+                    <div id="stacked"></div>
+                </div>
+                <div id="stacked-tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
                 <p>
                     In the previous example, navigation seems counter-intuitive at the childmost level: left-right
                     navigates between months at the division level, but drilling into a month (since these are children
@@ -178,10 +188,6 @@
                     across groups instead. This fixes the lack of intuitive navigation for something like a stacked bar
                     chart: left-right always moves across dates.
                 </p>
-                <div id="dn-root-stacked" class="wrapper">
-                    <div id="stacked"></div>
-                </div>
-                <div id="stacked-tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
             </div>
             <hr />
             <div class="wrapper">
@@ -212,4 +218,401 @@
     </body>
     <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
     <script src="app/testing-bundle.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@visa/keyboard-instructions@2.0.1/dist/keyboard-instructions/keyboard-instructions.js" data-stencil-namespace="keyboard-instructions">
+    //   import  * as bar from ''; // Example path
+    //   // ... use someFunction
+    //   console.log(bar)
+    
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@visa/visa-charts-data-table@3.0.1/dist/visa-charts-data-table/visa-charts-data-table.js" data-stencil-namespace="visa-charts-data-table">
+    //   import  * as bar from ''; // Example path
+    //   // ... use someFunction
+    //   console.log(bar)
+    
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@visa/bar-chart@7.0.1/dist/bar-chart/bar-chart.js" data-stencil-namespace="bar-chart">
+    //   import  * as bar from ''; // Example path
+    //   // ... use someFunction
+    //   console.log(bar)
+    
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@visa/stacked-bar-chart@7.0.1/dist/stacked-bar-chart/stacked-bar-chart.js" data-stencil-namespace="stacked-bar-chart">
+    //   import  * as bar from ''; // Example path
+    //   // ... use someFunction
+    //   console.log(bar)
+    
+    </script>
+    <script>
+        
+        const stackedProps = {
+            mainTitle:
+            "",
+            subTitle:
+            "",
+            data: [
+                {
+                    date: 'Jan',
+                    category: 'Group A',
+                    value: 120,
+                    count: 420
+                },
+                {
+                    date: 'Feb',
+                    category: 'Group A',
+                    value: 121,
+                    count: 439
+                },
+                {
+                    date: 'Mar',
+                    category: 'Group A',
+                    value: 119,
+                    count: 402
+                },
+                {
+                    date: 'Apr',
+                    category: 'Group A',
+                    value: 114,
+                    count: 434
+                },
+                {
+                    date: 'May',
+                    category: 'Group A',
+                    value: 102,
+                    count: 395
+                },
+                {
+                    date: 'Jun',
+                    category: 'Group A',
+                    value: 112,
+                    count: 393
+                },
+                {
+                    date: 'Jul',
+                    category: 'Group A',
+                    value: 130,
+                    count: 445
+                },
+                {
+                    date: 'Aug',
+                    category: 'Group A',
+                    value: 124,
+                    count: 456
+                },
+                {
+                    date: 'Sep',
+                    category: 'Group A',
+                    value: 119,
+                    count: 355
+                },
+                {
+                    date: 'Oct',
+                    category: 'Group A',
+                    value: 106,
+                    count: 464
+                },
+                {
+                    date: 'Nov',
+                    category: 'Group A',
+                    value: 123,
+                    count: 486
+                },
+                {
+                    date: 'Dec',
+                    category: 'Group A',
+                    value: 133,
+                    count: 491
+                },
+                {
+                    date: 'Jan',
+                    category: 'Group B',
+                    value: 89,
+                    count: 342
+                },
+                {
+                    date: 'Feb',
+                    category: 'Group B',
+                    value: 93,
+                    count: 434
+                },
+                {
+                    date: 'Mar',
+                    category: 'Group B',
+                    value: 82,
+                    count: 378
+                },
+                {
+                    date: 'Apr',
+                    category: 'Group B',
+                    value: 92,
+                    count: 323
+                },
+                {
+                    date: 'May',
+                    category: 'Group B',
+                    value: 90,
+                    count: 434
+                },
+                {
+                    date: 'Jun',
+                    category: 'Group B',
+                    value: 85,
+                    count: 376
+                },
+                {
+                    date: 'Jul',
+                    category: 'Group B',
+                    value: 88,
+                    count: 404
+                },
+                {
+                    date: 'Aug',
+                    category: 'Group B',
+                    value: 84,
+                    count: 355
+                },
+                {
+                    date: 'Sep',
+                    category: 'Group B',
+                    value: 90,
+                    count: 432
+                },
+                {
+                    date: 'Oct',
+                    category: 'Group B',
+                    value: 80,
+                    count: 455
+                },
+                {
+                    date: 'Nov',
+                    category: 'Group B',
+                    value: 92,
+                    count: 445
+                },
+                {
+                    date: 'Dec',
+                    category: 'Group B',
+                    value: 97,
+                    count: 321
+                },
+                {
+                    date: 'Jan',
+                    category: 'Group C',
+                    value: 73,
+                    count: 456
+                },
+                {
+                    date: 'Feb',
+                    category: 'Group C',
+                    value: 74,
+                    count: 372
+                },
+                {
+                    date: 'Mar',
+                    category: 'Group C',
+                    value: 68,
+                    count: 323
+                },
+                {
+                    date: 'Apr',
+                    category: 'Group C',
+                    value: 66,
+                    count: 383
+                },
+                {
+                    date: 'May',
+                    category: 'Group C',
+                    value: 72,
+                    count: 382
+                },
+                {
+                    date: 'Jun',
+                    category: 'Group C',
+                    value: 70,
+                    count: 365
+                },
+                {
+                    date: 'Jul',
+                    category: 'Group C',
+                    value: 74,
+                    count: 296
+                },
+                {
+                    date: 'Aug',
+                    category: 'Group C',
+                    value: 68,
+                    count: 312
+                },
+                {
+                    date: 'Sep',
+                    category: 'Group C',
+                    value: 75,
+                    count: 334
+                },
+                {
+                    date: 'Oct',
+                    category: 'Group C',
+                    value: 66,
+                    count: 386
+                },
+                {
+                    date: 'Nov',
+                    category: 'Group C',
+                    value: 85,
+                    count: 487
+                },
+                {
+                    date: 'Dec',
+                    category: 'Group C',
+                    value: 89,
+                    count: 512
+                },
+                {
+                    date: 'Jan',
+                    category: 'Other',
+                    value: 83,
+                    count: 432
+                },
+                {
+                    date: 'Feb',
+                    category: 'Other',
+                    value: 87,
+                    count: 364
+                },
+                {
+                    date: 'Mar',
+                    category: 'Other',
+                    value: 76,
+                    count: 334
+                },
+                {
+                    date: 'Apr',
+                    category: 'Other',
+                    value: 86,
+                    count: 395
+                },
+                {
+                    date: 'May',
+                    category: 'Other',
+                    value: 87,
+                    count: 354
+                },
+                {
+                    date: 'Jun',
+                    category: 'Other',
+                    value: 77,
+                    count: 386
+                },
+                {
+                    date: 'Jul',
+                    category: 'Other',
+                    value: 79,
+                    count: 353
+                },
+                {
+                    date: 'Aug',
+                    category: 'Other',
+                    value: 85,
+                    count: 288
+                },
+                {
+                    date: 'Sep',
+                    category: 'Other',
+                    value: 87,
+                    count: 353
+                },
+                {
+                    date: 'Oct',
+                    category: 'Other',
+                    value: 76,
+                    count: 322
+                },
+                {
+                    date: 'Nov',
+                    category: 'Other',
+                    value: 96,
+                    count: 412
+                },
+                {
+                    date: 'Dec',
+                    category: 'Other',
+                    value: 104,
+                    count: 495
+                }
+            ],
+            height: 180,
+            width: 225,
+            padding: { top: 10, bottom: 10, right: 10, left: 30 },
+            colors: [
+                // "#EA5F94",
+                // "#BC34B5",
+                // "#9D02D7",
+                // "#0000FF"
+
+                "#FFFFFF",
+                "#DDDDDD",
+                "#BBBBBB",
+                "#999999",
+
+
+                // "#DDDDDD",
+                // "#BBBBBB",
+                // "#777777",
+                // "#333333",
+            ],
+            ordinalAccessor: "category",
+            valueAccessor: "value",
+            groupAccessor: "date",
+            uniqueID: "observable-bar-chart",
+            legend: { labels: ["A", "B", "C", "Other"] },
+            dataLabel: { visible: false },
+            yAxis: { visible: true, gridVisible: false },
+            xAxis: { label: "", visible: false },
+            showTotalValue: false,
+            suppressEvents: true,
+            layout: 'horizontal',
+            hoverStyle: {color: "#333333"},
+            accessibility: {
+                elementDescriptionAccessor: "Note",
+                longDescription:
+                    "This is an example stacked bar chart, made with the Visa Chart Component Library.",
+                executiveSummary: "Category E 1 is the Highest Value, F 2 is the Lowest.",
+                statisticalNotes: "Chart is sorted in descending order.",
+                elementsAreInterface: false,
+                disableValidation: true,
+                hideDataTableButton: true,
+                keyboardNavConfig:{disabled:true},
+                hideTextures: true,
+                hideStrokes: false
+            }
+        }
+        
+        // let barChart = document.getElementById("bar");
+        // if (!barChart) {
+        //     barChart = document.createElement("bar-chart");
+        //     barChart.id = "bar"
+        // }
+        // Object.keys(ratiosProps).forEach((prop) => {
+        //     barChart[prop] = ratiosProps[prop];
+        // });
+        let stackedBar1 = document.getElementById("stacked1");
+        if (!stackedBar1) {
+            stackedBar1 = document.createElement("stacked-bar-chart");
+            stackedBar1.id = "stacked1"
+
+            stackedBar2 = document.createElement("stacked-bar-chart");
+            stackedBar2.id = "stacked2"
+        }
+        Object.keys(stackedProps).forEach((prop) => {
+            stackedBar1[prop] = stackedProps[prop];
+            stackedBar2[prop] = stackedProps[prop];
+        });
+        stackedBar1.id = "stacked1"
+        stackedBar1.id = "stacked2"
+        // document.getElementById('bar-wrapper').appendChild(barChart)
+        document.getElementById('stack-wrapper1').appendChild(stackedBar1)
+        document.getElementById('stack-wrapper2').appendChild(stackedBar2)
+    </script>
 </html>
