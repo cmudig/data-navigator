@@ -10,7 +10,7 @@ export default defineConfig({
   
   head: [
     // Favicon
-    ['link', { rel: 'icon', type: 'image/x-icon', href: '/data-navigator/favicon.ico' }],
+    ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
 
     // Bokeh JS - required for examples
     ['script', { 
