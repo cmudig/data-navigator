@@ -9,6 +9,9 @@ export default defineConfig({
   base: '/data-navigator/',
   
   head: [
+    // Favicon
+    ['link', { rel: 'icon', type: 'image/x-icon', href: '/data-navigator/favicon.ico' }],
+
     // Bokeh JS - required for examples
     ['script', { 
       src: 'https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js',
