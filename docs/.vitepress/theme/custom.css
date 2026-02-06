@@ -291,6 +291,10 @@ nav button {
   background:none !important;
 }
 
+.heading .text {
+  font-size: 44px;
+}
+
 @media (min-width: 960px) {
     [data-v-72cc4481] .image-src {
         max-width: 475px;

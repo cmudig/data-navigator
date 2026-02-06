@@ -10,7 +10,7 @@ onMounted(() => {
   // Load demo stylesheet
   const link = document.createElement('link')
   link.rel = 'stylesheet'
-  link.href = '/demo-style.css'
+  link.href = '/data-navigator/demo-style.css'
   document.head.appendChild(link)
 })
 </script>
@@ -353,7 +353,7 @@ The model is slow and isn't very smart, so you will need to exaggerate your move
   <div id="root" class="wrapper">
     <img
       id="chart"
-      src="/static.png"
+      src="/data-navigator/static.png"
       alt="Major trophies for some English teams. Stacked bar chart."
     />
   </div>
@@ -396,7 +396,7 @@ if (typeof window !== 'undefined') {
     // Load the demo bundle after dependencies
     handtrackScript.onload = () => {
       const demoScript = document.createElement('script')
-      demoScript.src = '/static-bundle.js'
+      demoScript.src = '/data-navigator/static-bundle.js'
       document.body.appendChild(demoScript)
     }
 
