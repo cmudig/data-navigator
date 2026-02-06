@@ -276,3 +276,24 @@ input:disabled {
     transition: none;
   }
 }
+
+nav button {
+  border-radius: 20px;
+  border: none;
+}
+
+.VPSwitch {
+  min-height: 18px;
+  height: 18px;
+}
+
+.image-bg {
+  background:none !important;
+}
+
+@media (min-width: 960px) {
+    [data-v-72cc4481] .image-src {
+        max-width: 475px;
+        max-height: 475px;
+    }
+}
