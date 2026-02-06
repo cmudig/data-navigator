@@ -142,5 +142,14 @@ export default defineConfig({
       dark: 'github-dark'
     },
     lineNumbers: true
+  },
+
+  // Vite configuration
+  vite: {
+    resolve: {
+      alias: {
+        'data-navigator': '../../src/index.ts'
+      }
+    }
   }
 })
