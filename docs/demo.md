@@ -3,6 +3,16 @@ layout: doc
 title: Interactive Demo
 ---
 
+# Interactive Demo
+
+::: warning Under Construction
+This demo is currently being updated for the new docs site. Check back soon!
+
+In the meantime, you can explore the [Getting Started guide](/getting-started/) to build your own navigable chart.
+:::
+
+<!-- TODO: restore demo when static-bundle.js and dependencies are working
+
 <script setup>
 import { onMounted } from 'vue'
 
@@ -191,8 +201,6 @@ pre {
   }
 }
 </style>
-
-# Interactive Demo
 
 In this demo, you can use a variety of different input modalities to navigate the data structure of a PNG image of a chart.
 
@@ -426,3 +434,5 @@ if (typeof window !== 'undefined') {
   })
 }
 </script>
+
+end of commented out demo -->
