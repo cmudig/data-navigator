@@ -81,15 +81,9 @@ export default defineConfig({
             { text: 'Installation', link: '/getting-started/installation' },
             { text: 'Example Dataset', link: '/getting-started/dataset' },
             { text: 'Example Visualization', link: '/getting-started/visualization' },
-            { 
-              text: 'Building Basics',
-              collapsed: false,
-              items: [
-                { text: 'Structure', link: '/getting-started/structure' },
-                { text: 'Input', link: '/getting-started/input' },
-                { text: 'Rendering', link: '/getting-started/rendering' }
-              ]
-            },
+            { text: 'Structure', link: '/getting-started/structure' },
+            { text: 'Input', link: '/getting-started/input' },
+            { text: 'Rendering', link: '/getting-started/rendering' },
             { text: 'First Navigable Chart', link: '/getting-started/first-chart' }
           ]
         }
