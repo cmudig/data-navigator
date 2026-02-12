@@ -385,7 +385,7 @@ element.addEventListener('focus', () => {
 ## Key Takeaways
 
 ::: tip spatialProperties for Focus Indication
-Every node needs `spatialProperties` with `x`, `y`, `width`, `height`. For canvas-based charts where you can't position over specific elements, cover the entire chart and draw the indicator programmatically.
+Every node needs `spatialProperties` with `x`, `y`, `width`, `height`. For canvas-based charts where you can't position over specific elements, cover the entire chart and draw the indicator programmatically using your charting library (like we did with Bokeh here).
 :::
 
 ::: tip Render On Demand
