@@ -146,7 +146,7 @@ export const GenericLimitedNavigationRules = {
 } as NavigationRules;
 
 export const NodeElementDefaults = {
-    cssClass: '',
+    cssClass: undefined,
     spatialProperties: {
         x: 0,
         y: 0,

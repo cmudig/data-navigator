@@ -128,8 +128,8 @@ export default (options: RenderingOptions) => {
         let existingSpatialProperties = {};
         const resolveProp = (prop, subprop?, checkExisting?) => {
             const p1 = d[prop] || defaults[prop];
-            const s1 = !(checkExisting && useExisting) ? p1[subprop] : existingSpatialProperties[subprop];
-            const s2 = defaults[prop][subprop];
+            const s1 = !(checkExisting && useExisting) ? p1?.[subprop] : existingSpatialProperties[subprop];
+            const s2 = defaults[prop]?.[subprop];
             return typeof p1 === 'function'
                 ? p1(d, nodeData.datum)
                 : typeof s1 === 'function'
