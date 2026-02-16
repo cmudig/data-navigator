@@ -309,7 +309,7 @@ Most visualization libraries don't expose element coordinates. This means you ca
 2. Draw the focus indicator **programmatically** using the visualization library itself
    :::
 
-This is why accessibility support from visualization libraries themselves is so important. Ideally, Bokeh (and others) would make charts navigable by default.
+This is why accessibility support from visualization libraries themselves is so important. Ideally, Bokeh (and others) would make charts navigable by default. But if they did, they wouldn't need Data Navigator! So the next-best thing would be to have a way to "query" the location of rendered elements on-demand, given a known datum or id as input. (Here's hoping the major charting libraries out there add this feature!)
 
 ## The Complete Code
 
