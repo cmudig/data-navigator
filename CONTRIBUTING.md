@@ -16,7 +16,7 @@ Check the [package.json](./package.json) for dev dependencies. Currently data-na
 
 -   Get stuff looking good: `yarn prettier-all`
 -   Build it: `yarn build`
--   Serve: `yarn server`
+-   Serve: `yarn docs:dev`
 -   Test with different assistive technologies
 -   Once it looks good, open a PR
 
