@@ -1,0 +1,15 @@
+/* The rendered node covers the whole chart area but should
+   be invisible — the focus indicator is drawn by Bokeh. */
+.dn-manual-focus-node {
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  position:absolute;
+  margin: 0px;
+}
+
+/* The browser's native focus outline still appears around
+   the chart area, providing a visible focus indicator. */
+.dn-manual-focus-node:focus {
+  outline: 2px solid #1e3369;
+}
