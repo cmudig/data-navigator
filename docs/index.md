@@ -4,36 +4,36 @@ title: Data Navigator
 titleTemplate: Accessible Data Navigation
 
 hero:
-  name: Data Navigator
-  text: Accessible Data Navigation
-  tagline: A JavaScript library that enables keyboard, screen reader, and multi-modal navigation of data structures and visualizations.
-  image:
-    src: /data_navigator.png
-    alt: Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering.
-  actions:
-    - theme: brand
-      text: Get Started
-      link: /getting-started/
-    - theme: alt
-      text: Try the Demo
-      link: /demo
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/cmudig/data-navigator
+    name: Data Navigator
+    text: Accessible Data Navigation
+    tagline: A JavaScript library that enables keyboard, screen reader, and multi-modal navigation of data structures and visualizations.
+    image:
+        src: /data_navigator.png
+        alt: Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering.
+    actions:
+        - theme: brand
+          text: Get Started
+          link: /getting-started/
+        - theme: alt
+          text: Try the Demo
+          link: /demo
+        - theme: alt
+          text: View on GitHub
+          link: https://github.com/cmudig/data-navigator
 
 features:
-  - icon: 🏗️
-    title: Rich Navigable Structures
-    details: Build list, tree, spatial, or graph-based navigation structures that make sense for your data.
-  - icon: ⌨️
-    title: Multi-Modal Input
-    details: Support keyboard, touch, voice, gesture, and custom input modalities through a unified command system.
-  - icon: 🎯
-    title: Semantic Rendering
-    details: Render accessible HTML underlays for any visualization -> SVG, Canvas, images, or WebGL.
-  - icon: 🔧
-    title: Framework Agnostic
-    details: Works with any visualization library (D3, Vega-lite, Bokeh, etc.) and any web framework (React, Svelte, Vue, etc.).
+    - icon: 🏗️
+      title: Rich Navigable Structures
+      details: Build list, tree, spatial, or graph-based navigation structures that make sense for your data.
+    - icon: ⌨️
+      title: Multi-Modal Input
+      details: Support keyboard, touch, voice, gesture, and custom input modalities through a unified command system.
+    - icon: 🎯
+      title: Semantic Rendering
+      details: Render accessible HTML underlays for any visualization -> SVG, Canvas, images, or WebGL.
+    - icon: 🔧
+      title: Framework Agnostic
+      details: Works with any visualization library (D3, Vega-lite, Bokeh, etc.) and any web framework (React, Svelte, Vue, etc.).
 ---
 
 ## What is Data Navigator?
@@ -41,10 +41,11 @@ features:
 Data Navigator enables designers and developers to render a semantic, navigable structure on top of any graphic. This structure can be used by a massive variety of different input modalities.
 
 **Quick links:**
-- [Get started building your first navigable data structure](/getting-started/)
-- [Try the interactive demo](/demo) with keyboard, voice, gesture, and touch input
-- [Read our accessible HTML paper](https://www.frank.computer/data-navigator/)
-- [Explore the code on GitHub](https://github.com/cmudig/data-navigator)
+
+-   [Get started building your first navigable data structure](/getting-started/)
+-   [Try the interactive demo](/demo) with keyboard, voice, gesture, and touch input
+-   [Read our accessible HTML paper](https://www.frank.computer/data-navigator/)
+-   [Explore the code on GitHub](https://github.com/cmudig/data-navigator)
 
 ## Introduction Video
 
@@ -96,8 +97,8 @@ And lastly, Data Navigator can create an **accessible rendering layer** (using s
 
 ## Resources
 
-- **[Getting Started Guide](/getting-started/)** - Build your first navigable chart
-- **[Interactive Demo](/demo)** - Try multi-modal input (keyboard, voice, gesture, touch)
-- **[GitHub Repository](https://github.com/cmudig/data-navigator)** - Source code and issues
-- **[npm Package](https://www.npmjs.com/package/data-navigator)** - Install Data Navigator
-- **[Research Paper](https://www.frank.computer/data-navigator/)** - Read the full paper
+-   **[Getting Started Guide](/getting-started/)** - Build your first navigable chart
+-   **[Interactive Demo](/demo)** - Try multi-modal input (keyboard, voice, gesture, touch)
+-   **[GitHub Repository](https://github.com/cmudig/data-navigator)** - Source code and issues
+-   **[npm Package](https://www.npmjs.com/package/data-navigator)** - Install Data Navigator
+-   **[Research Paper](https://www.frank.computer/data-navigator/)** - Read the full paper

@@ -3,7 +3,7 @@
 Structure defines the navigable graph—nodes and edges.
 
 ::: tip Why a Graph?
-Unlike HTML's tree-based DOM, graphs let us express *direct relationships*. A user can jump from "Apple at Store A" directly to "Banana at Store A" without traversing parent containers.
+Unlike HTML's tree-based DOM, graphs let us express _direct relationships_. A user can jump from "Apple at Store A" directly to "Banana at Store A" without traversing parent containers.
 :::
 
 ## Building a List Structure
@@ -12,30 +12,30 @@ Unlike HTML's tree-based DOM, graphs let us express *direct relationships*. A us
 
 ```js
 const structure = {
-  nodes: {
-    _0: {
-      id: '_0',
-      data: { fruit: 'apple', store: 'a', cost: 3 },
-      edges: ['_0-_1']
+    nodes: {
+        _0: {
+            id: '_0',
+            data: { fruit: 'apple', store: 'a', cost: 3 },
+            edges: ['_0-_1']
+        },
+        _1: {
+            id: '_1',
+            data: { fruit: 'banana', store: 'a', cost: 0.75 },
+            edges: ['_0-_1', '_1-_2']
+        },
+        _2: {
+            id: '_2',
+            data: { fruit: 'apple', store: 'b', cost: 2.75 },
+            edges: ['_1-_2', '_2-_3']
+        },
+        _3: {
+            id: '_3',
+            data: { fruit: 'banana', store: 'b', cost: 1.25 },
+            edges: ['_2-_3']
+        }
     },
-    _1: {
-      id: '_1',
-      data: { fruit: 'banana', store: 'a', cost: 0.75 },
-      edges: ['_0-_1', '_1-_2']
-    },
-    _2: {
-      id: '_2',
-      data: { fruit: 'apple', store: 'b', cost: 2.75 },
-      edges: ['_1-_2', '_2-_3']
-    },
-    _3: {
-      id: '_3',
-      data: { fruit: 'banana', store: 'b', cost: 1.25 },
-      edges: ['_2-_3']
-    }
-  },
-  edges: {}
-}
+    edges: {}
+};
 ```
 
 ### Step 2: Define Edges
@@ -128,7 +128,7 @@ onMounted(async () => {
 
 ## What's Missing?
 
-This structure defines *what* can be navigated, but not *how*. For that, we need navigation rules.
+This structure defines _what_ can be navigated, but not _how_. For that, we need navigation rules.
 
 ## Next Steps
 

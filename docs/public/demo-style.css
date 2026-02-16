@@ -52,26 +52,26 @@ a:hover {
 }
 
 /* Form inputs */
-input[type="text"],
-input[type="submit"] {
+input[type='text'],
+input[type='submit'] {
     padding: 0.5rem;
     border-radius: 4px;
     font-size: 1rem;
 }
 
-input[type="text"] {
+input[type='text'] {
     background: #fff;
     color: #000;
 }
 
-input[type="submit"] {
+input[type='submit'] {
     background: #0063ff;
     color: #fff;
     cursor: pointer;
     font-weight: 500;
 }
 
-input[type="submit"]:hover {
+input[type='submit']:hover {
     background: #0052cc;
 }
 
@@ -457,7 +457,8 @@ table {
     width: 100%;
 }
 
-th, td {
+th,
+td {
     text-align: left;
     padding: 0.5rem;
     border: 1px solid #666;

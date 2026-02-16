@@ -25,17 +25,17 @@ pnpm add data-navigator
 Import the entire library:
 
 ```js
-import dataNavigator from 'data-navigator'
+import dataNavigator from 'data-navigator';
 
-console.log(dataNavigator.structure)
-console.log(dataNavigator.input)
-console.log(dataNavigator.rendering)
+console.log(dataNavigator.structure);
+console.log(dataNavigator.input);
+console.log(dataNavigator.rendering);
 ```
 
 Or import individual modules:
 
 ```js
-import { structure, input, rendering } from 'data-navigator'
+import { structure, input, rendering } from 'data-navigator';
 ```
 
 ## CDN
@@ -44,7 +44,7 @@ For quick prototyping:
 
 ```html
 <script type="module">
-  import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/index.mjs'
+    import dataNavigator from 'https://cdn.jsdelivr.net/npm/data-navigator@2.2.0/dist/index.mjs';
 </script>
 ```
 

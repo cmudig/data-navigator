@@ -16,9 +16,9 @@ By the end of this guide, you'll be able to take any data visualization—whethe
 
 This guide assumes you have:
 
-- Basic familiarity with JavaScript
-- A project with a module bundler (Vite, Webpack, etc.) or the ability to use ES modules
-- A data visualization you want to make accessible (we'll provide one for the tutorial)
+-   Basic familiarity with JavaScript
+-   A project with a module bundler (Vite, Webpack, etc.) or the ability to use ES modules
+-   A data visualization you want to make accessible (we'll provide one for the tutorial)
 
 ::: tip No Framework Required
 Data Navigator is framework-agnostic. While this documentation uses vanilla JavaScript, the same concepts apply whether you're using React, Vue, Svelte, or any other framework.
@@ -46,6 +46,6 @@ Ready to get started? Head to the [Installation](/getting-started/installation) 
 
 ## Additional Resources
 
-- [Read the Paper](https://www.frank.computer/data-navigator/)
-- [GitHub Repository](https://github.com/cmudig/data-navigator)
-- [npm Package](https://www.npmjs.com/package/data-navigator)
+-   [Read the Paper](https://www.frank.computer/data-navigator/)
+-   [GitHub Repository](https://github.com/cmudig/data-navigator)
+-   [npm Package](https://www.npmjs.com/package/data-navigator)

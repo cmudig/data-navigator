@@ -219,39 +219,44 @@
     <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
     <script src="app/testing-bundle.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/@visa/keyboard-instructions@2.0.1/dist/keyboard-instructions/keyboard-instructions.js" data-stencil-namespace="keyboard-instructions">
-    //   import  * as bar from ''; // Example path
-    //   // ... use someFunction
-    //   console.log(bar)
-    
+    <script
+        src="https://cdn.jsdelivr.net/npm/@visa/keyboard-instructions@2.0.1/dist/keyboard-instructions/keyboard-instructions.js"
+        data-stencil-namespace="keyboard-instructions"
+    >
+        //   import  * as bar from ''; // Example path
+        //   // ... use someFunction
+        //   console.log(bar)
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/@visa/visa-charts-data-table@3.0.1/dist/visa-charts-data-table/visa-charts-data-table.js" data-stencil-namespace="visa-charts-data-table">
-    //   import  * as bar from ''; // Example path
-    //   // ... use someFunction
-    //   console.log(bar)
-    
+    <script
+        src="https://cdn.jsdelivr.net/npm/@visa/visa-charts-data-table@3.0.1/dist/visa-charts-data-table/visa-charts-data-table.js"
+        data-stencil-namespace="visa-charts-data-table"
+    >
+        //   import  * as bar from ''; // Example path
+        //   // ... use someFunction
+        //   console.log(bar)
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/@visa/bar-chart@7.0.1/dist/bar-chart/bar-chart.js" data-stencil-namespace="bar-chart">
-    //   import  * as bar from ''; // Example path
-    //   // ... use someFunction
-    //   console.log(bar)
-    
+    <script
+        src="https://cdn.jsdelivr.net/npm/@visa/bar-chart@7.0.1/dist/bar-chart/bar-chart.js"
+        data-stencil-namespace="bar-chart"
+    >
+        //   import  * as bar from ''; // Example path
+        //   // ... use someFunction
+        //   console.log(bar)
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@visa/stacked-bar-chart@7.0.1/dist/stacked-bar-chart/stacked-bar-chart.js" data-stencil-namespace="stacked-bar-chart">
-    //   import  * as bar from ''; // Example path
-    //   // ... use someFunction
-    //   console.log(bar)
-    
+    <script
+        src="https://cdn.jsdelivr.net/npm/@visa/stacked-bar-chart@7.0.1/dist/stacked-bar-chart/stacked-bar-chart.js"
+        data-stencil-namespace="stacked-bar-chart"
+    >
+        //   import  * as bar from ''; // Example path
+        //   // ... use someFunction
+        //   console.log(bar)
     </script>
     <script>
-        
         const stackedProps = {
-            mainTitle:
-            "",
-            subTitle:
-            "",
+            mainTitle: '',
+            subTitle: '',
             data: [
                 {
                     date: 'Jan',
@@ -551,44 +556,42 @@
                 // "#9D02D7",
                 // "#0000FF"
 
-                "#FFFFFF",
-                "#DDDDDD",
-                "#BBBBBB",
-                "#999999",
-
+                '#FFFFFF',
+                '#DDDDDD',
+                '#BBBBBB',
+                '#999999'
 
                 // "#DDDDDD",
                 // "#BBBBBB",
                 // "#777777",
                 // "#333333",
             ],
-            ordinalAccessor: "category",
-            valueAccessor: "value",
-            groupAccessor: "date",
-            uniqueID: "observable-bar-chart",
-            legend: { labels: ["A", "B", "C", "Other"] },
+            ordinalAccessor: 'category',
+            valueAccessor: 'value',
+            groupAccessor: 'date',
+            uniqueID: 'observable-bar-chart',
+            legend: { labels: ['A', 'B', 'C', 'Other'] },
             dataLabel: { visible: false },
             yAxis: { visible: true, gridVisible: false },
-            xAxis: { label: "", visible: false },
+            xAxis: { label: '', visible: false },
             showTotalValue: false,
             suppressEvents: true,
             layout: 'horizontal',
-            hoverStyle: {color: "#333333"},
+            hoverStyle: { color: '#333333' },
             accessibility: {
-                elementDescriptionAccessor: "Note",
-                longDescription:
-                    "This is an example stacked bar chart, made with the Visa Chart Component Library.",
-                executiveSummary: "Category E 1 is the Highest Value, F 2 is the Lowest.",
-                statisticalNotes: "Chart is sorted in descending order.",
+                elementDescriptionAccessor: 'Note',
+                longDescription: 'This is an example stacked bar chart, made with the Visa Chart Component Library.',
+                executiveSummary: 'Category E 1 is the Highest Value, F 2 is the Lowest.',
+                statisticalNotes: 'Chart is sorted in descending order.',
                 elementsAreInterface: false,
                 disableValidation: true,
                 hideDataTableButton: true,
-                keyboardNavConfig:{disabled:true},
+                keyboardNavConfig: { disabled: true },
                 hideTextures: true,
                 hideStrokes: false
             }
-        }
-        
+        };
+
         // let barChart = document.getElementById("bar");
         // if (!barChart) {
         //     barChart = document.createElement("bar-chart");
@@ -597,22 +600,22 @@
         // Object.keys(ratiosProps).forEach((prop) => {
         //     barChart[prop] = ratiosProps[prop];
         // });
-        let stackedBar1 = document.getElementById("stacked1");
+        let stackedBar1 = document.getElementById('stacked1');
         if (!stackedBar1) {
-            stackedBar1 = document.createElement("stacked-bar-chart");
-            stackedBar1.id = "stacked1"
+            stackedBar1 = document.createElement('stacked-bar-chart');
+            stackedBar1.id = 'stacked1';
 
-            stackedBar2 = document.createElement("stacked-bar-chart");
-            stackedBar2.id = "stacked2"
+            stackedBar2 = document.createElement('stacked-bar-chart');
+            stackedBar2.id = 'stacked2';
         }
-        Object.keys(stackedProps).forEach((prop) => {
+        Object.keys(stackedProps).forEach(prop => {
             stackedBar1[prop] = stackedProps[prop];
             stackedBar2[prop] = stackedProps[prop];
         });
-        stackedBar1.id = "stacked1"
-        stackedBar1.id = "stacked2"
+        stackedBar1.id = 'stacked1';
+        stackedBar1.id = 'stacked2';
         // document.getElementById('bar-wrapper').appendChild(barChart)
-        document.getElementById('stack-wrapper1').appendChild(stackedBar1)
-        document.getElementById('stack-wrapper2').appendChild(stackedBar2)
+        document.getElementById('stack-wrapper1').appendChild(stackedBar1);
+        document.getElementById('stack-wrapper2').appendChild(stackedBar2);
     </script>
 </html>
