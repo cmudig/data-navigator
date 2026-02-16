@@ -6,19 +6,19 @@ For this tutorial, we'll use a simple dataset with 4 data points.
 
 ```js
 const data = [
-  { fruit: 'apple', store: 'a', cost: 3 },
-  { fruit: 'banana', store: 'a', cost: 0.75 },
-  { fruit: 'apple', store: 'b', cost: 2.75 },
-  { fruit: 'banana', store: 'b', cost: 1.25 }
-]
+    { fruit: 'apple', store: 'a', cost: 3 },
+    { fruit: 'banana', store: 'a', cost: 0.75 },
+    { fruit: 'apple', store: 'b', cost: 2.75 },
+    { fruit: 'banana', store: 'b', cost: 1.25 }
+];
 ```
 
-| Fruit | Store | Cost |
-|-------|-------|------|
-| Apple | A | $3.00 |
-| Banana | A | $0.75 |
-| Apple | B | $2.75 |
-| Banana | B | $1.25 |
+| Fruit  | Store | Cost  |
+| ------ | ----- | ----- |
+| Apple  | A     | $3.00 |
+| Banana | A     | $0.75 |
+| Apple  | B     | $2.75 |
+| Banana | B     | $1.25 |
 
 ## Why This Dataset?
 

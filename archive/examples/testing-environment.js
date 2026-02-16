@@ -223,7 +223,7 @@ const buildGraph = (structure, rootId, size, colorBy, entryPoint, inclusions, ex
 
     const initiateLifecycle = nextNode => {
         // should we remove existing nodes?
-            console.log("lifecycle nextNode",nextNode)
+        console.log('lifecycle nextNode', nextNode);
 
         const renderedNode = rendering.render({
             renderId: nextNode.renderId,

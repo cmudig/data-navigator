@@ -195,21 +195,21 @@ touchHandler.on('swipe', ev => {
             ? right && up
                 ? 'forward'
                 : right && down
-                ? 'child'
-                : left && down
-                ? 'backward'
-                : left && up
-                ? 'parent'
-                : null
+                  ? 'child'
+                  : left && down
+                    ? 'backward'
+                    : left && up
+                      ? 'parent'
+                      : null
             : right && larger === 'X'
-            ? 'right'
-            : down && larger === 'Y'
-            ? 'down'
-            : left && larger === 'X'
-            ? 'left'
-            : up && larger === 'Y'
-            ? 'up'
-            : null;
+              ? 'right'
+              : down && larger === 'Y'
+                ? 'down'
+                : left && larger === 'X'
+                  ? 'left'
+                  : up && larger === 'Y'
+                    ? 'up'
+                    : null;
     if (dn.getCurrentFocus() && direction) {
         dn.move(direction);
     }

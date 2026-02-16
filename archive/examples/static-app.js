@@ -1,6 +1,6 @@
 import { default as dataNavigator } from '../src/index.ts';
 import { describeNode } from '../src/utilities.ts';
-
+let commandsList = '';
 let scale;
 const hideTooltip = () => {
     document.getElementById('tooltip').classList.add('hidden');
@@ -100,7 +100,7 @@ let nodes = {
                     'total trophies': 17,
                     contains: '3 contests'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -128,7 +128,7 @@ let nodes = {
                     'total trophies': 15,
                     contains: '3 contests'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -156,7 +156,7 @@ let nodes = {
                     'total trophies': 15,
                     contains: '3 contests'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -184,7 +184,7 @@ let nodes = {
                     'total trophies': 28,
                     contains: '3 contests'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -210,7 +210,7 @@ let nodes = {
                     'total trophies': 22,
                     contains: '4 teams'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -236,7 +236,7 @@ let nodes = {
                     'total trophies': 42,
                     contains: '4 teams'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -262,7 +262,7 @@ let nodes = {
                     'total trophies': 11,
                     contains: '4 teams'
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -289,11 +289,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 3,
                     contest: 'BPL',
-                    team: 'Arsenal'
+                    team: 'Arsenal',
+                    trophies: 3
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -320,11 +320,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 14,
                     contest: 'FA Cup',
-                    team: 'Arsenal'
+                    team: 'Arsenal',
+                    trophies: 14
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -351,11 +351,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 0,
                     contest: 'CL',
-                    team: 'Arsenal'
+                    team: 'Arsenal',
+                    trophies: 0
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -381,11 +381,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 5,
                     contest: 'BPL',
-                    team: 'Chelsea'
+                    team: 'Chelsea',
+                    trophies: 5
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -402,11 +402,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 8,
                     contest: 'FA Cup',
-                    team: 'Chelsea'
+                    team: 'Chelsea',
+                    trophies: 8
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -423,11 +423,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 2,
                     contest: 'CL',
-                    team: 'Chelsea'
+                    team: 'Chelsea',
+                    trophies: 2
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -453,19 +453,19 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 1,
                     contest: 'BPL',
-                    team: 'Liverpool'
+                    team: 'Liverpool',
+                    trophies: 1
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
     fa3: {
         d: {
-            trophies: 8,
             contest: 'FA Cup',
-            team: 'Liverpool'
+            team: 'Liverpool',
+            trophies: 8
         },
         spatialProperties: { x: 722, y: 437, width: 122, height: 165 },
         id: 'fa3',
@@ -474,11 +474,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 8,
                     contest: 'FA Cup',
-                    team: 'Liverpool'
+                    team: 'Liverpool',
+                    trophies: 8
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -495,11 +495,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 6,
                     contest: 'CL',
-                    team: 'Liverpool'
+                    team: 'Liverpool',
+                    trophies: 6
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -525,11 +525,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 13,
                     contest: 'BPL',
-                    team: 'Manchester United'
+                    team: 'Manchester United',
+                    trophies: 13
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -546,11 +546,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 12,
                     contest: 'FA Cup',
-                    team: 'Manchester United'
+                    team: 'Manchester United',
+                    trophies: 12
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     },
@@ -567,11 +567,11 @@ let nodes = {
         semantics: {
             label: describeNode(
                 {
-                    trophies: 3,
                     contest: 'CL',
-                    team: 'Manchester United'
+                    team: 'Manchester United',
+                    trophies: 3
                 },
-                { omitKeyNames: true }
+                {}
             )
         }
     }
@@ -593,7 +593,7 @@ let edges = {
     'any-return': {
         source: () => current,
         target: () => previous,
-        navigationRules: ['previous', 'undo']
+        navigationRules: ['undo']
     },
     'any-exit': {
         source: () => current,
@@ -885,25 +885,21 @@ let navigationRules = {
         direction: 'source'
     },
     child: {
-        key: 'Space',
+        key: 'Enter',
         direction: 'target'
     },
     parent: {
         key: 'Backspace',
         direction: 'source'
     },
-    // exit: {
-    //     key: 'Escape',
-    //     direction: 'target'
-    // },
-    // previous: {
-    //     key: 'Period',
-    //     direction: 'target'
-    // },
-    // undo: {
-    //     key: 'Period',
-    //     direction: 'target'
-    // },
+    exit: {
+        key: 'Escape',
+        direction: 'target'
+    },
+    undo: {
+        key: 'Period',
+        direction: 'target'
+    },
     legend: {
         key: 'KeyL',
         direction: 'target'
@@ -961,7 +957,6 @@ const initiateLifecycle = nextNode => {
         datum: nextNode
     });
     node.addEventListener('keydown', e => {
-        console.log(e);
         const direction = input.keydownValidator(e);
         if (direction) {
             e.preventDefault();
@@ -1014,21 +1009,21 @@ const handleMovement = ev => {
             ? right && up
                 ? 'legend'
                 : right && down
-                ? 'child'
-                : left && down
-                ? 'previous'
-                : left && up
-                ? 'parent'
-                : null
+                  ? 'child'
+                  : left && down
+                    ? 'undo'
+                    : left && up
+                      ? 'parent'
+                      : null
             : right && larger === 'X'
-            ? 'right'
-            : down && larger === 'Y'
-            ? 'down'
-            : left && larger === 'X'
-            ? 'left'
-            : up && larger === 'Y'
-            ? 'up'
-            : null;
+              ? 'right'
+              : down && larger === 'Y'
+                ? 'down'
+                : left && larger === 'X'
+                  ? 'left'
+                  : up && larger === 'Y'
+                    ? 'up'
+                    : null;
     if (current && direction) {
         move(direction);
     }
@@ -1041,38 +1036,37 @@ touchHandler.get('swipe').set({ direction: Hammer.DIRECTION_ALL, velocity: 0.2 }
 
 touchHandler.on('press', ev => {});
 touchHandler.on('pressup', ev => {
-    console.log('ev', ev);
-    // if (entered) {
-    //     exit();
-    // } else {
-    //     enter();
-    // }
+    if (entered) {
+        exit();
+    } else {
+        enter();
+    }
 });
 touchHandler.on('swipe', ev => {
     handleMovement(ev);
 });
 
-// let model;
-// let isVideo = false;
-// let ready = false;
-// let timer;
-// let command = null;
-// let center = null;
-// let frames = [];
-// const video = document.getElementById('feed');
-// const canvas = document.getElementById('canvas');
-// const context = canvas ? canvas.getContext('2d') : null;
-// const modelParams = {
-//     flipHorizontal: true,
-//     // outputStride: 16,
-//     // imageScaleFactor: 1,
-//     iouThreshold: 0.5,
-//     scoreThreshold: 0.45,
-//     modelType: 'ssd320fpnlite',
-//     modelSize: 'small'
-//     // bboxLineWidth: "2",
-//     // fontSize: 17,
-// };
+let model;
+let isVideo = false;
+let ready = false;
+let timer;
+let command = null;
+let center = null;
+let frames = [];
+const video = document.getElementById('feed');
+const canvas = document.getElementById('canvas');
+const context = canvas.getContext('2d');
+const modelParams = {
+    flipHorizontal: true,
+    // outputStride: 16,
+    // imageScaleFactor: 1,
+    iouThreshold: 0.5,
+    scoreThreshold: 0.45,
+    modelType: 'ssd320fpnlite',
+    modelSize: 'small'
+    // bboxLineWidth: "2",
+    // fontSize: 17,
+};
 
 const openCam = () => {
     document.getElementById('openWebcam').disabled = true;
@@ -1218,14 +1212,14 @@ const loadModel = () => {
     });
 };
 
-// document.getElementById('loadModel').addEventListener('click', loadModel);
-// document.getElementById('openWebcam').addEventListener('click', openCam);
-// document.getElementById('closeWebcam').addEventListener('click', closeCam);
+document.getElementById('loadModel').addEventListener('click', loadModel);
+document.getElementById('openWebcam').addEventListener('click', openCam);
+document.getElementById('closeWebcam').addEventListener('click', closeCam);
 
 const attemptSubmission = e => {
+    e.preventDefault();
     const command = document.getElementById('textCommand').value.toLowerCase();
     commandHandler(command);
-    e.preventDefault();
 };
 
 const commandHandler = command => {
@@ -1239,7 +1233,11 @@ const commandHandler = command => {
         validCommand(command);
         exit();
     } else {
-        invalidCommand(command);
+        if (command === 'exit' || command === 'enter') {
+            invalidCommand(command, true);
+        } else {
+            invalidCommand(command);
+        }
     }
 };
 
@@ -1248,69 +1246,66 @@ const validCommand = command => {
     document.getElementById('alert').innerText = `Command valid. Attempting "${command}."`;
 };
 
-const invalidCommand = command => {
+const invalidCommand = (command, already) => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `"${command}" not recognized as a command! Possible commands are: ${commandsList}.`;
+    const alert = already ? `"${command}" already issued as a command!` : `"${command}" not recognized as a command!`;
+    document.getElementById('alert').innerText = `${alert} Try another. (Commands are: ${commandsList}.)`;
 };
 
 const lowConfidence = command => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
+    document.getElementById('alert').innerText =
+        `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
 };
 
-// document.getElementById('form').addEventListener('submit', attemptSubmission);
+document.getElementById('form').addEventListener('submit', attemptSubmission);
 
-// const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-// const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
-// const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpeechRecognitionEvent;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpeechRecognitionEvent;
 
-// if (!SpeechRecognition) {
-//     document.getElementById('enableSpeech').setAttribute('disabled', true);
-//     document.getElementById(
-//         'alert'
-//     ).innerText = `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`;
-// } else {
-//     const commands = Object.keys(navigationRules);
-//     commands.push('enter');
-//     const commandsList = commands.join(', ');
+if (!SpeechRecognition) {
+    document.getElementById('enableSpeech').setAttribute('disabled', true);
+    document.getElementById('alert').innerText =
+        `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`;
+} else {
+    const commands = Object.keys(navigationRules);
+    commands.push('enter');
+    commandsList = commands.join(', ');
 
-//     const recognition = new SpeechRecognition();
-//     if (SpeechGrammarList) {
-//         const speechRecognitionList = new SpeechGrammarList();
-//         const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + commands.join(' | ') + ' ;';
-//         speechRecognitionList.addFromString(grammar, 1);
-//         recognition.grammars = speechRecognitionList;
-//     }
-//     recognition.continuous = false;
-//     recognition.lang = 'en-US';
-//     recognition.interimResults = false;
-//     recognition.maxAlternatives = 1;
+    const recognition = new SpeechRecognition();
+    if (SpeechGrammarList) {
+        const speechRecognitionList = new SpeechGrammarList();
+        const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + commands.join(' | ') + ' ;';
+        speechRecognitionList.addFromString(grammar, 1);
+        recognition.grammars = speechRecognitionList;
+    }
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-//     const enableSpeech = () => {
-//         recognition.start();
-//         document.getElementById('alert').classList.remove('alert');
-//         document.getElementById('alert').innerText = `Ready! Please speak a command.`;
-//     };
+    const enableSpeech = () => {
+        recognition.start();
+        document.getElementById('alert').classList.remove('alert');
+        document.getElementById('alert').innerText = `Ready! Please speak a command.`;
+    };
 
-//     document.getElementById('enableSpeech').addEventListener('click', enableSpeech);
+    document.getElementById('enableSpeech').addEventListener('click', enableSpeech);
 
-//     recognition.onresult = event => {
-//         const command = event.results[0][0].transcript;
-//         if (+event.results[0][0].confidence >= 0.65) {
-//             commandHandler(command);
-//         } else {
-//             lowConfidence(command);
-//         }
-//     };
+    recognition.onresult = event => {
+        const command = event.results[0][0].transcript;
+        if (+event.results[0][0].confidence >= 0.65) {
+            commandHandler(command);
+        } else {
+            lowConfidence(command);
+        }
+    };
 
-//     recognition.onspeechend = function () {
-//         recognition.stop();
-//     };
-// }
+    recognition.onspeechend = function () {
+        recognition.stop();
+    };
+}
 
 const setGeometryData = () => {
     const currentWidth = +document.getElementById('chart').getBoundingClientRect().width;

@@ -1,9 +1,9 @@
 # Example Visualization
 
-We'll use [BokehJS](https://docs.bokeh.org/en/latest/docs/user_guide/advanced/bokehjs.html) to create a stacked bar chart. You can use *any* visualization method—Bokeh is not required.
+We'll use [BokehJS](https://docs.bokeh.org/en/latest/docs/user_guide/advanced/bokehjs.html) to create a stacked bar chart. You can use _any_ visualization method—Bokeh is not required.
 
 ::: tip Why Bokeh?
-Bokeh renders to Canvas, demonstrating that Data Navigator works even with pixel-based output. This shows accessibility can be added to *any* visualization library.
+Bokeh renders to Canvas, demonstrating that Data Navigator works even with pixel-based output. This shows accessibility can be added to _any_ visualization library.
 :::
 
 ## The Chart

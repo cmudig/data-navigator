@@ -133,8 +133,8 @@ export default (options: RenderingOptions) => {
             return typeof p1 === 'function'
                 ? p1(d, nodeData.datum)
                 : typeof s1 === 'function'
-                ? s1(d, nodeData.datum)
-                : s1 || s2 || (!subprop ? p1 : undefined);
+                  ? s1(d, nodeData.datum)
+                  : s1 || s2 || (!subprop ? p1 : undefined);
         };
         useExisting = resolveProp('existingElement', 'useForSpatialProperties');
         existingSpatialProperties = resolveProp('existingElement', 'spatialProperties');
