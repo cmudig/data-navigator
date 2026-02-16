@@ -2,6 +2,27 @@
 
 This example shows the inspector alongside a Visa Chart Components stacked bar chart. The chart's built-in keyboard navigation is disabled — instead, data-navigator handles navigation, and the inspector shows the structure being traversed.
 
+## Keyboard Controls
+
+<button class="toggle-controls" :aria-expanded="showControls" @click="showControls = !showControls">{{ showControls ? 'Hide controls' : 'Show controls' }}</button>
+<div v-show="showControls">
+
+| Command                                     | Key                                         |
+| ------------------------------------------- | ------------------------------------------- |
+| Enter the structure                         | Activate the "Enter navigation area" button |
+| Exit                                        | <kbd>Esc</kbd>                              |
+| Left (backward along category)              | <kbd>←</kbd>                                |
+| Right (forward along category)              | <kbd>→</kbd>                                |
+| Up (backward along date)                    | <kbd>↑</kbd>                                |
+| Down (forward along date)                   | <kbd>↓</kbd>                                |
+| Drill down to child                         | <kbd>Enter</kbd>                            |
+| Drill up to category parent                 | <kbd>W</kbd>                                |
+| Drill up to date parent                     | <kbd>J</kbd>                                |
+
+At the deepest level, left/right moves across dates (via `childmostNavigation: 'across'`) and up/down moves across categories. Both dimensions wrap around circularly.
+
+</div>
+
 ## Chart + Inspector
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
@@ -16,7 +37,9 @@ This example shows the inspector alongside a Visa Chart Components stacked bar c
 </div>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
+
+const showControls = ref(true);
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
