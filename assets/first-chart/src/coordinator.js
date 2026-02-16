@@ -5,8 +5,10 @@ import { createInput } from './input.js'
 console.log("testing this loads")
 
 // Assumes the page has two container elements:
-//   <div id="chart-wrapper"></div>  (Data Navigator builds its accessible layer here)
-//   <div id="chart"></div>          (Bokeh renders the visual chart here)
+//   <div id="chart-wrapper">
+//      <div id="chart"></div> (Bokeh renders the visual chart here)
+//      ... (Data Navigator builds its accessible layering here)
+//   </div>  
 
 // Track the currently focused and previously focused node IDs
 // so we can clean up old elements as the user navigates.
