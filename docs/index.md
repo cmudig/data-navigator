@@ -42,10 +42,10 @@ Data Navigator enables designers and developers to render a semantic, navigable 
 
 **Quick links:**
 
--   [Get started building your first navigable data structure](/getting-started/)
--   [Try the interactive demo](/demo) with keyboard, voice, gesture, and touch input
--   [Read our accessible HTML paper](https://www.frank.computer/data-navigator/)
--   [Explore the code on GitHub](https://github.com/cmudig/data-navigator)
+- [Get started building your first navigable data structure](/getting-started/)
+- [Try the interactive demo](/demo) with keyboard, voice, gesture, and touch input
+- [Read our accessible HTML paper](https://www.frank.computer/data-navigator/)
+- [Explore the code on GitHub](https://github.com/cmudig/data-navigator)
 
 ## Introduction Video
 
@@ -97,8 +97,8 @@ And lastly, Data Navigator can create an **accessible rendering layer** (using s
 
 ## Resources
 
--   **[Getting Started Guide](/getting-started/)** - Build your first navigable chart
--   **[Interactive Demo](/demo)** - Try multi-modal input (keyboard, voice, gesture, touch)
--   **[GitHub Repository](https://github.com/cmudig/data-navigator)** - Source code and issues
--   **[npm Package](https://www.npmjs.com/package/data-navigator)** - Install Data Navigator
--   **[Research Paper](https://www.frank.computer/data-navigator/)** - Read the full paper
+- **[Getting Started Guide](/getting-started/)** - Build your first navigable chart
+- **[Interactive Demo](/demo)** - Try multi-modal input (keyboard, voice, gesture, touch)
+- **[GitHub Repository](https://github.com/cmudig/data-navigator)** - Source code and issues
+- **[npm Package](https://www.npmjs.com/package/data-navigator)** - Install Data Navigator
+- **[Research Paper](https://www.frank.computer/data-navigator/)** - Read the full paper

@@ -85,10 +85,10 @@ Navigate: `Up`/`Down` between stores, `Left`/`Right` between fruits _within the 
 
 **Result:** You can move in any direction while staying within a dimensional constraint:
 
--   `Left`/`Right` - Move between fruits (apple ↔ banana)
--   `Up`/`Down` - Move between stores (A ↔ B)
--   `Enter` - Drill into child dimensions
--   `Backspace` - Return to parent dimensions
+- `Left`/`Right` - Move between fruits (apple ↔ banana)
+- `Up`/`Down` - Move between stores (A ↔ B)
+- `Enter` - Drill into child dimensions
+- `Backspace` - Return to parent dimensions
 
 This creates intuitive 2D navigation where both dimensions are always accessible.
 
@@ -141,5 +141,5 @@ createValidId(str); // Create valid HTML ID
 
 ## Further Reading
 
--   [TypeScript Source](https://github.com/cmudig/data-navigator/tree/main/src)
--   [Research Paper](https://www.frank.computer/data-navigator/)
+- [TypeScript Source](https://github.com/cmudig/data-navigator/tree/main/src)
+- [Research Paper](https://www.frank.computer/data-navigator/)

@@ -81,7 +81,9 @@ img {
     width: 450px;
     height: 338px;
     border-bottom: 3px solid #0063ff;
-    box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.2), 0 4px 10px 0 #00000030;
+    box-shadow:
+        0 2px 3px 0 rgba(0, 0, 0, 0.2),
+        0 4px 10px 0 #00000030;
 }
 
 .videobox {

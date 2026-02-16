@@ -1014,21 +1014,21 @@ const handleMovement = ev => {
             ? right && up
                 ? 'legend'
                 : right && down
-                ? 'child'
-                : left && down
-                ? 'previous'
-                : left && up
-                ? 'parent'
-                : null
+                  ? 'child'
+                  : left && down
+                    ? 'previous'
+                    : left && up
+                      ? 'parent'
+                      : null
             : right && larger === 'X'
-            ? 'right'
-            : down && larger === 'Y'
-            ? 'down'
-            : left && larger === 'X'
-            ? 'left'
-            : up && larger === 'Y'
-            ? 'up'
-            : null;
+              ? 'right'
+              : down && larger === 'Y'
+                ? 'down'
+                : left && larger === 'X'
+                  ? 'left'
+                  : up && larger === 'Y'
+                    ? 'up'
+                    : null;
     if (current && direction) {
         move(direction);
     }
@@ -1250,16 +1250,14 @@ const validCommand = command => {
 
 const invalidCommand = command => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `"${command}" not recognized as a command! Possible commands are: ${commandsList}.`;
+    document.getElementById('alert').innerText =
+        `"${command}" not recognized as a command! Possible commands are: ${commandsList}.`;
 };
 
 const lowConfidence = command => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
+    document.getElementById('alert').innerText =
+        `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
 };
 
 // document.getElementById('form').addEventListener('submit', attemptSubmission);

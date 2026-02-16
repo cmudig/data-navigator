@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-US">
     <head>
         <meta charset="UTF-8" />
@@ -271,7 +271,9 @@
             .main-wrapper a:focus {
                 color: var(--link-hover);
                 text-decoration-color: var(--link-hover);
-                transition: color 0.15s ease-in-out, text-decoration-color 0.15s ease-in-out;
+                transition:
+                    color 0.15s ease-in-out,
+                    text-decoration-color 0.15s ease-in-out;
             }
 
             .title,
@@ -2147,8 +2149,8 @@ const input = dataNavigator.input({
                         li.parentElement.parentElement.tagName === 'DETAILS'
                             ? li.parentElement.parentElement
                             : li.parentElement.parentElement.parentElement.parentElement.tagName === 'DETAILS'
-                            ? li.parentElement.parentElement.parentElement.parentElement
-                            : null;
+                              ? li.parentElement.parentElement.parentElement.parentElement
+                              : null;
                     const mod = entry.intersectionRatio > 0 ? 'add' : 'remove';
                     li.classList[mod]('active');
                     if (detailsParent) {

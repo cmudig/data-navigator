@@ -1009,21 +1009,21 @@ const handleMovement = ev => {
             ? right && up
                 ? 'legend'
                 : right && down
-                ? 'child'
-                : left && down
-                ? 'undo'
-                : left && up
-                ? 'parent'
-                : null
+                  ? 'child'
+                  : left && down
+                    ? 'undo'
+                    : left && up
+                      ? 'parent'
+                      : null
             : right && larger === 'X'
-            ? 'right'
-            : down && larger === 'Y'
-            ? 'down'
-            : left && larger === 'X'
-            ? 'left'
-            : up && larger === 'Y'
-            ? 'up'
-            : null;
+              ? 'right'
+              : down && larger === 'Y'
+                ? 'down'
+                : left && larger === 'X'
+                  ? 'left'
+                  : up && larger === 'Y'
+                    ? 'up'
+                    : null;
     if (current && direction) {
         move(direction);
     }
@@ -1254,9 +1254,8 @@ const invalidCommand = (command, already) => {
 
 const lowConfidence = command => {
     document.getElementById('alert').classList.add('alert');
-    document.getElementById(
-        'alert'
-    ).innerText = `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
+    document.getElementById('alert').innerText =
+        `We thought we heard "${command}" but aren't sure. Please try again! Possible commands are: ${commandsList}.`;
 };
 
 document.getElementById('form').addEventListener('submit', attemptSubmission);
@@ -1267,9 +1266,8 @@ const SpeechRecognitionEvent = window.SpeechRecognitionEvent || window.webkitSpe
 
 if (!SpeechRecognition) {
     document.getElementById('enableSpeech').setAttribute('disabled', true);
-    document.getElementById(
-        'alert'
-    ).innerText = `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`;
+    document.getElementById('alert').innerText =
+        `Speech recognition is disabled on your browser or device. (A default on Firefox). You may need to enable Web Speech API's "SpeechRecognition" in your browser settings to continue.`;
 } else {
     const commands = Object.keys(navigationRules);
     commands.push('enter');

@@ -32,10 +32,10 @@ This dataset is perfect for learning because:
 
 Before writing code, consider how users might navigate:
 
--   **As a list** — Move through all 4 points sequentially
--   **By fruit** — Jump between apples, then bananas
--   **By store** — Explore all items in store A, then B
--   **By value** — Navigate from lowest to highest cost
+- **As a list** — Move through all 4 points sequentially
+- **By fruit** — Jump between apples, then bananas
+- **By store** — Explore all items in store A, then B
+- **By value** — Navigate from lowest to highest cost
 
 Data Navigator lets you implement any of these patterns.
 

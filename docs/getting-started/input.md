@@ -24,9 +24,9 @@ const structure = {
 
 Each rule specifies:
 
--   **A name** — `left`, `right`, `exit`
--   **A key** — The keyboard key code
--   **A direction** — Follow edge to `source` or `target`
+- **A name** — `left`, `right`, `exit`
+- **A key** — The keyboard key code
+- **A direction** — Follow edge to `source` or `target`
 
 ## Applying Rules to Edges
 
