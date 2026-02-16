@@ -51,11 +51,11 @@ import dataNavigator from 'data-navigator'
 
 const renderer = dataNavigator.rendering({
   elementData: structure.nodes,
-  defaults: { cssClass: 'dn-node-class' },
+  defaults: { cssClass: 'dn-manual-focus-node' },
   suffixId: 'fruit-chart',
   root: {
     id: 'chart-wrapper',
-    description: 'Fruit cost by store chart',
+    description: 'Fruit cost by store chart. Use arrow keys to navigate.',
     width: '100%',
     height: 0
   },
@@ -86,13 +86,13 @@ renderer.initialize()
 <div id="chart-wrapper" class="dn-root">
   <div id="dn-wrapper-fruit-chart" 
        role="application" 
-       aria-label="Fruit cost by store chart">
+       aria-label="Fruit cost by store chart. Use arrow keys to navigate.">
     
     <button class="dn-entry-button">
       Enter navigation area
     </button>
     
-    <figure id="_0" class="dn-node" tabindex="0">
+    <figure id="_0" class="dn-manual-focus-node" tabindex="0">
       <div role="img" aria-label="fruit: apple..."></div>
     </figure>
     
