@@ -45,8 +45,14 @@ jobs:
       - name: Build library
         run: yarn build
 
-      - name: Build with VitePress
+      - name: Build docs site
         run: yarn docs:build
+
+      - name: Build inspector site
+        run: yarn workspace data-navigator-inspector build:docs
+
+      - name: Copy inspector into docs output
+        run: cp -r packages/inspector/docs/.vitepress/dist docs/.vitepress/dist/inspector
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
