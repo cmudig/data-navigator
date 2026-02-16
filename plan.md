@@ -5,14 +5,14 @@
 -   build out the `structure` module, which should generate node-edge data structure from input JSON
     -   create toGraphViz method
     -   create fromGraphViz method: look at perfopticon? (see how they did it)
-    -   create node builder, edgebuilder, and navbuilder (and wrap all 3 into 1)
     -   add example with set diagram
 
 ## Follow-up work (big picture stuff):
 
--   Build UI tool for creating DN strcture visually
+-   Build UI tool for creating DN structure visually
 -   Models to help with UI tool?
--   Keyboard instructions
+-   Keyboard instructions (added to rendering)
+-   "inspector" view that shows a graph (like in archive/testing)
 -   Build examples:
     -   Visualizations:
         -   Maps/spatial
