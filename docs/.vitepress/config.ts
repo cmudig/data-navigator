@@ -157,7 +157,7 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
-                'data-navigator': '../../src/index.ts'
+                'data-navigator': '../../packages/data-navigator/src/index.ts'
             }
         }
     }

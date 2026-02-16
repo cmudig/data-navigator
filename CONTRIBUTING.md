@@ -4,11 +4,20 @@
 
 Check the [package.json](./package.json) for dev dependencies. Currently data-navigator does not use external dependencies. It is a vanilla library.
 
+## Project Structure
+
+This is a monorepo using Yarn workspaces:
+
+- `packages/data-navigator/` — the core library (published to npm)
+- `packages/inspector/` — (in development) optional inspector companion
+- `packages/skeleton/` — (planned project) GUI-based project using data-navigator and inspector
+- `docs/` — the VitePress documentation site
+
 ## Getting started
 
 - Fork or clone and branch
 - Install stuff: `yarn`
-- Look at our types: [data-navigator.d.ts](./data-navigator.d.ts)
+- Look at our types: [data-navigator.ts](./packages/data-navigator/src/data-navigator.ts)
 - Look at our scripts and things: [package.json](./package.json)
 - Look at our current plan: [plan.md](./plan.md)
 
@@ -24,7 +33,7 @@ Check the [package.json](./package.json) for dev dependencies. Currently data-na
 
 (only from main branch, only core dev team can do this)
 
-- Bump version: `npm version` and specify `major|minor|patch`
+- Bump version: nav into the package `cd packages/data-navigator` and then `npm version` and specify `major|minor|patch`
 - Get it out there: `npm publish`
 - Update repo: `git push`
 - Update repo tags: `git push --tags`

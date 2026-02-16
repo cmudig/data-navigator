@@ -1,0 +1,11 @@
+{
+    "name": "data-navigator-skeleton",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Skeleton project, using data-navigator and inspector.",
+    "dependencies": {
+        "data-navigator": "*",
+        "data-navigator-inspector": "*"
+    }
+}
