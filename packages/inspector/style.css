@@ -1,0 +1,40 @@
+/* Inspector default styles */
+
+.dn-inspector-wrapper {
+    position: relative;
+}
+
+.dn-inspector-hidden {
+    display: none;
+}
+
+.dn-inspector-tooltip {
+    position: absolute;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid black;
+    width: 200px;
+    top: 0;
+    left: 0;
+    font-size: 0.85em;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.dn-inspector-focus-indicator {
+    pointer-events: none;
+}
+
+.dn-inspector-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    pointer-events: none;
+    background: transparent;
+    border: none;
+}
+
+.dn-inspector-node:focus {
+    outline: 2px solid #1e3369;
+}

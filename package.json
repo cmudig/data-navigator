@@ -15,7 +15,8 @@
         "prettier-all": "prettier --config ./.prettierrc --ignore-path ./.prettierignore --write \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
         "docs:dev": "yarn workspace data-navigator-docs dev",
         "docs:build": "yarn workspace data-navigator-docs build",
-        "docs:preview": "yarn workspace data-navigator-docs preview"
+        "docs:preview": "yarn workspace data-navigator-docs preview",
+        "inspector:dev": "yarn workspace data-navigator-inspector dev"
     },
     "devDependencies": {
         "prettier": "^3.0.0"

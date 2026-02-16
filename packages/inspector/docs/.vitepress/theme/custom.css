@@ -1,0 +1,342 @@
+/**
+ * Custom CSS for Data Navigator Inspector
+ * Copied from the main docs site for consistency and accessibility.
+ */
+
+:root {
+    --dn-brand-primary: #1e3369;
+    --dn-brand-light: #6780c0;
+    --vp-c-brand-1: var(--dn-brand-primary);
+    --vp-c-brand-2: var(--dn-brand-light);
+    --vp-c-brand-3: #4a5d99;
+    --vp-c-brand-soft: rgba(30, 51, 105, 0.1);
+
+    --vp-home-hero-name-color: transparent;
+    --vp-home-hero-name-background: linear-gradient(135deg, var(--dn-brand-primary) 0%, var(--dn-brand-light) 100%);
+    --vp-home-hero-image-background-image: linear-gradient(
+        -45deg,
+        var(--dn-brand-light) 0%,
+        var(--dn-brand-primary) 100%
+    );
+    --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+    --vp-c-brand-1: var(--dn-brand-light);
+    --vp-c-brand-2: #8a9fd4;
+}
+
+/* Data Navigator Core Styles */
+.dn-wrapper {
+    /* position: absolute; */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.dn-wrapper * {
+    pointer-events: auto;
+}
+
+.dn-entry-button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--vp-c-brand-1);
+    background: var(--vp-c-bg);
+    /* Border and outline set by global button styles */
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+    margin-bottom: 0.5rem;
+    min-width: 44px;
+    min-height: 44px;
+    position: relative;
+    z-index: 9999;
+}
+
+.dn-entry-button:hover {
+    background: var(--vp-c-brand-soft);
+}
+
+/* Focus state handled by global styles */
+
+.dn-node {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.dn-node:focus {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+    z-index: 10;
+}
+
+.dn-node-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.dn-exit-position {
+    position: absolute;
+    top: 250px;
+    left: 10px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--vp-c-text-2);
+    background: var(--vp-c-bg-soft);
+    border-radius: 4px;
+    border: 1px solid #767676;
+}
+
+.dn-exit-position:focus {
+    outline: 2px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+}
+
+.dn-test-class {
+    background: rgba(30, 51, 105, 0.1);
+    border: 1px dashed var(--vp-c-brand-1);
+}
+
+.dn-test-class:focus {
+    background: rgba(30, 51, 105, 0.2);
+    border-style: solid;
+}
+
+/* Transparent overlay for Bokeh/Canvas charts */
+.dn-manual-focus-node {
+    pointer-events: none;
+    background: transparent;
+    border: none;
+    position: absolute;
+    margin: 0px;
+}
+
+.dn-manual-focus-node:focus {
+    outline: 2px solid #1e3369;
+}
+
+/* Inspector-specific styles */
+.dn-inspector-wrapper {
+    position: relative;
+}
+
+.dn-inspector-hidden {
+    display: none;
+}
+
+.dn-inspector-tooltip {
+    position: absolute;
+    background: var(--vp-c-bg);
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+}
+
+.dn-inspector-focus-indicator {
+    pointer-events: none;
+}
+
+.dn-inspector-node {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    overflow: visible;
+    pointer-events: none;
+    background: transparent;
+    border: none;
+}
+
+.dn-inspector-node:focus {
+    outline: 2px solid #1e3369;
+}
+
+/* Tooltip */
+.example-tooltip,
+.tooltip {
+    position: absolute;
+    background: var(--vp-c-bg);
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.example-tooltip.hidden,
+.tooltip.hidden {
+    display: none;
+}
+
+/* ============================================
+   ACCESSIBILITY STYLES
+   ============================================ */
+
+/* Borders on interactive elements */
+button,
+input,
+select,
+textarea,
+.dn-entry-button,
+summary {
+    border: 1px solid var(--vp-c-border);
+}
+
+/* Enhanced focus state for keyboard navigation */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+.dn-entry-button:focus,
+summary:focus,
+a:focus {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+    border-color: var(--vp-c-brand-1);
+}
+
+/* Focus-visible for better UX (keyboard vs mouse) */
+*:focus-visible {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+}
+
+/* Ensure links are always underlined */
+a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+a:hover {
+    text-decoration-thickness: 2px;
+}
+
+/* VitePress nav links override */
+.VPNav a,
+.VPSidebar a,
+.VPFeature a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+/* Minimum touch target size (44x44px) */
+button,
+input[type='button'],
+input[type='submit'],
+.dn-entry-button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+}
+
+/* Form inputs */
+input[type='text'],
+input[type='email'],
+input[type='search'],
+textarea {
+    border: 1px solid var(--vp-c-border);
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--vp-c-bg);
+    color: var(--vp-c-text-1);
+    font-size: 1rem;
+}
+
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='search']:focus,
+textarea:focus {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 1px;
+    border-color: var(--vp-c-brand-1);
+}
+
+/* Details/Summary */
+summary {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+summary:focus {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+}
+
+/* Disabled state - still meets contrast */
+button:disabled,
+input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    outline-color: var(--vp-c-text-3);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    button,
+    input,
+    select,
+    textarea,
+    .dn-entry-button {
+        outline-width: 3px;
+    }
+
+    *:focus,
+    *:focus-visible {
+        outline-width: 4px;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .dn-entry-button,
+    .dn-node {
+        transition: none;
+    }
+}
+
+nav button {
+    border-radius: 20px;
+    border: none;
+}
+
+.VPSwitch {
+    min-height: 18px;
+    height: 18px;
+}
