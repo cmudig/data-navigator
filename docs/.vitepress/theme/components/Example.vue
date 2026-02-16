@@ -24,26 +24,27 @@ defineExpose({ containerRef, ready })
 
 <template>
   <ClientOnly>
-    <figure 
-      :id="id + '-wrapper'" 
-      class="example-wrapper"
-      :class="wrapperClass"
-      :style="{ minHeight: height || '300px' }"
-      role="figure"
-      :aria-label="label || 'Interactive example'"
-    >
+    <div class="parent-wrapper">
       <div 
-        :id="id" 
-        ref="containerRef"
-        class="example-container"
-      ></div>
-      <div 
-        :id="id + '-tooltip'" 
-        class="example-tooltip hidden"
-        role="status"
-        aria-live="polite"
-      ></div>
-    </figure>
+        :id="id + '-wrapper'" 
+        class="example-wrapper"
+        :class="wrapperClass"
+        role="figure"
+        :aria-label="label || 'Interactive example'"
+      >
+        <div 
+          :id="id" 
+          ref="containerRef"
+          class="example-container"
+        ></div>
+        <div 
+          :id="id + '-tooltip'" 
+          class="example-tooltip hidden"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </div>
+    </div>
     <template #fallback>
       <div 
         class="example-loading" 
@@ -59,17 +60,24 @@ defineExpose({ containerRef, ready })
 </template>
 
 <style scoped>
-.example-wrapper {
-  position: relative;
+.parent-wrapper {
   margin: 1.5rem 0;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   padding: 1rem;
   background: var(--vp-c-bg-soft);
 }
+.example-wrapper {
+  position: relative;
+}
 
 .example-container {
   width: 100%;
+}
+
+.example-tooltip {
+  top: 0;
+  left: 0;
 }
 
 .example-loading {
