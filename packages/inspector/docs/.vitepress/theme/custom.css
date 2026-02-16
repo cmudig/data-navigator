@@ -171,6 +171,23 @@
     outline: 2px solid #1e3369;
 }
 
+/* Toggle controls button */
+.toggle-controls {
+    display: inline-block;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--vp-c-brand-1);
+    background: var(--vp-c-bg);
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+}
+
+.toggle-controls:hover {
+    background: var(--vp-c-brand-soft);
+}
+
 /* Tooltip */
 .example-tooltip,
 .tooltip {

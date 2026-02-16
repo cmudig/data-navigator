@@ -2,8 +2,10 @@
 
 This is part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) project. The inspector visualizes a data-navigator `structure` object as a force-directed node-edge graph. As you navigate through the structure using keyboard controls, the focus indicator in the graph follows your position.
 
-<details open>
-<summary>Keyboard Controls</summary>
+## Keyboard Controls
+
+<button class="toggle-controls" :aria-expanded="showControls" @click="showControls = !showControls">{{ showControls ? 'Hide controls' : 'Show controls' }}</button>
+<div v-show="showControls">
 
 | Command                        | Key                                         |
 | ------------------------------ | ------------------------------------------- |
@@ -16,16 +18,18 @@ This is part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) projec
 | Drill down to child            | <kbd>Enter</kbd>                            |
 | Drill up to parent             | <kbd>W</kbd> or <kbd>J</kbd>                |
 
-</details>
+</div>
 
 ## Simple Example
 
-Press the **Enter navigation area** button below, then use arrow keys to navigate. Watch the focus indicator move through the graph.
+Press the **Enter navigation area** button below, then use arrow keys, enter, and W/J keys to navigate. Watch the focus indicator move through the graph.
 
 <div id="simple-example" style="min-height: 350px;"></div>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
+
+const showControls = ref(true);
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
