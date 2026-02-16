@@ -1,0 +1,18 @@
+{
+    "name": "data-navigator-docs",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vitepress dev .",
+        "build": "vitepress build .",
+        "preview": "vitepress preview ."
+    },
+    "dependencies": {
+        "data-navigator": "*"
+    },
+    "devDependencies": {
+        "vitepress": "^1.4.0",
+        "vue": "^3.5.0"
+    }
+}

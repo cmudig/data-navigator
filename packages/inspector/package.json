@@ -1,0 +1,26 @@
+{
+    "name": "data-navigator-inspector",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Optional inspector companion for data-navigator.",
+    "main": "./src/index.js",
+    "scripts": {
+        "dev": "vitepress dev docs",
+        "build:docs": "vitepress build docs",
+        "preview": "vitepress preview docs"
+    },
+    "dependencies": {
+        "d3-array": "^3.0.0",
+        "d3-drag": "^3.0.0",
+        "d3-force": "^3.0.0",
+        "d3-scale": "^4.0.0",
+        "d3-scale-chromatic": "^3.0.0",
+        "d3-selection": "^3.0.0"
+    },
+    "devDependencies": {
+        "data-navigator": "*",
+        "vitepress": "^1.4.0",
+        "vue": "^3.5.0"
+    }
+}
