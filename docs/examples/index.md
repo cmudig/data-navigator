@@ -1,33 +1,19 @@
 # Examples
 
-::: warning Under Construction
-This section is being expanded with more examples.
+Interactive examples showing Data Navigator in action with different chart types and navigation patterns.
+
+## Basic
+
+- [Simple List Navigation](/examples/simple-list) — A linear linked-list structure on a Bokeh stacked bar chart, navigated with left/right arrow keys.
+- [Using the Inspector](/examples/using-the-inspector) — A bar chart with the Data Navigator Inspector showing the structure graph alongside the chart.
+- [Using the Dimensions API](/examples/dimensions-api) — A line chart demonstrating how the dimensions API automatically builds hierarchical navigation from flat data.
+- [Stacked Bar Chart](/examples/stacked-bar) — A multi-dimensional hierarchical structure on a Visa stacked bar chart, with category and date dimensions.
+
+## Planned
+
+::: info Coming Soon
+More examples are being added, including tree navigation, D3 and Vega-Lite integrations, spatial navigation for scatterplots and maps, and experimental input modalities.
 :::
-
-## Planned Examples
-
-### Basic
-
-- Simple List Navigation
-- Stacked Bar Chart (from Getting Started)
-- Tree Navigation
-
-### Advanced
-
-- Dimensions API
-- Multi-Dimensional Navigation
-- Spatial Navigation (scatterplots, maps)
-
-### Integrations
-
-- D3.js
-- Vega-Lite
-- Static Images
-
-### Experimental
-
-- Voice Input
-- Gesture Input
 
 ## Contributing
 

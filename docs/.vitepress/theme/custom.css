@@ -128,6 +128,58 @@
     outline: 2px solid #1e3369;
 }
 
+/* Hide VitePress h2 styling inside data-navigator root elements */
+.dn-root h2 {
+    margin: 0;
+    border-top: none;
+    padding-top: 0;
+}
+
+/* Inspector-specific styles */
+.dn-inspector-wrapper {
+    position: relative;
+}
+
+.dn-inspector-hidden {
+    display: none;
+}
+
+.dn-inspector-tooltip {
+    position: absolute;
+    background: var(--vp-c-bg);
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+}
+
+.dn-inspector-focus-indicator {
+    pointer-events: none;
+}
+
+/* Toggle controls button */
+.toggle-controls {
+    display: inline-block;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--vp-c-brand-1);
+    background: var(--vp-c-bg);
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+}
+
+.toggle-controls:hover {
+    background: var(--vp-c-brand-soft);
+}
+
 /* Tooltip */
 .example-tooltip,
 .tooltip {
