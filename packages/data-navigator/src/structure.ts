@@ -871,7 +871,7 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
 
                 // lastly, we prep the childmost level
                 let i = 0;
-                if (valueKeys.length > 1) {
+                if (valueKeys.length >= 1) {
                     valueKeys.forEach(vk => {
                         let v = division.values[vk] as DatumObject;
                         const id = typeof options.idKey === 'function' ? options.idKey(v) : options.idKey;

@@ -241,10 +241,11 @@ export function TreeGraph(
         const colSpacing = usableWidth / (cols + 1);
         const rowSpacingGrid = gridHeight / (rows + 1);
 
+        // Group leaves by their grid cell so we can spread co-located nodes.
+        const cellGroups = {};
         leafNodes.forEach(n => {
             const ld = leafDivisions[n.id];
             if (!ld) {
-                // Unaffiliated leaf — place to the right
                 n.x = width - padding.right;
                 n.y = leafY;
                 return;
@@ -253,8 +254,27 @@ export function TreeGraph(
             const rowDivId = ld[dim2Key];
             const colIdx = div1Ids.indexOf(colDivId);
             const rowIdx = div2Ids.indexOf(rowDivId);
-            n.x = padding.left + colSpacing * ((colIdx >= 0 ? colIdx : 0) + 1);
-            n.y = gridTop + rowSpacingGrid * ((rowIdx >= 0 ? rowIdx : 0) + 1);
+            const cellKey = `${colIdx},${rowIdx}`;
+            if (!cellGroups[cellKey]) cellGroups[cellKey] = { colIdx, rowIdx, nodes: [] };
+            cellGroups[cellKey].nodes.push(n);
+        });
+        // Position each group, spreading nodes within shared cells.
+        const cellPad = Math.min(colSpacing, rowSpacingGrid) * 0.6;
+        Object.values(cellGroups).forEach(({ colIdx, rowIdx, nodes: cellNodes }) => {
+            const cx = padding.left + colSpacing * (colIdx + 1);
+            const cy = gridTop + rowSpacingGrid * (rowIdx + 1);
+            if (cellNodes.length === 1) {
+                cellNodes[0].x = cx;
+                cellNodes[0].y = cy;
+            } else {
+                // Spread horizontally within the cell
+                const spread = cellPad;
+                const step = spread / (cellNodes.length - 1);
+                cellNodes.forEach((n, i) => {
+                    n.x = cx - spread / 2 + step * i;
+                    n.y = cy;
+                });
+            }
         });
     }
 
