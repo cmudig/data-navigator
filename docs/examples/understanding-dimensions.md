@@ -90,6 +90,10 @@ const structure = dataNavigator.structure({
 
 Drill down with <kbd>Enter</kbd>, drill up with <kbd>W</kbd> or <kbd>J</kbd>. At the leaf level, all four arrow keys work because both dimensions use `childmostNavigation: 'across'`.
 
+::: tip Multiple navigable charts on one page
+When you have several Data Navigator instances on the same page (especially with a shared dataset), each instance of Data Navigator must use **unique ids**. You may need to copy your datasets, to avoid sharing ids! If two structures share an id like `_0`, the rendered focus element from one chart can steal focus from another. This will throw users off, because they'll suddenly be moved to the wrong structure elsewhere when navigating. Either give each dataset its own id suffix (e.g. `_0_a`, `_0_b`) or make sure you remove all rendered elements when the user exits/blurs a chart (which is a less-accessible pattern than leaving the last-visited elements remaining rendered).
+:::
+
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
         <h4>Chart</h4>
@@ -290,12 +294,15 @@ onMounted(async () => {
         const chartWidth = 250;
         const chartHeight = 200;
 
-        const data = [
-            { id: '_0', fruit: 'apple',  store: 'a', cost: 3,    selectAll: 'yes' },
-            { id: '_1', fruit: 'banana', store: 'a', cost: 0.75, selectAll: 'yes' },
-            { id: '_2', fruit: 'apple',  store: 'b', cost: 2.75, selectAll: 'yes' },
-            { id: '_3', fruit: 'banana', store: 'b', cost: 1.25, selectAll: 'yes' }
+        // Each example gets its own data with unique ids to avoid focus
+        // collisions when multiple data-navigator instances share one page.
+        const baseData = [
+            { fruit: 'apple',  store: 'a', cost: 3,    selectAll: 'yes' },
+            { fruit: 'banana', store: 'a', cost: 0.75, selectAll: 'yes' },
+            { fruit: 'apple',  store: 'b', cost: 2.75, selectAll: 'yes' },
+            { fruit: 'banana', store: 'b', cost: 1.25, selectAll: 'yes' }
         ];
+        const makeData = (suffix) => baseData.map((d, i) => ({ ...d, id: `_${i}${suffix}` }));
 
         // Bokeh bar data for focus indicator drawing
         const barData = {
@@ -494,25 +501,26 @@ onMounted(async () => {
         }];
 
         // ===== Example 1: Hand-built list =====
+        const ex1Data = makeData('_a');
         const ex1Structure = {
             nodes: {
-                _0: { id: '_0', renderId: '_0', data: data[0], edges: ['_0-_1', 'any-exit'],
+                '_0_a': { id: '_0_a', renderId: '_0_a', data: ex1Data[0], edges: ['_0_a-_1_a', 'any-exit'],
                       semantics: { label: 'fruit: apple. store: a. cost: 3. Data point.' },
                       spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight } },
-                _1: { id: '_1', renderId: '_1', data: data[1], edges: ['_0-_1', '_1-_2', 'any-exit'],
+                '_1_a': { id: '_1_a', renderId: '_1_a', data: ex1Data[1], edges: ['_0_a-_1_a', '_1_a-_2_a', 'any-exit'],
                       semantics: { label: 'fruit: banana. store: a. cost: 0.75. Data point.' },
                       spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight } },
-                _2: { id: '_2', renderId: '_2', data: data[2], edges: ['_1-_2', '_2-_3', 'any-exit'],
+                '_2_a': { id: '_2_a', renderId: '_2_a', data: ex1Data[2], edges: ['_1_a-_2_a', '_2_a-_3_a', 'any-exit'],
                       semantics: { label: 'fruit: apple. store: b. cost: 2.75. Data point.' },
                       spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight } },
-                _3: { id: '_3', renderId: '_3', data: data[3], edges: ['_2-_3', 'any-exit'],
+                '_3_a': { id: '_3_a', renderId: '_3_a', data: ex1Data[3], edges: ['_2_a-_3_a', 'any-exit'],
                       semantics: { label: 'fruit: banana. store: b. cost: 1.25. Data point.' },
                       spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight } }
             },
             edges: {
-                '_0-_1': { source: '_0', target: '_1', navigationRules: ['left', 'right'] },
-                '_1-_2': { source: '_1', target: '_2', navigationRules: ['left', 'right'] },
-                '_2-_3': { source: '_2', target: '_3', navigationRules: ['left', 'right'] },
+                '_0_a-_1_a': { source: '_0_a', target: '_1_a', navigationRules: ['left', 'right'] },
+                '_1_a-_2_a': { source: '_1_a', target: '_2_a', navigationRules: ['left', 'right'] },
+                '_2_a-_3_a': { source: '_2_a', target: '_3_a', navigationRules: ['left', 'right'] },
                 'any-exit': { source: (d, c) => c, target: () => '', navigationRules: ['exit'] }
             },
             navigationRules: {
@@ -529,14 +537,14 @@ onMounted(async () => {
 
         setupExample({
             chartId: 'ex1-chart', wrapperId: 'ex1-chart-wrapper',
-            structure: ex1Structure, entryPoint: '_0',
+            structure: ex1Structure, entryPoint: '_0_a',
             inspectors: [ex1Inspector],
             highlightFn: drawFocusIndicator
         });
 
         // ===== Example 2: Two categorical dimensions (terminal) =====
         const ex2Structure = dataNavigator.structure({
-            data, idKey: 'id',
+            data: makeData('_b'), idKey: 'id',
             dimensions: {
                 values: [
                     { dimensionKey: 'store', type: 'categorical',
@@ -558,7 +566,7 @@ onMounted(async () => {
 
         // ===== Example 3: Circular extents =====
         const ex3Structure = dataNavigator.structure({
-            data, idKey: 'id',
+            data: makeData('_c'), idKey: 'id',
             dimensions: {
                 values: [
                     { dimensionKey: 'store', type: 'categorical',
@@ -580,7 +588,7 @@ onMounted(async () => {
 
         // ===== Example 4: Numerical dimension =====
         const ex4Structure = dataNavigator.structure({
-            data, idKey: 'id',
+            data: makeData('_d'), idKey: 'id',
             dimensions: {
                 values: [
                     { dimensionKey: 'cost', type: 'numerical',
@@ -600,7 +608,7 @@ onMounted(async () => {
 
         // ===== Example 5: compressSparseDivisions =====
         const ex5Structure = dataNavigator.structure({
-            data, idKey: 'id',
+            data: makeData('_e'), idKey: 'id',
             dimensions: {
                 values: [
                     { dimensionKey: 'cost', type: 'numerical',
@@ -621,7 +629,7 @@ onMounted(async () => {
 
         // ===== Example 6: Level 0 parent node =====
         const ex6Structure = dataNavigator.structure({
-            data, idKey: 'id',
+            data: makeData('_f'), idKey: 'id',
             dimensions: {
                 parentOptions: {
                     addLevel0: {
