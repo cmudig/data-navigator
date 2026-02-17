@@ -1,6 +1,6 @@
 {
     "name": "@data-navigator/inspector",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "type": "module",
     "author": "Frank Elavsky",
     "license": "MIT",
@@ -32,22 +32,22 @@
         "prepublishOnly": "cp ../../README.md ../../LICENSE ."
     },
     "peerDependencies": {
-        "data-navigator": ">=2.0.0",
-        "d3-array": "^3.0.0",
-        "d3-drag": "^3.0.0",
-        "d3-force": "^3.0.0",
-        "d3-scale": "^4.0.0",
-        "d3-scale-chromatic": "^3.0.0",
-        "d3-selection": "^3.0.0"
-    },
-    "devDependencies": {
-        "data-navigator": "*",
         "d3-array": "^3.0.0",
         "d3-drag": "^3.0.0",
         "d3-force": "^3.0.0",
         "d3-scale": "^4.0.0",
         "d3-scale-chromatic": "^3.0.0",
         "d3-selection": "^3.0.0",
+        "data-navigator": ">=2.0.0"
+    },
+    "devDependencies": {
+        "d3-array": "^3.0.0",
+        "d3-drag": "^3.0.0",
+        "d3-force": "^3.0.0",
+        "d3-scale": "^4.0.0",
+        "d3-scale-chromatic": "^3.0.0",
+        "d3-selection": "^3.0.0",
+        "data-navigator": "*",
         "vitepress": "^1.4.0",
         "vue": "^3.5.0"
     }

@@ -26,6 +26,29 @@ Data Navigator is organized into 3 composable modules:
 
 These modules can be used together or independently. Visit [the docs](https://dig.cmu.edu/data-navigator/getting-started/) for a step-by-step guide to building your first navigable chart.
 
+## Inspector
+
+The optional **[@data-navigator/inspector](https://www.npmjs.com/package/@data-navigator/inspector)** package provides a visual graph of your data-navigator structure, useful for debugging and understanding navigation paths.
+
+```
+npm install @data-navigator/inspector data-navigator d3-array d3-drag d3-force d3-scale d3-scale-chromatic d3-selection
+```
+
+```js
+import dataNavigator from 'data-navigator';
+import { Inspector } from '@data-navigator/inspector';
+
+const inspector = Inspector({
+    structure: myStructure, // made using data navigator
+    container: 'inspector-container' // render to DOM
+});
+
+// Sync with navigation events
+inspector.highlight(nodeId);
+inspector.clear();
+inspector.destroy();
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and development workflow.

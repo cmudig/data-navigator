@@ -49,7 +49,7 @@ jobs:
         run: yarn docs:build
 
       - name: Build inspector site
-        run: yarn workspace data-navigator-inspector build:docs
+        run: yarn workspace @data-navigator/inspector build:docs
 
       - name: Copy inspector into docs output
         run: cp -r packages/inspector/docs/.vitepress/dist docs/.vitepress/dist/inspector
