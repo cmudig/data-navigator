@@ -12,7 +12,14 @@ export default defineConfig({
     base: '/data-navigator/inspector/',
 
     head: [
-        // Visa Chart Components (for stacked bar example)
+        // Visa Chart Components
+        [
+            'script',
+            {
+                src: 'https://cdn.jsdelivr.net/npm/@visa/bar-chart@7.0.1/dist/bar-chart/bar-chart.js',
+                'data-stencil-namespace': 'bar-chart'
+            }
+        ],
         [
             'script',
             {
@@ -25,6 +32,7 @@ export default defineConfig({
     themeConfig: {
         nav: [
             { text: 'Home', link: '/' },
+            { text: 'Getting Started', link: '/getting-started' },
             { text: 'Examples', link: '/examples/stacked-bar' },
             { text: 'Data Navigator Docs', link: 'https://dig.cmu.edu/data-navigator/' }
         ],
@@ -33,6 +41,7 @@ export default defineConfig({
                 text: 'Inspector',
                 items: [
                     { text: 'Overview', link: '/' },
+                    { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Stacked Bar Example', link: '/examples/stacked-bar' }
                 ]
             }
