@@ -1,4 +1,5 @@
 import { ForceGraph } from './force-graph.js';
+import { TreeGraph } from './tree-graph.js';
 
 /**
  * Converts a structure's nodes or edges object into an array for D3.
@@ -61,7 +62,7 @@ export const buildLabel = (node, colorBy) => {
 /**
  * Shows the tooltip next to the force graph.
  */
-const showTooltip = (node, tooltipEl, size, colorBy) => {
+const showTooltip = (node, tooltipEl, graphWidth, graphHeight, colorBy) => {
     tooltipEl.classList.remove('dn-inspector-hidden');
     tooltipEl.innerText =
         buildLabel(node, colorBy) ||
@@ -69,7 +70,7 @@ const showTooltip = (node, tooltipEl, size, colorBy) => {
     const bbox = tooltipEl.getBoundingClientRect();
     const yOffset = bbox.height / 2;
     tooltipEl.style.textAlign = 'left';
-    tooltipEl.style.transform = `translate(${size}px,${size / 2 - yOffset}px)`;
+    tooltipEl.style.transform = `translate(${graphWidth}px,${graphHeight / 2 - yOffset}px)`;
 };
 
 /**
@@ -123,6 +124,7 @@ const createFocusIndicator = (svgEl, id) => {
  * @param {number} [options.nodeRadius=5] - Radius of node circles
  * @param {string[]} [options.edgeExclusions=[]] - Edge IDs to exclude from the graph
  * @param {string[]} [options.nodeInclusions=[]] - Extra pseudo-node IDs to include
+ * @param {'force'|'tree'} [options.mode='force'] - Visualization mode: 'force' for force-directed, 'tree' for hierarchy layout
  *
  * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function }}
  */
@@ -133,27 +135,36 @@ export function Inspector({
     colorBy = 'dimensionLevel',
     nodeRadius = 5,
     edgeExclusions = [],
-    nodeInclusions = []
+    nodeInclusions = [],
+    mode = 'force'
 }) {
     const rootEl = typeof container === 'string' ? document.getElementById(container) : container;
     const rootId = rootEl.id || 'dn-inspector-' + Math.random().toString(36).slice(2, 8);
     if (!rootEl.id) rootEl.id = rootId;
 
-    // Build the force graph SVG
-    const graph = ForceGraph(
-        {
-            nodes: convertToArray(structure.nodes, nodeInclusions),
-            links: convertToArray(structure.edges, [], edgeExclusions)
-        },
-        {
-            nodeId: d => d.id,
-            nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
-            width: size,
-            height: size,
-            nodeRadius,
-            hide: true
-        }
-    );
+    // Build the graph SVG
+    const graphWidth = mode === 'tree' ? size * 2 : size;
+    const graphHeight = mode === 'tree' ? Math.round(size * 1.5) : size;
+    const nodeArray = convertToArray(structure.nodes, nodeInclusions);
+    const linkArray = convertToArray(structure.edges, [], edgeExclusions);
+    const graphOptions = {
+        nodeId: d => d.id,
+        nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
+        width: graphWidth,
+        height: graphHeight,
+        nodeRadius,
+        hide: true
+    };
+
+    const graph = mode === 'tree'
+        ? TreeGraph(
+            { nodes: nodeArray, links: linkArray },
+            { ...graphOptions, dimensions: structure.dimensions }
+          )
+        : ForceGraph(
+            { nodes: nodeArray, links: linkArray },
+            graphOptions
+          );
 
     // Create wrapper structure
     const wrapperEl = document.createElement('div');
@@ -184,7 +195,7 @@ export function Inspector({
         c.addEventListener('mousemove', e => {
             if (e.target?.__data__?.id) {
                 let d = e.target.__data__;
-                showTooltip(structure.nodes[d.id] || d, tooltipEl, size, colorBy);
+                showTooltip(structure.nodes[d.id] || d, tooltipEl, graphWidth, graphHeight, colorBy);
             }
         });
         c.addEventListener('mouseleave', () => {
@@ -201,7 +212,7 @@ export function Inspector({
         highlight(nodeId) {
             highlightNode(nodeId, svgEl, indicatorEl);
             if (structure.nodes[nodeId]) {
-                showTooltip(structure.nodes[nodeId], tooltipEl, size, colorBy);
+                showTooltip(structure.nodes[nodeId], tooltipEl, graphWidth, graphHeight, colorBy);
             }
         },
         clear() {
