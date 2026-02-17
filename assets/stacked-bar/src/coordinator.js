@@ -11,15 +11,33 @@ let input;
 // Create the Visa stacked bar chart
 const stackedBar = createChart('stacked-chart-wrapper', data);
 
-// Create the inspector (passive — just visualizes the structure)
-const inspector = Inspector({
+// Create the inspector (passive — defaults to tree layout)
+let currentMode = 'tree';
+const createInspector = (mode) => Inspector({
     structure,
     container: 'inspector',
     size: 325,
     colorBy: 'dimensionLevel',
     edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit']
+    nodeInclusions: ['exit'],
+    mode
 });
+let inspector = createInspector(currentMode);
+
+// Toggle button switches between tree and force modes
+const toggleBtn = document.getElementById('toggle-inspector-mode');
+if (toggleBtn) {
+    const updateLabel = () => {
+        toggleBtn.textContent = currentMode === 'tree' ? 'Switch to force graph' : 'Switch to tree layout';
+    };
+    updateLabel();
+    toggleBtn.addEventListener('click', () => {
+        currentMode = currentMode === 'tree' ? 'force' : 'tree';
+        inspector.destroy();
+        inspector = createInspector(currentMode);
+        updateLabel();
+    });
+}
 
 function enter() {
     const nextNode = input.enter();
