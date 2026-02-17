@@ -131,17 +131,20 @@ export function TreeGraph(
     });
 
     // Compute layout positions.
+    // Upper levels (dimensions, divisions) are compressed; leaves get more room.
     const padding = { top: 30, bottom: 20, left: 30, right: 30 };
     const usableWidth = width - padding.left - padding.right;
     const usableHeight = height - padding.top - padding.bottom;
 
-    // Determine rows: level0 (optional), level1, level2, leaves
     const hasLevel0 = level0.length > 0;
-    const rowCount = (hasLevel0 ? 1 : 0) + 1 + 1 + 1; // l0?, l1, l2, leaves
-    const rowSpacing = usableHeight / (rowCount - 1 || 1);
+    const upperRows = (hasLevel0 ? 1 : 0) + 1 + 1; // l0?, l1, l2
+    // Upper hierarchy gets 40% of height, leaves get 60%
+    const upperHeight = usableHeight * 0.4;
+    const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
+    const leafYPos = padding.top + usableHeight * 0.85;
 
     let currentRow = 0;
-    const yFor = (row) => padding.top + row * rowSpacing;
+    const yFor = (row) => padding.top + row * upperSpacing;
 
     // Level 0
     if (hasLevel0) {
@@ -192,7 +195,7 @@ export function TreeGraph(
     currentRow++;
 
     // Leaf nodes
-    const leafY = yFor(currentRow);
+    const leafY = leafYPos;
     if (dimOrder.length === 0 || !dimensions) {
         // No dimensions — flat row
         leafNodes.forEach((n, i) => {
@@ -232,7 +235,7 @@ export function TreeGraph(
         const rows = div2Ids.length || 1;
 
         // Grid occupies the leaf area but may expand vertically
-        const gridTop = leafY - rowSpacing * 0.3;
+        const gridTop = leafY - (leafY - yFor(currentRow - 1)) * 0.15;
         const gridBottom = height - padding.bottom;
         const gridHeight = gridBottom - gridTop;
         const colSpacing = usableWidth / (cols + 1);
@@ -270,20 +273,46 @@ export function TreeGraph(
         .attr('aria-label', hide ? null : description)
         .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
 
-    // Draw sibling links (dashed, behind parent-child links).
+    // Draw sibling links as arced paths (dashed, behind parent-child links).
+    // Regular siblings arc above (horizontal) or left (vertical).
+    // Wrap-around (circular) siblings arc below/right with a larger curve.
+    const siblingArc = (d) => {
+        const s = nodeObjById[d.source];
+        const t = nodeObjById[d.target];
+        if (!s || !t) return '';
+        const sx = s.x, sy = s.y, tx = t.x, ty = t.y;
+        const dx = tx - sx, dy = ty - sy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const isHorizontal = Math.abs(dx) > Math.abs(dy);
+        // Detect wrap-around: source is to the right of target (horizontal)
+        // or below target (vertical) — these are circular edges.
+        const isWrap = isHorizontal ? (sx > tx) : (sy > ty);
+        // Arc offset scales with distance but stays subtle
+        const arcAmount = Math.min(dist * 0.3, 40);
+        const midX = (sx + tx) / 2;
+        const midY = (sy + ty) / 2;
+        let cx, cy;
+        if (isHorizontal) {
+            cx = midX;
+            cy = isWrap ? midY + arcAmount : midY - arcAmount;
+        } else {
+            cx = isWrap ? midX + arcAmount : midX - arcAmount;
+            cy = midY;
+        }
+        return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
+    };
+
     svg.append('g')
         .attr('class', 'tree-sibling-links')
-        .selectAll('line')
+        .selectAll('path')
         .data(siblingLinks)
-        .join('line')
-        .attr('x1', d => nodeObjById[d.source]?.x || 0)
-        .attr('y1', d => nodeObjById[d.source]?.y || 0)
-        .attr('x2', d => nodeObjById[d.target]?.x || 0)
-        .attr('y2', d => nodeObjById[d.target]?.y || 0)
+        .join('path')
+        .attr('d', siblingArc)
+        .attr('fill', 'none')
         .attr('stroke', '#888')
         .attr('stroke-opacity', 0.6)
         .attr('stroke-width', 1)
-        .attr('stroke-dasharray', '6,4');
+        .attr('stroke-dasharray', '4,3');
 
     // Draw parent-child links (solid).
     svg.append('g')
