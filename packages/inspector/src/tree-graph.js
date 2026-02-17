@@ -138,10 +138,11 @@ export function TreeGraph(
 
     const hasLevel0 = level0.length > 0;
     const upperRows = (hasLevel0 ? 1 : 0) + 1 + 1; // l0?, l1, l2
-    // Upper hierarchy gets 40% of height, leaves get 60%
-    const upperHeight = usableHeight * 0.4;
+    // Upper hierarchy gets 25% of height, leaves get the rest after a gap
+    const upperHeight = usableHeight * 0.25;
     const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
-    const leafYPos = padding.top + usableHeight * 0.85;
+    const leafGap = usableHeight * 0.05; // small gap between hierarchy and leaves
+    const leafYPos = padding.top + upperHeight + leafGap;
 
     let currentRow = 0;
     const yFor = (row) => padding.top + row * upperSpacing;
@@ -234,8 +235,8 @@ export function TreeGraph(
         const cols = div1Ids.length || 1;
         const rows = div2Ids.length || 1;
 
-        // Grid occupies the leaf area but may expand vertically
-        const gridTop = leafY - (leafY - yFor(currentRow - 1)) * 0.15;
+        // Grid occupies the full leaf area
+        const gridTop = leafY;
         const gridBottom = height - padding.bottom;
         const gridHeight = gridBottom - gridTop;
         const colSpacing = usableWidth / (cols + 1);
@@ -267,12 +268,12 @@ export function TreeGraph(
                 cellNodes[0].x = cx;
                 cellNodes[0].y = cy;
             } else {
-                // Spread horizontally within the cell
+                // Spread vertically within the cell (matches row-based dim2)
                 const spread = cellPad;
                 const step = spread / (cellNodes.length - 1);
                 cellNodes.forEach((n, i) => {
-                    n.x = cx - spread / 2 + step * i;
-                    n.y = cy;
+                    n.x = cx;
+                    n.y = cy - spread / 2 + step * i;
                 });
             }
         });
