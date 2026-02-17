@@ -1,6 +1,6 @@
-# Data Navigator Inspector
+# Using the Inspector
 
-This is part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) project. The inspector is a passive visualization tool that draws a data-navigator `structure` object as a force-directed node-edge graph. As you navigate through a chart using data-navigator's standard keyboard controls, the inspector's focus indicator follows your position in the graph.
+The [Data Navigator Inspector](https://dig.cmu.edu/data-navigator/inspector/) is a passive visualization tool that draws a data-navigator `structure` object as a force-directed node-edge graph. As you navigate through a chart, the inspector's focus indicator follows your position in the graph. This makes it useful for debugging and understanding the structure you've built.
 
 ## Keyboard Controls
 
@@ -21,7 +21,7 @@ This is part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) projec
 
 </div>
 
-## Simple Example
+## Chart + Inspector
 
 Press the **Enter navigation area** button in the chart area below, then use arrow keys, enter, and W/J keys to navigate. Watch the focus indicator move through the inspector graph on the right.
 
@@ -53,7 +53,7 @@ const showControls = ref(true);
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
-    const { Inspector, buildLabel } = await import('../src/inspector.js');
+    const { Inspector, buildLabel } = await import('data-navigator-inspector');
 
     const data = [
         { id: 'a', cat: 'meow', num: 3, selectAll: 'yes' },
@@ -77,7 +77,7 @@ onMounted(async () => {
         valueAccessor: 'num',
         groupAccessor: 'cat',
         sortOrder: 'asc',
-        uniqueID: 'inspector-bar-chart',
+        uniqueID: 'examples-bar-chart',
         dataLabel: { visible: false },
         clickHighlight: [],
         clickStyle: { color: '#222', strokeWidth: 1 },
@@ -158,7 +158,7 @@ onMounted(async () => {
     const rendering = dataNavigator.rendering({
         elementData: structure.nodes,
         defaults: { cssClass: 'dn-node' },
-        suffixId: 'simple-example',
+        suffixId: 'inspector-example',
         root: {
             id: 'chart-area',
             description: 'Simple data structure with categorical and numerical dimensions.',
@@ -220,7 +220,7 @@ onMounted(async () => {
 
     const initiateLifecycle = nextNode => {
         if (!nextNode.renderId) {
-            nextNode.renderId = nextNode.id
+            nextNode.renderId = nextNode.id;
         }
         if (!nextNode.spatialProperties) {
             nextNode.spatialProperties = { x: 0, y: 25, width: 250, height: 225 };
@@ -258,3 +258,11 @@ onMounted(async () => {
     };
 });
 </script>
+
+### About The Inspector
+
+The inspector is a separate package (`data-navigator-inspector`) that you can install alongside data-navigator. It draws a force-directed graph of your structure's nodes and edges, making the abstract navigation graph visible.
+
+The inspector is **passive** — it doesn't drive navigation. You set up data-navigator's rendering and input modules on your chart as normal, then call `inspector.highlight(nodeId)` and `inspector.clear()` from your navigation lifecycle's focus and blur handlers.
+
+See the [Inspector documentation](https://dig.cmu.edu/data-navigator/inspector/) for installation and API details.

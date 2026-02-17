@@ -1,6 +1,8 @@
-# Stacked Bar Chart Example
+# Using the Dimensions API
 
-This example shows the inspector alongside a Visa Chart Components stacked bar chart. The chart's built-in keyboard navigation is disabled — instead, data-navigator handles navigation on the chart, and the inspector passively shows the structure being traversed.
+The dimensions API is one of the most powerful features of Data Navigator. Instead of manually defining every node and edge, you describe your data's **dimensions** — the meaningful axes along which a user might want to navigate — and Data Navigator automatically builds a hierarchical navigation structure.
+
+This example uses the same dataset as the [Stacked Bar Chart](/examples/stacked-bar) example but rendered as a line chart, to show that the same structure works across different visual representations.
 
 ## Keyboard Controls
 
@@ -8,34 +10,48 @@ This example shows the inspector alongside a Visa Chart Components stacked bar c
 
 <div v-show="showControls">
 
-| Command                        | Key                                         |
-| ------------------------------ | ------------------------------------------- |
-| Enter the structure            | Activate the "Enter navigation area" button |
-| Exit                           | <kbd>Esc</kbd>                              |
-| Left (backward along category) | <kbd>←</kbd>                                |
-| Right (forward along category) | <kbd>→</kbd>                                |
-| Up (backward along date)       | <kbd>↑</kbd>                                |
-| Down (forward along date)      | <kbd>↓</kbd>                                |
-| Drill down to child            | <kbd>Enter</kbd>                            |
-| Drill up to category parent    | <kbd>W</kbd>                                |
-| Drill up to date parent        | <kbd>J</kbd>                                |
+| Command                           | Key                                         |
+| --------------------------------- | ------------------------------------------- |
+| Enter the structure               | Activate the "Enter navigation area" button |
+| Exit                              | <kbd>Esc</kbd>                              |
+| Left (backward along date)        | <kbd>←</kbd>                                |
+| Right (forward along date)        | <kbd>→</kbd>                                |
+| Up (backward along category)      | <kbd>↑</kbd>                                |
+| Down (forward along category)     | <kbd>↓</kbd>                                |
+| Drill down to child               | <kbd>Enter</kbd>                            |
+| Drill up to date parent           | <kbd>W</kbd>                                |
+| Drill up to category parent       | <kbd>J</kbd>                                |
 
-At the deepest level, left/right moves across dates (via `childmostNavigation: 'across'`) and up/down moves across categories. Both dimensions wrap around circularly.
+At the deepest level, left/right moves across categories and up/down moves across dates. Both dimensions wrap around circularly.
 
 </div>
 
-## Chart + Inspector
+## Chart + [Inspector](/examples/using-the-inspector)
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Stacked Bar Chart</h3>
-        <div id="stacked-chart-wrapper" style="position: relative;"></div>
+        <h3>Line Chart</h3>
+        <div id="line-chart-wrapper" style="position: relative;"></div>
     </div>
     <div>
         <h3>Structure Inspector</h3>
-        <div id="stacked-inspector" style="min-height: 350px;"></div>
+        <div id="dimensions-inspector" style="min-height: 350px; transform-origin: top left;"></div>
     </div>
 </div>
+
+### How the Dimensions API Works
+
+When you pass a `dimensions` configuration to `dataNavigator.structure()`, Data Navigator builds a multi-level hierarchy from your flat data automatically. Each dimension becomes a level in the navigation tree.
+
+**Date dimension (left/right).** The first dimension listed, `date`, is `categorical`. Data Navigator groups the data by date and creates a **dimension node** at the top with **division nodes** underneath — one for each unique date value (Jan through Dec). Pressing <kbd>Enter</kbd> from the `date` dimension drills down into these divisions. Use <kbd>←</kbd> and <kbd>→</kbd> to move between divisions. Since this dimension uses `circular` extents, movement wraps around from December back to January. The custom `sortFunction` ensures dates appear in calendar order rather than alphabetical order.
+
+**Category dimension (up/down).** The second dimension, `category`, is also `categorical`. Within each date division, data points are further grouped by category. Pressing <kbd>Enter</kbd> from a date division drills into the category sub-groups within that date. Use <kbd>↑</kbd> and <kbd>↓</kbd> to move between category divisions (Group A, Group B, Group C, Other).
+
+**At the child-most level,** all four arrow keys are available regardless of which dimension you drilled down from. This is because both dimensions use `childmostNavigation: 'across'`, which tells Data Navigator to make the sibling navigation for each dimension available at the leaf level. So <kbd>←</kbd> and <kbd>→</kbd> move across categories while <kbd>↑</kbd> and <kbd>↓</kbd> move across dates — even though you may have arrived by drilling down through dates first. This means you can freely explore data points in any direction once you reach the bottom of the hierarchy.
+
+**Drilling back up.** Each dimension gets its own "drill up" key. Press <kbd>W</kbd> to drill up to the date parent, or <kbd>J</kbd> to drill up to the category parent. These keys are automatically assigned from Data Navigator's default key pool.
+
+This dual-hierarchy structure — where two dimensions create an interconnected tree that users can traverse in any direction at the leaves — is what makes the dimensions API powerful. You describe the structure declaratively and Data Navigator handles all the edge generation.
 
 <script setup>
 import { ref, onMounted } from 'vue';
@@ -44,9 +60,8 @@ const showControls = ref(true);
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
-    const { Inspector, buildLabel } = await import('../../src/inspector.js');
+    const { Inspector, buildLabel } = await import('data-navigator-inspector');
 
-    // Inline utility — creates a valid DOM ID from a string
     const createValidId = s => '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
 
     const data = [
@@ -100,31 +115,31 @@ onMounted(async () => {
         { date: 'Dec', category: 'Other', value: 104, count: 495, selectAll: 'yes' }
     ];
 
-    // Create the Visa stacked bar chart
-    const chartWrapper = document.getElementById('stacked-chart-wrapper');
-    let stackedBar = document.createElement('stacked-bar-chart');
-    const stackedProps = {
+    // Create the Visa line chart
+    const chartWrapper = document.getElementById('line-chart-wrapper');
+    let lineChart = document.createElement('line-chart');
+    const lineProps = {
         mainTitle: '',
         subTitle: '',
         data,
         height: 200,
-        width: 250,
-        padding: { top: 10, bottom: 10, right: 10, left: 30 },
-        colors: ['#FFFFFF', '#DDDDDD', '#BBBBBB', '#999999'],
-        ordinalAccessor: 'category',
+        width: 450,
+        padding: { top: 10, bottom: 30, right: 0, left: 20 },
+        colors: ['#999999', '#BBBBBB', '#DDDDDD', '#FFFFFF'],
+        ordinalAccessor: 'date',
+        seriesLabel: {visible:false},
         valueAccessor: 'value',
-        groupAccessor: 'date',
-        uniqueID: 'inspector-stacked-bar',
-        legend: { labels: ['A', 'B', 'C', 'Other'] },
+        seriesAccessor: 'category',
+        uniqueID: 'examples-line-chart',
         dataLabel: { visible: false },
+        legend: { visible: false },
         yAxis: { visible: true, gridVisible: false },
-        xAxis: { label: '', visible: false },
-        showTotalValue: false,
+        xAxis: { visible: true, label: '' },
         suppressEvents: true,
-        layout: 'horizontal',
         clickHighlight: [],
-        clickStyle: { color: '#222', strokeWidth: 1 },
+        clickStyle: { color: '#222', strokeWidth: 2 },
         interactionKeys: [],
+        strokeWidth: 1,
         accessibility: {
             elementsAreInterface: false,
             disableValidation: true,
@@ -134,12 +149,12 @@ onMounted(async () => {
             hideStrokes: false
         }
     };
-    Object.keys(stackedProps).forEach(prop => {
-        stackedBar[prop] = stackedProps[prop];
+    Object.keys(lineProps).forEach(prop => {
+        lineChart[prop] = lineProps[prop];
     });
-    chartWrapper.appendChild(stackedBar);
+    chartWrapper.appendChild(lineChart);
 
-    // Build the data-navigator structure
+    // Build the data-navigator structure using the dimensions API
     let exitHandler = null;
 
     const structure = dataNavigator.structure({
@@ -148,19 +163,6 @@ onMounted(async () => {
         addIds: true,
         dimensions: {
             values: [
-                {
-                    dimensionKey: 'category',
-                    type: 'categorical',
-                    divisionOptions: {
-                        divisionNodeIds: (dimensionKey, keyValue, i) => {
-                            return createValidId(dimensionKey + keyValue + i);
-                        }
-                    },
-                    behavior: {
-                        extents: 'circular',
-                        childmostNavigation: 'across'
-                    }
-                },
                 {
                     dimensionKey: 'date',
                     type: 'categorical',
@@ -172,18 +174,8 @@ onMounted(async () => {
                         sortFunction: (a, b) => {
                             if (a.values) {
                                 const months = [
-                                    'Jan',
-                                    'Feb',
-                                    'Mar',
-                                    'Apr',
-                                    'May',
-                                    'Jun',
-                                    'Jul',
-                                    'Aug',
-                                    'Sep',
-                                    'Oct',
-                                    'Nov',
-                                    'Dec'
+                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
                                 ];
                                 let aMonth =
                                     a.values[Object.keys(a.values)[0]].date ||
@@ -194,6 +186,19 @@ onMounted(async () => {
                                 return months.indexOf(aMonth) - months.indexOf(bMonth);
                             }
                         }
+                    }
+                },
+                {
+                    dimensionKey: 'category',
+                    type: 'categorical',
+                    divisionOptions: {
+                        divisionNodeIds: (dimensionKey, keyValue, i) => {
+                            return createValidId(dimensionKey + keyValue + i);
+                        }
+                    },
+                    behavior: {
+                        extents: 'circular',
+                        childmostNavigation: 'across'
                     }
                 }
             ]
@@ -215,17 +220,17 @@ onMounted(async () => {
 
     const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 
-    // 1. Create the inspector (passive — just draws the force graph)
+    // Create the inspector (passive)
     const inspector = Inspector({
         structure,
-        container: 'stacked-inspector',
+        container: 'dimensions-inspector',
         size: 325,
         colorBy: 'dimensionLevel',
         edgeExclusions: ['any-exit'],
         nodeInclusions: ['exit']
     });
 
-    // 2. Set up data-navigator rendering on the chart wrapper
+    // Set up data-navigator rendering on the chart wrapper
     let current = null;
     let previous = null;
 
@@ -237,10 +242,10 @@ onMounted(async () => {
     const rendering = dataNavigator.rendering({
         elementData: structure.nodes,
         defaults: { cssClass: 'dn-node' },
-        suffixId: 'stacked-bar-example',
+        suffixId: 'dimensions-example',
         root: {
-            id: 'stacked-chart-wrapper',
-            description: 'Stacked bar chart with category and date dimensions.',
+            id: 'line-chart-wrapper',
+            description: 'Line chart with category and date dimensions.',
             width: '100%',
             height: 0
         },
@@ -252,26 +257,26 @@ onMounted(async () => {
     // Update chart highlight based on the current node
     const updateChartHighlight = node => {
         if (!node.derivedNode) {
-            // Leaf node — highlight specific bar segment
-            stackedBar.clickHighlight = [
+            // Leaf node — highlight specific data point
+            lineChart.clickHighlight = [
                 { category: node.data.category, date: node.data.date }
             ];
-            stackedBar.interactionKeys = ['category', 'date'];
+            lineChart.interactionKeys = ['category', 'date'];
         } else if (node.data?.dimensionKey) {
-            // Dimension node — highlight all bars
-            stackedBar.clickHighlight = [{ selectAll: 'yes' }];
-            stackedBar.interactionKeys = ['selectAll'];
+            // Dimension node — highlight all lines
+            lineChart.clickHighlight = [{ selectAll: 'yes' }];
+            lineChart.interactionKeys = ['selectAll'];
         } else {
             // Division node — highlight group
             const key = node.derivedNode;
             const value = node.data?.[key];
-            stackedBar.clickHighlight = [{ [key]: value }];
-            stackedBar.interactionKeys = [key];
+            lineChart.clickHighlight = [{ [key]: value }];
+            lineChart.interactionKeys = [key];
         }
     };
 
     const clearChartHighlight = () => {
-        stackedBar.clickHighlight = [];
+        lineChart.clickHighlight = [];
     };
 
     exitHandler = () => {
@@ -285,7 +290,7 @@ onMounted(async () => {
         clearChartHighlight();
     };
 
-    // 3. Set up input handler
+    // Set up input handler
     const input = dataNavigator.input({
         structure,
         navigationRules: structure.navigationRules,
@@ -293,7 +298,7 @@ onMounted(async () => {
         exitPoint: rendering.exitElement?.id
     });
 
-    // 4. Navigation lifecycle — update inspector on focus/blur
+    // Navigation lifecycle
     const move = direction => {
         const nextNode = input.move(current, direction);
         if (nextNode) initiateLifecycle(nextNode);
@@ -301,10 +306,10 @@ onMounted(async () => {
 
     const initiateLifecycle = nextNode => {
         if (!nextNode.renderId) {
-            nextNode.renderId = nextNode.id
+            nextNode.renderId = nextNode.id;
         }
         if (!nextNode.spatialProperties) {
-            nextNode.spatialProperties = { x: 0, y: 15, width: 250, height: 200 };
+            nextNode.spatialProperties = { x: 0, y: 15, width: 450, height: 200 };
         }
         if (!nextNode.semantics?.label) {
             nextNode.semantics = { ...nextNode.semantics, label: buildLabel(nextNode) };
@@ -339,9 +344,3 @@ onMounted(async () => {
     };
 });
 </script>
-
-### About This Example
-
-This uses the same dataset and structure configuration as the testing environment in the archive. The stacked bar chart is rendered by `@visa/stacked-bar-chart` via CDN, with its built-in keyboard navigation disabled. Data Navigator handles all navigation via its rendering and input modules on the chart wrapper, and the inspector graph passively shows the hierarchical structure being traversed.
-
-Navigation uses `childmostNavigation: 'across'`, which means left/right always moves across dates even at the deepest level — intuitive for a stacked bar chart where left/right should always move across time.

@@ -48,6 +48,28 @@ export default defineConfig({
                 crossorigin: 'anonymous'
             }
         ],
+        // Visa Chart Components - for examples
+        [
+            'script',
+            {
+                src: 'https://cdn.jsdelivr.net/npm/@visa/bar-chart@7.0.1/dist/bar-chart/bar-chart.js',
+                'data-stencil-namespace': 'bar-chart'
+            }
+        ],
+        [
+            'script',
+            {
+                src: 'https://cdn.jsdelivr.net/npm/@visa/stacked-bar-chart@7.0.1/dist/stacked-bar-chart/stacked-bar-chart.js',
+                'data-stencil-namespace': 'stacked-bar-chart'
+            }
+        ],
+        [
+            'script',
+            {
+                src: 'https://cdn.jsdelivr.net/npm/@visa/line-chart@7.0.1/dist/line-chart/line-chart.js',
+                'data-stencil-namespace': 'line-chart'
+            }
+        ],
         // D3 - for structure visualization
         [
             'script',
@@ -113,7 +135,13 @@ export default defineConfig({
             '/examples/': [
                 {
                     text: 'Examples',
-                    items: [{ text: 'Overview', link: '/examples/' }]
+                    items: [
+                        { text: 'Overview', link: '/examples/' },
+                        { text: 'Simple List Navigation', link: '/examples/simple-list' },
+                        { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
+                        { text: 'Dimensions API', link: '/examples/dimensions-api' },
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                    ]
                 }
             ],
             '/api/': [
@@ -158,7 +186,8 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
-                'data-navigator': '../../packages/data-navigator/src/index.ts'
+                'data-navigator': '../../packages/data-navigator/src/index.ts',
+                'data-navigator-inspector': '../../packages/inspector/src/inspector.js'
             }
         }
     }

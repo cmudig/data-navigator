@@ -1,6 +1,6 @@
-# Stacked Bar Chart Example
+# Stacked Bar Chart
 
-This example shows the inspector alongside a Visa Chart Components stacked bar chart. The chart's built-in keyboard navigation is disabled — instead, data-navigator handles navigation on the chart, and the inspector passively shows the structure being traversed.
+This example shows the [inspector](/examples/using-the-inspector) alongside a Visa Chart Components stacked bar chart. The chart's built-in keyboard navigation is disabled — instead, data-navigator handles navigation on the chart, and the inspector passively shows the structure being traversed.
 
 ## Keyboard Controls
 
@@ -44,7 +44,7 @@ const showControls = ref(true);
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
-    const { Inspector, buildLabel } = await import('../../src/inspector.js');
+    const { Inspector, buildLabel } = await import('data-navigator-inspector');
 
     // Inline utility — creates a valid DOM ID from a string
     const createValidId = s => '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
@@ -114,7 +114,7 @@ onMounted(async () => {
         ordinalAccessor: 'category',
         valueAccessor: 'value',
         groupAccessor: 'date',
-        uniqueID: 'inspector-stacked-bar',
+        uniqueID: 'examples-stacked-bar',
         legend: { labels: ['A', 'B', 'C', 'Other'] },
         dataLabel: { visible: false },
         yAxis: { visible: true, gridVisible: false },
@@ -172,18 +172,8 @@ onMounted(async () => {
                         sortFunction: (a, b) => {
                             if (a.values) {
                                 const months = [
-                                    'Jan',
-                                    'Feb',
-                                    'Mar',
-                                    'Apr',
-                                    'May',
-                                    'Jun',
-                                    'Jul',
-                                    'Aug',
-                                    'Sep',
-                                    'Oct',
-                                    'Nov',
-                                    'Dec'
+                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
                                 ];
                                 let aMonth =
                                     a.values[Object.keys(a.values)[0]].date ||
@@ -301,7 +291,7 @@ onMounted(async () => {
 
     const initiateLifecycle = nextNode => {
         if (!nextNode.renderId) {
-            nextNode.renderId = nextNode.id
+            nextNode.renderId = nextNode.id;
         }
         if (!nextNode.spatialProperties) {
             nextNode.spatialProperties = { x: 0, y: 15, width: 250, height: 200 };
@@ -342,6 +332,6 @@ onMounted(async () => {
 
 ### About This Example
 
-This uses the same dataset and structure configuration as the testing environment in the archive. The stacked bar chart is rendered by `@visa/stacked-bar-chart` via CDN, with its built-in keyboard navigation disabled. Data Navigator handles all navigation via its rendering and input modules on the chart wrapper, and the inspector graph passively shows the hierarchical structure being traversed.
+The stacked bar chart is rendered by `@visa/stacked-bar-chart` via CDN, with its built-in keyboard navigation disabled. Data Navigator handles all navigation via its rendering and input modules on the chart wrapper, and the [inspector](/examples/using-the-inspector) graph passively shows the hierarchical structure being traversed.
 
 Navigation uses `childmostNavigation: 'across'`, which means left/right always moves across dates even at the deepest level — intuitive for a stacked bar chart where left/right should always move across time.
