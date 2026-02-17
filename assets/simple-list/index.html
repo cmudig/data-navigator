@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+        {
+            "imports": {
+                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                "data-navigator-inspector": "../../packages/inspector/src/inspector.js",
+                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <div style="display: flex; gap: 2em; flex-wrap: wrap;">
+            <div>
+                <h3>Stacked Bar Chart</h3>
+                <div id="chart-wrapper">
+                    <div id="chart"></div>
+                </div>
+            </div>
+            <div>
+                <h3>Structure Inspector</h3>
+                <div id="inspector"></div>
+            </div>
+        </div>
+    </body>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>

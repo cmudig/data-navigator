@@ -1,0 +1,33 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+        {
+            "imports": {
+                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                "data-navigator-inspector": "../../packages/inspector/src/inspector.js",
+                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
+            <div>
+                <h3>Line Chart</h3>
+                <div id="line-chart-wrapper" style="position: relative;"></div>
+            </div>
+            <div>
+                <h3>Structure Inspector</h3>
+                <div id="inspector" style="min-height: 350px;"></div>
+            </div>
+        </div>
+    </body>
+    <script src="https://unpkg.com/@visa/line-chart@6/dist/line-chart/line-chart.esm.js" type="module"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>

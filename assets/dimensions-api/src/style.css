@@ -1,0 +1,11 @@
+.dn-node {
+    pointer-events: none;
+    background: transparent;
+    border: none;
+    position: absolute;
+    margin: 0;
+}
+
+.dn-node:focus {
+    outline: 2px solid #1e3369;
+}

@@ -313,3 +313,316 @@ onUnmounted(() => { if (cleanup) cleanup(); });
 This is the same chart and structure from the [Getting Started guide](/getting-started/first-chart), shown here with an [inspector](/examples/using-the-inspector) view. The structure is a simple linked list — four data points connected by left/right edges. The Bokeh chart renders to canvas, so the focus indicator is drawn programmatically by redrawing the chart with a thick outline on the focused bar.
 
 The [inspector's](/examples/using-the-inspector) force graph shows the same linear structure: four nodes in a chain with an exit node. As you navigate, the inspector's focus indicator follows your position.
+
+## The Complete Code
+
+This code is designed to work **without a bundler**. Run `npm install data-navigator data-navigator-inspector`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers, and loads Bokeh and D3 from CDNs.
+
+If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector, buildLabel } from 'data-navigator-inspector'`, and remove the import map and CDN script tags from the HTML.
+
+The structure is a manually defined linked list — four nodes connected by left/right edges. `coordinator.js` is the entry point that wires everything together. `structure.js` defines the data and navigation graph. `rendering.js` handles both the Bokeh chart drawing and the Data Navigator accessible layer. `input.js` creates the keyboard handler.
+
+::: code-group
+
+```js [coordinator.js]
+import { structure, callbacks, interactiveData, chartWidth, chartHeight } from './structure.js';
+import { drawChart, drawFocusIndicator, createRenderer } from './rendering.js';
+import { createInput } from './input.js';
+import { Inspector } from 'data-navigator-inspector';
+
+// Assumes the page has:
+//   <div id="chart-wrapper">
+//     <div id="chart"></div>
+//   </div>
+//   <div id="inspector"></div>
+
+let current = null;
+let previous = null;
+let input;
+
+// Create the inspector (passive — just visualizes the structure)
+const inspector = Inspector({
+    structure,
+    container: 'inspector',
+    size: 250,
+    colorBy: 'dimensionLevel',
+    edgeExclusions: ['any-exit'],
+    nodeInclusions: ['exit']
+});
+
+function enter() {
+    const nextNode = input.enter();
+    if (nextNode) initiateLifecycle(nextNode);
+}
+
+const renderer = createRenderer(structure, enter);
+input = createInput(structure, renderer.exitElement?.id);
+
+callbacks.onExit = () => {
+    renderer.exitElement.style.display = 'block';
+    input.focus(renderer.exitElement.id);
+    if (current) {
+        renderer.remove(current);
+        current = null;
+    }
+    inspector.clear();
+    drawChart(null);
+};
+
+drawChart(null);
+
+function move(direction) {
+    const nextNode = input.move(current, direction);
+    if (nextNode) initiateLifecycle(nextNode);
+}
+
+function initiateLifecycle(nextNode) {
+    if (previous) renderer.remove(previous);
+
+    const element = renderer.render({
+        renderId: nextNode.renderId,
+        datum: nextNode
+    });
+
+    element.addEventListener('keydown', e => {
+        const direction = input.keydownValidator(e);
+        if (direction) {
+            e.preventDefault();
+            move(direction);
+        }
+    });
+
+    element.addEventListener('focus', () => {
+        drawFocusIndicator(nextNode);
+        inspector.highlight(nextNode.renderId);
+    });
+
+    element.addEventListener('blur', () => {
+        inspector.clear();
+    });
+
+    input.focus(nextNode.renderId);
+    previous = current;
+    current = nextNode.id;
+}
+```
+
+```js [structure.js]
+export const chartWidth = 300;
+export const chartHeight = 300;
+
+// Lookup table for drawing focus outlines on the correct bar.
+export const interactiveData = {
+    data: [
+        [[3, 2.75], [0, 0]],       // apple: [topValues, bottomValues]
+        [[3.75, 4], [3, 2.75]]     // banana: [topValues, bottomValues]
+    ],
+    indices: {
+        fruit: { apple: 0, banana: 1 },
+        store: { a: 0, b: 1 }
+    }
+};
+
+export const callbacks = { onExit: null };
+
+// A simple linked list: 4 data points connected by left/right edges.
+//   [_0] ←→ [_1] ←→ [_2] ←→ [_3]
+export const structure = {
+    nodes: {
+        _0: {
+            id: '_0', renderId: '_0',
+            data: { fruit: 'apple', store: 'a', cost: 3 },
+            edges: ['_0-_1', 'any-exit'],
+            semantics: { label: 'fruit: apple. store: a. cost: 3. Data point.' },
+            spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
+        },
+        _1: {
+            id: '_1', renderId: '_1',
+            data: { fruit: 'banana', store: 'a', cost: 0.75 },
+            edges: ['_0-_1', '_1-_2', 'any-exit'],
+            semantics: { label: 'fruit: banana. store: a. cost: 0.75. Data point.' },
+            spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
+        },
+        _2: {
+            id: '_2', renderId: '_2',
+            data: { fruit: 'apple', store: 'b', cost: 2.75 },
+            edges: ['_1-_2', '_2-_3', 'any-exit'],
+            semantics: { label: 'fruit: apple. store: b. cost: 2.75. Data point.' },
+            spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
+        },
+        _3: {
+            id: '_3', renderId: '_3',
+            data: { fruit: 'banana', store: 'b', cost: 1.25 },
+            edges: ['_2-_3', 'any-exit'],
+            semantics: { label: 'fruit: banana. store: b. cost: 1.25. Data point.' },
+            spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
+        }
+    },
+    edges: {
+        '_0-_1': { source: '_0', target: '_1', navigationRules: ['left', 'right'] },
+        '_1-_2': { source: '_1', target: '_2', navigationRules: ['left', 'right'] },
+        '_2-_3': { source: '_2', target: '_3', navigationRules: ['left', 'right'] },
+        'any-exit': {
+            source: (d, c) => c,
+            target: () => { if (callbacks.onExit) callbacks.onExit(); return ''; },
+            navigationRules: ['exit']
+        }
+    },
+    navigationRules: {
+        left: { key: 'ArrowLeft', direction: 'source' },
+        right: { key: 'ArrowRight', direction: 'target' },
+        exit: { key: 'Escape', direction: 'target' }
+    }
+};
+```
+
+```js [rendering.js]
+import dataNavigator from 'data-navigator';
+import { chartWidth, chartHeight, interactiveData } from './structure.js';
+
+// Draws the Bokeh chart. Pass focusData to add a thick outline
+// around one bar, or null to draw without any indicator.
+export function drawChart(focusData) {
+    const container = document.getElementById('chart');
+    container.innerHTML = '';
+
+    const stores = ['a', 'b'];
+    const p = Bokeh.Plotting.figure({
+        x_range: stores, y_range: [0, 5.5],
+        height: chartHeight, width: chartWidth,
+        title: 'Fruit cost by store', output_backend: 'svg',
+        toolbar_location: null, tools: ''
+    });
+
+    p.vbar({ x: stores, top: [3, 2.75], bottom: [0, 0], width: 0.8,
+             color: '#FCB5B6', line_color: '#8F0002' });
+    p.vbar({ x: stores, top: [3.75, 4], bottom: [3, 2.75], width: 0.8,
+             color: '#F9E782', line_color: '#766500' });
+
+    if (focusData) {
+        p.vbar({
+            x: stores, top: focusData.top, bottom: focusData.bottom,
+            width: 0.8, line_width: 3,
+            color: ['transparent', 'transparent'],
+            line_color: focusData.line_color
+        });
+    }
+
+    const r1 = p.square([-10000], [-10000], { color: '#FCB5B6', line_color: '#8F0002' });
+    const r2 = p.square([-10000], [-10000], { color: '#F9E782', line_color: '#766500' });
+    p.add_layout(new Bokeh.Legend({
+        items: [
+            new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
+            new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
+        ],
+        location: 'top_left', orientation: 'horizontal'
+    }));
+
+    Bokeh.Plotting.show(p, '#chart');
+    const bokehPlot = document.querySelector('#chart');
+    if (bokehPlot) bokehPlot.setAttribute('inert', 'true');
+}
+
+// Redraws the chart with a focus outline on the matching bar.
+export function drawFocusIndicator(node) {
+    if (!node?.data) return;
+    const fruitIndex = interactiveData.indices.fruit[node.data.fruit];
+    const storeIndex = interactiveData.indices.store[node.data.store];
+    const barData = interactiveData.data[fruitIndex];
+    const line_color = storeIndex === 0
+        ? ['#000000', 'transparent']
+        : ['transparent', '#000000'];
+    drawChart({ top: barData[0], bottom: barData[1], line_color });
+}
+
+// Creates the accessible HTML layer.
+export function createRenderer(structure, onEnter) {
+    const renderer = dataNavigator.rendering({
+        elementData: structure.nodes,
+        defaults: { cssClass: 'dn-manual-focus-node' },
+        suffixId: 'simple-list',
+        root: {
+            id: 'chart-wrapper',
+            description: 'Fruit cost by store chart. Use arrow keys to navigate.',
+            width: '100%', height: 0
+        },
+        entryButton: { include: true, callbacks: { click: onEnter } },
+        exitElement: { include: true }
+    });
+    renderer.initialize();
+    return renderer;
+}
+```
+
+```js [input.js]
+import dataNavigator from 'data-navigator';
+
+export function createInput(structure, exitPointId) {
+    return dataNavigator.input({
+        structure,
+        navigationRules: structure.navigationRules,
+        entryPoint: '_0',
+        exitPoint: exitPointId
+    });
+}
+```
+
+```html [index.html]
+<html>
+    <head>
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+        {
+            "imports": {
+                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
+                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <div style="display: flex; gap: 2em; flex-wrap: wrap;">
+            <div>
+                <h3>Stacked Bar Chart</h3>
+                <div id="chart-wrapper">
+                    <div id="chart"></div>
+                </div>
+            </div>
+            <div>
+                <h3>Structure Inspector</h3>
+                <div id="inspector"></div>
+            </div>
+        </div>
+    </body>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>
+```
+
+```css [style.css]
+.dn-manual-focus-node {
+    pointer-events: none;
+    background: transparent;
+    border: none;
+    position: absolute;
+    margin: 0px;
+}
+
+.dn-manual-focus-node:focus {
+    outline: 2px solid #1e3369;
+}
+```
+
+:::
+
+You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/simple-list).
