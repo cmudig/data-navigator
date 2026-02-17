@@ -1,4 +1,4 @@
-# Using the Dimensions API
+# Dimensions API Example
 
 The dimensions API is one of the most powerful features of Data Navigator. Instead of manually defining every node and edge, you describe your data's **dimensions** — the meaningful axes along which a user might want to navigate — and Data Navigator automatically builds a hierarchical navigation structure.
 
