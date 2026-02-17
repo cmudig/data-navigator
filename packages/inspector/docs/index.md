@@ -36,6 +36,16 @@ Press the **Enter navigation area** button in the chart area below, then use arr
     </div>
 </div>
 
+### How Navigation Works
+
+This chart has two dimensions: a **categorical** dimension (`cat`) and a **numerical** dimension (`num`). Each dimension creates a different way to move through the data.
+
+**Numerical dimension (up/down).** Pressing <kbd>Enter</kbd> from the `num` dimension drills down into data points sorted from lowest to highest value. Use <kbd>↑</kbd> and <kbd>↓</kbd> to move between data points in order of their numerical value. Since this dimension uses `terminal` extents, movement stops at the first and last values.
+
+**Categorical dimension (left/right).** Pressing <kbd>Enter</kbd> from the `cat` dimension drills down into divisions grouped by category. One group ("bork") contains a single data point while the other ("meow") contains three. Use <kbd>←</kbd> and <kbd>→</kbd> to move between divisions. Since this dimension uses `circular` extents, movement wraps around from the last division back to the first. If you navigate to the `"bork"` child, since it is alone, <kbd>←</kbd> and <kbd>→</kbd> will have no effect (because there are no siblings that also have the same category).
+
+**At the child-most level,** all four arrow keys are available regardless of which dimension you drilled down from. <kbd>←</kbd> and <kbd>→</kbd> move across the categorical dimension while <kbd>↑</kbd> and <kbd>↓</kbd> move across the numerical dimension. This means you can freely explore data points in any direction once you reach the bottom of this dual-hierarchy. Press <kbd>W</kbd> or <kbd>J</kbd> to drill back up to a parent.
+
 <script setup>
 import { ref, onMounted } from 'vue';
 
