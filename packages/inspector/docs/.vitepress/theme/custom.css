@@ -129,6 +129,13 @@
     outline: 2px solid #1e3369;
 }
 
+/* Hide VitePress h2 styling inside data-navigator root elements */
+.dn-root h2 {
+    margin: 0;
+    border-top: none;
+    padding-top: 0;
+}
+
 /* Inspector-specific styles */
 .dn-inspector-wrapper {
     position: relative;

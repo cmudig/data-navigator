@@ -21,69 +21,41 @@ const convertToArray = (obj, include, exclude) => {
 };
 
 /**
- * Adds rendering properties (renderId, semantics) to structure nodes
- * so they can be used with data-navigator's rendering module.
+ * Builds a tooltip label for a structure node.
  */
-const addRenderingProperties = (nodes, rootId, size) => {
-    Object.keys(nodes).forEach(k => {
-        let node = nodes[k];
-        if (!node.renderId) {
-            node.renderId = node.id;
-        }
-        node.existingElement = {
-            useForSpatialProperties: true,
-            spatialProperties: () => {
-                let el = document.getElementById(rootId)?.querySelector('#svg' + node.renderId);
-                if (!el) return { x: 0, y: 0, width: 0, height: 0 };
-                let box = el.getBBox();
-                return {
-                    x: box.x + size / 2 - 0.91,
-                    y: box.y + size / 2 - 0.91,
-                    width: box.width,
-                    height: box.height
-                };
-            }
-        };
-        let label = '';
-        if (!node.derivedNode) {
-            // Leaf data point — build label from data fields
-            if (node.data) {
-                label = Object.keys(node.data)
+export const buildLabel = (node, colorBy) => {
+    if (node.semantics?.label) return node.semantics.label;
+    if (!node.derivedNode) {
+        if (node.data) {
+            return (
+                Object.keys(node.data)
                     .map(key => `${key}: ${node.data[key]}`)
-                    .join('. ');
-                label += '. Data point.';
-            } else {
-                label = node.id;
-            }
-        } else {
-            if (node.data?.dimensionKey) {
-                // Dimension node
-                let count = 0;
-                let divisions = Object.keys(node.data.divisions || {});
-                divisions.forEach(div => {
-                    count += Object.keys(node.data.divisions[div].values || {}).length;
-                });
-                label = `${node.derivedNode}.`;
-                label +=
-                    divisions.length && count
-                        ? ` Contains ${divisions.length} division${
-                              divisions.length > 1 ? 's' : ''
-                          } which contain ${count} datapoint${count > 1 ? 's' : ''} total.`
-                        : ' Contains no child data points.';
-                label += ` ${node.data.type} dimension.`;
-            } else {
-                // Division node
-                label = `${node.derivedNode}: ${node.data?.[node.derivedNode]}. Contains ${
-                    Object.keys(node.data?.values || {}).length
-                } child data point${Object.keys(node.data?.values || {}).length > 1 ? 's' : ''}. Division of ${
-                    node.derivedNode
-                } dimension.`;
-            }
+                    .join('. ') + '. Data point.'
+            );
         }
-        if (!node.semantics) {
-            node.semantics = { label };
-        }
-    });
+        return node.id;
+    }
+    if (node.data?.dimensionKey) {
+        let count = 0;
+        let divisions = Object.keys(node.data.divisions || {});
+        divisions.forEach(div => {
+            count += Object.keys(node.data.divisions[div].values || {}).length;
+        });
+        let label = `${node.derivedNode}.`;
+        label +=
+            divisions.length && count
+                ? ` Contains ${divisions.length} division${
+                      divisions.length > 1 ? 's' : ''
+                  } which contain ${count} datapoint${count > 1 ? 's' : ''} total.`
+                : ' Contains no child data points.';
+        label += ` ${node.data.type} dimension.`;
+        return label;
+    }
+    return `${node.derivedNode}: ${node.data?.[node.derivedNode]}. Contains ${
+        Object.keys(node.data?.values || {}).length
+    } child data point${Object.keys(node.data?.values || {}).length > 1 ? 's' : ''}. Division of ${
+        node.derivedNode
+    } dimension.`;
 };
 
 /**
@@ -92,7 +64,7 @@ const addRenderingProperties = (nodes, rootId, size) => {
 const showTooltip = (node, tooltipEl, size, colorBy) => {
     tooltipEl.classList.remove('dn-inspector-hidden');
     tooltipEl.innerText =
-        node.semantics?.label ||
+        buildLabel(node, colorBy) ||
         `${node.id}${node.data?.[colorBy] ? ', ' + node.data[colorBy] : ''} (generic node, edges hidden).`;
     const bbox = tooltipEl.getBoundingClientRect();
     const yOffset = bbox.height / 2;
@@ -139,19 +111,18 @@ const createFocusIndicator = (svgEl, id) => {
 };
 
 /**
- * Inspector: creates a force-directed graph from a data-navigator structure
- * and wires up focus synchronization with data-navigator's rendering/input modules.
+ * Inspector: creates a passive force-directed graph visualization of a
+ * data-navigator structure. Does not drive navigation — call highlight()
+ * and clear() from your own navigation lifecycle to keep the graph in sync.
  *
  * @param {Object} options
  * @param {Object} options.structure - A data-navigator structure object (nodes, edges, navigationRules)
  * @param {string|HTMLElement} options.container - DOM element or ID to mount in
  * @param {number} [options.size=300] - Width and height of the force graph
  * @param {string} [options.colorBy='dimensionLevel'] - Field to color nodes by
- * @param {string} options.entryPoint - Node ID to enter navigation at
  * @param {number} [options.nodeRadius=5] - Radius of node circles
  * @param {string[]} [options.edgeExclusions=[]] - Edge IDs to exclude from the graph
  * @param {string[]} [options.nodeInclusions=[]] - Extra pseudo-node IDs to include
- * @param {Object} options.dataNavigator - The data-navigator module (must provide .rendering() and .input())
  *
  * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function }}
  */
@@ -160,21 +131,13 @@ export function Inspector({
     container,
     size = 300,
     colorBy = 'dimensionLevel',
-    entryPoint,
     nodeRadius = 5,
     edgeExclusions = [],
-    nodeInclusions = [],
-    dataNavigator
+    nodeInclusions = []
 }) {
     const rootEl = typeof container === 'string' ? document.getElementById(container) : container;
     const rootId = rootEl.id || 'dn-inspector-' + Math.random().toString(36).slice(2, 8);
     if (!rootEl.id) rootEl.id = rootId;
-
-    let current = null;
-    let previous = null;
-
-    // Add rendering properties to nodes
-    addRenderingProperties(structure.nodes, rootId, size);
 
     // Build the force graph SVG
     const graph = ForceGraph(
@@ -198,7 +161,6 @@ export function Inspector({
     wrapperEl.style.position = 'relative';
 
     const graphContainer = document.createElement('div');
-    graphContainer.id = 'dn-root-' + rootId;
     graphContainer.className = 'dn-inspector-graph';
     graphContainer.appendChild(graph);
     wrapperEl.appendChild(graphContainer);
@@ -232,80 +194,6 @@ export function Inspector({
 
     // Create focus indicator
     const indicatorEl = createFocusIndicator(svgEl, rootId);
-
-    // Set up data-navigator rendering and input
-    const exitFn = () => {
-        rendering.exitElement.style.display = 'block';
-        input.focus(rendering.exitElement.id);
-        previous = current;
-        current = null;
-        rendering.remove(previous);
-    };
-
-    const rendering = dataNavigator.rendering({
-        elementData: structure.nodes,
-        defaults: { cssClass: 'dn-inspector-node' },
-        suffixId: 'dn-inspector-schema-' + rootId,
-        root: {
-            id: 'dn-root-' + rootId,
-            cssClass: '',
-            width: '100%',
-            height: 0
-        },
-        entryButton: {
-            include: true,
-            callbacks: {
-                click: () => {
-                    const nextNode = input.enter();
-                    if (nextNode) initiateLifecycle(nextNode);
-                }
-            }
-        },
-        exitElement: { include: true }
-    });
-
-    rendering.initialize();
-
-    const input = dataNavigator.input({
-        structure,
-        navigationRules: structure.navigationRules,
-        entryPoint,
-        exitPoint: rendering.exitElement.id
-    });
-
-    const move = direction => {
-        const nextNode = input.move(current, direction);
-        if (nextNode) initiateLifecycle(nextNode);
-    };
-
-    const initiateLifecycle = nextNode => {
-        const renderedNode = rendering.render({
-            renderId: nextNode.renderId,
-            datum: nextNode
-        });
-        renderedNode.addEventListener('keydown', e => {
-            const direction = input.keydownValidator(e);
-            if (direction) {
-                e.preventDefault();
-                if (direction === 'exit') {
-                    exitFn();
-                } else {
-                    move(direction);
-                }
-            }
-        });
-        renderedNode.addEventListener('blur', () => {
-            hideTooltip(tooltipEl, indicatorEl);
-        });
-        renderedNode.addEventListener('focus', () => {
-            showTooltip(nextNode, tooltipEl, size, colorBy);
-            highlightNode(nextNode.renderId, svgEl, indicatorEl);
-        });
-        input.focus(nextNode.renderId);
-        previous = current;
-        current = nextNode.id;
-        rendering.remove(previous);
-    };
 
     // Public API
     return {
