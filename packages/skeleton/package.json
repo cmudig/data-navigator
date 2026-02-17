@@ -6,6 +6,6 @@
     "description": "Skeleton project, using data-navigator and inspector.",
     "dependencies": {
         "data-navigator": "*",
-        "data-navigator-inspector": "*"
+        "@data-navigator/inspector": "*"
     }
 }

@@ -5,7 +5,7 @@
 This is a monorepo using Yarn workspaces:
 
 - `packages/data-navigator/` — the core library (published to npm)
-- `packages/inspector/` — optional structure inspector companion (in development)
+- `packages/inspector/` — optional structure inspector companion (published to npm as `@data-navigator/inspector`)
 - `packages/skeleton/` — GUI-based project using data-navigator and inspector (planned)
 - `docs/` — the VitePress documentation site
 
@@ -53,8 +53,17 @@ The inspector lives in `packages/inspector/` and has its own VitePress test site
 
 (only from main branch, only core dev team can do this)
 
+### Core Library (`data-navigator`)
+
 1. Navigate to the package: `cd packages/data-navigator`
 2. Build: `yarn build`
 3. Publish: `yarn publish` — this will prompt you to bump the version, create a git tag, and publish to npm
 4. Push the commit and tag: `git push && git push --tags`
 5. Create a GitHub release from the new tag
+
+### Inspector (`@data-navigator/inspector`)
+
+1. Navigate to the package: `cd packages/inspector`
+2. Publish: `yarn publish` — this will prompt you to bump the version, create a git tag, and publish to npm
+3. Push the commit and tag: `git push && git push --tags`
+4. Create a GitHub release from the new tag
