@@ -53,8 +53,8 @@ The inspector lives in `packages/inspector/` and has its own VitePress test site
 
 (only from main branch, only core dev team can do this)
 
-- Bump version: nav into the package `cd packages/data-navigator` and then `npm version` and specify `major|minor|patch`
-- Get it out there: `npm publish`
-- Update repo: `git push`
-- Update repo tags: `git push --tags`
-- Create github release
+1. Navigate to the package: `cd packages/data-navigator`
+2. Build: `yarn build`
+3. Publish: `yarn publish` — this will prompt you to bump the version, create a git tag, and publish to npm
+4. Push the commit and tag: `git push && git push --tags`
+5. Create a GitHub release from the new tag
