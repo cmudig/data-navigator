@@ -63,7 +63,10 @@ The inspector lives in `packages/inspector/` and has its own VitePress test site
 
 ### Inspector (`@data-navigator/inspector`)
 
+The inspector is published separately from the core library. Use `--no-git-tag-version` to avoid creating git tags that collide with core library version tags.
+
 1. Navigate to the package: `cd packages/inspector`
-2. Publish: `yarn publish` — this will prompt you to bump the version, create a git tag, and publish to npm
-3. Push the commit and tag: `git push && git push --tags`
-4. Create a GitHub release from the new tag
+2. Bump the version: `npm version <patch|minor|major> --no-git-tag-version`
+3. Commit the version bump: `git add package.json && git commit -m "inspector v<new-version>"`
+4. Publish: `npm publish --access public`
+5. Push: `git push`
