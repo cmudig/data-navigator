@@ -33,6 +33,7 @@ At the deepest level, left/right moves across dates (via `childmostNavigation: '
     </div>
     <div>
         <h3>Structure Inspector</h3>
+        <button class="toggle-controls" @click="toggleMode">{{ inspectorMode === 'tree' ? 'Switch to force graph' : 'Switch to tree layout' }}</button>
         <div id="stacked-inspector" style="min-height: 350px;"></div>
     </div>
 </div>
@@ -41,6 +42,14 @@ At the deepest level, left/right moves across dates (via `childmostNavigation: '
 import { ref, onMounted } from 'vue';
 
 const showControls = ref(true);
+const inspectorMode = ref('tree');
+
+let createInspector, currentInspector;
+const toggleMode = () => {
+    inspectorMode.value = inspectorMode.value === 'tree' ? 'force' : 'tree';
+    if (currentInspector) currentInspector.destroy();
+    currentInspector = createInspector(inspectorMode.value);
+};
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
@@ -205,15 +214,17 @@ onMounted(async () => {
 
     const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 
-    // 1. Create the inspector (passive — just draws the force graph)
-    const inspector = Inspector({
+    // 1. Create the inspector (passive — defaults to tree layout)
+    createInspector = (mode) => Inspector({
         structure,
         container: 'stacked-inspector',
         size: 325,
         colorBy: 'dimensionLevel',
         edgeExclusions: ['any-exit'],
-        nodeInclusions: ['exit']
+        nodeInclusions: ['exit'],
+        mode
     });
+    currentInspector = createInspector(inspectorMode.value);
 
     // 2. Set up data-navigator rendering on the chart wrapper
     let current = null;
@@ -271,7 +282,7 @@ onMounted(async () => {
             rendering.remove(current);
             current = null;
         }
-        inspector.clear();
+        currentInspector.clear();
         clearChartHighlight();
     };
 
@@ -315,12 +326,12 @@ onMounted(async () => {
         });
 
         element.addEventListener('focus', () => {
-            inspector.highlight(nextNode.renderId);
+            currentInspector.highlight(nextNode.renderId);
             updateChartHighlight(nextNode);
         });
 
         element.addEventListener('blur', () => {
-            inspector.clear();
+            currentInspector.clear();
         });
 
         input.focus(nextNode.renderId);
@@ -355,6 +366,7 @@ import dataNavigator from 'data-navigator';
 
 // Assumes the page has:
 //   <div id="stacked-chart-wrapper" style="position: relative;"></div>
+//   <button id="toggle-inspector-mode"></button>
 //   <div id="inspector"></div>
 
 let current = null;
@@ -365,15 +377,33 @@ let exitHandler = null;
 // Create the Visa stacked bar chart
 const stackedBar = createChart('stacked-chart-wrapper', data);
 
-// Create the inspector (passive — just visualizes the structure)
-const inspector = Inspector({
+// Create the inspector (passive — defaults to tree layout)
+let currentMode = 'tree';
+const createInspector = (mode) => Inspector({
     structure,
     container: 'inspector',
     size: 325,
     colorBy: 'dimensionLevel',
     edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit']
+    nodeInclusions: ['exit'],
+    mode
 });
+let inspector = createInspector(currentMode);
+
+// Toggle button switches between tree and force modes
+const toggleBtn = document.getElementById('toggle-inspector-mode');
+if (toggleBtn) {
+    const updateLabel = () => {
+        toggleBtn.textContent = currentMode === 'tree' ? 'Switch to force graph' : 'Switch to tree layout';
+    };
+    updateLabel();
+    toggleBtn.addEventListener('click', () => {
+        currentMode = currentMode === 'tree' ? 'force' : 'tree';
+        inspector.destroy();
+        inspector = createInspector(currentMode);
+        updateLabel();
+    });
+}
 
 function enter() {
     const nextNode = input.enter();
@@ -685,6 +715,7 @@ export function createInput(structure, entryPoint, exitPointId) {
             </div>
             <div>
                 <h3>Structure Inspector</h3>
+                <button id="toggle-inspector-mode">Switch to force graph</button>
                 <div id="inspector" style="min-height: 350px;"></div>
             </div>
         </div>

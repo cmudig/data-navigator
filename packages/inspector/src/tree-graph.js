@@ -55,15 +55,24 @@ export function TreeGraph(
     if (G && nodeGroups === undefined) nodeGroups = sort(G);
     const color = nodeGroup == null ? null : scaleOrdinal(nodeGroups, colors);
 
-    // Build set of parent-child navigation rule names.
+    // Build set of parent-child and sibling navigation rule names.
     const parentChildRules = new Set(['parent', 'child']);
+    const siblingRulePairs = [['left', 'right']]; // default pair
     if (dimensions) {
         Object.values(dimensions).forEach(dim => {
             (dim.navigationRules?.parent_child || []).forEach(r => parentChildRules.add(r));
+            const ss = dim.navigationRules?.sibling_sibling;
+            if (ss && ss.length === 2) siblingRulePairs.push(ss);
         });
     }
+    // Map each sibling rule name to its pair for splitting merged edges.
+    const ruleToPair = {};
+    siblingRulePairs.forEach(pair => {
+        pair.forEach(r => { ruleToPair[r] = pair.join(','); });
+    });
 
-    // Classify links.
+    // Classify links. Sibling links with merged rules (multiple pairs)
+    // are split into one entry per distinct pair so each gets its own arc.
     const parentChildLinks = [];
     const siblingLinks = [];
     linkData.forEach(l => {
@@ -75,7 +84,15 @@ export function TreeGraph(
         if (isParentChild) {
             parentChildLinks.push(l);
         } else {
-            siblingLinks.push(l);
+            // Split by distinct sibling rule pairs.
+            const seenPairs = new Set();
+            rules.forEach(r => {
+                const pairKey = ruleToPair[r] || r;
+                if (!seenPairs.has(pairKey)) {
+                    seenPairs.add(pairKey);
+                    siblingLinks.push({ source: l.source, target: l.target, navigationRules: [r] });
+                }
+            });
         }
     });
 
@@ -138,10 +155,11 @@ export function TreeGraph(
 
     const hasLevel0 = level0.length > 0;
     const upperRows = (hasLevel0 ? 1 : 0) + 1 + 1; // l0?, l1, l2
-    // Upper hierarchy gets 40% of height, leaves get 60%
-    const upperHeight = usableHeight * 0.4;
+    // Upper hierarchy gets 25% of height, leaves get the rest after a gap
+    const upperHeight = usableHeight * 0.25;
     const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
-    const leafYPos = padding.top + usableHeight * 0.85;
+    const leafGap = usableHeight * 0.05; // small gap between hierarchy and leaves
+    const leafYPos = padding.top + upperHeight + leafGap;
 
     let currentRow = 0;
     const yFor = (row) => padding.top + row * upperSpacing;
@@ -234,8 +252,8 @@ export function TreeGraph(
         const cols = div1Ids.length || 1;
         const rows = div2Ids.length || 1;
 
-        // Grid occupies the leaf area but may expand vertically
-        const gridTop = leafY - (leafY - yFor(currentRow - 1)) * 0.15;
+        // Grid occupies the full leaf area
+        const gridTop = leafY;
         const gridBottom = height - padding.bottom;
         const gridHeight = gridBottom - gridTop;
         const colSpacing = usableWidth / (cols + 1);
@@ -267,12 +285,12 @@ export function TreeGraph(
                 cellNodes[0].x = cx;
                 cellNodes[0].y = cy;
             } else {
-                // Spread horizontally within the cell
+                // Spread vertically within the cell (matches row-based dim2)
                 const spread = cellPad;
                 const step = spread / (cellNodes.length - 1);
                 cellNodes.forEach((n, i) => {
-                    n.x = cx - spread / 2 + step * i;
-                    n.y = cy;
+                    n.x = cx;
+                    n.y = cy - spread / 2 + step * i;
                 });
             }
         });
@@ -296,6 +314,8 @@ export function TreeGraph(
     // Draw sibling links as arced paths (dashed, behind parent-child links).
     // Regular siblings arc above (horizontal) or left (vertical).
     // Wrap-around (circular) siblings arc below/right with a larger curve.
+    // When multiple edges share the same node pair, each gets a larger arc.
+    const edgePairCounts = {};
     const siblingArc = (d) => {
         const s = nodeObjById[d.source];
         const t = nodeObjById[d.target];
@@ -307,8 +327,14 @@ export function TreeGraph(
         // Detect wrap-around: source is to the right of target (horizontal)
         // or below target (vertical) — these are circular edges.
         const isWrap = isHorizontal ? (sx > tx) : (sy > ty);
-        // Arc offset scales with distance but stays subtle
-        const arcAmount = Math.min(dist * 0.3, 40);
+        // Track regular and wrap arcs separately — they curve in opposite
+        // directions so only same-direction arcs need stacking.
+        const pairKey = [d.source, d.target].sort().join('::') + (isWrap ? '::wrap' : '::reg');
+        const edgeIndex = edgePairCounts[pairKey] || 0;
+        edgePairCounts[pairKey] = edgeIndex + 1;
+        // Arc offset scales with distance; increase by 20% for each additional same-direction edge
+        const arcFraction = 0.3 + edgeIndex * 0.2;
+        const arcAmount = Math.min(dist * arcFraction, 40 + edgeIndex * 25);
         const midX = (sx + tx) / 2;
         const midY = (sy + ty) / 2;
         let cx, cy;
