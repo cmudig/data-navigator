@@ -280,10 +280,10 @@ export function TreeGraph(
         .attr('y1', d => nodeObjById[d.source]?.y || 0)
         .attr('x2', d => nodeObjById[d.target]?.x || 0)
         .attr('y2', d => nodeObjById[d.target]?.y || 0)
-        .attr('stroke', '#bbb')
-        .attr('stroke-opacity', 0.25)
+        .attr('stroke', '#888')
+        .attr('stroke-opacity', 0.6)
         .attr('stroke-width', 1)
-        .attr('stroke-dasharray', '3,2');
+        .attr('stroke-dasharray', '6,4');
 
     // Draw parent-child links (solid).
     svg.append('g')
