@@ -38,7 +38,8 @@ export function ForceGraph(
         height = 400,
         invalidation,
         description,
-        hide
+        hide,
+        idPrefix = ''
     } = {}
 ) {
     // Compute values.
@@ -97,7 +98,7 @@ export function ForceGraph(
         .selectAll('line')
         .data(links)
         .join('line')
-        .attr('id', (_, i) => 'svgedge' + LS[i] + '-' + LT[i]);
+        .attr('id', (_, i) => idPrefix + 'svgedge' + LS[i] + '-' + LT[i]);
 
     const node = svg
         .append('g')

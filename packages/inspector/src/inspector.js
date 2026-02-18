@@ -87,8 +87,8 @@ const hideTooltip = (tooltipEl, indicatorEl) => {
 /**
  * Moves the SVG focus indicator circle to the target node.
  */
-const highlightNode = (nodeId, svgEl, indicatorEl) => {
-    let target = svgEl.querySelector('#svg' + nodeId);
+const highlightNode = (nodeId, svgEl, indicatorEl, idPrefix) => {
+    let target = svgEl.querySelector('#' + idPrefix + nodeId);
     if (!target || !indicatorEl) return;
     indicatorEl.setAttribute('cx', target.getAttribute('cx'));
     indicatorEl.setAttribute('cy', target.getAttribute('cy'));
@@ -154,13 +154,15 @@ export function Inspector({
     const graphHeight = mode === 'tree' ? Math.round(size * 1.5) : size;
     const nodeArray = convertToArray(structure.nodes, nodeInclusions);
     const linkArray = convertToArray(structure.edges, [], edgeExclusions);
+    const idPrefix = rootId + '-';
     const graphOptions = {
         nodeId: d => d.id,
         nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
         width: graphWidth,
         height: graphHeight,
         nodeRadius,
-        hide: true
+        hide: true,
+        idPrefix
     };
 
     const graph = mode === 'tree'
@@ -193,11 +195,12 @@ export function Inspector({
 
     rootEl.appendChild(wrapperEl);
 
-    // Assign IDs to SVG circles for targeting
+    // Assign IDs to SVG circles for targeting (prefixed to avoid collisions)
     const svgEl = graphContainer.querySelector('svg');
+    const nodeIdPrefix = idPrefix + 'svg';
     graphContainer.querySelectorAll('circle').forEach(c => {
         if (c.__data__?.id) {
-            c.id = 'svg' + c.__data__.id;
+            c.id = nodeIdPrefix + c.__data__.id;
         }
         c.addEventListener('mousemove', e => {
             if (e.target?.__data__?.id) {
@@ -225,7 +228,7 @@ export function Inspector({
             const src = typeof edge.source === 'function' ? null : edge.source;
             const tgt = typeof edge.target === 'function' ? null : edge.target;
             if (src && tgt) {
-                const prefix = 'svgedge' + src + '-' + tgt;
+                const prefix = rootId + '-svgedge' + src + '-' + tgt;
                 const matched = [];
                 allSvgEdgeEls.forEach(el => {
                     if (el.id === prefix || el.id.startsWith(prefix + '-')) {
@@ -252,7 +255,7 @@ export function Inspector({
     return {
         svg: svgEl,
         highlight(nodeId) {
-            highlightNode(nodeId, svgEl, indicatorEl);
+            highlightNode(nodeId, svgEl, indicatorEl, nodeIdPrefix);
             if (structure.nodes[nodeId]) {
                 showTooltip(structure.nodes[nodeId], tooltipEl, graphWidth, graphHeight, colorBy);
             }

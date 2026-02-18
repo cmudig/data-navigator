@@ -9,7 +9,8 @@
         "preview": "vitepress preview ."
     },
     "dependencies": {
-        "data-navigator": "*"
+        "data-navigator": "*",
+        "@data-navigator/inspector": "*"
     },
     "devDependencies": {
         "vitepress": "^1.4.0",

@@ -44,9 +44,16 @@
     pointer-events: none;
 }
 
-/* ==== Console Menu ==== */
+/* ==== Console Menu ====
+ *
+ * All selectors below use `.dn-inspector-menu` as a prefix for two reasons:
+ *   1. Scoping — these styles only affect the inspector menu
+ *   2. Specificity — overrides global UI framework styles (e.g. VitePress sets
+ *      `summary { min-height: 44px }` and `button { min-width: 44px }`)
+ */
 
 .dn-inspector-menu {
+    min-width: 500px;
     max-height: 450px;
     overflow-y: auto;
     border: 1px solid #ccc;
@@ -59,7 +66,7 @@
 }
 
 /* Hidden utility */
-.dn-menu-hidden {
+.dn-inspector-menu .dn-menu-hidden {
     display: none !important;
 }
 
@@ -73,18 +80,28 @@
     align-items: center;
     min-height: 24px;
     padding: 0 2px;
+    border: none;
+    border-radius: 0;
 }
 
 .dn-inspector-menu summary::-webkit-details-marker {
     display: none;
 }
 
+.dn-inspector-menu summary:focus {
+    outline: 2px solid #1e3369;
+    outline-offset: 0;
+}
+
 /* Group checkbox inside summary */
-.dn-menu-group-checkbox {
+.dn-inspector-menu .dn-menu-group-checkbox {
     margin: 0 2px 0 0;
     flex-shrink: 0;
     width: 13px;
     height: 13px;
+    min-width: 13px;
+    min-height: 13px;
+    padding: 0;
 }
 
 /* Caret indicator */
@@ -105,7 +122,7 @@
 }
 
 /* Top-level section summaries */
-.dn-menu-summary-top {
+.dn-inspector-menu .dn-menu-summary-top {
     font-weight: bold;
     font-size: 12px;
 }
@@ -121,7 +138,7 @@
 
 /* ---- Menu items (checkbox + label + log btn) ---- */
 
-.dn-menu-item {
+.dn-inspector-menu .dn-menu-item {
     display: flex;
     align-items: center;
     gap: 3px;
@@ -131,18 +148,21 @@
     margin-left: 32px;
 }
 
-.dn-menu-item:hover {
+.dn-inspector-menu .dn-menu-item:hover {
     background: #f0f0f0;
 }
 
-.dn-menu-item input[type="checkbox"] {
+.dn-inspector-menu .dn-menu-item input[type="checkbox"] {
     margin: 0;
     flex-shrink: 0;
     width: 13px;
     height: 13px;
+    min-width: 13px;
+    min-height: 13px;
+    padding: 0;
 }
 
-.dn-menu-item-label {
+.dn-inspector-menu .dn-menu-item-label {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -150,11 +170,13 @@
     font-size: 11px;
 }
 
-.dn-menu-log-btn {
+.dn-inspector-menu .dn-menu-log-btn {
     font-size: 10px;
     font-family: monospace;
     padding: 0 4px;
     line-height: 16px;
+    min-width: auto;
+    min-height: auto;
     cursor: pointer;
     border: 1px solid #bbb;
     background: #f5f5f5;
@@ -163,19 +185,24 @@
     color: #555;
 }
 
-.dn-menu-log-btn:hover {
+.dn-inspector-menu .dn-menu-log-btn:hover {
     background: #e0e0e0;
     color: #222;
 }
 
+.dn-inspector-menu .dn-menu-log-btn:focus {
+    outline: 2px solid #1e3369;
+    outline-offset: 0;
+}
+
 /* Console clear button */
-.dn-menu-clear-btn {
+.dn-inspector-menu .dn-menu-clear-btn {
     margin-left: auto;
 }
 
 /* ---- Informational items (no checkbox) ---- */
 
-.dn-menu-info {
+.dn-inspector-menu .dn-menu-info {
     padding: 0 2px 0 30px;
     font-size: 11px;
     min-height: 18px;
@@ -183,14 +210,14 @@
     align-items: center;
 }
 
-.dn-menu-empty {
+.dn-inspector-menu .dn-menu-empty {
     color: #999;
     font-style: italic;
 }
 
 /* ---- Data / Props pre blocks ---- */
 
-.dn-menu-pre {
+.dn-inspector-menu .dn-menu-pre {
     max-height: 150px;
     overflow: auto;
     font-size: 10px;
@@ -205,12 +232,12 @@
 
 /* ---- Console section ---- */
 
-.dn-menu-console-list {
+.dn-inspector-menu .dn-menu-console-list {
     max-height: 180px;
     overflow-y: auto;
 }
 
-.dn-menu-console-list:empty::after {
+.dn-inspector-menu .dn-menu-console-list:empty::after {
     content: "(empty)";
     color: #999;
     padding: 2px 30px;
@@ -219,13 +246,13 @@
     font-size: 11px;
 }
 
-.dn-menu-console-entry {
+.dn-inspector-menu .dn-menu-console-entry {
     border-bottom: 1px solid #f0f0f0;
 }
 
 /* ---- Inline expandable arrays ---- */
 
-.dn-menu-inline-array {
+.dn-inspector-menu .dn-menu-inline-array {
     font-size: 11px;
     padding: 0 2px;
     min-height: 18px;
@@ -234,35 +261,35 @@
     flex-wrap: wrap;
 }
 
-.dn-menu-array-toggle {
+.dn-inspector-menu .dn-menu-array-toggle {
     color: #666;
     cursor: pointer;
     flex-shrink: 0;
 }
 
-.dn-menu-array-collapsed {
+.dn-inspector-menu .dn-menu-array-collapsed {
     color: #08c;
     cursor: pointer;
     text-decoration: underline;
     text-decoration-style: dotted;
 }
 
-.dn-menu-array-collapsed:hover {
+.dn-inspector-menu .dn-menu-array-collapsed:hover {
     color: #005fa3;
 }
 
-.dn-menu-array-expanded {
+.dn-inspector-menu .dn-menu-array-expanded {
     color: #333;
 }
 
-.dn-menu-array-chip {
+.dn-inspector-menu .dn-menu-array-chip {
     color: #08c;
     cursor: default;
     padding: 0 1px;
     border-radius: 2px;
 }
 
-.dn-menu-array-chip:hover {
+.dn-inspector-menu .dn-menu-array-chip:hover {
     background: #e8f4fd;
     color: #005fa3;
 }

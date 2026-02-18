@@ -9,6 +9,7 @@
     "module": "./src/index.js",
     "files": [
         "src/**/*",
+        "style.css",
         "README.md",
         "LICENSE"
     ],
@@ -16,7 +17,8 @@
         ".": {
             "import": "./src/index.js",
             "default": "./src/index.js"
-        }
+        },
+        "./style.css": "./style.css"
     },
     "keywords": [
         "visualization",

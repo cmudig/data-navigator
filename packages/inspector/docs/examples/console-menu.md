@@ -1,6 +1,6 @@
 # Using the Console Menu
 
-This example demonstrates the inspector's console menu feature alongside a stacked bar chart. The inspector uses tree mode to show the hierarchical structure, and the console menu provides an interactive text-based interface for inspecting nodes, edges, and navigation rules — similar to a browser developer console, but interactive.
+This example demonstrates the inspector's console menu feature alongside a stacked bar chart. Use the toggle button to switch between tree and force graph modes. The console menu provides an interactive text-based interface for inspecting nodes, edges, and navigation rules — similar to a browser developer console, but interactive.
 
 ## Keyboard Controls
 
@@ -32,7 +32,8 @@ At the deepest level, left/right moves across dates (via `childmostNavigation: '
         <div id="console-chart-wrapper" style="position: relative;"></div>
     </div>
     <div>
-        <h3>Structure Inspector (Tree) + Console Menu</h3>
+        <h3>Structure Inspector ({{ graphMode === 'tree' ? 'Tree' : 'Force' }}) + Console Menu</h3>
+        <button class="toggle-controls" :aria-expanded="graphMode === 'tree'" @click="toggleGraphMode">{{ graphMode === 'tree' ? 'Switch to force graph' : 'Switch to tree graph' }}</button>
         <div id="console-inspector" style="min-height: 350px;"></div>
     </div>
 </div>
@@ -49,6 +50,13 @@ At the deepest level, left/right moves across dates (via `childmostNavigation: '
 import { ref, onMounted } from 'vue';
 
 const showControls = ref(true);
+const graphMode = ref('tree');
+
+let rebuildInspector = null;
+const toggleGraphMode = () => {
+    graphMode.value = graphMode.value === 'tree' ? 'force' : 'tree';
+    if (rebuildInspector) rebuildInspector(graphMode.value);
+};
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
@@ -225,21 +233,32 @@ onMounted(async () => {
 
     const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 
-    // 1. Create the inspector in tree mode with the console menu enabled
+    // 1. Create the inspector with the console menu enabled
     const inspectorContainer = document.getElementById('console-inspector');
-    const inspector = Inspector({
-        structure,
-        container: inspectorContainer,
-        size: 325,
-        colorBy: 'dimensionLevel',
-        edgeExclusions: ['any-exit'],
-        nodeInclusions: ['exit'],
-        mode: 'tree',
-        showConsoleMenu: {
-            data,
-            structure: structureOptions
-        }
-    });
+    let inspector = null;
+
+    function createInspector(mode) {
+        if (inspector) inspector.destroy();
+        return Inspector({
+            structure,
+            container: inspectorContainer,
+            size: 325,
+            colorBy: 'dimensionLevel',
+            edgeExclusions: ['any-exit'],
+            nodeInclusions: ['exit'],
+            mode,
+            showConsoleMenu: {
+                data,
+                structure: structureOptions
+            }
+        });
+    }
+
+    inspector = createInspector(graphMode.value);
+
+    rebuildInspector = (mode) => {
+        inspector = createInspector(mode);
+    };
 
     // Listen for custom events emitted by the console menu
     const eventEntriesEl = document.getElementById('console-event-entries');
@@ -410,7 +429,7 @@ onMounted(async () => {
 
 This example extends the stacked bar pattern with two key additions:
 
-1. **Tree mode inspector** — The inspector uses `mode: 'tree'` for a deterministic hierarchical layout instead of the force-directed graph. This makes the dimension/division/leaf structure visually clear.
+1. **Graph mode toggle** — Switch between `mode: 'tree'` (deterministic hierarchical layout) and `mode: 'force'` (force-directed graph) to compare how each visualizes the structure.
 
 2. **Console menu** — The `showConsoleMenu` prop enables an interactive text-based panel below the tree inspector. It includes:
    - **Console** (collapsed) — Logged items appear here when you click "log" buttons

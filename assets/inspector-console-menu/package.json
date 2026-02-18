@@ -1,0 +1,6 @@
+{
+    "dependencies": {
+        "data-navigator": "^2.2.0",
+        "@data-navigator/inspector": "^1.0.0"
+    }
+}
