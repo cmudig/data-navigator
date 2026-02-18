@@ -197,8 +197,12 @@ export function buildMenuItem({ type, id, label, state, container, showLog, logF
             e.stopPropagation();
             const result = logFn();
             if (result && consoleListEl) {
-                const consoleDetails = consoleListEl.closest('details');
-                if (consoleDetails) consoleDetails.open = true;
+                // Open the Console section and all ancestor <details> so it's visible
+                let el = consoleListEl;
+                while (el) {
+                    if (el.tagName === 'DETAILS') el.open = true;
+                    el = el.parentElement;
+                }
                 appendConsoleLogGroup(result, state, container, consoleListEl, structure);
                 dispatch(container, EVENTS.ITEM_LOG, {
                     type: result.mainEntry.type,

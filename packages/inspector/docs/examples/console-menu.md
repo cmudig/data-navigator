@@ -37,12 +37,13 @@ At the deepest level, left/right moves across dates (via `childmostNavigation: '
     </div>
 </div>
 
-<div id="console-event-log" style="margin-top: 1em; font-family: monospace; font-size: 0.8em; color: #666; max-height: 100px; overflow-y: auto; border: 1px solid #eee; padding: 4px; display: none;">
-    <strong>Custom Events:</strong>
-    <div id="console-event-entries"></div>
-</div>
-
-<button id="toggle-event-log" style="margin-top: 0.5em; font-size: 0.8em;">Show event log</button>
+<details class="dn-inspector-menu" id="console-event-log-details">
+    <summary class="dn-menu-summary dn-menu-summary-top">Event Log</summary>
+    <div style="display: flex; align-items: center; padding: 2px 4px;">
+        <button class="dn-menu-log-btn" id="clear-event-log">clear</button>
+    </div>
+    <div id="console-event-entries" class="dn-menu-console-list" style="max-height: 200px;"></div>
+</details>
 
 <script setup>
 import { ref, onMounted } from 'vue';
@@ -241,27 +242,53 @@ onMounted(async () => {
     });
 
     // Listen for custom events emitted by the console menu
-    const eventLogEl = document.getElementById('console-event-log');
     const eventEntriesEl = document.getElementById('console-event-entries');
-    const toggleBtn = document.getElementById('toggle-event-log');
+    const clearEventBtn = document.getElementById('clear-event-log');
 
-    toggleBtn.addEventListener('click', () => {
-        const isHidden = eventLogEl.style.display === 'none';
-        eventLogEl.style.display = isHidden ? 'block' : 'none';
-        toggleBtn.textContent = isHidden ? 'Hide event log' : 'Show event log';
+    clearEventBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        eventEntriesEl.innerHTML = '';
     });
+
+    function formatEventDetail(eventName, detail) {
+        const action = eventName.replace('dn-inspector:', '');
+        switch (action) {
+            case 'item-hover':
+                return `hover ${detail.type} "${detail.id}"` +
+                    (detail.sourceData?.data ? ` — ${JSON.stringify(detail.sourceData.data).slice(0, 80)}` : '');
+            case 'item-unhover':
+                return `unhover ${detail.type} "${detail.id}"`;
+            case 'item-check':
+                return `check ${detail.type} "${detail.id}" (${detail.allChecked?.length || 0} total selected)`;
+            case 'item-uncheck':
+                return `uncheck ${detail.type} "${detail.id}" (${detail.allChecked?.length || 0} total selected)`;
+            case 'item-log':
+                return `log ${detail.type} "${detail.id}"` +
+                    (detail.loggedData ? ` — ${JSON.stringify(detail.loggedData).slice(0, 100)}` : '');
+            case 'selection-change': {
+                const items = detail.checked || [];
+                if (items.length === 0) return 'selection cleared';
+                const summary = items.map(i => `${i.type}:${i.id}`).slice(0, 5).join(', ');
+                return `selection changed → [${summary}]` +
+                    (items.length > 5 ? ` +${items.length - 5} more` : '') +
+                    ` (${items.length} total)`;
+            }
+            default:
+                return `${action} ${JSON.stringify(detail).slice(0, 100)}`;
+        }
+    }
 
     ['dn-inspector:item-hover', 'dn-inspector:item-unhover',
      'dn-inspector:item-check', 'dn-inspector:item-uncheck',
      'dn-inspector:item-log', 'dn-inspector:selection-change'].forEach(eventName => {
         inspectorContainer.addEventListener(eventName, e => {
             const entry = document.createElement('div');
-            const shortName = eventName.replace('dn-inspector:', '');
-            const detail = e.detail;
-            let info = shortName;
-            if (detail.type) info += ' ' + detail.type;
-            if (detail.id) info += ': ' + detail.id;
-            entry.textContent = info;
+            entry.className = 'dn-menu-info';
+            entry.style.fontSize = '10px';
+            entry.style.padding = '1px 4px';
+            entry.style.minHeight = '16px';
+            entry.textContent = formatEventDetail(eventName, e.detail);
             eventEntriesEl.appendChild(entry);
             eventEntriesEl.scrollTop = eventEntriesEl.scrollHeight;
         });
@@ -387,15 +414,14 @@ This example extends the stacked bar pattern with two key additions:
 
 2. **Console menu** — The `showConsoleMenu` prop enables an interactive text-based panel below the tree inspector. It includes:
    - **Console** (collapsed) — Logged items appear here when you click "log" buttons
-   - **Data** — The raw input dataset
-   - **Props** — The structure options passed to data-navigator
-   - **Dimensions / Divisions** — Lists all dimensions and their divisions
-   - **Navigation Rules** — Each rule has a checkbox (to highlight associated elements) and a log button
-   - **Rendered Elements** — All nodes and edges, each with checkbox and log button
+   - **Rendered Elements** — Nodes grouped by dimension/division, edges grouped by navigation rule, each with checkbox and log button
+   - **Source Input** — Data, props, dimensions, and divisions
 
 **Interacting with the menu:**
-- **Checkbox** any node or edge to highlight it in the tree (other elements dim to 8% opacity)
+- **Checkbox** any node or edge to highlight it in the tree (other elements dim to 50% opacity, selected nodes get a dark stroke, selected edges get thickened)
+- **Group checkboxes** on dimension, division, and nav rule headings select/deselect all items in that group
 - **Hover** a menu item to see a focus indicator on the corresponding tree node or a thickened edge
 - **Click "log"** to inspect detailed data in the Console section — node logs include connected edges, edge logs include source/target nodes
+- **Virtual edges** (like "exit") that aren't normally rendered will be drawn dynamically when selected
 - Console items are also interactive: checking or hovering them affects the tree, and vice versa
-- All interactions emit `dn-inspector:*` CustomEvents on the container (toggle the event log below the chart to see them)
+- All interactions emit `dn-inspector:*` CustomEvents on the container — expand the Event Log panel to see them
