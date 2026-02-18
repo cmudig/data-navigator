@@ -2,13 +2,14 @@
  * Console menu orchestrator.
  * Creates the menu DOM, wires shared state to SVG highlighting and events.
  *
- * Layout:
- *   1. Console (collapsed, at top, with clear button)
- *   2. Rendered Elements (open)
- *      - Nodes (grouped by dimension > division, then All Nodes)
- *      - Edges (grouped by nav rule, then All Edges)
- *   3. Source Input (collapsed)
- *      - Data, Props, Dimensions, Divisions
+ * Layout (all collapsed by default):
+ *   <details> Inspector Menu (wrapper)
+ *     1. Console (collapsed, at top, with clear button)
+ *     2. Rendered Elements (collapsed)
+ *        - Nodes (grouped by dimension > division, then All Nodes)
+ *        - Edges (grouped by nav rule, then All Edges)
+ *     3. Source Input (collapsed)
+ *        - Data, Props, Dimensions, Divisions
  */
 
 import { createMenuState } from './menu-state.js';
@@ -45,35 +46,40 @@ export function createConsoleMenu({
 }) {
     const state = createMenuState();
 
-    const menuEl = document.createElement('div');
-    menuEl.className = 'dn-inspector-menu';
+    // Outer wrapper: collapsible "Inspector Menu" section
+    const outerDetails = document.createElement('details');
+    outerDetails.className = 'dn-inspector-menu';
+    const outerSummary = document.createElement('summary');
+    outerSummary.className = 'dn-menu-summary dn-menu-summary-top';
+    outerSummary.textContent = 'Inspector Menu';
+    outerDetails.appendChild(outerSummary);
 
     // 1. Console (collapsed, at top with clear button)
     const { element: consoleEl, listEl: consoleListEl } = buildConsoleSection();
-    menuEl.appendChild(consoleEl);
+    outerDetails.appendChild(consoleEl);
 
-    // 2. Rendered Elements (Nodes grouped by dim/div, Edges grouped by nav rule)
+    // 2. Rendered Elements (collapsed — Nodes grouped by dim/div, Edges grouped by nav rule)
     const renderedEl = buildRenderedElementsSection(
         structure, state, container, consoleListEl, buildLabelFn
     );
-    menuEl.appendChild(renderedEl);
+    outerDetails.appendChild(renderedEl);
 
-    // 3. Source Input (Data, Props, Dimensions, Divisions)
+    // 3. Source Input (collapsed — Data, Props, Dimensions, Divisions)
     const sourceInputEl = buildSourceInputSection(structure, showConsoleMenu);
-    menuEl.appendChild(sourceInputEl);
+    outerDetails.appendChild(sourceInputEl);
 
     // Mount
-    wrapperEl.appendChild(menuEl);
+    wrapperEl.appendChild(outerDetails);
 
     // Wire state to SVG highlighting
     const unsubSvg = connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicatorEl);
 
     return {
         state,
-        menuEl,
+        menuEl: outerDetails,
         destroy() {
             unsubSvg();
-            wrapperEl.removeChild(menuEl);
+            wrapperEl.removeChild(outerDetails);
         }
     };
 }

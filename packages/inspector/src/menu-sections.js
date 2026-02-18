@@ -429,11 +429,11 @@ export function buildConsoleSection() {
  * Edges are grouped by navigation rule, then "All Edges" flat list.
  */
 export function buildRenderedElementsSection(structure, state, container, consoleListEl, buildLabelFn) {
-    const details = makeDetails('Rendered Elements', { open: true, summaryClass: 'dn-menu-summary-top' });
+    const details = makeDetails('Rendered Elements', { summaryClass: 'dn-menu-summary-top' });
 
     // --- Nodes ---
     const allNodeKeys = Object.keys(structure.nodes || {});
-    const nodesDetails = makeDetails('Nodes (' + allNodeKeys.length + ')', { open: true });
+    const nodesDetails = makeDetails('Nodes (' + allNodeKeys.length + ')');
 
     // Group nodes by dimension > division
     if (structure.dimensions) {

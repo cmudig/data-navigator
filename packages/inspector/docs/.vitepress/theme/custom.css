@@ -456,6 +456,7 @@ nav button {
     padding: 0 2px 0 6px;
     min-height: 20px;
     cursor: default;
+    margin-left: 32px;
 }
 
 .dn-inspector-menu .dn-menu-item:hover {

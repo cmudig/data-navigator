@@ -39,6 +39,11 @@
     outline: 2px solid #1e3369;
 }
 
+/* Dynamic edges drawn on-demand for virtual/excluded edges */
+.dn-inspector-dynamic-edge {
+    pointer-events: none;
+}
+
 /* ==== Console Menu ==== */
 
 .dn-inspector-menu {
@@ -123,6 +128,7 @@
     padding: 0 2px 0 6px;
     min-height: 20px;
     cursor: default;
+    margin-left: 32px;
 }
 
 .dn-menu-item:hover {
