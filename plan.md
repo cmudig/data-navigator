@@ -12,7 +12,7 @@
 - Build UI tool for creating DN structure visually
 - Models to help with UI tool?
 - Keyboard instructions (added to rendering)
-- "inspector" view that shows a graph (like in archive/testing)
+- Mobile screen reader-friendly prototype
 - Build examples:
     - Visualizations:
         - Maps/spatial
