@@ -363,3 +363,242 @@ nav button {
     min-height: 18px;
     height: 18px;
 }
+
+/* ==== Inspector Console Menu ==== */
+
+.dn-inspector-menu {
+    max-height: 450px;
+    overflow-y: auto;
+    border: 1px solid var(--vp-c-divider);
+    font-size: 12px;
+    font-family: monospace;
+    line-height: 1.3;
+    padding: 2px;
+    margin-top: 4px;
+    background: var(--vp-c-bg);
+}
+
+.dn-menu-hidden {
+    display: none !important;
+}
+
+/* Override global summary styles inside menu */
+.dn-inspector-menu summary {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 2px;
+    border: none;
+    border-radius: 0;
+}
+
+.dn-inspector-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+.dn-inspector-menu summary:focus {
+    outline: 2px solid var(--vp-c-brand-1);
+    outline-offset: 0;
+}
+
+/* Group checkbox inside summary */
+.dn-inspector-menu .dn-menu-group-checkbox {
+    margin: 0 2px 0 0;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    min-width: 13px;
+    min-height: 13px;
+    padding: 0;
+    border: 1px solid var(--vp-c-border);
+}
+
+/* Caret indicator */
+.dn-inspector-menu summary::before {
+    content: '\25B8';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.dn-inspector-menu details[open] > summary::before {
+    content: '\25BE';
+}
+
+/* Top-level section summaries */
+.dn-inspector-menu .dn-menu-summary-top {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Nested indentation */
+.dn-inspector-menu details details {
+    padding-left: 12px;
+}
+
+.dn-inspector-menu details details details {
+    padding-left: 12px;
+}
+
+/* Menu items */
+.dn-inspector-menu .dn-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 2px 0 6px;
+    min-height: 20px;
+    cursor: default;
+}
+
+.dn-inspector-menu .dn-menu-item:hover {
+    background: var(--vp-c-bg-soft);
+}
+
+.dn-inspector-menu .dn-menu-item input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    min-width: 13px;
+    min-height: 13px;
+    padding: 0;
+    border: 1px solid var(--vp-c-border);
+}
+
+.dn-inspector-menu .dn-menu-item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+/* Override global button styles for log buttons */
+.dn-inspector-menu .dn-menu-log-btn {
+    font-size: 10px;
+    font-family: monospace;
+    padding: 0 4px;
+    line-height: 16px;
+    min-width: auto;
+    min-height: auto;
+    cursor: pointer;
+    border: 1px solid var(--vp-c-border);
+    background: var(--vp-c-bg-soft);
+    border-radius: 2px;
+    flex-shrink: 0;
+    color: var(--vp-c-text-2);
+}
+
+.dn-inspector-menu .dn-menu-log-btn:hover {
+    background: var(--vp-c-bg-alt);
+    color: var(--vp-c-text-1);
+}
+
+.dn-inspector-menu .dn-menu-log-btn:focus {
+    outline: 2px solid var(--vp-c-brand-1);
+    outline-offset: 0;
+}
+
+/* Informational items */
+.dn-inspector-menu .dn-menu-info {
+    padding: 0 2px 0 30px;
+    font-size: 11px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+}
+
+.dn-inspector-menu .dn-menu-empty {
+    color: var(--vp-c-text-3);
+    font-style: italic;
+}
+
+/* Pre blocks */
+.dn-inspector-menu .dn-menu-pre {
+    max-height: 150px;
+    overflow: auto;
+    font-size: 10px;
+    margin: 2px 0 2px 30px;
+    padding: 3px;
+    background: var(--vp-c-bg-soft);
+    border: 1px solid var(--vp-c-divider);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.25;
+}
+
+/* Console clear button (inside summary) */
+.dn-inspector-menu .dn-menu-clear-btn {
+    margin-left: auto;
+}
+
+/* Console section */
+.dn-inspector-menu .dn-menu-console-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.dn-inspector-menu .dn-menu-console-list:empty::after {
+    content: "(empty)";
+    color: var(--vp-c-text-3);
+    padding: 2px 30px;
+    display: block;
+    font-style: italic;
+    font-size: 11px;
+}
+
+.dn-inspector-menu .dn-menu-console-entry {
+    border-bottom: 1px solid var(--vp-c-divider);
+}
+
+/* Inline expandable arrays */
+.dn-inspector-menu .dn-menu-inline-array {
+    font-size: 11px;
+    padding: 0 2px;
+    min-height: 18px;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.dn-inspector-menu .dn-menu-array-toggle {
+    color: var(--vp-c-text-2);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.dn-inspector-menu .dn-menu-array-collapsed {
+    color: var(--vp-c-brand-1);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+
+.dn-inspector-menu .dn-menu-array-collapsed:hover {
+    color: var(--vp-c-brand-2);
+}
+
+.dn-inspector-menu .dn-menu-array-expanded {
+    color: var(--vp-c-text-1);
+}
+
+.dn-inspector-menu .dn-menu-array-chip {
+    color: var(--vp-c-brand-1);
+    cursor: default;
+    padding: 0 1px;
+    border-radius: 2px;
+    text-decoration: none;
+}
+
+.dn-inspector-menu .dn-menu-array-chip:hover {
+    background: var(--vp-c-brand-soft);
+    color: var(--vp-c-brand-2);
+}

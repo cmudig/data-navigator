@@ -96,7 +96,8 @@ export function ForceGraph(
         .attr('stroke-linecap', linkStrokeLinecap)
         .selectAll('line')
         .data(links)
-        .join('line');
+        .join('line')
+        .attr('id', (_, i) => 'svgedge' + LS[i] + '-' + LT[i]);
 
     const node = svg
         .append('g')

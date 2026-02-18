@@ -38,3 +38,225 @@
 .dn-inspector-node:focus {
     outline: 2px solid #1e3369;
 }
+
+/* ==== Console Menu ==== */
+
+.dn-inspector-menu {
+    max-height: 450px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    font-size: 12px;
+    font-family: monospace;
+    line-height: 1.3;
+    padding: 2px;
+    margin-top: 4px;
+    background: #fff;
+}
+
+/* Hidden utility */
+.dn-menu-hidden {
+    display: none !important;
+}
+
+/* ---- Caret summaries ---- */
+
+.dn-inspector-menu summary {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 2px;
+}
+
+.dn-inspector-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Group checkbox inside summary */
+.dn-menu-group-checkbox {
+    margin: 0 2px 0 0;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+}
+
+/* Caret indicator */
+.dn-inspector-menu summary::before {
+    content: '\25B8'; /* right-pointing triangle */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.dn-inspector-menu details[open] > summary::before {
+    content: '\25BE'; /* down-pointing triangle */
+}
+
+/* Top-level section summaries */
+.dn-menu-summary-top {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Nested indentation: each details level indents its contents */
+.dn-inspector-menu details details {
+    padding-left: 12px;
+}
+
+.dn-inspector-menu details details details {
+    padding-left: 12px;
+}
+
+/* ---- Menu items (checkbox + label + log btn) ---- */
+
+.dn-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 2px 0 6px;
+    min-height: 20px;
+    cursor: default;
+}
+
+.dn-menu-item:hover {
+    background: #f0f0f0;
+}
+
+.dn-menu-item input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+}
+
+.dn-menu-item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.dn-menu-log-btn {
+    font-size: 10px;
+    font-family: monospace;
+    padding: 0 4px;
+    line-height: 16px;
+    cursor: pointer;
+    border: 1px solid #bbb;
+    background: #f5f5f5;
+    border-radius: 2px;
+    flex-shrink: 0;
+    color: #555;
+}
+
+.dn-menu-log-btn:hover {
+    background: #e0e0e0;
+    color: #222;
+}
+
+/* Console clear button */
+.dn-menu-clear-btn {
+    margin-left: auto;
+}
+
+/* ---- Informational items (no checkbox) ---- */
+
+.dn-menu-info {
+    padding: 0 2px 0 30px;
+    font-size: 11px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+}
+
+.dn-menu-empty {
+    color: #999;
+    font-style: italic;
+}
+
+/* ---- Data / Props pre blocks ---- */
+
+.dn-menu-pre {
+    max-height: 150px;
+    overflow: auto;
+    font-size: 10px;
+    margin: 2px 0 2px 30px;
+    padding: 3px;
+    background: #fafafa;
+    border: 1px solid #eee;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.25;
+}
+
+/* ---- Console section ---- */
+
+.dn-menu-console-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.dn-menu-console-list:empty::after {
+    content: "(empty)";
+    color: #999;
+    padding: 2px 30px;
+    display: block;
+    font-style: italic;
+    font-size: 11px;
+}
+
+.dn-menu-console-entry {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* ---- Inline expandable arrays ---- */
+
+.dn-menu-inline-array {
+    font-size: 11px;
+    padding: 0 2px;
+    min-height: 18px;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.dn-menu-array-toggle {
+    color: #666;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.dn-menu-array-collapsed {
+    color: #08c;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+
+.dn-menu-array-collapsed:hover {
+    color: #005fa3;
+}
+
+.dn-menu-array-expanded {
+    color: #333;
+}
+
+.dn-menu-array-chip {
+    color: #08c;
+    cursor: default;
+    padding: 0 1px;
+    border-radius: 2px;
+}
+
+.dn-menu-array-chip:hover {
+    background: #e8f4fd;
+    color: #005fa3;
+}

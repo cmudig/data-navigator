@@ -1,5 +1,6 @@
 import { ForceGraph } from './force-graph.js';
 import { TreeGraph } from './tree-graph.js';
+import { createConsoleMenu } from './console-menu.js';
 
 /**
  * Converts a structure's nodes or edges object into an array for D3.
@@ -125,8 +126,13 @@ const createFocusIndicator = (svgEl, id) => {
  * @param {string[]} [options.edgeExclusions=[]] - Edge IDs to exclude from the graph
  * @param {string[]} [options.nodeInclusions=[]] - Extra pseudo-node IDs to include
  * @param {'force'|'tree'} [options.mode='force'] - Visualization mode: 'force' for force-directed, 'tree' for hierarchy layout
+ * @param {Object} [options.showConsoleMenu] - Optional console menu configuration
+ * @param {Array} options.showConsoleMenu.data - Required: the raw input dataset
+ * @param {Object} [options.showConsoleMenu.structure] - Optional: structure options for display
+ * @param {Object} [options.showConsoleMenu.input] - Optional: input options for display
+ * @param {Object} [options.showConsoleMenu.rendering] - Optional: rendering options for display
  *
- * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function }}
+ * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function, menuState?: Object }}
  */
 export function Inspector({
     structure,
@@ -136,7 +142,8 @@ export function Inspector({
     nodeRadius = 5,
     edgeExclusions = [],
     nodeInclusions = [],
-    mode = 'force'
+    mode = 'force',
+    showConsoleMenu
 }) {
     const rootEl = typeof container === 'string' ? document.getElementById(container) : container;
     const rootId = rootEl.id || 'dn-inspector-' + Math.random().toString(36).slice(2, 8);
@@ -206,6 +213,41 @@ export function Inspector({
     // Create focus indicator
     const indicatorEl = createFocusIndicator(svgEl, rootId);
 
+    // Build console menu if requested
+    let menu = null;
+    if (showConsoleMenu) {
+        // Build edge-to-SVG-ID mapping by iterating all SVG edge elements
+        // and matching their IDs to structure edge keys (avoids fragile CSS selectors)
+        const edgeSvgIdMap = {};
+        const allSvgEdgeEls = svgEl.querySelectorAll('line[id], path[id]');
+        Object.keys(structure.edges).forEach(edgeKey => {
+            const edge = structure.edges[edgeKey];
+            const src = typeof edge.source === 'function' ? null : edge.source;
+            const tgt = typeof edge.target === 'function' ? null : edge.target;
+            if (src && tgt) {
+                const prefix = 'svgedge' + src + '-' + tgt;
+                const matched = [];
+                allSvgEdgeEls.forEach(el => {
+                    if (el.id === prefix || el.id.startsWith(prefix + '-')) {
+                        matched.push(el.id);
+                    }
+                });
+                edgeSvgIdMap[edgeKey] = matched;
+            }
+        });
+
+        menu = createConsoleMenu({
+            structure,
+            svgEl,
+            container: rootEl,
+            wrapperEl,
+            showConsoleMenu,
+            indicatorEl,
+            edgeSvgIdMap,
+            buildLabelFn: (node) => buildLabel(node, colorBy)
+        });
+    }
+
     // Public API
     return {
         svg: svgEl,
@@ -219,7 +261,9 @@ export function Inspector({
             hideTooltip(tooltipEl, indicatorEl);
         },
         destroy() {
+            if (menu) menu.destroy();
             rootEl.removeChild(wrapperEl);
-        }
+        },
+        menuState: menu ? menu.state : undefined
     };
 }
