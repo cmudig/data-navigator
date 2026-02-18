@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="./node_modules/@data-navigator/inspector/style.css" />
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+        {
+            "imports": {
+                "data-navigator": "./node_modules/data-navigator/dist/index.js",
+                "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
+                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
+            <div>
+                <h3>Bar Chart</h3>
+                <div id="chart-area" style="position: relative;"></div>
+            </div>
+            <div>
+                <h3>Inspector + Console Menu</h3>
+                <button id="mode-toggle">Switch to force graph</button>
+                <div id="inspector-area" style="min-height: 300px;"></div>
+            </div>
+        </div>
+    </body>
+    <script src="https://unpkg.com/@visa/bar-chart@7/dist/bar-chart/bar-chart.esm.js" type="module"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>

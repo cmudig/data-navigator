@@ -22,7 +22,8 @@ export function TreeGraph(
         height = 400,
         dimensions,
         description,
-        hide
+        hide,
+        idPrefix = ''
     } = {}
 ) {
     // Compute values (same pattern as ForceGraph).
@@ -353,6 +354,7 @@ export function TreeGraph(
         .selectAll('path')
         .data(siblingLinks)
         .join('path')
+        .attr('id', d => idPrefix + 'svgedge' + d.source + '-' + d.target + '-' + (d.navigationRules?.[0] || ''))
         .attr('d', siblingArc)
         .attr('fill', 'none')
         .attr('stroke', '#888')
@@ -366,6 +368,7 @@ export function TreeGraph(
         .selectAll('line')
         .data(parentChildLinks)
         .join('line')
+        .attr('id', d => idPrefix + 'svgedge' + d.source + '-' + d.target)
         .attr('x1', d => nodeObjById[d.source]?.x || 0)
         .attr('y1', d => nodeObjById[d.source]?.y || 0)
         .attr('x2', d => nodeObjById[d.target]?.x || 0)

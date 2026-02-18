@@ -1,6 +1,7 @@
 // https://vitepress.dev/guide/custom-theme
 import type { Theme } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
+import '../../../style.css';
 import './custom.css';
 
 // Import our custom components

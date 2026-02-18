@@ -363,3 +363,87 @@ nav button {
     min-height: 18px;
     height: 18px;
 }
+
+/* ==== Inspector Console Menu — VitePress color overrides ====
+ * Layout and sizing comes from the inspector's core style.css.
+ * These overrides adapt colors to VitePress theme variables for
+ * dark mode support and visual consistency with the docs site.
+ */
+
+.dn-inspector-menu {
+    border-color: var(--vp-c-divider);
+    background: var(--vp-c-bg);
+}
+
+.dn-inspector-menu summary:focus {
+    outline-color: var(--vp-c-brand-1);
+}
+
+.dn-inspector-menu .dn-menu-group-checkbox {
+    border: 1px solid var(--vp-c-border);
+}
+
+.dn-inspector-menu .dn-menu-item:hover {
+    background: var(--vp-c-bg-soft);
+}
+
+.dn-inspector-menu .dn-menu-item input[type="checkbox"] {
+    border: 1px solid var(--vp-c-border);
+}
+
+.dn-inspector-menu .dn-menu-log-btn {
+    border-color: var(--vp-c-border);
+    background: var(--vp-c-bg-soft);
+    color: var(--vp-c-text-2);
+}
+
+.dn-inspector-menu .dn-menu-log-btn:hover {
+    background: var(--vp-c-bg-alt);
+    color: var(--vp-c-text-1);
+}
+
+.dn-inspector-menu .dn-menu-log-btn:focus {
+    outline-color: var(--vp-c-brand-1);
+}
+
+.dn-inspector-menu .dn-menu-empty {
+    color: var(--vp-c-text-3);
+}
+
+.dn-inspector-menu .dn-menu-pre {
+    background: var(--vp-c-bg-soft);
+    border-color: var(--vp-c-divider);
+}
+
+.dn-inspector-menu .dn-menu-console-list:empty::after {
+    color: var(--vp-c-text-3);
+}
+
+.dn-inspector-menu .dn-menu-console-entry {
+    border-bottom-color: var(--vp-c-divider);
+}
+
+.dn-inspector-menu .dn-menu-array-toggle {
+    color: var(--vp-c-text-2);
+}
+
+.dn-inspector-menu .dn-menu-array-collapsed {
+    color: var(--vp-c-brand-1);
+}
+
+.dn-inspector-menu .dn-menu-array-collapsed:hover {
+    color: var(--vp-c-brand-2);
+}
+
+.dn-inspector-menu .dn-menu-array-expanded {
+    color: var(--vp-c-text-1);
+}
+
+.dn-inspector-menu .dn-menu-array-chip {
+    color: var(--vp-c-brand-1);
+}
+
+.dn-inspector-menu .dn-menu-array-chip:hover {
+    background: var(--vp-c-brand-soft);
+    color: var(--vp-c-brand-2);
+}

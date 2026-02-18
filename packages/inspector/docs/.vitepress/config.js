@@ -35,6 +35,7 @@ export default defineConfig({
             { text: 'Getting Started', link: '/getting-started' },
             { text: 'Examples', link: '/examples/stacked-bar' },
             { text: 'Tree View', link: '/examples/tree-view' },
+            { text: 'Console Menu', link: '/examples/console-menu' },
             { text: 'Data Navigator Docs', link: 'https://dig.cmu.edu/data-navigator/' }
         ],
         sidebar: [
@@ -44,7 +45,8 @@ export default defineConfig({
                     { text: 'Overview', link: '/' },
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Stacked Bar Example', link: '/examples/stacked-bar' },
-                    { text: 'Tree View Example', link: '/examples/tree-view' }
+                    { text: 'Tree View Example', link: '/examples/tree-view' },
+                    { text: 'Console Menu Example', link: '/examples/console-menu' }
                 ]
             }
         ]

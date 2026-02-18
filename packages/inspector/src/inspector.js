@@ -1,5 +1,6 @@
 import { ForceGraph } from './force-graph.js';
 import { TreeGraph } from './tree-graph.js';
+import { createConsoleMenu } from './console-menu.js';
 
 /**
  * Converts a structure's nodes or edges object into an array for D3.
@@ -86,8 +87,8 @@ const hideTooltip = (tooltipEl, indicatorEl) => {
 /**
  * Moves the SVG focus indicator circle to the target node.
  */
-const highlightNode = (nodeId, svgEl, indicatorEl) => {
-    let target = svgEl.querySelector('#svg' + nodeId);
+const highlightNode = (nodeId, svgEl, indicatorEl, idPrefix) => {
+    let target = svgEl.querySelector('#' + idPrefix + nodeId);
     if (!target || !indicatorEl) return;
     indicatorEl.setAttribute('cx', target.getAttribute('cx'));
     indicatorEl.setAttribute('cy', target.getAttribute('cy'));
@@ -125,8 +126,13 @@ const createFocusIndicator = (svgEl, id) => {
  * @param {string[]} [options.edgeExclusions=[]] - Edge IDs to exclude from the graph
  * @param {string[]} [options.nodeInclusions=[]] - Extra pseudo-node IDs to include
  * @param {'force'|'tree'} [options.mode='force'] - Visualization mode: 'force' for force-directed, 'tree' for hierarchy layout
+ * @param {Object} [options.showConsoleMenu] - Optional console menu configuration
+ * @param {Array} options.showConsoleMenu.data - Required: the raw input dataset
+ * @param {Object} [options.showConsoleMenu.structure] - Optional: structure options for display
+ * @param {Object} [options.showConsoleMenu.input] - Optional: input options for display
+ * @param {Object} [options.showConsoleMenu.rendering] - Optional: rendering options for display
  *
- * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function }}
+ * @returns {{ svg: SVGElement, highlight: Function, clear: Function, destroy: Function, menuState?: Object }}
  */
 export function Inspector({
     structure,
@@ -136,7 +142,8 @@ export function Inspector({
     nodeRadius = 5,
     edgeExclusions = [],
     nodeInclusions = [],
-    mode = 'force'
+    mode = 'force',
+    showConsoleMenu
 }) {
     const rootEl = typeof container === 'string' ? document.getElementById(container) : container;
     const rootId = rootEl.id || 'dn-inspector-' + Math.random().toString(36).slice(2, 8);
@@ -147,13 +154,15 @@ export function Inspector({
     const graphHeight = mode === 'tree' ? Math.round(size * 1.5) : size;
     const nodeArray = convertToArray(structure.nodes, nodeInclusions);
     const linkArray = convertToArray(structure.edges, [], edgeExclusions);
+    const idPrefix = rootId + '-';
     const graphOptions = {
         nodeId: d => d.id,
         nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
         width: graphWidth,
         height: graphHeight,
         nodeRadius,
-        hide: true
+        hide: true,
+        idPrefix
     };
 
     const graph = mode === 'tree'
@@ -186,11 +195,12 @@ export function Inspector({
 
     rootEl.appendChild(wrapperEl);
 
-    // Assign IDs to SVG circles for targeting
+    // Assign IDs to SVG circles for targeting (prefixed to avoid collisions)
     const svgEl = graphContainer.querySelector('svg');
+    const nodeIdPrefix = idPrefix + 'svg';
     graphContainer.querySelectorAll('circle').forEach(c => {
         if (c.__data__?.id) {
-            c.id = 'svg' + c.__data__.id;
+            c.id = nodeIdPrefix + c.__data__.id;
         }
         c.addEventListener('mousemove', e => {
             if (e.target?.__data__?.id) {
@@ -206,11 +216,46 @@ export function Inspector({
     // Create focus indicator
     const indicatorEl = createFocusIndicator(svgEl, rootId);
 
+    // Build console menu if requested
+    let menu = null;
+    if (showConsoleMenu) {
+        // Build edge-to-SVG-ID mapping by iterating all SVG edge elements
+        // and matching their IDs to structure edge keys (avoids fragile CSS selectors)
+        const edgeSvgIdMap = {};
+        const allSvgEdgeEls = svgEl.querySelectorAll('line[id], path[id]');
+        Object.keys(structure.edges).forEach(edgeKey => {
+            const edge = structure.edges[edgeKey];
+            const src = typeof edge.source === 'function' ? null : edge.source;
+            const tgt = typeof edge.target === 'function' ? null : edge.target;
+            if (src && tgt) {
+                const prefix = rootId + '-svgedge' + src + '-' + tgt;
+                const matched = [];
+                allSvgEdgeEls.forEach(el => {
+                    if (el.id === prefix || el.id.startsWith(prefix + '-')) {
+                        matched.push(el.id);
+                    }
+                });
+                edgeSvgIdMap[edgeKey] = matched;
+            }
+        });
+
+        menu = createConsoleMenu({
+            structure,
+            svgEl,
+            container: rootEl,
+            wrapperEl,
+            showConsoleMenu,
+            indicatorEl,
+            edgeSvgIdMap,
+            buildLabelFn: (node) => buildLabel(node, colorBy)
+        });
+    }
+
     // Public API
     return {
         svg: svgEl,
         highlight(nodeId) {
-            highlightNode(nodeId, svgEl, indicatorEl);
+            highlightNode(nodeId, svgEl, indicatorEl, nodeIdPrefix);
             if (structure.nodes[nodeId]) {
                 showTooltip(structure.nodes[nodeId], tooltipEl, graphWidth, graphHeight, colorBy);
             }
@@ -219,7 +264,9 @@ export function Inspector({
             hideTooltip(tooltipEl, indicatorEl);
         },
         destroy() {
+            if (menu) menu.destroy();
             rootEl.removeChild(wrapperEl);
-        }
+        },
+        menuState: menu ? menu.state : undefined
     };
 }

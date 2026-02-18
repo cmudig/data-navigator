@@ -140,6 +140,7 @@ export default defineConfig({
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
                         { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
                         { text: 'Inspecting Two Trees', link: '/examples/inspecting-two-trees' },
+                        { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
                         { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }

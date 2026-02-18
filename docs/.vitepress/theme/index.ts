@@ -2,6 +2,7 @@
 import type { Theme } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
 import './custom.css';
+import '../../../packages/inspector/style.css';
 
 // Import our custom components
 import Example from './components/Example.vue';
