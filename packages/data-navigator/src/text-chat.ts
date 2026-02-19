@@ -394,32 +394,18 @@ export default (options: TextChatOptions): TextChatInstance => {
         if (lower === 'help') {
             if (!currentNodeId) {
                 addResponse(
-                    'Not yet in the structure. Type "enter" to begin navigating.'
+                    'Not yet in the structure. Type "enter" to begin navigating, or "move to <search>" to jump to a node.'
                 );
             } else {
                 const node = structure.nodes[currentNodeId];
                 const available = getAvailableRules(currentNodeId, node, structure);
                 const formatted = available.map(r => formatRule(r, commandLabels));
-                addResponse(`Available: ${formatted.join(', ')}.`);
+                addResponse(`Available: ${formatted.join(', ')}, move to <search>.`);
             }
             return;
         }
 
-        // More help — all nav rules
-        if (lower === 'more' || lower === 'more help') {
-            const allRules = getAllRuleNames(structure);
-            const formatted = allRules.map(r => formatRule(r, commandLabels));
-            addResponse(`All navigation rules: ${formatted.join(', ')}.`);
-            return;
-        }
-
-        // Must be entered before any navigation command
-        if (!currentNodeId) {
-            addResponse('Type "enter" to begin navigating the structure.');
-            return;
-        }
-
-        // Move to — direct navigation by search
+        // Move to — direct navigation by search (works before or after entering)
         if (lower.startsWith('move to ')) {
             const query = trimmed.slice('move to '.length).trim();
             if (!query) {
@@ -438,6 +424,20 @@ export default (options: TextChatOptions): TextChatInstance => {
                     results.map(r => r.description)
                 );
             }
+            return;
+        }
+
+        // More help — all nav rules
+        if (lower === 'more' || lower === 'more help') {
+            const allRules = getAllRuleNames(structure);
+            const formatted = allRules.map(r => formatRule(r, commandLabels));
+            addResponse(`All navigation rules: ${formatted.join(', ')}.`);
+            return;
+        }
+
+        // Must be entered before any navigation command
+        if (!currentNodeId) {
+            addResponse('Type "enter" to begin navigating the structure, or "move to <search>" to jump to a node.');
             return;
         }
 
