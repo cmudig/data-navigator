@@ -300,3 +300,25 @@ export type DataType = 'vega-lite' | 'vl' | 'Vega-Lite' | 'generic' | 'default';
 export type DimensionLevel = 0 | 1 | 2 | 3;
 
 export type DerivedNode = string;
+
+export type LLMMessage = {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+};
+
+export type TextChatOptions = {
+    structure: Structure;
+    container: string | HTMLElement;
+    entryPoint?: NodeId;
+    describeNode?: (node: NodeObject) => string;
+    commandLabels?: Record<string, string>;
+    onNavigate?: (node: NodeObject) => void;
+    onExit?: () => void;
+    llm?: (messages: LLMMessage[]) => Promise<string | null>;
+    data?: Record<string, unknown>[];
+};
+
+export type TextChatInstance = {
+    destroy: () => void;
+    getCurrentNode: () => NodeObject | null;
+};

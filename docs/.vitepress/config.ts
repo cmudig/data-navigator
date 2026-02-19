@@ -139,11 +139,13 @@ export default defineConfig({
                         { text: 'Overview', link: '/examples/' },
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
                         { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
-                        { text: 'Inspecting Two Trees', link: '/examples/inspecting-two-trees' },
+                        { text: 'Inspecting Force/Tree', link: '/examples/inspecting-force-tree' },
                         { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
-                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
+                        { text: 'Data Text Adventure', link: '/examples/data-text-adventure' },
+                        { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' }
                     ]
                 }
             ],
@@ -189,6 +191,7 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
+                'data-navigator/text-chat.css': '../../packages/data-navigator/text-chat.css',
                 'data-navigator': '../../packages/data-navigator/src/index.ts',
                 'data-navigator-inspector': '../../packages/inspector/src/inspector.js',
                 '@data-navigator/inspector': '../../packages/inspector/src/inspector.js'

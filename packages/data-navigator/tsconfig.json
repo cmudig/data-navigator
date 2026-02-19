@@ -2,7 +2,8 @@
     "compilerOptions": {
         "outDir": "./dist",
         "allowJs": true,
-        "target": "es5",
+        "target": "es2015",
+        "lib": ["es2017", "dom"],
         "declaration": true
     },
     "include": ["./src/**/*"]

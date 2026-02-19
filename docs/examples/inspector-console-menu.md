@@ -1,6 +1,6 @@
 # Inspector Console Menu
 
-This example extends [Inspecting Two Trees](/examples/inspecting-two-trees) by adding the inspector's **console menu** — an interactive text-based panel for inspecting nodes, edges, and navigation rules. Instead of showing both graph modes simultaneously, a toggle button lets you switch between **force** and **tree** layouts while the console menu stays attached. For full console menu documentation, see the [Inspector docs](https://dig.cmu.edu/data-navigator/inspector/examples/console-menu).
+This example extends [Inspecting Force/Tree](/examples/inspecting-force-tree) by adding the inspector's **console menu** — an interactive text-based panel for inspecting nodes, edges, and navigation rules. Instead of showing both graph modes simultaneously, a toggle button lets you switch between **force** and **tree** layouts while the console menu stays attached. For full console menu documentation, see the [Inspector docs](https://dig.cmu.edu/data-navigator/inspector/examples/console-menu).
 
 ## Keyboard Controls
 
@@ -288,7 +288,7 @@ This code is designed to work **without a bundler**. Run `npm install data-navig
 
 If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector, buildLabel } from '@data-navigator/inspector'`, and remove the import map and CDN script tags from the HTML.
 
-The key difference from the [Inspecting Two Trees](/examples/inspecting-two-trees) example is that instead of creating two inspectors, we create **one** with `showConsoleMenu` enabled and a toggle to switch its `mode` between `'force'` and `'tree'`. The `createInspector()` function destroys and recreates the inspector when the mode changes.
+The key difference from the [Inspecting Force/Tree](/examples/inspecting-force-tree) example is that instead of creating two inspectors, we create **one** with `showConsoleMenu` enabled and a toggle to switch its `mode` between `'force'` and `'tree'`. The `createInspector()` function destroys and recreates the inspector when the mode changes.
 
 ::: code-group
 

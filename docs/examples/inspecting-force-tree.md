@@ -1,4 +1,4 @@
-# Inspecting Two Trees
+# Inspecting Force/Tree
 
 This example extends [Using the Inspector](/examples/using-the-inspector) by showing the same structure in two different inspector modes: a **force-directed graph** and a **tree layout**. The force graph uses physics simulation to position nodes — useful for seeing connectivity, but non-deterministic. The tree layout arranges nodes in a fixed hierarchy — dimension nodes at top, divisions underneath, and leaf data points at the bottom.
 
@@ -581,4 +581,4 @@ export function createInput(structure, entryPoint, exitPointId) {
 
 :::
 
-You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/inspecting-two-trees).
+You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/inspecting-force-tree).
