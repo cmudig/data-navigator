@@ -139,7 +139,7 @@ export default defineConfig({
                         { text: 'Overview', link: '/examples/' },
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
                         { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
-                        { text: 'Inspecting Two Trees', link: '/examples/inspecting-two-trees' },
+                        { text: 'Inspecting Force/Tree', link: '/examples/inspecting-force-tree' },
                         { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
