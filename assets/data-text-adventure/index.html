@@ -1,0 +1,27 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="./node_modules/data-navigator/text-chat.css" />
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+        {
+            "imports": {
+                "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
+            <div>
+                <h3>Stacked Bar Chart</h3>
+                <div id="chart-wrapper" style="position: relative; min-height: 220px;"></div>
+            </div>
+            <div style="flex: 1; min-width: 300px;">
+                <h3>Text Navigation</h3>
+                <div id="text-chat-container"></div>
+            </div>
+        </div>
+    </body>
+    <script src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js" type="module"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>

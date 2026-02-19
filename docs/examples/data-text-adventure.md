@@ -92,7 +92,7 @@ onMounted(async () => {
         ordinalAccessor: 'category',
         valueAccessor: 'value',
         groupAccessor: 'date',
-        uniqueID: 'text-chat-stacked-bar',
+        uniqueID: 'text-adventure-stacked-bar',
         legend: { labels: ['A', 'B', 'C', 'Other'] },
         dataLabel: { visible: false },
         yAxis: { visible: true, gridVisible: false },
@@ -218,9 +218,23 @@ onMounted(async () => {
 
 ### About This Example
 
-The text chat interface is created with `dataNavigator.textChat()`. It handles all navigation internally — you provide a `structure`, a `container` element, and optional callbacks. The `onNavigate` callback receives the node that was navigated to, and the `onExit` callback fires when the user types `exit`.
+The text chat interface is created with `dataNavigator.textChat()`. The API is minimal — provide a structure, point it at a container, and wire up callbacks:
 
-Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `c` could be `child` or `clear`), the chat shows the options. You can use up/down arrow keys to recall previous commands.
+```js
+import dataNavigator from 'data-navigator';
+
+const chat = dataNavigator.textChat({
+    structure,
+    container: 'text-chat-container',
+    commandLabels: { child: 'drill in', parent: 'back out' },
+    onNavigate: (node) => { /* update your chart */ },
+    onExit: () => { /* clear highlights */ }
+});
+```
+
+It handles all navigation internally — parsing commands, fuzzy matching, describing nodes, and announcing results via `aria-live`. The `onNavigate` callback receives the node that was navigated to, and the `onExit` callback fires when the user types `exit`.
+
+Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `c` could be `child` or `clear`), the chat shows the options. Typos are also handled — `dwon` will match `down`. You can use up/down arrow keys to recall previous commands.
 
 The `aria-live` toggle checkbox controls whether navigation results are automatically announced by screen readers. When unchecked, users can still read the chat log manually.
 
@@ -251,17 +265,15 @@ This code is designed to work **without a bundler**. Run `npm install data-navig
 ::: code-group
 
 ```js [coordinator.js]
-import dataNavigator from 'data-navigator';
 import { structure, data } from './structure.js';
 import { createChart, updateChartHighlight, clearChartHighlight } from './chart.js';
+import dataNavigator from 'data-navigator';
 
-// Assumes the page has:
-//   <div id="chart-wrapper" style="position: relative;"></div>
-//   <div id="text-chat-container"></div>
-
+// Create the Visa stacked bar chart
 const stackedBar = createChart('chart-wrapper', data);
 
-const chat = dataNavigator.textChat({
+// Create the text chat interface
+dataNavigator.textChat({
     structure,
     container: 'text-chat-container',
     commandLabels: {
@@ -338,6 +350,8 @@ export const data = [
     { date: 'Dec', category: 'Other', value: 104, count: 495, selectAll: 'yes' }
 ];
 
+// Two categorical dimensions create a dual hierarchy.
+// Category is first (left/right), date is second (up/down).
 export const structure = dataNavigator.structure({
     data,
     idKey: 'id',
@@ -388,6 +402,7 @@ export const structure = dataNavigator.structure({
 ```
 
 ```js [chart.js]
+// Creates a Visa stacked bar chart web component inside the given container.
 export function createChart(containerId, data) {
     const wrapper = document.getElementById(containerId);
     const stackedBar = document.createElement('stacked-bar-chart');
@@ -402,7 +417,7 @@ export function createChart(containerId, data) {
         ordinalAccessor: 'category',
         valueAccessor: 'value',
         groupAccessor: 'date',
-        uniqueID: 'text-chat-stacked-bar',
+        uniqueID: 'text-adventure-stacked-bar',
         legend: { labels: ['A', 'B', 'C', 'Other'] },
         dataLabel: { visible: false },
         yAxis: { visible: true, gridVisible: false },
@@ -429,16 +444,20 @@ export function createChart(containerId, data) {
     return stackedBar;
 }
 
+// Highlights bars on the chart based on the current node type.
 export function updateChartHighlight(stackedBar, node) {
     if (!node.derivedNode) {
+        // Leaf node — highlight specific bar segment
         stackedBar.clickHighlight = [
             { category: node.data.category, date: node.data.date }
         ];
         stackedBar.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
+        // Dimension node — highlight all bars
         stackedBar.clickHighlight = [{ selectAll: 'yes' }];
         stackedBar.interactionKeys = ['selectAll'];
     } else {
+        // Division node — highlight group
         const key = node.derivedNode;
         const value = node.data?.[key];
         stackedBar.clickHighlight = [{ [key]: value }];
@@ -479,6 +498,13 @@ export function clearChartHighlight(stackedBar) {
     <script src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js" type="module"></script>
     <script type="module" src="./src/coordinator.js"></script>
 </html>
+```
+
+```css [style.css]
+body {
+    font-family: sans-serif;
+    padding: 1em;
+}
 ```
 
 :::
