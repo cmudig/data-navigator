@@ -309,6 +309,24 @@ export default (options: TextChatOptions): TextChatInstance => {
     const addEcho = (text: string) => addMessage(`> ${text}`, 'dn-text-chat-input-echo');
     const addResponse = (text: string) => addMessage(text, 'dn-text-chat-response');
 
+    const addResponseWithList = (intro: string, items: string[]) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dn-text-chat-message dn-text-chat-response';
+        const p = document.createElement('span');
+        p.textContent = intro;
+        wrapper.appendChild(p);
+        const ol = document.createElement('ol');
+        ol.className = 'dn-text-chat-choices';
+        items.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ol.appendChild(li);
+        });
+        wrapper.appendChild(ol);
+        logEl.appendChild(wrapper);
+        logEl.scrollTop = logEl.scrollHeight;
+    };
+
     // Welcome message
     addSystemMessage('Text navigation ready. Type "enter" to begin or "help" for available commands.');
 
@@ -415,11 +433,10 @@ export default (options: TextChatOptions): TextChatInstance => {
                 moveToNode(results[0].nodeId);
             } else {
                 pendingChoices = results;
-                let msg = `Found ${results.length} matches. Type a number to move there:`;
-                results.forEach((r, i) => {
-                    msg += `\n  ${i + 1}. ${r.description}`;
-                });
-                addResponse(msg);
+                addResponseWithList(
+                    `Found ${results.length} matches. Type a number to move there:`,
+                    results.map(r => r.description)
+                );
             }
             return;
         }

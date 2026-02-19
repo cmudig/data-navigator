@@ -74,6 +74,12 @@
     font-size: 14px;
 }
 
+.dn-text-chat-choices {
+    margin: 4px 0 0;
+    padding-left: 2em;
+    font-size: 13px;
+}
+
 .dn-text-chat-sr-only {
     position: absolute;
     width: 1px;
