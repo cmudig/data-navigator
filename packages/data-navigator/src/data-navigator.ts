@@ -301,6 +301,11 @@ export type DimensionLevel = 0 | 1 | 2 | 3;
 
 export type DerivedNode = string;
 
+export type LLMMessage = {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+};
+
 export type TextChatOptions = {
     structure: Structure;
     container: string | HTMLElement;
@@ -309,6 +314,8 @@ export type TextChatOptions = {
     commandLabels?: Record<string, string>;
     onNavigate?: (node: NodeObject) => void;
     onExit?: () => void;
+    llm?: (messages: LLMMessage[]) => Promise<string | null>;
+    data?: Record<string, unknown>[];
 };
 
 export type TextChatInstance = {

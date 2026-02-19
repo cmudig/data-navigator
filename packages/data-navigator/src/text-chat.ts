@@ -1,5 +1,5 @@
 import inputFactory from './input';
-import type { TextChatOptions, TextChatInstance, NodeObject, Structure } from './data-navigator';
+import type { TextChatOptions, TextChatInstance, NodeObject, Structure, LLMMessage } from './data-navigator';
 
 /**
  * Default node description — self-contained, no inspector dependency.
@@ -249,7 +249,9 @@ export default (options: TextChatOptions): TextChatInstance => {
         describeNode = defaultDescribeNode,
         commandLabels = {},
         onNavigate,
-        onExit
+        onExit,
+        llm,
+        data
     } = options;
 
     const rootEl =
@@ -282,6 +284,31 @@ export default (options: TextChatOptions): TextChatInstance => {
 
     // Pending "move to" choices — one-time numbered commands
     let pendingChoices: Array<{ nodeId: string; description: string }> | null = null;
+
+    // LLM conversation history (user questions + LLM responses only, not nav commands)
+    const llmHistory: LLMMessage[] = [];
+
+    // Build system prompt for LLM context
+    const buildSystemPrompt = (): string => {
+        let prompt = 'You are a data assistant helping a user explore a dataset through a text-based navigation interface.\n\n';
+        if (data && data.length > 0) {
+            const columns = Object.keys(data[0]);
+            const sampleRows = data.slice(0, 3).map(r => JSON.stringify(r)).join('\n  ');
+            prompt += `DATASET SUMMARY:\n- Columns: ${columns.join(', ')}\n- Rows: ${data.length}\n- Sample (first 3):\n  ${sampleRows}\n\n`;
+            // Include the full dataset so the model can compute over it
+            prompt += 'FULL DATASET (JSON):\n' + JSON.stringify(data) + '\n\n';
+        }
+        if (currentNodeId) {
+            const node = structure.nodes[currentNodeId];
+            prompt += `CURRENT POSITION: ${node ? describeNode(node) : currentNodeId}\n\n`;
+        } else {
+            prompt += 'CURRENT POSITION: Not yet navigated into the structure.\n\n';
+        }
+        prompt += 'PRIORITY: Always prefer answers that can be verified against the dataset. For any statistical or quantitative claim (averages, comparisons, trends, extremes), briefly describe the method you used. Avoid open-ended or contextual claims that go beyond what the data can support — if the user asks something that cannot be checked against the dataset, say so and suggest they verify externally.\n\n';
+        prompt += 'VERIFICATION: When the user asks you to verify a claim, write a short Python script (using the dataset as a JSON array) that computes the answer, and show the expected output. If the claim is too open-ended to verify with code, explain why and recommend external verification.\n\n';
+        prompt += 'IMPORTANT: Your responses may contain errors. The user has been told they can ask you to "verify" any answer, and you will attempt to provide a Python script to check it.';
+        return prompt;
+    };
 
     // Build DOM
     const chatEl = document.createElement('div');
@@ -389,8 +416,41 @@ export default (options: TextChatOptions): TextChatInstance => {
         logEl.scrollTop = logEl.scrollHeight;
     };
 
+    // LLM helper: ask a question, returns response string, null if LLM declined, or '' if error was handled
+    const askLLM = async (question: string): Promise<string | null> => {
+        const systemMsg: LLMMessage = { role: 'system', content: buildSystemPrompt() };
+        llmHistory.push({ role: 'user', content: question });
+        // Show thinking indicator
+        const thinkingMsg = document.createElement('div');
+        thinkingMsg.className = 'dn-text-chat-message dn-text-chat-llm-thinking';
+        thinkingMsg.textContent = 'Thinking...';
+        logEl.appendChild(thinkingMsg);
+        logEl.scrollTop = logEl.scrollHeight;
+        try {
+            const response = await llm!([systemMsg, ...llmHistory]);
+            logEl.removeChild(thinkingMsg);
+            if (response === null) {
+                llmHistory.pop();
+                return null;
+            }
+            llmHistory.push({ role: 'assistant', content: response });
+            addResponse(response);
+            return response;
+        } catch (err: any) {
+            logEl.removeChild(thinkingMsg);
+            llmHistory.pop();
+            addResponse(`Error: ${err.message || 'Could not get a response.'}`);
+            return '';
+        }
+    };
+
     // Welcome message
-    addSystemMessage('Text navigation ready. Type "enter" to begin or "help" for available commands.');
+    if (llm) {
+        addSystemMessage('Text navigation ready. Type "enter" to begin navigating, "help" for commands, or ask a question about the data.');
+        addSystemMessage('Note: AI-generated answers may be inaccurate. You can ask the model to "verify" any answer — it will attempt to provide a Python script that checks the claim against the dataset. If a claim cannot be verified with code, it should be verified externally.');
+    } else {
+        addSystemMessage('Text navigation ready. Type "enter" to begin or "help" for available commands.');
+    }
 
     // Special commands (not nav rules — handled before fuzzy matching)
     const specialCommands = ['enter', 'help', 'more', 'more help', 'clear'];
@@ -408,7 +468,7 @@ export default (options: TextChatOptions): TextChatInstance => {
     };
 
     // Command handler
-    const handleCommand = (raw: string) => {
+    const handleCommand = async (raw: string) => {
         const trimmed = raw.trim();
         if (!trimmed) return;
 
@@ -454,15 +514,16 @@ export default (options: TextChatOptions): TextChatInstance => {
 
         // Help — available commands from current node
         if (lower === 'help') {
+            const llmHint = llm ? ' You can also type any question about the data.' : '';
             if (!currentNodeId) {
                 addResponse(
-                    'Not yet in the structure. Type "enter" to begin navigating, or "move to <search>" to jump to a node.'
+                    'Not yet in the structure. Type "enter" to begin navigating, or "move to <search>" to jump to a node.' + llmHint
                 );
             } else {
                 const node = structure.nodes[currentNodeId];
                 const available = getAvailableRules(currentNodeId, node, structure);
                 const formatted = available.map(r => formatRule(r, commandLabels));
-                addResponse(`Available: ${formatted.join(', ')}, move to <search>.`);
+                addResponse(`Available: ${formatted.join(', ')}, move to <search>.` + llmHint);
             }
             return;
         }
@@ -499,7 +560,14 @@ export default (options: TextChatOptions): TextChatInstance => {
 
         // Must be entered before any navigation command
         if (!currentNodeId) {
-            addResponse('Type "enter" to begin navigating the structure, or "move to <search>" to jump to a node.');
+            // If LLM is available, try treating it as a question
+            if (llm) {
+                const response = await askLLM(trimmed);
+                if (response !== null) return;
+                // LLM declined (e.g. no API key) — fall through to hint
+            }
+            const llmHint = llm ? ' Enter an API key above to ask questions about the data.' : '';
+            addResponse('Type "enter" to begin navigating the structure, or "move to <search>" to jump to a node.' + llmHint);
             return;
         }
 
@@ -510,7 +578,7 @@ export default (options: TextChatOptions): TextChatInstance => {
 
         if (match && specialCommands.includes(match)) {
             // Recursively handle matched special command
-            handleCommand(match);
+            await handleCommand(match);
             return;
         }
 
@@ -521,7 +589,14 @@ export default (options: TextChatOptions): TextChatInstance => {
         }
 
         if (!match) {
-            addResponse(`Unknown command "${trimmed}". Type "help" for available commands.`);
+            // If LLM is available, try treating unrecognized input as a question
+            if (llm) {
+                const response = await askLLM(trimmed);
+                if (response !== null) return;
+                // LLM declined — fall through to unknown command hint
+            }
+            const llmHint = llm ? ' Enter an API key above to ask questions about the data.' : '';
+            addResponse(`Unknown command "${trimmed}". Type "help" for available commands.` + llmHint);
             return;
         }
 
@@ -549,14 +624,14 @@ export default (options: TextChatOptions): TextChatInstance => {
     };
 
     // Form submit
-    formEl.addEventListener('submit', (e: Event) => {
+    formEl.addEventListener('submit', async (e: Event) => {
         e.preventDefault();
         const value = inputEl.value.trim();
         if (value) {
             history.push(value);
             historyIndex = -1;
         }
-        handleCommand(inputEl.value);
+        await handleCommand(inputEl.value);
         inputEl.value = '';
         inputEl.focus();
     });

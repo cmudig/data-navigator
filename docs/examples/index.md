@@ -12,6 +12,7 @@ Interactive examples showing Data Navigator in action with different chart types
 - [Dimensions API Example](/examples/dimensions-api) — A line chart demonstrating how the dimensions API automatically builds hierarchical navigation from flat data.
 - [Stacked Bar Chart](/examples/stacked-bar) — A multi-dimensional hierarchical structure on a Visa stacked bar chart, with category and date dimensions.
 - [Data Text Adventure](/examples/data-text-adventure) — A text adventure-style interface for navigating data structures without keyboard focus, designed for mobile and screen reader users.
+- [LLM Text Adventure](/examples/llm-text-adventure) — Extends the text adventure with an optional AI assistant powered by Claude, enabling natural-language questions about the data.
 
 ## Planned
 

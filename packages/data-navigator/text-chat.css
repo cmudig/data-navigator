@@ -80,6 +80,11 @@
     font-size: 13px;
 }
 
+.dn-text-chat-llm-thinking {
+    color: #666;
+    font-style: italic;
+}
+
 .dn-text-chat-sr-only {
     position: absolute;
     width: 1px;
