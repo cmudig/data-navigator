@@ -6,7 +6,7 @@ This is especially useful for **mobile users**, where screen readers use a virtu
 
 ## Try It
 
-Type commands in the text input below. Try `help` to see what's available, then `child` to enter the structure, `left`/`right` to navigate, and `exit` to leave.
+Type commands in the text input below. Try `help` to see what's available, then `enter` to begin, `left`/`right` to navigate, and `exit` to leave. You can also use up/down arrow keys in the input to recall previous commands.
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
@@ -188,10 +188,19 @@ onMounted(async () => {
         stackedBar.clickHighlight = [];
     };
 
-    // Create text chat
+    // Create text chat with natural-language command labels
     dataNavigator.textChat({
         structure,
         container: 'text-chat-container',
+        commandLabels: {
+            left: 'left across categories',
+            right: 'right across categories',
+            up: 'up across dates',
+            down: 'down across dates',
+            child: 'drill in',
+            parent: 'back out',
+            exit: 'exit navigation'
+        },
         onNavigate: (node) => {
             updateChartHighlight(node);
         },
@@ -211,9 +220,29 @@ onMounted(async () => {
 
 The text chat interface is created with `dataNavigator.textChat()`. It handles all navigation internally — you provide a `structure`, a `container` element, and optional callbacks. The `onNavigate` callback receives the node that was navigated to, and the `onExit` callback fires when the user types `exit`.
 
-Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `c` could be `child` or `clear`), the chat shows the options.
+Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `c` could be `child` or `clear`), the chat shows the options. You can use up/down arrow keys to recall previous commands.
 
 The `aria-live` toggle checkbox controls whether navigation results are automatically announced by screen readers. When unchecked, users can still read the chat log manually.
+
+### Natural-Language Command Labels
+
+Data Navigator's navigation rules use short internal names like `left`, `child`, and `parent`. These work well as keyboard shortcuts, but in a text interface they can feel cryptic — especially compound rules like `parent_category` that the dimensions API generates automatically.
+
+The `commandLabels` option maps rule names to human-readable descriptions. When labels are provided, `help` output shows the label alongside the command (e.g. `drill in (child)`) and navigation responses use the label instead of the raw rule name (e.g. `drill in: date: Jan...` instead of `child: date: Jan...`).
+
+```js
+commandLabels: {
+    left: 'left across categories',
+    right: 'right across categories',
+    up: 'up across dates',
+    down: 'down across dates',
+    child: 'drill in',
+    parent: 'back out',
+    exit: 'exit navigation'
+}
+```
+
+This lets you tailor the interface to your chart's semantics — a map might use `pan north` / `pan south`, a tree might use `expand` / `collapse`, and a timeline might use `earlier` / `later`. The typed commands still use the short rule names (with fuzzy matching), so `l` still matches `left` regardless of the label.
 
 ## The Complete Code
 
@@ -235,6 +264,15 @@ const stackedBar = createChart('chart-wrapper', data);
 const chat = dataNavigator.textChat({
     structure,
     container: 'text-chat-container',
+    commandLabels: {
+        left: 'left across categories',
+        right: 'right across categories',
+        up: 'up across dates',
+        down: 'down across dates',
+        child: 'drill in',
+        parent: 'back out',
+        exit: 'exit navigation'
+    },
     onNavigate: (node) => {
         updateChartHighlight(stackedBar, node);
     },

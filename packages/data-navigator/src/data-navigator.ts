@@ -306,6 +306,7 @@ export type TextChatOptions = {
     container: string | HTMLElement;
     entryPoint?: NodeId;
     describeNode?: (node: NodeObject) => string;
+    commandLabels?: Record<string, string>;
     onNavigate?: (node: NodeObject) => void;
     onExit?: () => void;
 };

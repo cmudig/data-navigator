@@ -41,16 +41,33 @@ const defaultDescribeNode = (node: NodeObject): string => {
 };
 
 /**
- * Gets available navigation rules for a node by inspecting its edges.
+ * Gets available navigation rules for a node, filtering out edges that
+ * resolve back to the current node (i.e. would not actually move).
  */
-const getAvailableRules = (node: NodeObject, structure: Structure): string[] => {
+const getAvailableRules = (
+    nodeId: string,
+    node: NodeObject,
+    structure: Structure
+): string[] => {
     const available = new Set<string>();
+    const navRules = structure.navigationRules || {};
     if (node.edges) {
         node.edges.forEach((edgeId: string) => {
             const edge = structure.edges[edgeId];
-            if (edge) {
-                edge.navigationRules.forEach((r: string) => available.add(r));
-            }
+            if (!edge) return;
+            edge.navigationRules.forEach((ruleName: string) => {
+                const navRule = navRules[ruleName];
+                if (!navRule) return;
+                // Resolve the endpoint this rule would navigate to
+                const endpoint = navRule.direction === 'target' ? edge.target : edge.source;
+                const resolved = typeof endpoint === 'function'
+                    ? (endpoint as Function)(node, nodeId)
+                    : endpoint;
+                // Only include if it actually leads somewhere different
+                if (resolved && resolved !== nodeId) {
+                    available.add(ruleName);
+                }
+            });
         });
     }
     return Array.from(available);
@@ -84,6 +101,14 @@ const fuzzyMatch = (
 };
 
 /**
+ * Formats a rule name for display, using commandLabels if provided.
+ */
+const formatRule = (ruleName: string, labels: Record<string, string>): string => {
+    if (labels[ruleName]) return `${labels[ruleName]} (${ruleName})`;
+    return ruleName;
+};
+
+/**
  * Creates a text chat navigation interface.
  */
 export default (options: TextChatOptions): TextChatInstance => {
@@ -92,6 +117,7 @@ export default (options: TextChatOptions): TextChatInstance => {
         container,
         entryPoint,
         describeNode = defaultDescribeNode,
+        commandLabels = {},
         onNavigate,
         onExit
     } = options;
@@ -119,6 +145,10 @@ export default (options: TextChatOptions): TextChatInstance => {
     // State
     let currentNodeId: string | null = null;
     const uid = Math.random().toString(36).slice(2, 8);
+
+    // Command history
+    const history: string[] = [];
+    let historyIndex = -1;
 
     // Build DOM
     const chatEl = document.createElement('div');
@@ -168,6 +198,32 @@ export default (options: TextChatOptions): TextChatInstance => {
 
     rootEl.appendChild(chatEl);
 
+    // Command history navigation (up/down arrow)
+    let savedInput = '';
+    inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (history.length === 0) return;
+            if (historyIndex === -1) {
+                savedInput = inputEl.value;
+                historyIndex = history.length - 1;
+            } else if (historyIndex > 0) {
+                historyIndex--;
+            }
+            inputEl.value = history[historyIndex];
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (historyIndex === -1) return;
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                inputEl.value = history[historyIndex];
+            } else {
+                historyIndex = -1;
+                inputEl.value = savedInput;
+            }
+        }
+    });
+
     // Helpers
     const addMessage = (text: string, className: string) => {
         const msg = document.createElement('div');
@@ -183,10 +239,10 @@ export default (options: TextChatOptions): TextChatInstance => {
     const addResponse = (text: string) => addMessage(text, 'dn-text-chat-response');
 
     // Welcome message
-    addSystemMessage('Text navigation ready. Type "help" for available commands.');
+    addSystemMessage('Text navigation ready. Type "enter" to begin or "help" for available commands.');
 
-    // Special commands (not nav rules)
-    const specialCommands = ['help', 'more', 'more help', 'clear'];
+    // Special commands (not nav rules — handled before fuzzy matching)
+    const specialCommands = ['enter', 'help', 'more', 'more help', 'clear'];
 
     // Command handler
     const handleCommand = (raw: string) => {
@@ -203,18 +259,34 @@ export default (options: TextChatOptions): TextChatInstance => {
             return;
         }
 
+        // Enter — explicit entry into the structure
+        if (lower === 'enter') {
+            if (currentNodeId) {
+                addResponse('Already in the structure. Type "help" to see available commands.');
+                return;
+            }
+            const entryNode = inputHandler.enter();
+            if (!entryNode) {
+                addResponse('Could not enter the structure. No entry point found.');
+                return;
+            }
+            currentNodeId = entryNode.id;
+            if (onNavigate) onNavigate(entryNode);
+            addResponse(`Entered: ${describeNode(entryNode)}`);
+            return;
+        }
+
         // Help — available commands from current node
         if (lower === 'help') {
             if (!currentNodeId) {
-                const allRules = getAllRuleNames(structure);
-                const navRules = allRules.filter(r => r !== 'exit' && r !== 'help' && r !== 'undo');
                 addResponse(
-                    `Not yet in the structure. Type any navigation command to enter. Available commands: ${navRules.join(', ')}.`
+                    'Not yet in the structure. Type "enter" to begin navigating.'
                 );
             } else {
                 const node = structure.nodes[currentNodeId];
-                const available = getAvailableRules(node, structure);
-                addResponse(`Available from current position: ${available.join(', ')}.`);
+                const available = getAvailableRules(currentNodeId, node, structure);
+                const formatted = available.map(r => formatRule(r, commandLabels));
+                addResponse(`Available: ${formatted.join(', ')}.`);
             }
             return;
         }
@@ -222,7 +294,14 @@ export default (options: TextChatOptions): TextChatInstance => {
         // More help — all nav rules
         if (lower === 'more' || lower === 'more help') {
             const allRules = getAllRuleNames(structure);
-            addResponse(`All navigation rules in this structure: ${allRules.join(', ')}.`);
+            const formatted = allRules.map(r => formatRule(r, commandLabels));
+            addResponse(`All navigation rules: ${formatted.join(', ')}.`);
+            return;
+        }
+
+        // Must be entered before any navigation command
+        if (!currentNodeId) {
+            addResponse('Type "enter" to begin navigating the structure.');
             return;
         }
 
@@ -238,7 +317,8 @@ export default (options: TextChatOptions): TextChatInstance => {
         }
 
         if (!match && ambiguous.length > 0) {
-            addResponse(`Did you mean: ${ambiguous.join(', ')}?`);
+            const formatted = ambiguous.map(r => formatRule(r, commandLabels));
+            addResponse(`Did you mean: ${formatted.join(', ')}?`);
             return;
         }
 
@@ -249,35 +329,14 @@ export default (options: TextChatOptions): TextChatInstance => {
 
         // We have a nav rule match
         const direction = match;
+        const label = commandLabels[direction] || direction;
 
         // Exit
         if (direction === 'exit') {
-            if (!currentNodeId) {
-                addResponse('Not in the structure. Nothing to exit.');
-                return;
-            }
             currentNodeId = null;
             if (onExit) onExit();
-            addResponse('Exited the structure.');
+            addResponse('Exited the structure. Type "enter" to re-enter.');
             return;
-        }
-
-        // If not yet entered, enter first
-        if (!currentNodeId) {
-            const entryNode = inputHandler.enter();
-            if (!entryNode) {
-                addResponse('Could not enter the structure. No entry point found.');
-                return;
-            }
-            currentNodeId = entryNode.id;
-            if (onNavigate) onNavigate(entryNode);
-            addResponse(`Entered: ${describeNode(entryNode)}`);
-
-            // If the command was specifically "child" or "enter", entering is the action
-            if (direction === 'child' || direction === 'enter') {
-                return;
-            }
-            // Otherwise, also attempt the navigation from the entry point
         }
 
         // Attempt the move
@@ -285,7 +344,7 @@ export default (options: TextChatOptions): TextChatInstance => {
         if (nextNode) {
             currentNodeId = nextNode.id;
             if (onNavigate) onNavigate(nextNode);
-            addResponse(`Moved "${direction}": ${describeNode(nextNode)}`);
+            addResponse(`${label}: ${describeNode(nextNode)}`);
         } else {
             addResponse(`Cannot move "${direction}" from here.`);
         }
@@ -294,6 +353,11 @@ export default (options: TextChatOptions): TextChatInstance => {
     // Form submit
     formEl.addEventListener('submit', (e: Event) => {
         e.preventDefault();
+        const value = inputEl.value.trim();
+        if (value) {
+            history.push(value);
+            historyIndex = -1;
+        }
         handleCommand(inputEl.value);
         inputEl.value = '';
         inputEl.focus();
