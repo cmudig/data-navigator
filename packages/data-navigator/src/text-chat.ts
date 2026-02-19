@@ -82,21 +82,46 @@ const getAllRuleNames = (structure: Structure): string[] => {
 };
 
 /**
- * Fuzzy match: exact match first, then unique prefix match.
- * Returns { match, ambiguous? } where ambiguous is a list of candidates if prefix is not unique.
+ * Fuzzy match: checks rule names and their labels.
+ * Priority: exact name → exact label → prefix on name → prefix on label word.
+ * Returns { match, ambiguous } where ambiguous lists candidates if prefix is not unique.
  */
 const fuzzyMatch = (
     input: string,
-    candidates: string[]
+    candidates: string[],
+    labels: Record<string, string> = {}
 ): { match: string | null; ambiguous: string[] } => {
     const lower = input.toLowerCase().trim();
-    // Exact match
-    const exact = candidates.find(c => c.toLowerCase() === lower);
-    if (exact) return { match: exact, ambiguous: [] };
-    // Prefix match
-    const prefixMatches = candidates.filter(c => c.toLowerCase().startsWith(lower));
-    if (prefixMatches.length === 1) return { match: prefixMatches[0], ambiguous: [] };
-    if (prefixMatches.length > 1) return { match: null, ambiguous: prefixMatches };
+
+    // 1. Exact match on candidate name
+    const exactName = candidates.find(c => c.toLowerCase() === lower);
+    if (exactName) return { match: exactName, ambiguous: [] };
+
+    // 2. Exact match on label text
+    const exactLabel = candidates.find(c =>
+        labels[c] && labels[c].toLowerCase() === lower
+    );
+    if (exactLabel) return { match: exactLabel, ambiguous: [] };
+
+    // 3. Prefix match on candidate name
+    const namePrefix = candidates.filter(c => c.toLowerCase().startsWith(lower));
+    if (namePrefix.length === 1) return { match: namePrefix[0], ambiguous: [] };
+
+    // 4. Prefix/word match on label — matches if any word in the label starts
+    //    with the input, or if the full label starts with the input
+    const labelMatches = candidates.filter(c => {
+        if (!labels[c]) return false;
+        const labelLower = labels[c].toLowerCase();
+        if (labelLower.startsWith(lower)) return true;
+        return labelLower.split(/\s+/).some(word => word.startsWith(lower));
+    });
+
+    // Combine name prefix and label matches (deduplicated)
+    const combined = new Set([...namePrefix, ...labelMatches]);
+    const all = Array.from(combined);
+
+    if (all.length === 1) return { match: all[0], ambiguous: [] };
+    if (all.length > 1) return { match: null, ambiguous: all };
     return { match: null, ambiguous: [] };
 };
 
@@ -106,6 +131,49 @@ const fuzzyMatch = (
 const formatRule = (ruleName: string, labels: Record<string, string>): string => {
     if (labels[ruleName]) return `${labels[ruleName]} (${ruleName})`;
     return ruleName;
+};
+
+/**
+ * Searches structure nodes for a query string. Matches against node data
+ * values, derivedNode names, and node IDs (case-insensitive substring).
+ * Returns up to `limit` results as { nodeId, description } pairs.
+ */
+const searchNodes = (
+    query: string,
+    structure: Structure,
+    describeFn: (node: NodeObject) => string,
+    limit = 10
+): Array<{ nodeId: string; description: string }> => {
+    const lower = query.toLowerCase();
+    const results: Array<{ nodeId: string; description: string }> = [];
+    const nodeIds = Object.keys(structure.nodes);
+    for (let i = 0; i < nodeIds.length && results.length < limit; i++) {
+        const nodeId = nodeIds[i];
+        const node = structure.nodes[nodeId];
+        let matched = false;
+        // Check node data values
+        if (node.data && !matched) {
+            const dataKeys = Object.keys(node.data);
+            for (let j = 0; j < dataKeys.length && !matched; j++) {
+                const val = node.data[dataKeys[j]];
+                if (val != null && typeof val !== 'object' && String(val).toLowerCase().includes(lower)) {
+                    matched = true;
+                }
+            }
+        }
+        // Check derivedNode
+        if (!matched && node.derivedNode && node.derivedNode.toLowerCase().includes(lower)) {
+            matched = true;
+        }
+        // Check node ID
+        if (!matched && nodeId.toLowerCase().includes(lower)) {
+            matched = true;
+        }
+        if (matched) {
+            results.push({ nodeId, description: describeFn(node) });
+        }
+    }
+    return results;
 };
 
 /**
@@ -149,6 +217,9 @@ export default (options: TextChatOptions): TextChatInstance => {
     // Command history
     const history: string[] = [];
     let historyIndex = -1;
+
+    // Pending "move to" choices — one-time numbered commands
+    let pendingChoices: Array<{ nodeId: string; description: string }> | null = null;
 
     // Build DOM
     const chatEl = document.createElement('div');
@@ -244,6 +315,18 @@ export default (options: TextChatOptions): TextChatInstance => {
     // Special commands (not nav rules — handled before fuzzy matching)
     const specialCommands = ['enter', 'help', 'more', 'more help', 'clear'];
 
+    // Helper: move directly to a node by ID
+    const moveToNode = (nodeId: string) => {
+        const node = inputHandler.moveTo(nodeId);
+        if (node) {
+            currentNodeId = node.id;
+            if (onNavigate) onNavigate(node);
+            addResponse(`Moved to: ${describeNode(node)}`);
+        } else {
+            addResponse('Could not move to that node.');
+        }
+    };
+
     // Command handler
     const handleCommand = (raw: string) => {
         const trimmed = raw.trim();
@@ -251,6 +334,19 @@ export default (options: TextChatOptions): TextChatInstance => {
 
         addEcho(trimmed);
         const lower = trimmed.toLowerCase();
+
+        // Check for pending numbered choice first
+        if (pendingChoices) {
+            const num = parseInt(trimmed, 10);
+            if (!isNaN(num) && num >= 1 && num <= pendingChoices.length) {
+                const choice = pendingChoices[num - 1];
+                pendingChoices = null;
+                moveToNode(choice.nodeId);
+                return;
+            }
+            // Any non-number command clears pending choices and falls through
+            pendingChoices = null;
+        }
 
         // Clear
         if (lower === 'clear') {
@@ -305,10 +401,33 @@ export default (options: TextChatOptions): TextChatInstance => {
             return;
         }
 
+        // Move to — direct navigation by search
+        if (lower.startsWith('move to ')) {
+            const query = trimmed.slice('move to '.length).trim();
+            if (!query) {
+                addResponse('Usage: move to <search term>');
+                return;
+            }
+            const results = searchNodes(query, structure, describeNode);
+            if (results.length === 0) {
+                addResponse(`No nodes found matching "${query}".`);
+            } else if (results.length === 1) {
+                moveToNode(results[0].nodeId);
+            } else {
+                pendingChoices = results;
+                let msg = `Found ${results.length} matches. Type a number to move there:`;
+                results.forEach((r, i) => {
+                    msg += `\n  ${i + 1}. ${r.description}`;
+                });
+                addResponse(msg);
+            }
+            return;
+        }
+
         // Navigation command
         // Build candidate list: all nav rule names + special commands for fuzzy matching
         const allRules = getAllRuleNames(structure);
-        const { match, ambiguous } = fuzzyMatch(lower, [...allRules, ...specialCommands]);
+        const { match, ambiguous } = fuzzyMatch(lower, [...allRules, ...specialCommands], commandLabels);
 
         if (match && specialCommands.includes(match)) {
             // Recursively handle matched special command
