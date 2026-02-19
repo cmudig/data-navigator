@@ -82,8 +82,37 @@ const getAllRuleNames = (structure: Structure): string[] => {
 };
 
 /**
+ * Levenshtein edit distance between two strings.
+ * O(m×n) where m, n are string lengths — trivial for short command strings.
+ */
+const levenshtein = (a: string, b: string): number => {
+    const m = a.length;
+    const n = b.length;
+    const dp: number[] = Array(n + 1);
+    for (let j = 0; j <= n; j++) dp[j] = j;
+    for (let i = 1; i <= m; i++) {
+        let prev = dp[0];
+        dp[0] = i;
+        for (let j = 1; j <= n; j++) {
+            const temp = dp[j];
+            dp[j] = a[i - 1] === b[j - 1]
+                ? prev
+                : 1 + Math.min(prev, dp[j], dp[j - 1]);
+            prev = temp;
+        }
+    }
+    return dp[n];
+};
+
+/**
+ * Maximum edit distance allowed for typo correction.
+ * Short strings (≤4 chars) allow 1 edit; longer strings allow 2.
+ */
+const maxTypoDistance = (len: number): number => len <= 4 ? 1 : 2;
+
+/**
  * Fuzzy match: checks rule names and their labels.
- * Priority: exact name → exact label → prefix on name → prefix on label word.
+ * Priority: exact name → exact label → prefix on name → prefix on label word → typo correction.
  * Returns { match, ambiguous } where ambiguous lists candidates if prefix is not unique.
  */
 const fuzzyMatch = (
@@ -122,6 +151,39 @@ const fuzzyMatch = (
 
     if (all.length === 1) return { match: all[0], ambiguous: [] };
     if (all.length > 1) return { match: null, ambiguous: all };
+
+    // 5. Typo correction via Levenshtein distance on names and label words
+    const threshold = maxTypoDistance(lower.length);
+    const typoMatches: Array<{ candidate: string; dist: number }> = [];
+    for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        const nameDist = levenshtein(lower, c.toLowerCase());
+        if (nameDist <= threshold) {
+            typoMatches.push({ candidate: c, dist: nameDist });
+            continue;
+        }
+        // Also check label words
+        if (labels[c]) {
+            const words = labels[c].toLowerCase().split(/\s+/);
+            for (let w = 0; w < words.length; w++) {
+                if (levenshtein(lower, words[w]) <= threshold) {
+                    typoMatches.push({ candidate: c, dist: levenshtein(lower, words[w]) });
+                    break;
+                }
+            }
+        }
+    }
+
+    if (typoMatches.length === 1) return { match: typoMatches[0].candidate, ambiguous: [] };
+    if (typoMatches.length > 1) {
+        // If one is clearly closer, use it; otherwise ambiguous
+        typoMatches.sort((a, b) => a.dist - b.dist);
+        if (typoMatches[0].dist < typoMatches[1].dist) {
+            return { match: typoMatches[0].candidate, ambiguous: [] };
+        }
+        return { match: null, ambiguous: typoMatches.map(t => t.candidate) };
+    }
+
     return { match: null, ambiguous: [] };
 };
 
