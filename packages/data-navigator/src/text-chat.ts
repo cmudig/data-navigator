@@ -82,26 +82,32 @@ const getAllRuleNames = (structure: Structure): string[] => {
 };
 
 /**
- * Levenshtein edit distance between two strings.
+ * Damerau-Levenshtein edit distance between two strings.
+ * Counts insertions, deletions, substitutions, and transpositions of
+ * adjacent characters — each as a single edit.
  * O(m×n) where m, n are string lengths — trivial for short command strings.
  */
-const levenshtein = (a: string, b: string): number => {
+const damerauLevenshtein = (a: string, b: string): number => {
     const m = a.length;
     const n = b.length;
-    const dp: number[] = Array(n + 1);
-    for (let j = 0; j <= n; j++) dp[j] = j;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
     for (let i = 1; i <= m; i++) {
-        let prev = dp[0];
-        dp[0] = i;
         for (let j = 1; j <= n; j++) {
-            const temp = dp[j];
-            dp[j] = a[i - 1] === b[j - 1]
-                ? prev
-                : 1 + Math.min(prev, dp[j], dp[j - 1]);
-            prev = temp;
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            dp[i][j] = Math.min(
+                dp[i - 1][j] + 1,      // deletion
+                dp[i][j - 1] + 1,      // insertion
+                dp[i - 1][j - 1] + cost // substitution
+            );
+            // transposition of two adjacent characters
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + cost);
+            }
         }
     }
-    return dp[n];
+    return dp[m][n];
 };
 
 /**
@@ -157,7 +163,7 @@ const fuzzyMatch = (
     const typoMatches: Array<{ candidate: string; dist: number }> = [];
     for (let i = 0; i < candidates.length; i++) {
         const c = candidates[i];
-        const nameDist = levenshtein(lower, c.toLowerCase());
+        const nameDist = damerauLevenshtein(lower, c.toLowerCase());
         if (nameDist <= threshold) {
             typoMatches.push({ candidate: c, dist: nameDist });
             continue;
@@ -166,8 +172,8 @@ const fuzzyMatch = (
         if (labels[c]) {
             const words = labels[c].toLowerCase().split(/\s+/);
             for (let w = 0; w < words.length; w++) {
-                if (levenshtein(lower, words[w]) <= threshold) {
-                    typoMatches.push({ candidate: c, dist: levenshtein(lower, words[w]) });
+                if (damerauLevenshtein(lower, words[w]) <= threshold) {
+                    typoMatches.push({ candidate: c, dist: damerauLevenshtein(lower, words[w]) });
                     break;
                 }
             }
