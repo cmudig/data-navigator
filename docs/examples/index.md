@@ -11,7 +11,7 @@ Interactive examples showing Data Navigator in action with different chart types
 - [Understanding Dimensions](/examples/understanding-dimensions) — Mini-examples showing how the dimensions API works: categorical, numerical, circular extents, and compressSparseDivisions.
 - [Dimensions API Example](/examples/dimensions-api) — A line chart demonstrating how the dimensions API automatically builds hierarchical navigation from flat data.
 - [Stacked Bar Chart](/examples/stacked-bar) — A multi-dimensional hierarchical structure on a Visa stacked bar chart, with category and date dimensions.
-- [Text Chat Navigation](/examples/text-chat) — A text-based chat interface for navigating structures without keyboard focus, designed for mobile and screen reader users.
+- [Data Text Adventure](/examples/data-text-adventure) — A text adventure-style interface for navigating data structures without keyboard focus, designed for mobile and screen reader users.
 
 ## Planned
 

@@ -144,7 +144,7 @@ export default defineConfig({
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
                         { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
-                        { text: 'Text Chat Navigation', link: '/examples/text-chat' }
+                        { text: 'Data Text Adventure', link: '/examples/data-text-adventure' }
                     ]
                 }
             ],
