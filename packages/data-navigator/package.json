@@ -8,6 +8,7 @@
     "types": "./dist/src/index.d.ts",
     "files": [
         "dist/**/*",
+        "text-chat.css",
         "README.md",
         "LICENSE"
     ],
@@ -21,7 +22,8 @@
                 "types": "./dist/src/index.d.ts",
                 "default": "./dist/index.cjs"
             }
-        }
+        },
+        "./text-chat.css": "./text-chat.css"
     },
     "keywords": [
         "visualization",
@@ -34,7 +36,7 @@
         "clean": "rm -rf ./dist",
         "build": "yarn build:index && yarn build:modules",
         "build:index": "tsup src/index.ts --format cjs,esm",
-        "build:modules": "tsup src/structure.ts src/input.ts src/rendering.ts src/utilities.ts src/consts.ts --format cjs,esm --minify",
+        "build:modules": "tsup src/structure.ts src/input.ts src/rendering.ts src/utilities.ts src/consts.ts src/text-chat.ts --format cjs,esm --minify",
         "prepublishOnly": "cp ../../README.md ../../LICENSE ."
     },
     "devDependencies": {

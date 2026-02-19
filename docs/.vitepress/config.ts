@@ -143,7 +143,8 @@ export default defineConfig({
                         { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
-                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
+                        { text: 'Text Chat Navigation', link: '/examples/text-chat' }
                     ]
                 }
             ],
@@ -189,6 +190,7 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
+                'data-navigator/text-chat.css': '../../packages/data-navigator/text-chat.css',
                 'data-navigator': '../../packages/data-navigator/src/index.ts',
                 'data-navigator-inspector': '../../packages/inspector/src/inspector.js',
                 '@data-navigator/inspector': '../../packages/inspector/src/inspector.js'
