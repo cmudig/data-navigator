@@ -66,6 +66,12 @@ onMounted(async () => {
 
   let focusedCity = null;
   let focusedMonth = null;
+  // Tracks which dimension type is active so drawChart can show the right encoding cues.
+  // 'root' = chart root, 'month' = month dimension/division, 'city' = city dimension/division
+  let focusedDimension = null;
+
+  const allTemps = Object.values(cityData).flat();
+  const yMin = Math.min(...allTemps); // lowest temp in the dataset = 0°C (New York, Jan)
 
   const drawChart = () => {
     const container = document.getElementById('cross-chart-inner');
@@ -80,6 +86,17 @@ onMounted(async () => {
       output_backend: 'svg',
     });
 
+    // Month dimension encoding cue: thick horizontal line at the minimum y-value,
+    // drawn first so it sits behind the data lines.
+    // This signals that the x-axis (months) is the active navigation dimension.
+    if (focusedDimension === 'month') {
+      p.line(months, Array(months.length).fill(yMin), {
+        line_color: '#333',
+        line_width: 15,
+        line_alpha: 0.15,
+      });
+    }
+
     for (const [city, temps] of Object.entries(cityData)) {
       const isFocusedLine = focusedCity === '__all__' || focusedCity === city;
       const dimmed = focusedCity != null && focusedCity !== '__all__' && !isFocusedLine;
@@ -90,8 +107,8 @@ onMounted(async () => {
         line_alpha: dimmed ? 0.3 : 1.0,
         legend_label: city,
       });
-      // Draw a dot at focusedMonth for every focused city
-      // When focusedCity === '__all__' (month division) this draws dots at all three cities
+      // Draw a dot at focusedMonth for every focused city.
+      // When focusedCity === '__all__' (month division) this draws dots at all three cities.
       if (focusedMonth != null && isFocusedLine) {
         const idx = months.indexOf(focusedMonth);
         if (idx >= 0) {
@@ -110,6 +127,41 @@ onMounted(async () => {
 
     p.legend.location = 'top_left';
     plt.show(p, '#cross-chart-inner');
+
+    // City dimension encoding cue: highlight the legend box for the focused city.
+    // Uses SVG post-processing since Bokeh doesn't expose per-item legend styling.
+    if (focusedDimension === 'city' && focusedCity && focusedCity !== '__all__') {
+      setTimeout(() => {
+        const svg = document.querySelector('#cross-chart-inner svg');
+        if (!svg) return;
+        // Find the legend <text> element matching this city name
+        const textEls = [...svg.querySelectorAll('text')];
+        const legendText = textEls.find(el => el.textContent.trim() === focusedCity);
+        if (!legendText) return;
+        try {
+          // Use viewport-relative rects and convert to SVG-local coordinates
+          const svgBRect = svg.getBoundingClientRect();
+          const textBRect = legendText.getBoundingClientRect();
+          const x = textBRect.left - svgBRect.left;
+          const y = textBRect.top - svgBRect.top;
+          const linePreviewW = 35; // approximate width of Bokeh's line-preview glyph
+          const pad = 5;
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', String(x - linePreviewW - pad));
+          rect.setAttribute('y', String(y - pad));
+          rect.setAttribute('width', String(textBRect.width + linePreviewW + pad * 2));
+          rect.setAttribute('height', String(textBRect.height + pad * 2));
+          rect.setAttribute('fill', 'none');
+          rect.setAttribute('stroke', '#333');
+          rect.setAttribute('stroke-width', '2.5');
+          rect.setAttribute('rx', '3');
+          // Append to SVG root so it renders on top of everything
+          svg.appendChild(rect);
+        } catch (_) {
+          // getBoundingClientRect may fail when SVG is not yet visible
+        }
+      }, 0);
+    }
   };
 
   drawChart();
@@ -120,6 +172,7 @@ onMounted(async () => {
     wrapper?.destroy();
     focusedCity = null;
     focusedMonth = null;
+    focusedDimension = null;
     drawChart();
     wrapper = addDataNavigator({
       plotContainer: 'cross-plot',
@@ -133,18 +186,22 @@ onMounted(async () => {
       title: 'Monthly average temperatures',
       onNavigate(node) {
         if (!node.derivedNode) {
-          // Leaf node — or the chart root, which has no city/month in its data.
-          // Falling back to '__all__' means all lines are highlighted on first entry.
+          // Chart root has no city/month in its data; leaf nodes have both.
+          const isChartRoot = node.data?.city == null && node.data?.month == null;
+          focusedDimension = isChartRoot ? 'root' : null;
+          // Chart root falls back to '__all__' → all lines highlighted on first entry.
           focusedCity = node.data?.city ?? '__all__';
           focusedMonth = node.data?.month ?? null;
         } else if (node.derivedNode === 'month') {
           // Month dimension root or a specific month division.
           // Always show all cities (dots will appear at focusedMonth for every city).
+          focusedDimension = 'month';
           focusedMonth = node.data?.month ?? null;
           focusedCity = '__all__';
         } else if (node.derivedNode === 'city') {
           // City dimension root or a specific city division.
-          // null means we are at the dimension root → highlight all lines.
+          // null city means dimension root → highlight all lines.
+          focusedDimension = 'city';
           focusedCity = node.data?.city ?? '__all__';
           focusedMonth = null;
         }
@@ -153,6 +210,7 @@ onMounted(async () => {
       onExit() {
         focusedCity = null;
         focusedMonth = null;
+        focusedDimension = null;
         drawChart();
       },
     });
