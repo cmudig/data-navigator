@@ -152,10 +152,18 @@ function buildDimensionStructure(
     compositeKey?: string
 ): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
     let idKey: StructureOptions['idKey'];
+    let augmented = data;
 
     if (compositeKey) {
-        idKey = (d?: Record<string, unknown>) =>
-            d ? `${safeId(d[dimensionKey])}-${safeId(d[compositeKey])}` : '';
+        // Pre-stamp a composite ID onto each datum so data-navigator's buildNodes
+        // can look it up as d[idKey] with a plain string key.
+        // (data-navigator always does d[idKey(d)] even when idKey is a function,
+        // so a function form only works if addIds:true is set — which we do not use.)
+        augmented = data.map(d => ({
+            ...d,
+            _dnId: `${safeId(d[dimensionKey])}-${safeId(d[compositeKey])}`
+        }));
+        idKey = '_dnId';
     } else if (idField) {
         idKey = idField;
     } else {
@@ -163,7 +171,7 @@ function buildDimensionStructure(
     }
 
     return {
-        data,
+        data: augmented,
         idKey,
         navigationRules: baseNavRules,
         dimensions: {
@@ -171,7 +179,14 @@ function buildDimensionStructure(
                 {
                     dimensionKey,
                     type: 'categorical' as const,
-                    behavior: { extents: 'circular' as const }
+                    behavior: { extents: 'circular' as const },
+                    // Explicitly name rules so edge tags match keys in baseNavRules.
+                    // Without this, data-navigator auto-generates 'parent_<dimensionKey>'
+                    // (e.g. 'parent_city'), which won't match the 'parent' rule.
+                    navigationRules: {
+                        sibling_sibling: ['left', 'right'],
+                        parent_child: ['parent', 'child']
+                    }
                 }
             ]
         },
