@@ -123,8 +123,15 @@ function setupKeyboardMode(
             const direction = input.keydownValidator(e);
             if (direction) {
                 e.preventDefault();
-                const next = input.move(current, direction);
-                if (next) navigate(next);
+                if (direction === 'exit') {
+                    if (rendering.exitElement) {
+                        rendering.exitElement.style.display = 'block';
+                        input.focus(rendering.exitElement.id);
+                    }
+                } else {
+                    const next = input.move(current, direction);
+                    if (next) navigate(next);
+                }
             }
         });
 
