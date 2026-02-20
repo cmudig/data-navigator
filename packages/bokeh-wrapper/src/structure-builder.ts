@@ -1,11 +1,16 @@
-import type { StructureOptions } from 'data-navigator';
+import type { StructureOptions, Structure } from 'data-navigator';
 import type { BokehChartType, BokehWrapperOptions } from './types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function resolveEl(ref: string | HTMLElement): HTMLElement | null {
+export function resolveEl(ref: string | HTMLElement): HTMLElement | null {
     if (typeof ref === 'string') return document.getElementById(ref);
     return ref instanceof HTMLElement ? ref : null;
+}
+
+/** Make a string safe for use as a node / DOM id. */
+function safeId(s: unknown): string {
+    return String(s).replace(/\s+/g, '-').replace(/[^\w-]/g, '');
 }
 
 function isNumericField(data: Record<string, unknown>[], field: string): boolean {
@@ -63,11 +68,26 @@ const exitEdge = {
 };
 
 const baseNavRules = {
-    left: { key: 'ArrowLeft', direction: 'source' as const },
-    right: { key: 'ArrowRight', direction: 'target' as const },
-    child: { key: 'Enter', direction: 'target' as const },
-    parent: { key: 'Backspace', direction: 'source' as const },
-    exit: { key: 'Escape', direction: 'target' as const }
+    // Primary (x-axis) navigation
+    left:     { key: 'ArrowLeft',    direction: 'source' as const },
+    right:    { key: 'ArrowRight',   direction: 'target' as const },
+    // Secondary encoding (y-axis / group) navigation
+    up:       { key: 'ArrowUp',      direction: 'source' as const },
+    down:     { key: 'ArrowDown',    direction: 'target' as const },
+    // Tertiary encoding navigation  ([  /  ])
+    backward: { key: 'BracketLeft',  direction: 'source' as const },
+    forward:  { key: 'BracketRight', direction: 'target' as const },
+    // Hierarchy traversal
+    child:    { key: 'Enter',        direction: 'target' as const },
+    parent:   { key: 'Backspace',    direction: 'source' as const },
+    undo:     { key: 'Delete',       direction: 'source' as const },
+    // Encoding-specific parent shortcuts (W = x-axis parent, J = y-axis parent, \ = tertiary parent)
+    xParent:  { key: 'KeyW',         direction: 'source' as const },
+    yParent:  { key: 'KeyJ',         direction: 'source' as const },
+    zParent:  { key: 'Backslash',    direction: 'source' as const },
+    // Exit and help
+    exit:     { key: 'Escape',       direction: 'target' as const },
+    help:     { key: 'KeyY',         direction: 'target' as const },
 };
 
 /** Flat circular list: left ↔ right through sorted items. */
@@ -87,7 +107,7 @@ function buildFlatStructure(
         : [...data];
 
     const ids: string[] = sorted.map((d, i) =>
-        idField && d[idField] != null ? String(d[idField]) : `dn-item-${i}`
+        idField && d[idField] != null ? safeId(d[idField]) : `dn-item-${i}`
     );
 
     const augmented = sorted.map((d, i) => ({ ...d, _dnId: ids[i] }));
@@ -135,7 +155,7 @@ function buildDimensionStructure(
 
     if (compositeKey) {
         idKey = (d?: Record<string, unknown>) =>
-            d ? `${String(d[dimensionKey])}-${String(d[compositeKey])}` : '';
+            d ? `${safeId(d[dimensionKey])}-${safeId(d[compositeKey])}` : '';
     } else if (idField) {
         idKey = idField;
     } else {
@@ -157,6 +177,93 @@ function buildDimensionStructure(
         },
         genericEdges: [exitEdge]
     };
+}
+
+// ─── Chart description ───────────────────────────────────────────────────────
+
+const humanChartType: Record<string, string> = {
+    bar: 'bar chart',
+    hbar: 'horizontal bar chart',
+    scatter: 'scatter plot',
+    line: 'line chart',
+    multiline: 'multi-line chart',
+    stacked_bar: 'stacked bar chart'
+};
+
+/**
+ * Builds an accessible description for a chart's root node following the pattern:
+ *   "[title | x and y]. [chart type]. [x axis info]. [y axis info].
+ *    [grouping info]. [count sentence]."
+ *
+ * `dimensionCount` controls the count sentence:
+ * - 0 or 1 (default): "contains N divisions and M data points" (or just M if equal)
+ * - >1: "contains N dimensions and M total data points"
+ *
+ * For single-dimension charts, the string is set as `node.semantics.label` on the
+ * dimension root so data-navigator's defaultDescribeNode announces it when a user
+ * enters. For multi-dimension charts it is the label of an injected Level 0 node.
+ */
+export function buildChartDescription(options: BokehWrapperOptions, dimensionCount = 1): string {
+    const { data, type, xField, yField, groupField, title } = options;
+    const chartType = resolveChartType(type, data, xField, yField, groupField);
+
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const parts: string[] = [];
+
+    // Opening: provided title, or a summary of the two primary encodings.
+    if (title) {
+        parts.push(title);
+    } else if (xField && yField) {
+        parts.push(`${cap(xField)} and ${cap(yField)}`);
+    } else if (xField) {
+        parts.push(cap(xField));
+    }
+
+    // Chart type.
+    parts.push(humanChartType[chartType] ?? chartType);
+
+    // Axis descriptions.
+    if (xField) {
+        const axisType = isNumericField(data, xField) ? 'numerical' : 'categorical';
+        parts.push(`${xField} along x axis (${axisType})`);
+    }
+    if (yField) {
+        const axisType = isNumericField(data, yField) ? 'numerical' : 'categorical';
+        parts.push(`${yField} along y axis (${axisType})`);
+    }
+
+    // Additional encodings (color / grouping).
+    if (groupField) {
+        parts.push(`grouped by ${groupField}`);
+    }
+
+    // Data counts.
+    const total = data.length;
+
+    if (dimensionCount > 1) {
+        // Multi-dimension: state the number of named dimensions and total data points.
+        parts.push(`contains ${dimensionCount} dimensions and ${total} total data points`);
+    } else {
+        // Single dimension: "divisions" are unique values of the primary dimension key.
+        // If divisions === total rows, stating both is redundant.
+        let divisionKey: string | undefined;
+        if (chartType === 'bar' || chartType === 'hbar') divisionKey = xField;
+        else if (chartType === 'stacked_bar') divisionKey = xField;
+        else if (chartType === 'multiline') divisionKey = groupField;
+
+        if (divisionKey) {
+            const divisions = new Set(data.map(d => d[divisionKey!])).size;
+            if (divisions !== total) {
+                parts.push(`contains ${divisions} divisions and ${total} total data points`);
+            } else {
+                parts.push(`contains ${total} total data points`);
+            }
+        } else {
+            parts.push(`contains ${total} total data points`);
+        }
+    }
+
+    return parts.map(cap).join('. ') + '.';
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -223,30 +330,33 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
     switch (chartType) {
         case 'bar':
         case 'hbar':
-            auto.left = `Previous ${xField ?? 'category'}`;
-            auto.right = `Next ${xField ?? 'category'}`;
-            auto.child = `See ${xField ?? 'category'} detail`;
+            auto.left = `Move to previous ${xField ?? 'category'}`;
+            auto.right = `Move to next ${xField ?? 'category'}`;
+            auto.child = `Drill into ${xField ?? 'category'} detail`;
             auto.parent = 'Go back up';
+            auto.undo = 'Go back up';
             break;
 
         case 'scatter':
         case 'line':
-            auto.left = `Previous ${xField ?? 'point'}`;
-            auto.right = `Next ${xField ?? 'point'}`;
+            auto.left = `Move to previous ${xField ?? 'point'}`;
+            auto.right = `Move to next ${xField ?? 'point'}`;
             break;
 
         case 'stacked_bar':
-            auto.left = `Previous ${xField ?? 'category'}`;
-            auto.right = `Next ${xField ?? 'category'}`;
-            auto.child = `See ${groupField ?? 'stack'} breakdown`;
+            auto.left = `Move to previous ${xField ?? 'category'}`;
+            auto.right = `Move to next ${xField ?? 'category'}`;
+            auto.child = `Drill into ${groupField ?? 'stack'} breakdown`;
             auto.parent = 'Go back up';
+            auto.undo = 'Go back up';
             break;
 
         case 'multiline':
-            auto.left = `Previous ${groupField ?? 'series'}`;
-            auto.right = `Next ${groupField ?? 'series'}`;
-            auto.child = `Explore ${xField ?? 'data points'} in series`;
+            auto.left = `Move to previous ${groupField ?? 'series'}`;
+            auto.right = `Move to next ${groupField ?? 'series'}`;
+            auto.child = `Drill into ${groupField ?? 'series'} data`;
             auto.parent = 'Go back up';
+            auto.undo = 'Go back up';
             break;
     }
 
@@ -254,4 +364,57 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
     return { ...auto, ...commandLabels };
 }
 
-export { resolveEl };
+// ─── Node semantics ──────────────────────────────────────────────────────────
+
+/**
+ * Generates a human-readable `semantics.label` for a single node.
+ *
+ * - Division node (has `data.values` map): "<value>. Contains N data point(s)."
+ * - Leaf node (raw datum): "field: value. field: value." (internal _ fields excluded)
+ * - Fallback: node id
+ *
+ * This label is consumed by data-navigator's rendering module (`aria-label`) in
+ * keyboard mode, and by textChat's `defaultDescribeNode` when `semantics.label`
+ * is present (textChat falls back to its own description when it is absent).
+ */
+export function buildNodeLabel(node: any): string {
+    const data = node.data as Record<string, unknown> | undefined;
+    if (!data) return String(node.id);
+
+    // Division node: data.values is an object map of child nodes (DivisionObject shape)
+    if (data.values != null && typeof data.values === 'object' && !Array.isArray(data.values)) {
+        const dimKey = node.derivedNode as string | undefined;
+        const dimValue = dimKey ? data[dimKey] : null;
+        if (dimValue != null) {
+            const childCount = Object.keys(data.values as object).length;
+            return `${dimValue}. Contains ${childCount} data point${childCount !== 1 ? 's' : ''}.`;
+        }
+        return String(node.id);
+    }
+
+    // Leaf node: raw datum — skip internal '_' prefixed fields
+    const parts = Object.entries(data)
+        .filter(([k]) => !k.startsWith('_'))
+        .map(([k, v]) => `${k}: ${v}`);
+    return parts.length > 0 ? parts.join('. ') + '.' : String(node.id);
+}
+
+/**
+ * Ensures every node in the structure has `semantics.label` set.
+ *
+ * Required by data-navigator's rendering module for every element it renders
+ * in keyboard mode. Also used by textChat's `defaultDescribeNode` — textChat
+ * uses the label when present and falls back to its own description when absent.
+ *
+ * Nodes that already have `semantics.label` (e.g. the dimension root set to the
+ * full chart description) are left unchanged.
+ */
+export function prepareNodeSemantics(structure: Structure): void {
+    for (const node of Object.values(structure.nodes)) {
+        const n = node as any;
+        if (!n.semantics?.label) {
+            n.semantics = { ...(n.semantics ?? {}), label: buildNodeLabel(n) };
+        }
+    }
+}
+

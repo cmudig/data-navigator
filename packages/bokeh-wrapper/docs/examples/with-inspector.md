@@ -7,8 +7,12 @@ Combine `@data-navigator/bokeh-wrapper` with [`@data-navigator/inspector`](https
 <div style="display:flex; gap:2em; flex-wrap:wrap; align-items:flex-start;">
   <div>
     <h3>Bokeh Chart</h3>
-    <div id="insp-plot" style="display:inline-block;"></div>
-    <div id="insp-chat" style="max-width:400px; margin-top:1rem;"></div>
+    <div id="insp-plot" style="display:inline-block;"><div id="insp-chart-inner"></div></div>
+    <label class="dn-nav-toggle">
+      <input type="checkbox" id="insp-keyboard">
+      Use keyboard navigation
+    </label>
+    <div id="insp-chat" style="max-width:400px;"></div>
   </div>
   <div>
     <h3>Structure Inspector</h3>
@@ -21,6 +25,7 @@ import { onMounted, onUnmounted } from 'vue';
 
 let wrapper = null;
 let inspector = null;
+let addDataNavigator = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -44,7 +49,7 @@ onMounted(async () => {
   let highlightFruit = null;
 
   const drawChart = () => {
-    const container = document.getElementById('insp-plot');
+    const container = document.getElementById('insp-chart-inner');
     container.innerHTML = '';
     const plt = Bokeh.Plotting;
     const p = plt.figure({
@@ -60,48 +65,68 @@ onMounted(async () => {
       top: data.map(d => d.count),
       bottom: 0,
       width: 0.8,
-      color: data.map(d => d.fruit === highlightFruit ? '#1e3369' : '#aec7e8'),
+      color: data.map(d =>
+        highlightFruit === '__all__' || d.fruit === highlightFruit ? '#1e3369' : '#aec7e8'
+      ),
       line_color: '#1e3369',
     });
-    plt.show(p, '#insp-plot');
-    document.getElementById('insp-plot')?.setAttribute('inert', 'true');
+    plt.show(p, '#insp-chart-inner');
   };
 
   drawChart();
 
-  const [{ addDataNavigator }, { Inspector, buildLabel }] = await Promise.all([
+  const [{ addDataNavigator: _addDN }, { Inspector }] = await Promise.all([
     import('@data-navigator/bokeh-wrapper'),
     import('@data-navigator/inspector'),
   ]);
+  addDataNavigator = _addDN;
 
-  wrapper = addDataNavigator({
-    plotContainer: 'insp-plot',
-    chatContainer: 'insp-chat',
-    data,
-    type: 'bar',
-    xField: 'fruit',
-    yField: 'count',
-    onNavigate(node) {
-      highlightFruit = node.data?.fruit ?? null;
-      drawChart();
-      // Sync inspector focus
-      const renderId = node.renderId ?? node.id;
-      inspector?.highlight(renderId);
-    },
-    onExit() {
-      highlightFruit = null;
-      drawChart();
-      inspector?.clear();
-    },
-  });
+  const initWrapper = (mode) => {
+    wrapper?.destroy();
+    highlightFruit = null;
+    drawChart();
 
-  // Create inspector from the wrapper's structure
-  inspector = Inspector({
-    structure: wrapper.structure,
-    container: 'insp-graph',
-    size: 300,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['dn-exit'],
+    wrapper = addDataNavigator({
+      plotContainer: 'insp-plot',
+      chatContainer: 'insp-chat',
+      mode,
+      data,
+      type: 'bar',
+      xField: 'fruit',
+      yField: 'count',
+      onNavigate(node) {
+        const renderId = node.renderId ?? node.id;
+        inspector?.highlight(renderId);
+        if (node.derivedNode && node.data?.fruit == null) {
+          highlightFruit = '__all__';
+        } else {
+          highlightFruit = node.data?.fruit ?? null;
+        }
+        drawChart();
+      },
+      onExit() {
+        inspector?.clear();
+        highlightFruit = null;
+        drawChart();
+      },
+    });
+
+    // Create inspector once from the first wrapper's structure.
+    if (!inspector) {
+      inspector = Inspector({
+        structure: wrapper.structure,
+        container: 'insp-graph',
+        size: 300,
+        colorBy: 'dimensionLevel',
+        edgeExclusions: ['dn-exit'],
+      });
+    }
+  };
+
+  initWrapper('text');
+
+  document.getElementById('insp-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
   });
 });
 
@@ -115,7 +140,7 @@ onUnmounted(() => {
 
 ```js
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
-import { Inspector, buildLabel } from '@data-navigator/inspector';
+import { Inspector } from '@data-navigator/inspector';
 import '@data-navigator/inspector/style.css';
 
 const data = [
@@ -131,7 +156,7 @@ const wrapper = addDataNavigator({
   xField: 'fruit',
   yField: 'count',
   onNavigate(node) {
-    redrawChart({ highlight: node.data.fruit });
+    redrawChart({ highlight: node.data?.fruit ?? '__all__' });
     // Step 3: sync inspector focus
     inspector.highlight(node.renderId ?? node.id);
   },
@@ -156,3 +181,4 @@ const inspector = Inspector({
 - `wrapper.structure` is the raw data-navigator `Structure` object — pass it to any data-navigator tool.
 - `edgeExclusions: ['dn-exit']` hides the internal exit edge so the inspector graph only shows navigable paths.
 - `colorBy: 'dimensionLevel'` colours nodes by their depth in the hierarchy, making it easy to distinguish dimension nodes, division nodes, and leaf nodes.
+- Call `inspector.highlight(node.renderId ?? node.id)` in `onNavigate` to keep the inspector in sync with both text-chat and keyboard navigation.

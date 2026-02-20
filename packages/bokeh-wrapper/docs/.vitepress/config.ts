@@ -17,8 +17,6 @@ export default defineConfig({
         ['script', { src: 'https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js', crossorigin: 'anonymous' }],
         ['script', { src: 'https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js', crossorigin: 'anonymous' }],
         ['script', { src: 'https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js', crossorigin: 'anonymous' }],
-        // text-chat styles
-        ['link', { rel: 'stylesheet', href: '/data-navigator/bokeh-wrapper/text-chat.css' }],
         // Meta
         ['meta', { name: 'theme-color', content: '#1e3369' }]
     ],

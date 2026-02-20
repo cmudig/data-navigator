@@ -5,25 +5,15 @@
  * Uses the data-navigator text-chat interface by default so that the
  * broadest range of users — including screen reader users, keyboard-only
  * users, and mobile users — can explore your chart.
- *
- * @example
- * ```js
- * import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
- *
- * // After rendering your Bokeh chart:
- * const wrapper = addDataNavigator({
- *   plotContainer: '#my-plot',
- *   data: myData,
- * });
- * ```
  */
 
 import dataNavigator from 'data-navigator';
 import type { Structure, TextChatInstance } from 'data-navigator';
-import { buildStructureOptions, buildCommandLabels, resolveEl } from './structure-builder';
+import { buildStructureOptions, buildCommandLabels, buildChartDescription, prepareNodeSemantics, resolveEl } from './structure-builder';
 import type { BokehWrapperOptions, BokehWrapperInstance } from './types';
 
 export type { BokehWrapperOptions, BokehWrapperInstance, BokehChartType, BokehWrapperMode } from './types';
+export { buildChartDescription, buildNodeLabel, prepareNodeSemantics } from './structure-builder';
 
 // ─── Chat container helper ───────────────────────────────────────────────────
 
@@ -60,14 +50,18 @@ function setupKeyboardMode(
         ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
         : Object.keys(structure.nodes)[0];
 
-    const rendering = dataNavigator.rendering({
+    const suffixId = `dn-bokeh-${Math.random().toString(36).slice(2, 6)}`;
+
+    // NOTE: In keyboard mode the keyboard navigation elements live INSIDE plotEl.
+    // plotEl must NOT be inert — that would block them entirely.
+    const rendering: any = dataNavigator.rendering({
         elementData: structure.nodes,
         defaults: {
             cssClass: 'dn-node',
             spatialProperties: { x: 0, y: 0, width, height },
-            ...renderingOptions.defaults
+            ...(renderingOptions as any).defaults
         },
-        suffixId: `dn-bokeh-${Math.random().toString(36).slice(2, 6)}`,
+        suffixId,
         root: {
             id: typeof options.plotContainer === 'string'
                 ? options.plotContainer
@@ -77,11 +71,22 @@ function setupKeyboardMode(
             height: 0
         },
         entryButton: { include: true, callbacks: { click: enter } },
-        exitElement: { include: true },
-        ...renderingOptions
+        exitElement: { include: true }
     } as any);
 
     rendering.initialize();
+
+    // Belt-and-suspenders: explicitly handle Enter/Space on the entry button.
+    // The button is a native <button> so click fires on Enter, but some
+    // browser/AT combinations intercept the event before it reaches the handler.
+    if (rendering.entryButton) {
+        rendering.entryButton.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (!current) enter();
+            }
+        });
+    }
 
     const input = dataNavigator.input({
         structure,
@@ -92,7 +97,8 @@ function setupKeyboardMode(
 
     function enter() {
         const node = input.enter();
-        if (node) navigate(node);
+        if (!node) return;
+        navigate(node);
     }
 
     function navigate(node: import('data-navigator').NodeObject) {
@@ -104,6 +110,14 @@ function setupKeyboardMode(
         if (previous) rendering.remove(previous);
 
         const el = rendering.render({ renderId: node.renderId, datum: node });
+        if (!el) return;
+
+        // The rendering module sets pixel-based inline styles from spatialProperties.
+        // Override to 100% so the focus indicator always covers the full chart container.
+        el.style.width = '100%';
+        el.style.height = '100%';
+        el.style.top = '0';
+        el.style.left = '0';
 
         el.addEventListener('keydown', (e: KeyboardEvent) => {
             const direction = input.keydownValidator(e);
@@ -123,15 +137,19 @@ function setupKeyboardMode(
         current = node.id;
     }
 
-    rendering.exitElement?.addEventListener('focus', () => {
-        if (current) rendering.remove(current);
-        current = null;
-        if (onExit) onExit();
-    });
+    if (rendering.exitElement) {
+        rendering.exitElement.addEventListener('focus', () => {
+            if (current) rendering.remove(current);
+            current = null;
+            if (onExit) onExit();
+        });
+    }
 
     return {
         destroy() {
-            rendering.destroy?.();
+            // Remove elements the rendering module appended to plotEl
+            try { rendering.wrapper?.remove?.(); } catch (_) {}
+            try { rendering.exitElement?.remove?.(); } catch (_) {}
         },
         getCurrentNode() {
             return current ? (structure.nodes[current] ?? null) : null;
@@ -144,38 +162,14 @@ function setupKeyboardMode(
 /**
  * Adds accessible data-navigator to a Bokeh chart.
  *
- * The default interface is a text-chat menu, which works for the broadest
- * range of assistive technologies and input modalities. Enable keyboard-first
- * navigation with `mode: 'keyboard'` or show both with `mode: 'both'`.
- *
- * @param options - Configuration options
- * @returns A `BokehWrapperInstance` with `destroy()`, `getCurrentNode()`, and `structure`.
- *
- * @example
- * ```js
- * // Minimal — smart defaults infer chart type and build navigation
- * const wrapper = addDataNavigator({ plotContainer: '#plot', data });
- *
- * // With explicit type and fields
- * const wrapper = addDataNavigator({
- *   plotContainer: '#plot',
- *   data,
- *   type: 'stacked_bar',
- *   xField: 'store',
- *   yField: 'cost',
- *   groupField: 'fruit',
- *   onNavigate: (node) => highlightBokehBar(node.data),
- *   onClick: (node) => selectBokehBar(node.data),
- * });
- *
- * // Clean up when done
- * wrapper.destroy();
- * ```
+ * Text-chat mode (default) places the accessible UI adjacent to the plot
+ * and marks the Bokeh canvas inert so assistive technologies skip it.
+ * Keyboard mode places keyboard navigation elements *inside* the plot container
+ * and must NOT mark the container inert.
  */
 export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInstance {
     const { mode = 'text', onNavigate, onExit, onClick, onHover, llm } = options;
 
-    // 1. Resolve plot container
     const plotEl = resolveEl(options.plotContainer);
     if (!plotEl) {
         throw new Error(
@@ -183,16 +177,65 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         );
     }
 
-    // 2. Mark Bokeh output as inert so AT skips the inaccessible canvas/SVG
-    plotEl.setAttribute('inert', 'true');
+    // Only mark inert in text mode — the accessible UI is outside the container.
+    // In keyboard mode the navigation elements live INSIDE the container, so inert
+    // would block them entirely.
+    const didSetInert = mode === 'text';
+    if (didSetInert) {
+        plotEl.setAttribute('inert', 'true');
+    }
 
-    // 3. Build data-navigator structure
     const structOpts = buildStructureOptions(options);
+
+    // How many named dimensions does this structure declare?
+    const dimCount: number = (structOpts as any).dimensions?.values?.length ?? 0;
+
+    // Resolve the root description — user override wins, otherwise auto-build.
+    const resolveDescription = () => {
+        if (typeof options.describeRoot === 'function') return options.describeRoot(options);
+        if (typeof options.describeRoot === 'string') return options.describeRoot;
+        return buildChartDescription(options, dimCount);
+    };
+
+    if (dimCount > 1) {
+        // Multi-dimension: inject a Level 0 root node via the dimensions API *before*
+        // calling dataNavigator.structure(), so it becomes the natural entry point.
+        // Respect any Level 0 node the caller may have already provided.
+        const dims = (structOpts as any).dimensions;
+        if (!dims.parentOptions) dims.parentOptions = {};
+        if (!dims.parentOptions.addLevel0) {
+            const plotId = typeof options.plotContainer === 'string'
+                ? options.plotContainer.replace(/[^a-zA-Z0-9_-]/g, '')
+                : 'dn';
+            dims.parentOptions.addLevel0 = {
+                id: `${plotId}-chart-root`,
+                edges: [],
+                semantics: { label: resolveDescription() }
+            };
+        }
+    }
+
     const structure: Structure = dataNavigator.structure(structOpts as any);
+
+    if (dimCount === 1 && structure.dimensions) {
+        // Single dimension: set the description directly on the dimension root node.
+        // data-navigator's defaultDescribeNode checks node.semantics?.label first,
+        // so this replaces the terse auto-generated label with the full chart summary.
+        const desc = resolveDescription();
+        for (const dim of Object.values(structure.dimensions as Record<string, { nodeId: string }>)) {
+            const node = structure.nodes[dim.nodeId];
+            if (node) (node as any).semantics = { label: desc };
+        }
+    }
+
+    // Ensure every node has semantics.label — required by the rendering module in
+    // keyboard mode (aria-label on every rendered element), and used by textChat's
+    // defaultDescribeNode as the primary description source when present.
+    prepareNodeSemantics(structure);
 
     const cleanups: Array<() => void> = [];
 
-    // 4. Text-chat interface
+    // Text-chat interface
     let textChatInstance: TextChatInstance | null = null;
     if (mode === 'text' || mode === 'both') {
         const { el: chatEl, owned } = resolveChatContainer(options, plotEl);
@@ -210,23 +253,24 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         } as any);
 
         if (owned) {
-            cleanups.push(() => chatEl.parentElement?.removeChild(chatEl));
+            cleanups.push(() => {
+                try { chatEl.parentElement?.removeChild(chatEl); } catch (_) {}
+            });
         }
     }
 
-    // 5. Keyboard interface
+    // Keyboard interface
     let keyboardMode: ReturnType<typeof setupKeyboardMode> | null = null;
     if (mode === 'keyboard' || mode === 'both') {
         keyboardMode = setupKeyboardMode(structure, plotEl, options);
         cleanups.push(() => keyboardMode?.destroy());
     }
 
-    // 6. Return public instance
     return {
         destroy() {
             textChatInstance?.destroy();
             for (const cleanup of cleanups) cleanup();
-            plotEl.removeAttribute('inert');
+            if (didSetInert) plotEl.removeAttribute('inert');
         },
         getCurrentNode() {
             return textChatInstance?.getCurrentNode() ?? keyboardMode?.getCurrentNode() ?? null;

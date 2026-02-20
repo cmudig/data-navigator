@@ -211,7 +211,7 @@ See the [Using the Inspector](/examples/with-inspector) example for a complete s
 
 ## Keyboard mode
 
-Set `mode: 'keyboard'` to replace the text-chat UI with an accessible overlay that responds to arrow keys:
+Set `mode: 'keyboard'` to replace the text-chat UI with keyboard navigation that responds to arrow keys:
 
 ```js
 addDataNavigator({
@@ -225,7 +225,7 @@ addDataNavigator({
 });
 ```
 
-Use `mode: 'both'` to show the text-chat interface **and** the keyboard overlay at the same time — useful for demo pages or when serving a mixed audience.
+Use `mode: 'both'` to show the text-chat interface **and** keyboard navigation at the same time — useful for demo pages or when serving a mixed audience.
 
 ---
 

@@ -22,7 +22,7 @@ export type BokehChartType =
 /**
  * Navigation interface mode.
  * - 'text'     — text-chat menu only (default, best for broad accessibility)
- * - 'keyboard' — keyboard-first overlay only
+ * - 'keyboard' — keyboard navigation only (arrow keys, no text chat)
  * - 'both'     — both interfaces simultaneously
  */
 export type BokehWrapperMode = 'text' | 'keyboard' | 'both';
@@ -65,6 +65,26 @@ export type BokehWrapperOptions = {
      * By default the wrapper derives IDs from the data.
      */
     idField?: string;
+
+    /**
+     * Chart title used as the opening of the accessible chart description
+     * announced when a user first enters the navigation structure.
+     * If omitted, the description opens with the x and y field names instead.
+     * Example: "Fruit counts"
+     */
+    title?: string;
+
+    /**
+     * Override the auto-generated accessible description for the chart's root node.
+     * Pass a string for a static description, or a function that receives the
+     * wrapper options and returns a string.
+     *
+     * Single-dimension charts (bar, multiline, stacked_bar): the description is set
+     * as `semantics.label` on the dimension root node.
+     * Multi-dimension charts: it becomes the `semantics.label` of an injected
+     * Level 0 node added via the data-navigator `dimensions.parentOptions.addLevel0` API.
+     */
+    describeRoot?: string | ((options: BokehWrapperOptions) => string);
 
     /**
      * Interface mode. Defaults to 'text' (text-chat menu).
