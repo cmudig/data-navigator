@@ -559,12 +559,15 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 let i = dimension.numericalExtents[0] + interval;
                 let divisionCount = 0;
                 let index = 0;
+                let lastDivisionId: string | null = null;
                 for (i = dimension.numericalExtents[0] + interval; i <= dimension.numericalExtents[1]; i += interval) {
                     // first, we create each subdivision
                     let divisionId =
                         typeof dimension.divisionOptions?.divisionNodeIds === 'function'
                             ? dimension.divisionOptions.divisionNodeIds(s, i, i)
-                            : dimension.nodeId + '_' + i;
+                            : createValidId(dimension.nodeId + '_' + i);
+
+                    lastDivisionId = divisionId;
 
                     dimension.divisions[divisionId] = {
                         id: divisionId,
@@ -593,13 +596,23 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         let value = node[s];
                         if (value <= i) {
                             dimension.divisions[divisionId].values[node.id] = node;
+                            index++;
                         } else {
-                            i += interval;
+                            // Node belongs to a later bin — do not advance index so it
+                            // is re-evaluated in the next iteration of the for-loop.
                             limit = true;
                         }
-                        index++;
                     }
                     divisionCount++;
+                }
+                // Flush any points that floated past the last bin boundary due to
+                // floating-point accumulation (e.g. 4.7 + 4×0.6 = 7.099... < 7.1).
+                if (lastDivisionId && index < valueKeys.length) {
+                    while (index < valueKeys.length) {
+                        let node = values[valueKeys[index]];
+                        dimension.divisions[lastDivisionId].values[node.id] = node;
+                        index++;
+                    }
                 }
                 delete divisions[s];
             }
@@ -860,15 +873,17 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                     createEdge(division.id, dimension.nodeId, dimension.navigationRules.parent_child, 'source');
                 }
 
-                // set up edge to first child
-                const firstChildId =
-                    typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
-                createEdge(
-                    division.id,
-                    division.values[valueKeys[0]][firstChildId],
-                    dimension.navigationRules.parent_child,
-                    'source'
-                );
+                // set up edge to first child (skip if this bin is empty — no data in range)
+                if (valueKeys.length > 0) {
+                    const firstChildId =
+                        typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
+                    createEdge(
+                        division.id,
+                        division.values[valueKeys[0]][firstChildId],
+                        dimension.navigationRules.parent_child,
+                        'source'
+                    );
+                }
 
                 // lastly, we prep the childmost level
                 let i = 0;
