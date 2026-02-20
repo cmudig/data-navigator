@@ -1239,7 +1239,6 @@ export const buildStructure = (options: StructureOptions): Structure => {
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
     let navigationRules = buildRules(options, edges, dimensions);
-    console.log("dimensions",dimensions)
     return {
         nodes,
         edges,
