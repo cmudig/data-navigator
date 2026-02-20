@@ -5,7 +5,14 @@ This example extends the [Data Text Adventure](/examples/data-text-adventure) wi
 Navigation commands (`enter`, `left`, `help`, `move to`, etc.) always work, with or without an API key. When a key is provided, any input that isn't a recognized command is sent to Claude as a question about the dataset.
 
 ::: warning AI Disclaimer
-AI-generated answers may be inaccurate. You can ask the model to **"verify"** any answer — it will attempt to provide a Python script that checks the claim against the dataset. If a claim cannot be verified with code (e.g. it requires context beyond the data), the model will say so and recommend external verification.
+(This is Frank:)
+Folks, for those that know me know that I am immensely skeptical of modern genAI and [especially critical](https://www.frank.computer/blog/2025/05/just-a-tool.html) of the effect it is having politically, socially, economically, and environmentally. I don't recommend it.
+
+And in terms of data visualization, [especially in terms of accessibility](https://www.computer.org/csdl/proceedings-article/accessviz/2025/571700a014/2dp6pc6GagE), AI-generated answers may be inaccurate and bias users. Blind users in particular may lack the ability to independently verify information given to them by an LLM. For this reason, the below example uses the *input dataset*, not the chart, as input.
+
+You can ask the model to **"verify"** any answer — it will attempt to provide a Python script that checks the claim against the dataset. If a claim cannot be verified with code (e.g. it requires context beyond the data), the model will (hopefully) say so and recommend external verification.
+
+Right now, chart-to-description is too dangerous compared to data-to-description, because we lack a way to ensure truth. Consider this example my best-case-scenario current use of a language/modern multi-modal model. Use at your own risk and understand the impacts of these models on the world before implementing this in real-world contexts.
 :::
 
 ## Try It
