@@ -144,6 +144,58 @@ function buildFlatStructure(
     };
 }
 
+/**
+ * Dual-dimension cross-navigable: left/right for xField groups, up/down for groupField groups.
+ * At the leaf (childmost) level all four arrow keys remain active so users can freely
+ * traverse both axes without drilling back up.
+ *
+ * Uses addIds:true so data-navigator stamps a unique numeric 'id' onto each datum —
+ * required when two dimensions share the same leaf nodes.
+ */
+function buildCrosslineStructure(
+    data: Record<string, unknown>[],
+    xField: string,
+    groupField: string
+): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
+    return {
+        data,
+        idKey: 'id',
+        addIds: true,
+        navigationRules: baseNavRules,
+        dimensions: {
+            values: [
+                {
+                    dimensionKey: xField,
+                    type: 'categorical' as const,
+                    behavior: {
+                        extents: 'circular' as const,
+                        childmostNavigation: 'across' as const
+                    },
+                    // left/right siblings at this dimension level; W drills back up
+                    navigationRules: {
+                        sibling_sibling: ['left', 'right'],
+                        parent_child: ['xParent', 'child']
+                    }
+                },
+                {
+                    dimensionKey: groupField,
+                    type: 'categorical' as const,
+                    behavior: {
+                        extents: 'circular' as const,
+                        childmostNavigation: 'across' as const
+                    },
+                    // up/down siblings at this dimension level; J drills back up
+                    navigationRules: {
+                        sibling_sibling: ['up', 'down'],
+                        parent_child: ['yParent', 'child']
+                    }
+                }
+            ]
+        },
+        genericEdges: [exitEdge]
+    };
+}
+
 /** Categorical dimension: enter → left/right through x-groups → child data points. */
 function buildDimensionStructure(
     data: Record<string, unknown>[],
@@ -202,6 +254,7 @@ const humanChartType: Record<string, string> = {
     scatter: 'scatter plot',
     line: 'line chart',
     multiline: 'multi-line chart',
+    crossline: 'cross-navigable multi-line chart',
     stacked_bar: 'stacked bar chart'
 };
 
@@ -324,6 +377,13 @@ export function buildStructureOptions(
             break;
         }
 
+        case 'crossline': {
+            const crossX = xField || 'x';
+            const crossGroup = groupField || 'series';
+            base = buildCrosslineStructure(data, crossX, crossGroup);
+            break;
+        }
+
         default:
             base = buildFlatStructure(data, xField, idField);
     }
@@ -373,6 +433,16 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.parent = 'Go back up';
             auto.undo = 'Go back up';
             break;
+
+        case 'crossline':
+            auto.left = `Move to previous ${xField ?? 'x-axis point'}`;
+            auto.right = `Move to next ${xField ?? 'x-axis point'}`;
+            auto.up = `Move to previous ${groupField ?? 'series'}`;
+            auto.down = `Move to next ${groupField ?? 'series'}`;
+            auto.child = 'Drill in';
+            auto.xParent = `Go up to ${xField ?? 'x-axis'} level`;
+            auto.yParent = `Go up to ${groupField ?? 'series'} level`;
+            break;
     }
 
     // commandLabels from user wins
@@ -396,6 +466,14 @@ export function buildNodeLabel(node: any): string {
     const data = node.data as Record<string, unknown> | undefined;
     if (!data) return String(node.id);
 
+    // Dimension root node: data is a DimensionObject — has dimensionKey (string) + divisions (object).
+    // These nodes fall through to the leaf branch otherwise, producing [object Object] for the
+    // nested divisions/behavior/navigationRules fields.
+    if (typeof data.dimensionKey === 'string' && data.divisions != null) {
+        const divCount = Object.keys(data.divisions as object).length;
+        return `${data.dimensionKey} dimension. Contains ${divCount} division${divCount !== 1 ? 's' : ''}.`;
+    }
+
     // Division node: data.values is an object map of child nodes (DivisionObject shape)
     if (data.values != null && typeof data.values === 'object' && !Array.isArray(data.values)) {
         const dimKey = node.derivedNode as string | undefined;
@@ -407,9 +485,15 @@ export function buildNodeLabel(node: any): string {
         return String(node.id);
     }
 
-    // Leaf node: raw datum — skip internal '_' prefixed fields
+    // Leaf node: raw datum — skip internal '_' prefixed keys and any non-primitive values
+    // (objects / arrays / functions would stringify as [object Object]).
     const parts = Object.entries(data)
-        .filter(([k]) => !k.startsWith('_'))
+        .filter(([k, v]) =>
+            !k.startsWith('_') &&
+            v != null &&
+            typeof v !== 'object' &&
+            typeof v !== 'function'
+        )
         .map(([k, v]) => `${k}: ${v}`);
     return parts.length > 0 ? parts.join('. ') + '.' : String(node.id);
 }

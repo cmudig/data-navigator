@@ -16,6 +16,7 @@ export type BokehChartType =
     | 'scatter'
     | 'line'
     | 'multiline'
+    | 'crossline'
     | 'stacked_bar'
     | 'auto';
 

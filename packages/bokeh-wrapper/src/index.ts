@@ -37,7 +37,8 @@ function resolveChatContainer(
 function setupKeyboardMode(
     structure: Structure,
     plotEl: HTMLElement,
-    options: BokehWrapperOptions
+    options: BokehWrapperOptions,
+    entryPoint: string | undefined
 ): { destroy: () => void; getCurrentNode: () => import('data-navigator').NodeObject | null } {
     const { onNavigate, onExit, renderingOptions = {} } = options;
     const width = plotEl.clientWidth || 400;
@@ -46,9 +47,9 @@ function setupKeyboardMode(
     let current: string | null = null;
     let previous: string | null = null;
 
-    const entryPoint = structure.dimensions
-        ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
-        : Object.keys(structure.nodes)[0];
+    // entryPoint is resolved by addDataNavigator (Level 0 root for multi-dimension,
+    // first dimension root for single-dimension).  Fall back to first node as a safety net.
+    const resolvedEntry = entryPoint ?? Object.keys(structure.nodes)[0];
 
     const suffixId = `dn-bokeh-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -91,7 +92,7 @@ function setupKeyboardMode(
     const input = dataNavigator.input({
         structure,
         navigationRules: structure.navigationRules ?? {},
-        entryPoint,
+        entryPoint: resolvedEntry,
         exitPoint: rendering.exitElement?.id
     });
 
@@ -240,6 +241,15 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
     // defaultDescribeNode as the primary description source when present.
     prepareNodeSemantics(structure);
 
+    // Resolve the entry point once — used by both text-chat and keyboard modes.
+    // For multi-dimension charts the Level 0 root (dimensionLevel === 0) is the
+    // natural starting point; for single-dimension charts it is the dimension root.
+    const level0Node = Object.values(structure.nodes).find((n: any) => n.dimensionLevel === 0) as any;
+    const resolvedEntryPoint: string | undefined = level0Node?.id
+        ?? (structure.dimensions
+            ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
+            : undefined);
+
     const cleanups: Array<() => void> = [];
 
     // Text-chat interface
@@ -250,6 +260,7 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         textChatInstance = dataNavigator.textChat({
             structure,
             container: chatEl,
+            entryPoint: resolvedEntryPoint,
             data: options.data as Record<string, unknown>[],
             commandLabels: buildCommandLabels(options),
             onNavigate,
@@ -269,7 +280,7 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
     // Keyboard interface
     let keyboardMode: ReturnType<typeof setupKeyboardMode> | null = null;
     if (mode === 'keyboard' || mode === 'both') {
-        keyboardMode = setupKeyboardMode(structure, plotEl, options);
+        keyboardMode = setupKeyboardMode(structure, plotEl, options, resolvedEntryPoint);
         cleanups.push(() => keyboardMode?.destroy());
     }
 

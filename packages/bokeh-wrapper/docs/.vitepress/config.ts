@@ -54,6 +54,7 @@ export default defineConfig({
                     { text: 'Bar Chart', link: '/examples/bar-chart' },
                     { text: 'Scatter Plot', link: '/examples/scatter' },
                     { text: 'Line Chart', link: '/examples/line-chart' },
+                    { text: 'Cross-navigable Line Chart', link: '/examples/crossline' },
                     { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
                     { text: 'Using the Inspector', link: '/examples/with-inspector' }
                 ]
