@@ -103,7 +103,7 @@ onMounted(async () => {
       p.line(months, temps, {
         line_color: colors[city],
         // Thicken the line only when focused at the series level (no month selected)
-        line_width: isFocusedLine && focusedMonth == null ? 3 : 1.5,
+        line_width: isFocusedLine && focusedMonth == null && !(focusedDimension === 'month') ? 3 : 1.5,
         line_alpha: dimmed ? 0.3 : 1.0,
         legend_label: city,
       });
@@ -129,39 +129,7 @@ onMounted(async () => {
     plt.show(p, '#cross-chart-inner');
 
     // City dimension encoding cue: highlight the legend box for the focused city.
-    // Uses SVG post-processing since Bokeh doesn't expose per-item legend styling.
-    if (focusedDimension === 'city' && focusedCity && focusedCity !== '__all__') {
-      setTimeout(() => {
-        const svg = document.querySelector('#cross-chart-inner svg');
-        if (!svg) return;
-        // Find the legend <text> element matching this city name
-        const textEls = [...svg.querySelectorAll('text')];
-        const legendText = textEls.find(el => el.textContent.trim() === focusedCity);
-        if (!legendText) return;
-        try {
-          // Use viewport-relative rects and convert to SVG-local coordinates
-          const svgBRect = svg.getBoundingClientRect();
-          const textBRect = legendText.getBoundingClientRect();
-          const x = textBRect.left - svgBRect.left;
-          const y = textBRect.top - svgBRect.top;
-          const linePreviewW = 35; // approximate width of Bokeh's line-preview glyph
-          const pad = 5;
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rect.setAttribute('x', String(x - linePreviewW - pad));
-          rect.setAttribute('y', String(y - pad));
-          rect.setAttribute('width', String(textBRect.width + linePreviewW + pad * 2));
-          rect.setAttribute('height', String(textBRect.height + pad * 2));
-          rect.setAttribute('fill', 'none');
-          rect.setAttribute('stroke', '#333');
-          rect.setAttribute('stroke-width', '2.5');
-          rect.setAttribute('rx', '3');
-          // Append to SVG root so it renders on top of everything
-          svg.appendChild(rect);
-        } catch (_) {
-          // getBoundingClientRect may fail when SVG is not yet visible
-        }
-      }, 0);
-    }
+    console.log("yo")
   };
 
   drawChart();
