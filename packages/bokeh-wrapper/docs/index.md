@@ -28,14 +28,14 @@ features:
       details: Pass the returned `structure` directly to @data-navigator/inspector to visualize the navigation graph while building or debugging.
 ---
 
-## What this is
+## What is this?
 
 `@data-navigator/bokeh-wrapper` makes it easy to add accessible data navigation to any [Bokeh](https://bokeh.org/) chart. It is part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) project.
 
-Bokeh charts are visually rich but historically inaccessible — assistive technologies can't meaningfully interact with the canvas or SVG output. This wrapper builds a parallel accessible interface that lets users navigate the underlying data directly.
+Bokeh charts are visually rich but historically inaccessible — assistive technologies can't meaningfully interact with the canvas or SVG output. This wrapper builds a parallel accessible interface that lets users navigate and interact with the underlying data and visualization.
 
-::: tip Bokeh Accessibility Audit
-This project is informed by the ongoing [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents and tracks accessibility issues in Bokeh. The audit is a separate project — check it out if you want to understand the problem space more deeply.
+::: tip Bokeh's Accessibility Efforts
+This project is informed by the ongoing [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents and tracks accessibility issues in Bokeh. The audit is a separate project — check it out if you want to understand the problem space more deeply (or are interested in embarking on your own ecosystem-wide accessibility overhaul). The audit and this work has been supported by a [CZI Essential Open Source Software](https://chanzuckerberg.com/eoss/) (EOSS) Cycle 6 grant, “Accessible interactive data visualizations in Python with Bokeh." This wrapper's contributions have been led by Frank Elavsky, in collaboration with folks from Quansight, Anaconda, and Bokeh.
 :::
 
 ## Quick Start
