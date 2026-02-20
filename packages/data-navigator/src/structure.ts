@@ -560,6 +560,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 let divisionCount = 0;
                 let index = 0;
                 let lastDivisionId: string | null = null;
+                let prevBound = dimension.numericalExtents[0];
                 for (i = dimension.numericalExtents[0] + interval; i <= dimension.numericalExtents[1]; i += interval) {
                     // first, we create each subdivision
                     let divisionId =
@@ -572,7 +573,8 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                     dimension.divisions[divisionId] = {
                         id: divisionId,
                         sortFunction: dimension.divisionOptions?.sortFunction || undefined,
-                        values: {}
+                        values: {},
+                        numericalExtents: [prevBound, i]
                     } as DivisionObject;
 
                     let divisionRenderId =
@@ -603,6 +605,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                             limit = true;
                         }
                     }
+                    prevBound = i;
                     divisionCount++;
                 }
                 // Flush any points that floated past the last bin boundary due to
@@ -1236,6 +1239,7 @@ export const buildStructure = (options: StructureOptions): Structure => {
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
     let navigationRules = buildRules(options, edges, dimensions);
+    console.log("dimensions",dimensions)
     return {
         nodes,
         edges,

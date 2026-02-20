@@ -145,6 +145,7 @@ export type DivisionObject = {
     id: NodeId;
     values: Nodes;
     sortFunction?: SortingFunction; // by default does not sort
+    numericalExtents?: NumericalExtentsPair;
 };
 
 export type NavObject = {
