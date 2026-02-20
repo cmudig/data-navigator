@@ -384,8 +384,9 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     };
     // for every datum, check against filters, create parent dimensions, create divisions, and then add to divisions
     options.data.forEach(d => {
-        let ods = options.dimensions.values || [];
+        let ods = options.dimensions?.values || [];
         let i = 0;
+        console.log("ods",ods)
         ods.forEach(dim => {
             if (!dim.dimensionKey) {
                 console.error(
@@ -663,7 +664,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     });
 
     // final step: if any addition adjustments are to be made, then a callback is used at this point
-    if (options.dimensions.adjustDimensions) {
+    if (options.dimensions?.adjustDimensions) {
         dimensions = options.dimensions.adjustDimensions(dimensions);
     }
 
