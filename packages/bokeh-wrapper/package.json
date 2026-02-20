@@ -1,0 +1,54 @@
+{
+    "name": "@data-navigator/bokeh-wrapper",
+    "version": "0.1.0",
+    "type": "module",
+    "author": "Frank Elavsky",
+    "license": "MIT",
+    "description": "A data-navigator wrapper for Bokeh charts with smart defaults and a text-chat navigation interface.",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/src/index.d.ts",
+    "files": [
+        "dist/**/*",
+        "README.md",
+        "LICENSE"
+    ],
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/src/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/src/index.d.ts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "keywords": [
+        "visualization",
+        "accessibility",
+        "bokeh",
+        "data-navigator",
+        "a11y"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "clean": "rm -rf ./dist",
+        "dev": "vitepress dev docs",
+        "build:docs": "vitepress build docs",
+        "preview": "vitepress preview docs",
+        "prepublishOnly": "yarn build && cp ../../README.md ../../LICENSE . 2>/dev/null || true"
+    },
+    "peerDependencies": {
+        "data-navigator": ">=2.3.0"
+    },
+    "devDependencies": {
+        "@swc/core": "^1.3.75",
+        "data-navigator": "*",
+        "tsup": "^7.2.0",
+        "typescript": "^5.1.6",
+        "vitepress": "^1.4.0",
+        "vue": "^3.5.0"
+    }
+}

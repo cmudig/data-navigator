@@ -699,3 +699,7 @@ We still only render one node at a time, keeping the DOM clean.
 ## Next Steps
 
 Congratulations! You've built your first accessible, navigable chart. Explore the [Examples](/examples/) for more patterns, including SVG-based charts where element positioning _is_ possible.
+
+::: tip Building with Bokeh?
+The steps above show the full manual approach. If Bokeh is your charting library of choice, the **[@data-navigator/bokeh-wrapper](https://dig.cmu.edu/data-navigator/bokeh-wrapper/)** automates structure-building, navigation setup, and the text-chat interface — so you can go from a rendered chart to an accessible experience in one function call. Check out the [wrapper docs](https://dig.cmu.edu/data-navigator/bokeh-wrapper/) to see if it fits your use case.
+:::

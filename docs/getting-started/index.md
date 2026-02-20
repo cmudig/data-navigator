@@ -49,3 +49,7 @@ Ready to get started? Head to the [Installation](/getting-started/installation) 
 - [Read the Paper](https://www.frank.computer/data-navigator/)
 - [GitHub Repository](https://github.com/cmudig/data-navigator)
 - [npm Package](https://www.npmjs.com/package/data-navigator)
+
+::: tip Using Bokeh?
+If your visualization is built with [Bokeh](https://bokeh.org/), you don't need to wire things up from scratch. The **[@data-navigator/bokeh-wrapper](https://dig.cmu.edu/data-navigator/bokeh-wrapper/)** handles structure-building, navigation setup, and the text-chat interface for you with one function call.
+:::

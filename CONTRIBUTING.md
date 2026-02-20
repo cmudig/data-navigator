@@ -6,6 +6,7 @@ This is a monorepo using Yarn workspaces:
 
 - `packages/data-navigator/` — the core library (published to npm)
 - `packages/inspector/` — optional structure inspector companion (published to npm as `@data-navigator/inspector`)
+- `packages/bokeh-wrapper/` — Bokeh chart wrapper (published to npm as `@data-navigator/bokeh-wrapper`)
 - `packages/skeleton/` — GUI-based project using data-navigator and inspector (planned)
 - `docs/` — the VitePress documentation site
 
@@ -41,6 +42,27 @@ The inspector lives in `packages/inspector/` and has its own VitePress test site
 
 - Dev server: `yarn inspector:dev`
 
+## Working on the Bokeh Wrapper
+
+The Bokeh wrapper lives in `packages/bokeh-wrapper/`. It is a TypeScript package built with tsup that wraps data-navigator's core modules with smart defaults for Bokeh charts. It also has its own VitePress docs site at `packages/bokeh-wrapper/docs/`.
+
+Context and motivation: the wrapper is informed by the [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents known accessibility issues in Bokeh and is a companion project. When contributing to the wrapper, please check the audit to understand what problems exist in Bokeh itself versus what the wrapper can reasonably address.
+
+- Dev server (docs): `yarn bokeh-wrapper:dev`
+- Build package: `yarn workspace @data-navigator/bokeh-wrapper build`
+- Build docs: `yarn bokeh-wrapper:build:docs`
+
+The wrapper depends on `data-navigator` (peer + dev) but has no other runtime dependencies. When adding new chart-type support, update `src/structure-builder.ts` and add a corresponding example page in `docs/examples/`.
+
+Publishing the Bokeh wrapper follows the same process as the Inspector — use `--no-git-tag-version` to avoid tag collisions with the core library:
+
+1. Navigate to the package: `cd packages/bokeh-wrapper`
+2. Build: `yarn build`
+3. Bump the version: `npm version <patch|minor|major> --no-git-tag-version`
+4. Commit the version bump: `git add package.json && git commit -m "bokeh-wrapper v<new-version>"`
+5. Publish: `npm publish --access public`
+6. Push: `git push`
+
 ## After Making Changes
 
 - Format code and make it look good: `yarn prettier-all`
@@ -70,3 +92,14 @@ The inspector is published separately from the core library. Use `--no-git-tag-v
 3. Commit the version bump: `git add package.json && git commit -m "inspector v<new-version>"`
 4. Publish: `npm publish --access public`
 5. Push: `git push`
+
+### Bokeh Wrapper (`@data-navigator/bokeh-wrapper`)
+
+Same approach as the inspector.
+
+1. Navigate to the package: `cd packages/bokeh-wrapper`
+2. Build: `yarn build`
+3. Bump the version: `npm version <patch|minor|major> --no-git-tag-version`
+4. Commit the version bump: `git add package.json && git commit -m "bokeh-wrapper v<new-version>"`
+5. Publish: `npm publish --access public`
+6. Push: `git push`
