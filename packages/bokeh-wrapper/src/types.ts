@@ -14,6 +14,7 @@ export type BokehChartType =
     | 'bar'
     | 'hbar'
     | 'scatter'
+    | 'cartesian'
     | 'line'
     | 'multiline'
     | 'crossline'

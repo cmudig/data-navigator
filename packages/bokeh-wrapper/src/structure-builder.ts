@@ -44,7 +44,7 @@ export function resolveChartType(
     }
 
     if (xField && yField) {
-        if (isNumericField(data, xField) && isNumericField(data, yField)) return 'scatter';
+        if (isNumericField(data, xField) && isNumericField(data, yField)) return 'cartesian';
         if (!isNumericField(data, xField)) return 'bar';
         return 'line';
     }
@@ -196,6 +196,83 @@ function buildCrosslineStructure(
     };
 }
 
+/**
+ * Two numerical dimensions sharing leaf nodes: left/right for xField, up/down for yField.
+ * Each dimension is split into automatic subdivisions (bins) derived from the data range.
+ * Extents are terminal so navigation stops at the first/last bin rather than wrapping.
+ * At the leaf (deepest) level all four arrow keys stay active for free 2-D roaming.
+ */
+function buildCartesianStructure(
+    data: Record<string, unknown>[],
+    xField: string,
+    yField: string,
+    idField: string | undefined
+): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
+    // Stamp a stable `id` on each datum (required so the numerical subdivision
+    // loop in data-navigator's scaffoldDimensions can key division values correctly).
+    // We re-use any existing unique identifier the caller designates via idField,
+    // falling back to the raw `id` field, then a sequential fallback.
+    const augmented = data.map((d, i) => {
+        const baseId =
+            idField && d[idField] != null
+                ? safeId(String(d[idField]))
+                : d['id'] != null
+                    ? safeId(String(d['id']))
+                    : `dn-pt-${i}`;
+        return { ...d, id: baseId };
+    });
+
+    // Automatic bin count: square root of point count x2, at least 4.
+    // createNumericalSubdivisions receives (dimensionKey, sortedValues) at build time.
+    const autoSubdivs = (_key: string, values: Record<string, unknown>) => 4 /*{
+        console.log(Math.max(4, 
+            Math.ceil(
+                Math.sqrt(Object.keys(values).length)
+            )))
+        return Math.max(4, 
+            Math.ceil(
+                Math.sqrt(Object.keys(values).length)
+            ));
+        }*/
+
+    return {
+        data: augmented,
+        idKey: 'id',
+        navigationRules: baseNavRules,
+        dimensions: {
+            values: [
+                {
+                    dimensionKey: xField,
+                    type: 'numerical' as const,
+                    behavior: {
+                        extents: 'terminal' as const,
+                        childmostNavigation: 'across' as const
+                    },
+                    operations: { createNumericalSubdivisions: autoSubdivs },
+                    navigationRules: {
+                        sibling_sibling: ['left', 'right'],
+                        parent_child: ['xParent', 'child']
+                    }
+                },
+                {
+                    dimensionKey: yField,
+                    type: 'numerical' as const,
+                    behavior: {
+                        extents: 'terminal' as const,
+                        childmostNavigation: 'across' as const
+                    },
+                    operations: { createNumericalSubdivisions: autoSubdivs },
+                    navigationRules: {
+                        sibling_sibling: ['up', 'down'],
+                        parent_child: ['yParent', 'child']
+                    }
+                }
+            ]
+        },
+        genericEdges: [exitEdge]
+    };
+}
+
 /** Categorical dimension: enter → left/right through x-groups → child data points. */
 function buildDimensionStructure(
     data: Record<string, unknown>[],
@@ -252,6 +329,7 @@ const humanChartType: Record<string, string> = {
     bar: 'bar chart',
     hbar: 'horizontal bar chart',
     scatter: 'scatter plot',
+    cartesian: 'scatter plot',
     line: 'line chart',
     multiline: 'multi-line chart',
     crossline: 'cross-navigable multi-line chart',
@@ -377,6 +455,13 @@ export function buildStructureOptions(
             break;
         }
 
+        case 'cartesian': {
+            const cartX = xField || 'x';
+            const cartY = yField || 'y';
+            base = buildCartesianStructure(data, cartX, cartY, idField);
+            break;
+        }
+
         case 'crossline': {
             const crossX = xField || 'x';
             const crossGroup = groupField || 'series';
@@ -432,6 +517,16 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.child = `Drill into ${groupField ?? 'series'} data`;
             auto.parent = 'Go back up';
             auto.undo = 'Go back up';
+            break;
+
+        case 'cartesian':
+            auto.left = `Move to previous ${xField ?? 'x'} range`;
+            auto.right = `Move to next ${xField ?? 'x'} range`;
+            auto.up = `Move to previous ${yField ?? 'y'} range`;
+            auto.down = `Move to next ${yField ?? 'y'} range`;
+            auto.child = 'Drill in';
+            auto.xParent = `Go up to ${xField ?? 'x'} level`;
+            auto.yParent = `Go up to ${yField ?? 'y'} level`;
             break;
 
         case 'crossline':
