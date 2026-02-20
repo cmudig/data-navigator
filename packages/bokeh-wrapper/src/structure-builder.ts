@@ -222,18 +222,10 @@ function buildCartesianStructure(
         return { ...d, id: baseId };
     });
 
-    // Automatic bin count: square root of point count x2, at least 4.
+    // Automatic bin count: ceil(sqrt(N)), minimum 3, max 12.
     // createNumericalSubdivisions receives (dimensionKey, sortedValues) at build time.
-    const autoSubdivs = (_key: string, values: Record<string, unknown>) => 4 /*{
-        console.log(Math.max(4, 
-            Math.ceil(
-                Math.sqrt(Object.keys(values).length)
-            )))
-        return Math.max(4, 
-            Math.ceil(
-                Math.sqrt(Object.keys(values).length)
-            ));
-        }*/
+    const autoSubdivs = (_key: string, values: Record<string, unknown>) =>
+        Math.min(12,Math.max(3, Math.ceil(Math.sqrt(Object.keys(values).length))));
 
     return {
         data: augmented,
