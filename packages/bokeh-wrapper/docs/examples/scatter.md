@@ -73,11 +73,10 @@ onMounted(async () => {
   const globalXMax = Math.max(...data.map(d => d.sepal_length));
   const globalYMin = Math.min(...data.map(d => d.petal_length));
   const globalYMax = Math.max(...data.map(d => d.petal_length));
-  const xPad = (globalXMax - globalXMin) * 0.05;
-  const yPad = (globalYMax - globalYMin) * 0.05;
 
   // Focus rectangles: [{ x1, x2, y1, y2, lineWidth }]. Each rect is stroke-only, no fill.
   let rects = [];
+  let points = [];
   let divisionRectsByDimension = {};
 
   const drawChart = () => {
@@ -118,6 +117,20 @@ onMounted(async () => {
       });
     });
 
+    // focus indicator over points, shown at the lowest level when navigating
+    for (const point of points) {
+      p.scatter({
+        marker: 'circle',
+        x: [point.x],
+        y: [point.y],
+        size: 8,
+        fill_color: '#333',
+        line_color: '#333',
+        line_width: 2,
+        fill_alpha: 0,
+      });
+    }
+
     plt.show(p, '#scatter-chart-inner');
   };
 
@@ -147,6 +160,7 @@ onMounted(async () => {
   const initWrapper = (mode) => {
     wrapper?.destroy();
     rects = [];
+    points = [];
     divisionRectsByDimension = {};
     drawChart();
     wrapper = addDataNavigator({
@@ -163,13 +177,16 @@ onMounted(async () => {
         const level = node.dimensionLevel;
         if (level === 0) {
           // Chart root — grid overlay: all bins from both dimensions at once (1px)
+          points = [];
           rects = Object.values(divisionRectsByDimension).flat();
         } else if (level === 1) {
           // Dimension root — show every bin of this dimension at once (1px)
+          points = [];
           const dimKey = node.data?.dimensionKey;
           rects = divisionRectsByDimension[dimKey] ?? [];
         } else if (node.derivedNode) {
           // Division node — exact bin boundary, no padding, 2px
+          points = [];
           const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
           if (node.derivedNode === 'sepal_length') {
             rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
@@ -178,16 +195,17 @@ onMounted(async () => {
           }
         } else {
           // Leaf node — small padded box around the individual point, 2px
-          rects = [{
-            x1: +node.data.sepal_length - xPad, x2: +node.data.sepal_length + xPad,
-            y1: +node.data.petal_length - yPad, y2: +node.data.petal_length + yPad,
-            lineWidth: 2,
-          }];
+          rects = [];
+          points = [{
+            x: +node.data.sepal_length,
+            y: +node.data.petal_length
+          }]
         }
         drawChart();
       },
       onExit() {
         rects = [];
+        points = [];
         drawChart();
       },
     });
@@ -215,65 +233,158 @@ const data = [
   // ...
 ];
 
-// Global bounds for band spans; padding only used for the leaf-node box.
+const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
+
+// Precompute global data bounds and padding for the focus rectangle.
 const globalXMin = Math.min(...data.map(d => d.sepal_length));
 const globalXMax = Math.max(...data.map(d => d.sepal_length));
 const globalYMin = Math.min(...data.map(d => d.petal_length));
 const globalYMax = Math.max(...data.map(d => d.petal_length));
-const xPad = (globalXMax - globalXMin) * 0.05;
-const yPad = (globalYMax - globalYMin) * 0.05;
 
-let rects = []; // [{ x1, x2, y1, y2, lineWidth }] drawn as stroke-only quads
-let divisionRectsByDimension = {}; // pre-built per-dimension rect arrays
+// Focus rectangles: [{ x1, x2, y1, y2, lineWidth }]. Each rect is stroke-only, no fill.
+let rects = [];
+let points = [];
+let divisionRectsByDimension = {};
 
-const wrapper = addDataNavigator({
-  plotContainer: '#scatter-plot',
-  data,
-  type: 'cartesian',
-  xField: 'sepal_length',   // navigated with ← →  (sorted, binned automatically)
-  yField: 'petal_length',   // navigated with ↑ ↓  (sorted, binned automatically)
-  idField: 'pt',            // unique key used to identify each point
-  title: 'Iris: sepal length vs petal length',
-  onNavigate(node) {
-    const level = node.dimensionLevel;
-    if (level === 0) {
-      // Chart root — grid overlay: all bins from both dimensions at once (1px)
-      rects = Object.values(divisionRectsByDimension).flat();
-    } else if (level === 1) {
-      // Dimension root — show every bin of this dimension at once (1px)
-      rects = divisionRectsByDimension[node.data?.dimensionKey] ?? [];
-    } else if (node.derivedNode) {
-      // Division node — exact bin boundary, no padding, 2px
-      const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
-      rects = node.derivedNode === 'sepal_length'
-        ? [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }]
-        : [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
-    } else {
-      // Leaf node — small padded box around the point, 2px
-      rects = [{
-        x1: +node.data.sepal_length - xPad, x2: +node.data.sepal_length + xPad,
-        y1: +node.data.petal_length - yPad, y2: +node.data.petal_length + yPad,
-        lineWidth: 2,
-      }];
-    }
-    redrawChart(); // re-render: rects.forEach(r => p.quad({ left:[r.x1], right:[r.x2], bottom:[r.y1], top:[r.y2], fill_alpha:0, line_color:'#333', line_width:r.lineWidth }))
-  },
-  onExit() { rects = []; redrawChart(); },
-});
+const drawChart = () => {
+  const container = document.getElementById('scatter-chart-inner');
+  container.innerHTML = '';
+  const plt = Bokeh.Plotting;
+  const p = plt.figure({
+    height: 320, width: 480,
+    title: 'Iris: sepal length vs petal length',
+    x_axis_label: 'Sepal length (cm)',
+    y_axis_label: 'Petal length (cm)',
+    toolbar_location: null,
+    output_backend: 'svg',
+  });
 
-// After creation, index all division boundary rects keyed by dimension field name.
-for (const node of Object.values(wrapper.structure.nodes)) {
-  if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
-    const dimKey = node.derivedNode;
-    const [lo, hi] = node.data.numericalExtents;
-    if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
-    if (dimKey === 'sepal_length') {
-      divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
-    } else {
-      divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
+  // Focus rectangles (stroke only, no fill) drawn behind the data points.
+  for (const rect of rects) {
+    p.quad({
+      left: [rect.x1], right: [rect.x2],
+      bottom: [rect.y1], top: [rect.y2],
+      fill_alpha: 0,
+      line_color: '#333',
+      line_width: rect.lineWidth,
+    });
+  }
+
+  // All scatter points rendered identically — no dimming or size changes.
+  data.forEach(d => {
+    p.scatter({
+      marker: 'circle',
+      x: [d.sepal_length],
+      y: [d.petal_length],
+      size: 8,
+      fill_color: colors[d.species],
+      line_color: colors[d.species],
+      line_width: 1,
+      fill_alpha: 0.7,
+    });
+  });
+
+  // focus indicator over points, shown at the lowest level when navigating
+  for (const point of points) {
+    p.scatter({
+      marker: 'circle',
+      x: [point.x],
+      y: [point.y],
+      size: 8,
+      fill_color: '#333',
+      line_color: '#333',
+      line_width: 2,
+      fill_alpha: 0,
+    });
+  }
+
+  plt.show(p, '#scatter-chart-inner');
+};
+
+drawChart();
+
+({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+
+// Indexes all bin boundary rects from the structure, keyed by dimension field name,
+// so the dimension root level can display every bin of that dimension at once.
+const buildDivisionRects = () => {
+  divisionRectsByDimension = {};
+  if (!wrapper) return;
+  for (const node of Object.values(wrapper.structure.nodes)) {
+    if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
+      const dimKey = node.derivedNode;
+      const [lo, hi] = node.data.numericalExtents;
+      if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
+      if (dimKey === 'sepal_length') {
+        divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
+      } else {
+        divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
+      }
     }
   }
-}
+};
+
+const initWrapper = (mode) => {
+  wrapper?.destroy();
+  rects = [];
+  points = [];
+  divisionRectsByDimension = {};
+  drawChart();
+  wrapper = addDataNavigator({
+    plotContainer: 'scatter-plot',
+    chatContainer: 'scatter-chat',
+    mode,
+    data,
+    type: 'cartesian',
+    xField: 'sepal_length',
+    yField: 'petal_length',
+    idField: 'pt',
+    title: 'Iris: sepal length vs petal length',
+    onNavigate(node) {
+      const level = node.dimensionLevel;
+      if (level === 0) {
+        // Chart root — grid overlay: all bins from both dimensions at once (1px)
+        points = [];
+        rects = Object.values(divisionRectsByDimension).flat();
+      } else if (level === 1) {
+        // Dimension root — show every bin of this dimension at once (1px)
+        points = [];
+        const dimKey = node.data?.dimensionKey;
+        rects = divisionRectsByDimension[dimKey] ?? [];
+      } else if (node.derivedNode) {
+        // Division node — exact bin boundary, no padding, 2px
+        points = [];
+        const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
+        if (node.derivedNode === 'sepal_length') {
+          rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
+        } else {
+          rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
+        }
+      } else {
+        // Leaf node — small padded box around the individual point, 2px
+        rects = [];
+        points = [{
+          x: +node.data.sepal_length,
+          y: +node.data.petal_length
+        }]
+      }
+      drawChart();
+    },
+    onExit() {
+      rects = [];
+      points = [];
+      drawChart();
+    },
+  });
+  buildDivisionRects();
+};
+
+initWrapper('text');
+
+document.getElementById('scatter-keyboard')?.addEventListener('change', e => {
+  keyboardMode.value = e.target.checked;
+  initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
 ```
 
 ## Structure
