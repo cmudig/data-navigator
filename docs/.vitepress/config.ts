@@ -108,6 +108,7 @@ export default defineConfig({
                 text: 'Resources',
                 items: [
                     { text: 'Inspector', link: 'https://dig.cmu.edu/data-navigator/inspector/' },
+                    { text: 'Bokeh Wrapper', link: 'https://dig.cmu.edu/data-navigator/bokeh-wrapper/' },
                     { text: 'Paper', link: 'https://www.frank.computer/data-navigator/' },
                     { text: 'GitHub', link: 'https://github.com/cmudig/data-navigator' },
                     { text: 'npm', link: 'https://www.npmjs.com/package/data-navigator' }

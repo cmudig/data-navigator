@@ -4,6 +4,7 @@
         "packages/data-navigator",
         "packages/inspector",
         "packages/skeleton",
+        "packages/bokeh-wrapper",
         "docs"
     ],
     "scripts": {
@@ -16,7 +17,9 @@
         "docs:dev": "yarn workspace data-navigator-docs dev",
         "docs:build": "yarn workspace data-navigator-docs build",
         "docs:preview": "yarn workspace data-navigator-docs preview",
-        "inspector:dev": "yarn workspace @data-navigator/inspector dev"
+        "inspector:dev": "yarn workspace @data-navigator/inspector dev",
+        "bokeh-wrapper:dev": "yarn workspace @data-navigator/bokeh-wrapper dev",
+        "bokeh-wrapper:build:docs": "yarn workspace @data-navigator/bokeh-wrapper build:docs"
     },
     "devDependencies": {
         "prettier": "^3.0.0"

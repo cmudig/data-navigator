@@ -256,6 +256,8 @@ export default (options: TextChatOptions): TextChatInstance => {
         commandLabels = {},
         onNavigate,
         onExit,
+        onClick,
+        onHover,
         llm,
         data
     } = options;
@@ -459,7 +461,7 @@ export default (options: TextChatOptions): TextChatInstance => {
     }
 
     // Special commands (not nav rules — handled before fuzzy matching)
-    const specialCommands = ['enter', 'help', 'more', 'more help', 'clear'];
+    const specialCommands = ['enter', 'help', 'more', 'more help', 'clear', 'click', 'select', 'hover', 'inspect'];
 
     // Helper: move directly to a node by ID
     const moveToNode = (nodeId: string) => {
@@ -521,15 +523,65 @@ export default (options: TextChatOptions): TextChatInstance => {
         // Help — available commands from current node
         if (lower === 'help') {
             const llmHint = llm ? ' You can also type any question about the data.' : '';
+            const interactionHints: string[] = [];
+            if (onClick) interactionHints.push('"click" or "select"');
+            if (onHover) interactionHints.push('"hover" or "inspect"');
+            const interactionSuffix = interactionHints.length
+                ? ` Interaction: ${interactionHints.join(', ')}.`
+                : '';
             if (!currentNodeId) {
                 addResponse(
-                    'Not yet in the structure. Type "enter" to begin navigating, or "move to <search>" to jump to a node.' + llmHint
+                    'Not yet in the structure. Type "enter" to begin navigating, or "move to <search>" to jump to a node.' +
+                        interactionSuffix +
+                        llmHint
                 );
             } else {
                 const node = structure.nodes[currentNodeId];
                 const available = getAvailableRules(currentNodeId, node, structure);
                 const formatted = available.map(r => formatRule(r, commandLabels));
-                addResponse(`Available: ${formatted.join(', ')}, move to <search>.` + llmHint);
+                addResponse(
+                    `Available: ${formatted.join(', ')}, move to <search>.` + interactionSuffix + llmHint
+                );
+            }
+            return;
+        }
+
+        // Click / Select — trigger onClick callback on current node
+        if (lower === 'click' || lower === 'select') {
+            if (!currentNodeId) {
+                addResponse('Not in the structure. Type "enter" to begin.');
+                return;
+            }
+            const node = structure.nodes[currentNodeId];
+            if (onClick && node) {
+                onClick(node);
+                addResponse(`Clicked: ${describeNode(node)}`);
+            } else {
+                addResponse(
+                    onClick
+                        ? 'Nothing to click here.'
+                        : 'Click interaction is not enabled for this chart.'
+                );
+            }
+            return;
+        }
+
+        // Hover / Inspect — trigger onHover callback on current node
+        if (lower === 'hover' || lower === 'inspect') {
+            if (!currentNodeId) {
+                addResponse('Not in the structure. Type "enter" to begin.');
+                return;
+            }
+            const node = structure.nodes[currentNodeId];
+            if (onHover && node) {
+                onHover(node);
+                addResponse(`Hovering over: ${describeNode(node)}`);
+            } else {
+                addResponse(
+                    onHover
+                        ? 'Nothing to hover over here.'
+                        : 'Hover interaction is not enabled for this chart.'
+                );
             }
             return;
         }
