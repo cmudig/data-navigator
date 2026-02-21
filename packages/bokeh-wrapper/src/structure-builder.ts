@@ -237,8 +237,7 @@ function buildCartesianStructure(
                     dimensionKey: xField,
                     type: 'numerical' as const,
                     behavior: {
-                        extents: 'terminal' as const,
-                        childmostNavigation: 'across' as const
+                        extents: 'terminal' as const
                     },
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
@@ -250,8 +249,7 @@ function buildCartesianStructure(
                     dimensionKey: yField,
                     type: 'numerical' as const,
                     behavior: {
-                        extents: 'terminal' as const,
-                        childmostNavigation: 'across' as const
+                        extents: 'terminal' as const
                     },
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
