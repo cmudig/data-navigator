@@ -237,6 +237,7 @@ const wrapper = addDataNavigator({
   type: 'bar',
   xField: 'fruit',
   yField: 'count',
+  compressSparseDivisions: true, // this is the fix we want for this chart!
   onNavigate(node) {
     redrawChart({ highlight: node.data?.fruit ?? '__all__' });
     // Step 3: sync inspector focus
