@@ -143,3 +143,7 @@
     outline: 2px solid var(--vp-c-brand-1);
     outline-offset: 2px;
 }
+
+.dn-inspector-hidden {
+    display: none;
+}
