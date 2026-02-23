@@ -86,6 +86,7 @@ onMounted(async () => {
       title: 'Fruit counts',
       xField: 'fruit',
       yField: 'count',
+      compressSparseDivisions: true,
       onNavigate(node) {
         if (node.derivedNode && node.data?.fruit == null) {
           // Dimension root — no specific fruit focused; tint all bars.
@@ -133,6 +134,7 @@ const wrapper = addDataNavigator({
   title: 'Fruit counts',
   xField: 'fruit',
   yField: 'count',
+  compressSparseDivisions: true,
   onNavigate(node) {
     if (node.derivedNode && node.data?.fruit == null) {
       // Dimension root — no specific fruit yet; highlight the whole group.
