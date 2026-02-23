@@ -5,10 +5,7 @@
 - right now, we have bugs:
   - the text chat is too verbose after issuing a command
   - the text chat's "help" gives commands that are not always possible or lead anywhere when on a node
-  - "bar chart" in bokeh example has the wrong structure
-  - navigating into crossline (bokeh wrapper) at first shouldn't have the legend-style of focus indication (only the whole box outline)
   - numerical divisions have the all-element division included with peers? (see scatter in bokeh example)
-  - stacked bar  in bokeh example doesn't work
 
 - build out the `structure` module, which should generate node-edge data structure from input JSON
     - create toGraphViz method

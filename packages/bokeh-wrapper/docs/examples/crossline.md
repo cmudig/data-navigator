@@ -89,7 +89,7 @@ onMounted(async () => {
     // Month dimension encoding cue: thick horizontal line at the minimum y-value,
     // drawn first so it sits behind the data lines.
     // This signals that the x-axis (months) is the active navigation dimension.
-    if (focusedDimension === 'month') {
+    if (focusedDimension === 'month' || focusedDimension === 'root') {
       p.line(months, Array(months.length).fill(yMin), {
         line_color: '#333',
         line_width: 15,
@@ -103,7 +103,7 @@ onMounted(async () => {
       p.line(months, temps, {
         line_color: colors[city],
         // Thicken the line only when focused at the series level (no month selected)
-        line_width: isFocusedLine && focusedMonth == null && !(focusedDimension === 'month') ? 3 : 1.5,
+        line_width: isFocusedLine && (focusedMonth == null || focusedDimension === 'root') && !(focusedDimension === 'month') ? 3 : 1.5,
         line_alpha: dimmed ? 0.3 : 1.0,
         legend_label: city,
       });
@@ -156,8 +156,9 @@ onMounted(async () => {
         if (!node.derivedNode) {
           // Chart root has no city/month in its data; leaf nodes have both.
           const isChartRoot = node.data?.city == null && node.data?.month == null;
-          focusedDimension = isChartRoot ? 'root' : null;
           // Chart root falls back to '__all__' → all lines highlighted on first entry.
+          // we also highlight the month axis too
+          focusedDimension = isChartRoot ? 'root' : null;
           focusedCity = node.data?.city ?? '__all__';
           focusedMonth = node.data?.month ?? null;
         } else if (node.derivedNode === 'month') {
@@ -208,32 +209,106 @@ const data = [
 ];
 
 const wrapper = addDataNavigator({
-  plotContainer: '#cross-plot',
+  plotContainer: 'cross-plot',
+  chatContainer: 'cross-chat',
+  mode,
   data,
   type: 'crossline',
-  xField: 'month',      // navigated with ← →
+  xField: 'month',
   yField: 'temp_c',
-  groupField: 'city',   // navigated with ↑ ↓
+  groupField: 'city',
   title: 'Monthly average temperatures',
   onNavigate(node) {
     if (!node.derivedNode) {
-      // Leaf or chart root. Chart root has no city/month → defaults to '__all__',
-      // highlighting all lines on entry. Leaf nodes have specific city + month.
-      highlightPoint(node.data?.city ?? '__all__', node.data?.month ?? null);
+      // Chart root has no city/month in its data; leaf nodes have both.
+      const isChartRoot = node.data?.city == null && node.data?.month == null;
+      // Chart root falls back to '__all__' → all lines highlighted on first entry.
+      // we also highlight the month axis too
+      focusedDimension = isChartRoot ? 'root' : null;
+      focusedCity = node.data?.city ?? '__all__';
+      focusedMonth = node.data?.month ?? null;
     } else if (node.derivedNode === 'month') {
-      // Month dimension/division — show dots at ALL cities for this month
-      // node.data.month is null at the dimension root, a string at a division
-      highlightMonth(node.data?.month ?? null);
+      // Month dimension root or a specific month division.
+      // Always show all cities (dots will appear at focusedMonth for every city).
+      focusedDimension = 'month';
+      focusedMonth = node.data?.month ?? null;
+      focusedCity = '__all__';
     } else if (node.derivedNode === 'city') {
-      // City dimension/division — highlight this city's line
-      // node.data.city is null at the dimension root, a string at a division
-      highlightCity(node.data?.city ?? '__all__');
+      // City dimension root or a specific city division.
+      // null city means dimension root → highlight all lines.
+      focusedDimension = 'city';
+      focusedCity = node.data?.city ?? '__all__';
+      focusedMonth = null;
     }
+    drawChart();
   },
   onExit() {
-    clearHighlight();
+    focusedCity = null;
+    focusedMonth = null;
+    focusedDimension = null;
+    drawChart();
   },
 });
+
+const drawChart = () => {
+  const container = document.getElementById('cross-chart-inner');
+  container.innerHTML = '';
+  const plt = Bokeh.Plotting;
+  const p = plt.figure({
+    height: 300, width: 550,
+    title: 'Monthly average temperatures',
+    x_range: months,
+    y_axis_label: '°C',
+    toolbar_location: null,
+    output_backend: 'svg',
+  });
+
+  // Month dimension encoding cue: thick horizontal line at the minimum y-value,
+  // drawn first so it sits behind the data lines.
+  // This signals that the x-axis (months) is the active navigation dimension.
+  if (focusedDimension === 'month' || focusedDimension === 'root') {
+    p.line(months, Array(months.length).fill(yMin), {
+      line_color: '#333',
+      line_width: 15,
+      line_alpha: 0.15,
+    });
+  }
+
+  for (const [city, temps] of Object.entries(cityData)) {
+    const isFocusedLine = focusedCity === '__all__' || focusedCity === city;
+    const dimmed = focusedCity != null && focusedCity !== '__all__' && !isFocusedLine;
+    p.line(months, temps, {
+      line_color: colors[city],
+      // Thicken the line only when focused at the series level (no month selected)
+      line_width: isFocusedLine && (focusedMonth == null || focusedDimension === 'root') && !(focusedDimension === 'month') ? 3 : 1.5,
+      line_alpha: dimmed ? 0.3 : 1.0,
+      legend_label: city,
+    });
+    // Draw a dot at focusedMonth for every focused city.
+    // When focusedCity === '__all__' (month division) this draws dots at all three cities.
+    if (focusedMonth != null && isFocusedLine) {
+      const idx = months.indexOf(focusedMonth);
+      if (idx >= 0) {
+        p.scatter({
+          x: [focusedMonth],
+          y: [temps[idx]],
+          marker: 'circle',
+          size: 12,
+          fill_color: colors[city],
+          line_color: '#000',
+          line_width: 2,
+        });
+      }
+    }
+  }
+
+  p.legend.location = 'top_left';
+  plt.show(p, '#cross-chart-inner');
+
+  // City dimension encoding cue: highlight the legend box for the focused city.
+  console.log("yo")
+};
+
 ```
 
 ## Structure
