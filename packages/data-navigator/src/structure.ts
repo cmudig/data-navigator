@@ -386,7 +386,6 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     options.data.forEach(d => {
         let ods = options.dimensions?.values || [];
         let i = 0;
-        console.log("ods",ods)
         ods.forEach(dim => {
             if (!dim.dimensionKey) {
                 console.error(
