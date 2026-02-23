@@ -285,7 +285,8 @@ function buildDimensionStructure(
     data: Record<string, unknown>[],
     dimensionKey: string,
     idField: string | undefined,
-    compositeKey?: string
+    compositeKey?: string,
+    compressSparseDivisions?: boolean
 ): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
     let idKey: StructureOptions['idKey'];
     let augmented = data;
@@ -319,6 +320,9 @@ function buildDimensionStructure(
                     // Explicitly name rules so edge tags match keys in baseNavRules.
                     // Without this, data-navigator auto-generates 'parent_<dimensionKey>'
                     // (e.g. 'parent_city'), which won't match the 'parent' rule.
+                    operations: {
+                        compressSparseDivisions: compressSparseDivisions || false,
+                    },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
                         parent_child: ['parent', 'child']
@@ -445,20 +449,20 @@ export function buildStructureOptions(
                 xField ||
                 Object.keys(data[0] ?? {}).find(k => !isNumericField(data, k)) ||
                 'x';
-            base = buildDimensionStructure(data, catField, idField);
+            base = buildDimensionStructure(data, catField, idField, '', options.compressSparseDivisions);
             break;
         }
 
         case 'stacked_bar': {
             const stackX = xField || 'x';
             const stackGroup = groupField || 'group';
-            base = buildDimensionStructure(data, stackX, idField, stackGroup);
+            base = buildDimensionStructure(data, stackX, idField, stackGroup, options.compressSparseDivisions);
             break;
         }
 
         case 'multiline': {
             const lineGroup = groupField || 'series';
-            base = buildDimensionStructure(data, lineGroup, idField, xField);
+            base = buildDimensionStructure(data, lineGroup, idField, xField, options.compressSparseDivisions);
             break;
         }
 

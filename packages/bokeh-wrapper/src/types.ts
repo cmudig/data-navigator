@@ -147,6 +147,11 @@ export type BokehWrapperOptions = {
      * Advanced: override rendering options used in keyboard mode.
      */
     renderingOptions?: Partial<RenderingOptions>;
+
+    /**
+     * Advanced: adds "compressSparseDivisions" to all dimensions of the chart.
+     */
+    compressSparseDivisions?: boolean;
 };
 
 export type BokehWrapperInstance = {
