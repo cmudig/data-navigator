@@ -1,4 +1,4 @@
-# Scatter Plot
+# Basic Scatter Plot
 
 A scatter plot of the classic [Iris dataset](https://en.wikipedia.org/wiki/Iris_flower_data_set) — sepal length vs. petal length coloured by species. The wrapper uses `type: 'cartesian'` to build a **dual-dimension** navigation structure: navigate across sepal-length bins with ← →, navigate across petal-length bins with ↑ ↓. At the deepest level all four arrow keys stay active so users can roam freely across both axes.
 
@@ -216,6 +216,7 @@ onMounted(async () => {
 
   document.getElementById('scatter-keyboard')?.addEventListener('change', e => {
     keyboardMode.value = e.target.checked;
+    console.log(e.target.checked ? 'keyboard' : 'text')
     initWrapper(e.target.checked ? 'keyboard' : 'text');
   });
 });

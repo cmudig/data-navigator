@@ -69,25 +69,25 @@ const exitEdge = {
 
 const baseNavRules = {
     // Primary (x-axis) navigation
-    left:     { key: 'ArrowLeft',    direction: 'source' as const },
-    right:    { key: 'ArrowRight',   direction: 'target' as const },
+    left:     { key: 'ArrowLeft',    direction: 'source' },
+    right:    { key: 'ArrowRight',   direction: 'target' },
     // Secondary encoding (y-axis / group) navigation
-    up:       { key: 'ArrowUp',      direction: 'source' as const },
-    down:     { key: 'ArrowDown',    direction: 'target' as const },
+    up:       { key: 'ArrowUp',      direction: 'source' },
+    down:     { key: 'ArrowDown',    direction: 'target' },
     // Tertiary encoding navigation  ([  /  ])
-    backward: { key: 'BracketLeft',  direction: 'source' as const },
-    forward:  { key: 'BracketRight', direction: 'target' as const },
+    backward: { key: 'BracketLeft',  direction: 'source' },
+    forward:  { key: 'BracketRight', direction: 'target' },
     // Hierarchy traversal
-    child:    { key: 'Enter',        direction: 'target' as const },
-    parent:   { key: 'Backspace',    direction: 'source' as const },
-    undo:     { key: 'Delete',       direction: 'source' as const },
+    child:    { key: 'Enter',        direction: 'target' },
+    parent:   { key: 'Backspace',    direction: 'source' },
+    undo:     { key: 'Delete',       direction: 'source' },
     // Encoding-specific parent shortcuts (W = x-axis parent, J = y-axis parent, \ = tertiary parent)
-    xParent:  { key: 'KeyW',         direction: 'source' as const },
-    yParent:  { key: 'KeyJ',         direction: 'source' as const },
-    zParent:  { key: 'Backslash',    direction: 'source' as const },
+    xParent:  { key: 'KeyW',         direction: 'source' },
+    yParent:  { key: 'KeyJ',         direction: 'source' },
+    zParent:  { key: 'Backslash',    direction: 'source' },
     // Exit and help
-    exit:     { key: 'Escape',       direction: 'target' as const },
-    help:     { key: 'KeyY',         direction: 'target' as const },
+    exit:     { key: 'Escape',       direction: 'target' },
+    help:     { key: 'KeyY',         direction: 'target' },
 };
 
 /** Flat circular list: left ↔ right through sorted items. */
@@ -227,10 +227,15 @@ function buildCartesianStructure(
     const autoSubdivs = (_key: string, values: Record<string, unknown>) =>
         Math.min(12,Math.max(3, Math.ceil(Math.sqrt(Object.keys(values).length))));
 
+    // We want to swap up/down in a scatterplot so that low values (first) go "up" to higher ones
+    // (Typically "down" means to move "forward")
+    const augNavRules = {...baseNavRules}
+    augNavRules.up = { key: 'ArrowUp',      direction: 'target' as const };
+    augNavRules.down = { key: 'ArrowDown',    direction: 'source' as const };
     return {
         data: augmented,
         idKey: 'id',
-        navigationRules: baseNavRules,
+        navigationRules: augNavRules,
         dimensions: {
             values: [
                 {
@@ -251,9 +256,21 @@ function buildCartesianStructure(
                     behavior: {
                         extents: 'terminal' as const
                     },
-                    operations: { createNumericalSubdivisions: autoSubdivs },
+                    operations: { 
+                        createNumericalSubdivisions: autoSubdivs
+                        // sortFunction: (a:any,b:any) => {
+                        //     console.log("sorting dim",yField,a,b)
+                        //     return b[yField] - a[yField]
+                        // }
+                    },
+                    // divisionOptions: {
+                    //     sortFunction: (a:any,b:any) => {
+                    //         console.log("sorting div",yField,a,b)
+                    //         return b[yField] - a[yField]
+                    //     }
+                    // },
                     navigationRules: {
-                        sibling_sibling: ['up', 'down'],
+                        sibling_sibling: ['down', 'up'],
                         parent_child: ['yParent', 'child']
                     }
                 }
