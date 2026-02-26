@@ -81,10 +81,10 @@ export type BokehWrapperOptions = {
      * Pass a string for a static description, or a function that receives the
      * wrapper options and returns a string.
      *
-     * Single-dimension charts (bar, multiline, stacked_bar): the description is set
+     * Single-dimension charts (bar, multiline): the description is set
      * as `semantics.label` on the dimension root node.
-     * Multi-dimension charts: it becomes the `semantics.label` of an injected
-     * Level 0 node added via the data-navigator `dimensions.parentOptions.addLevel0` API.
+     * Multi-dimension charts (stacked_bar, crossline, cartesian): it becomes the `semantics.label`
+     * of an injected Level 0 node added via the data-navigator `dimensions.parentOptions.addLevel0` API.
      */
     describeRoot?: string | ((options: BokehWrapperOptions) => string);
 

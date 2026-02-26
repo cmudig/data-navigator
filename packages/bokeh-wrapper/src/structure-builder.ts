@@ -456,7 +456,7 @@ export function buildStructureOptions(
         case 'stacked_bar': {
             const stackX = xField || 'x';
             const stackGroup = groupField || 'group';
-            base = buildDimensionStructure(data, stackX, idField, stackGroup, options.compressSparseDivisions);
+            base = buildCrosslineStructure(data, stackX, stackGroup);
             break;
         }
 
@@ -515,11 +515,13 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             break;
 
         case 'stacked_bar':
-            auto.left = `Move to previous ${xField ?? 'category'}`;
-            auto.right = `Move to next ${xField ?? 'category'}`;
-            auto.child = `Drill into ${groupField ?? 'stack'} breakdown`;
-            auto.parent = 'Go back up';
-            auto.undo = 'Go back up';
+            auto.left    = `Move to previous ${xField ?? 'category'}`;
+            auto.right   = `Move to next ${xField ?? 'category'}`;
+            auto.up      = `Move to previous ${groupField ?? 'group'}`;
+            auto.down    = `Move to next ${groupField ?? 'group'}`;
+            auto.child   = 'Drill in';
+            auto.xParent = `Go up to ${xField ?? 'category'} level`;
+            auto.yParent = `Go up to ${groupField ?? 'group'} level`;
             break;
 
         case 'multiline':
