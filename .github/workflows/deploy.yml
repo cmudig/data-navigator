@@ -54,6 +54,12 @@ jobs:
       - name: Copy inspector into docs output
         run: cp -r packages/inspector/docs/.vitepress/dist docs/.vitepress/dist/inspector
 
+      - name: Build bokeh-wrapper site
+        run: yarn workspace @data-navigator/bokeh-wrapper build:docs
+
+      - name: Copy bokeh-wrapper into docs output
+        run: cp -r packages/bokeh-wrapper/docs/.vitepress/dist docs/.vitepress/dist/bokeh-wrapper
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
