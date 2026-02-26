@@ -280,6 +280,77 @@ function buildCartesianStructure(
     };
 }
 
+/**
+ * Three-dimensional scatter: left/right for xField (numerical), up/down for yField (numerical),
+ * [ / ] for groupField (categorical). \ navigates up to the categorical parent.
+ * All three dimensions share the same leaf nodes.
+ */
+function buildCartesianGroupedStructure(
+    data: Record<string, unknown>[],
+    xField: string,
+    yField: string,
+    groupField: string,
+    idField: string | undefined
+): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
+    const augmented = data.map((d, i) => {
+        const baseId =
+            idField && d[idField] != null
+                ? safeId(String(d[idField]))
+                : d['id'] != null
+                    ? safeId(String(d['id']))
+                    : `dn-pt-${i}`;
+        return { ...d, id: baseId };
+    });
+
+    const autoSubdivs = (_key: string, values: Record<string, unknown>) =>
+        Math.min(12, Math.max(3, Math.ceil(Math.sqrt(Object.keys(values).length))));
+
+    // Match cartesian: up goes to higher values, down to lower.
+    const augNavRules = { ...baseNavRules };
+    augNavRules.up   = { key: 'ArrowUp',   direction: 'target' as const };
+    augNavRules.down = { key: 'ArrowDown', direction: 'source' as const };
+
+    return {
+        data: augmented,
+        idKey: 'id',
+        navigationRules: augNavRules,
+        dimensions: {
+            values: [
+                {
+                    dimensionKey: xField,
+                    type: 'numerical' as const,
+                    behavior: { extents: 'terminal' as const },
+                    operations: { createNumericalSubdivisions: autoSubdivs },
+                    navigationRules: {
+                        sibling_sibling: ['left', 'right'],
+                        parent_child: ['xParent', 'child']
+                    }
+                },
+                {
+                    dimensionKey: yField,
+                    type: 'numerical' as const,
+                    behavior: { extents: 'terminal' as const },
+                    operations: { createNumericalSubdivisions: autoSubdivs },
+                    navigationRules: {
+                        sibling_sibling: ['down', 'up'],
+                        parent_child: ['yParent', 'child']
+                    }
+                },
+                {
+                    dimensionKey: groupField,
+                    type: 'categorical' as const,
+                    behavior: { extents: 'circular' as const },
+                    navigationRules: {
+                        sibling_sibling: ['backward', 'forward'],
+                        parent_child: ['zParent', 'child']
+                    }
+                }
+            ]
+        },
+        genericEdges: [exitEdge]
+    };
+}
+
 /** Categorical dimension: enter → left/right through x-groups → child data points. */
 function buildDimensionStructure(
     data: Record<string, unknown>[],
@@ -469,7 +540,11 @@ export function buildStructureOptions(
         case 'cartesian': {
             const cartX = xField || 'x';
             const cartY = yField || 'y';
-            base = buildCartesianStructure(data, cartX, cartY, idField);
+            if (groupField) {
+                base = buildCartesianGroupedStructure(data, cartX, cartY, groupField, idField);
+            } else {
+                base = buildCartesianStructure(data, cartX, cartY, idField);
+            }
             break;
         }
 
@@ -535,11 +610,16 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
         case 'cartesian':
             auto.left = `Move to previous ${xField ?? 'x'} range`;
             auto.right = `Move to next ${xField ?? 'x'} range`;
-            auto.up = `Move to previous ${yField ?? 'y'} range`;
-            auto.down = `Move to next ${yField ?? 'y'} range`;
+            auto.up = `Move to higher ${yField ?? 'y'} range`;
+            auto.down = `Move to lower ${yField ?? 'y'} range`;
             auto.child = 'Drill in';
             auto.xParent = `Go up to ${xField ?? 'x'} level`;
             auto.yParent = `Go up to ${yField ?? 'y'} level`;
+            if (groupField) {
+                auto.backward = `Move to previous ${groupField} group`;
+                auto.forward  = `Move to next ${groupField} group`;
+                auto.zParent  = `Go up to ${groupField} level`;
+            }
             break;
 
         case 'crossline':
