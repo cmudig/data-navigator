@@ -80,8 +80,8 @@ export type NodeObject = {
 };
 
 export type EdgeObject = {
-    source: (() => NodeId) | NodeId;
-    target: (() => NodeId) | NodeId;
+    source: ((d: DatumObject, currentFocus: NodeId) => NodeId) | NodeId;
+    target: ((d: DatumObject, currentFocus: NodeId) => NodeId) | NodeId;
     navigationRules: NavigationList;
     edgeId?: EdgeId;
 };
