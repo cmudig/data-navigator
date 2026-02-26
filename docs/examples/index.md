@@ -17,7 +17,7 @@ Interactive examples showing Data Navigator in action with different chart types
 ## Planned
 
 ::: info Coming Soon
-More examples are being added, including tree navigation, D3 and Vega-Lite integrations, spatial navigation for scatterplots and maps, and experimental input modalities.
+More examples are being added, D3 and Vega-Lite integrations, spatial navigation for maps, and experimental input modalities.
 :::
 
 ## Contributing
