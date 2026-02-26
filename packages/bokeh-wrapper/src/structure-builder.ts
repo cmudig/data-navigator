@@ -1,4 +1,4 @@
-import type { StructureOptions, Structure } from 'data-navigator';
+import type { StructureOptions, Structure, NavigationRules } from 'data-navigator';
 import type { BokehChartType, BokehWrapperOptions } from './types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ const exitEdge = {
     }
 };
 
-const baseNavRules = {
+const baseNavRules: NavigationRules = {
     // Primary (x-axis) navigation
     left:     { key: 'ArrowLeft',    direction: 'source' },
     right:    { key: 'ArrowRight',   direction: 'target' },
