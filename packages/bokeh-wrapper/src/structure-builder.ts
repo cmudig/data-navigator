@@ -157,11 +157,19 @@ function buildCrosslineStructure(
     xField: string,
     groupField: string
 ): Omit<StructureOptions, 'data'> & { data: Record<string, unknown>[] } {
+    // Bokeh renders groups top-to-bottom (first group = top), so pressing Up should
+    // move to the previous group (source) and Down to the next (target) — but the
+    // visual stacking means the first group is at the top of the chart. Swapping
+    // up/down directions matches the rendered order for crossline and stacked_bar.
+    const augNavRules = { ...baseNavRules };
+    augNavRules.up   = { key: 'ArrowUp',   direction: 'target' as const };
+    augNavRules.down = { key: 'ArrowDown', direction: 'source' as const };
+
     return {
         data,
         idKey: 'id',
         addIds: true,
-        navigationRules: baseNavRules,
+        navigationRules: augNavRules,
         dimensions: {
             values: [
                 {
