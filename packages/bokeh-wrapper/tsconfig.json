@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "target": "es2015",
+        "lib": ["es2017", "dom"],
+        "moduleResolution": "bundler",
+        "declaration": true
+    },
+    "include": ["./src/**/*"]
+}
