@@ -151,7 +151,9 @@ wrapper.destroy();
 
 ## Connecting to Bokeh
 
-The most common use of `onNavigate` is to redraw a focus indicator on the Bokeh canvas when the user navigates to a new node. Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer:
+The most common use of `onNavigate` is to redraw a focus indicator on the Bokeh canvas when the user navigates to a new node. This pattern, and why, is unpacked in more detail in [Data Navigator's Getting Started guide](https://dig.cmu.edu/data-navigator/getting-started/first-chart.html#trouble-with-focus-indication), where a Bokeh chart is used as an example.
+
+Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer:
 
 ```js
 const drawChart = (highlight) => {
