@@ -9,7 +9,8 @@
     ],
     "scripts": {
         "build": "yarn workspace data-navigator build",
-        "build:all": "yarn build && yarn docs:build",
+        "build:all": "yarn build && yarn workspace @data-navigator/bokeh-wrapper build && yarn docs:build && yarn workspace @data-navigator/inspector build:docs && yarn bokeh-wrapper:build:docs",
+        "bokeh-wrapper:build": "yarn workspace @data-navigator/bokeh-wrapper build",
         "clean": "yarn workspace data-navigator clean",
         "server": "python -m http.server",
         "prettier-all-check": "prettier --config ./.prettierrc --ignore-path ./.prettierignore --debug-check \"**/*.{js,jsx,ts,tsx,html,jsx,json,css,scss,md}\"",
