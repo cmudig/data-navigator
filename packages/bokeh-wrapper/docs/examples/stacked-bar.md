@@ -68,6 +68,9 @@ onMounted(async () => {
 
   let focusedYear = null;
   let focusedBrowser = null;
+  // Tracks which dimension is active so drawChart can produce the right encoding cue.
+  // 'root' = chart root, 'year' = year dimension/division, 'browser' = browser dimension/division
+  let focusedDimension = null;
 
   const drawChart = () => {
     const container = document.getElementById('stacked-chart-inner');
@@ -90,32 +93,68 @@ onMounted(async () => {
       years.forEach((y, yi) => { bottoms[y] = tops[yi]; });
 
       const isFocusedBrowser = focusedBrowser === browser;
-      const isAnyFocused = focusedYear != null || focusedBrowser != null;
 
-      // A bar should get a highlight border when:
-      //   - a browser is focused: only that browser's bars (for the active year range)
-      //   - a year is focused: all browsers in that year column
+      // Segment borders are used for browser-level navigation only.
+      // Browser dim root highlights all segments; division/leaf highlights just the focused browser.
       const shouldHighlight = (y) => {
-        if (!isAnyFocused) return false;
-        if (focusedBrowser != null) {
-          return isFocusedBrowser && (focusedYear === '__all__' || y === focusedYear);
-        }
-        return focusedYear === '__all__' || y === focusedYear;
+        if (focusedDimension === 'root' || (focusedDimension === 'browser' && focusedBrowser == null)) return true;
+        if (focusedBrowser == null) return false;
+        return isFocusedBrowser && (focusedYear === '__all__' || y === focusedYear);
       };
 
+      const lineColor = years.map(y => shouldHighlight(y) ? '#000' : 'white');
+      const lineWidth = years.map(y => shouldHighlight(y) ? 2 : 0.5);
+      const fillAlpha = focusedBrowser != null && !isFocusedBrowser ? 0.3 : 1.0;
+
+      // Real bars — accurate per-bar borders, no legend_label so the legend
+      // square is driven independently below.
       p.vbar({
         x: years,
         top: tops,
         bottom: bots,
         width: 0.8,
         color: palette[bi],
-        line_color: years.map(y => shouldHighlight(y) ? '#000' : 'white'),
-        line_width: years.map(y => shouldHighlight(y) ? 2 : 0.5),
-        // Dim non-focused browsers when navigating the browser dimension
-        fill_alpha: isAnyFocused && focusedBrowser != null && !isFocusedBrowser ? 0.3 : 1.0,
+        line_color: lineColor,
+        line_width: lineWidth,
+        fill_alpha: fillAlpha,
+      });
+
+      // Zero-size legend proxy: owns legend_label and carries a scalar line_color
+      // so Bokeh uses it for the legend square styling rather than line_color[0]
+      // of the per-bar array above. Invisible (zero width and height) but always
+      // present so the legend entry is stable across redraws.
+      p.vbar({
+        x: [years[0]], top: [0], bottom: [0], width: 0,
+        color: palette[bi],
+        line_color: isFocusedBrowser && focusedBrowser != null ? '#000' : 'white',
+        line_width: isFocusedBrowser && focusedBrowser != null ? 2 : 0.5,
+        fill_alpha: fillAlpha,
         legend_label: browser,
       });
     });
+
+    // Year-level nav: draw a single outline rect spanning the full stack.
+    // Only active when navigating the year dimension (root or division), not at browser/leaf level.
+    const drawYearRect = (y) => {
+      const yi = years.indexOf(y);
+      const totalHeight = browsers.reduce((sum, b) => sum + shares[b][yi], 0);
+      p.rect({
+        x: [y],
+        y: [totalHeight / 2],
+        width: 0.85,
+        height: totalHeight,
+        fill_alpha: 0,
+        line_color: '#000',
+        line_width: 2,
+      });
+    };
+    if (focusedDimension === 'root' || (focusedDimension === 'year' && focusedYear == null)) {
+      // Chart root or year dimension root — outline all year columns
+      years.forEach(drawYearRect);
+    } else if (focusedDimension === 'year' && focusedYear != null) {
+      // Specific year division — outline just that column
+      drawYearRect(focusedYear);
+    }
 
     p.legend.location = 'top_right';
     plt.show(p, '#stacked-chart-inner');
@@ -129,6 +168,7 @@ onMounted(async () => {
     wrapper?.destroy();
     focusedYear = null;
     focusedBrowser = null;
+    focusedDimension = null;
     drawChart();
     wrapper = addDataNavigator({
       plotContainer: 'stacked-plot',
@@ -145,19 +185,23 @@ onMounted(async () => {
           // Chart root has no year/browser; leaf nodes have both.
           const isChartRoot = node.data?.year == null && node.data?.browser == null;
           if (isChartRoot) {
+            focusedDimension = 'root';
             focusedYear = '__all__';
             focusedBrowser = null;
           } else {
             // Leaf node — specific (year, browser) segment
+            focusedDimension = null;
             focusedYear = node.data?.year ?? null;
             focusedBrowser = node.data?.browser ?? null;
           }
         } else if (node.derivedNode === 'year') {
-          // Year dimension root (null year → all) or a specific year division
+          // Year dimension root (null year) or a specific year division
+          focusedDimension = 'year';
           focusedYear = node.data?.year ?? null;
           focusedBrowser = null;
         } else if (node.derivedNode === 'browser') {
-          // Browser dimension root (null browser → all) or a specific browser division
+          // Browser dimension root (null browser) or a specific browser division
+          focusedDimension = 'browser';
           focusedYear = '__all__';
           focusedBrowser = node.data?.browser ?? null;
         }
@@ -166,6 +210,7 @@ onMounted(async () => {
       onExit() {
         focusedYear = null;
         focusedBrowser = null;
+        focusedDimension = null;
         drawChart();
       },
     });
