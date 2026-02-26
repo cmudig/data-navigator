@@ -71,6 +71,9 @@ const showTooltip = (node, tooltipEl, graphWidth, graphHeight, colorBy) => {
     const bbox = tooltipEl.getBoundingClientRect();
     const yOffset = bbox.height / 2;
     tooltipEl.style.textAlign = 'left';
+    tooltipEl.style.position = 'absolute';
+    tooltipEl.style.left = 0;
+    tooltipEl.style.top = 0;
     tooltipEl.style.transform = `translate(${graphWidth}px,${graphHeight / 2 - yOffset}px)`;
 };
 

@@ -145,6 +145,7 @@ export type DivisionObject = {
     id: NodeId;
     values: Nodes;
     sortFunction?: SortingFunction; // by default does not sort
+    numericalExtents?: NumericalExtentsPair;
 };
 
 export type NavObject = {
@@ -314,6 +315,8 @@ export type TextChatOptions = {
     commandLabels?: Record<string, string>;
     onNavigate?: (node: NodeObject) => void;
     onExit?: () => void;
+    onClick?: (node: NodeObject) => void;
+    onHover?: (node: NodeObject) => void;
     llm?: (messages: LLMMessage[]) => Promise<string | null>;
     data?: Record<string, unknown>[];
 };

@@ -384,7 +384,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     };
     // for every datum, check against filters, create parent dimensions, create divisions, and then add to divisions
     options.data.forEach(d => {
-        let ods = options.dimensions.values || [];
+        let ods = options.dimensions?.values || [];
         let i = 0;
         ods.forEach(dim => {
             if (!dim.dimensionKey) {
@@ -558,17 +558,22 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 let i = dimension.numericalExtents[0] + interval;
                 let divisionCount = 0;
                 let index = 0;
+                let lastDivisionId: string | null = null;
+                let prevBound = dimension.numericalExtents[0];
                 for (i = dimension.numericalExtents[0] + interval; i <= dimension.numericalExtents[1]; i += interval) {
                     // first, we create each subdivision
                     let divisionId =
                         typeof dimension.divisionOptions?.divisionNodeIds === 'function'
                             ? dimension.divisionOptions.divisionNodeIds(s, i, i)
-                            : dimension.nodeId + '_' + i;
+                            : createValidId(dimension.nodeId + '_' + i);
+
+                    lastDivisionId = divisionId;
 
                     dimension.divisions[divisionId] = {
                         id: divisionId,
                         sortFunction: dimension.divisionOptions?.sortFunction || undefined,
-                        values: {}
+                        values: {},
+                        numericalExtents: [prevBound, i]
                     } as DivisionObject;
 
                     let divisionRenderId =
@@ -592,13 +597,24 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         let value = node[s];
                         if (value <= i) {
                             dimension.divisions[divisionId].values[node.id] = node;
+                            index++;
                         } else {
-                            i += interval;
+                            // Node belongs to a later bin — do not advance index so it
+                            // is re-evaluated in the next iteration of the for-loop.
                             limit = true;
                         }
+                    }
+                    prevBound = i;
+                    divisionCount++;
+                }
+                // Flush any points that floated past the last bin boundary due to
+                // floating-point accumulation (e.g. 4.7 + 4×0.6 = 7.099... < 7.1).
+                if (lastDivisionId && index < valueKeys.length) {
+                    while (index < valueKeys.length) {
+                        let node = values[valueKeys[index]];
+                        dimension.divisions[lastDivisionId].values[node.id] = node;
                         index++;
                     }
-                    divisionCount++;
                 }
                 delete divisions[s];
             }
@@ -663,7 +679,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     });
 
     // final step: if any addition adjustments are to be made, then a callback is used at this point
-    if (options.dimensions.adjustDimensions) {
+    if (options.dimensions?.adjustDimensions) {
         dimensions = options.dimensions.adjustDimensions(dimensions);
     }
 
@@ -859,15 +875,17 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                     createEdge(division.id, dimension.nodeId, dimension.navigationRules.parent_child, 'source');
                 }
 
-                // set up edge to first child
-                const firstChildId =
-                    typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
-                createEdge(
-                    division.id,
-                    division.values[valueKeys[0]][firstChildId],
-                    dimension.navigationRules.parent_child,
-                    'source'
-                );
+                // set up edge to first child (skip if this bin is empty — no data in range)
+                if (valueKeys.length > 0) {
+                    const firstChildId =
+                        typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
+                    createEdge(
+                        division.id,
+                        division.values[valueKeys[0]][firstChildId],
+                        dimension.navigationRules.parent_child,
+                        'source'
+                    );
+                }
 
                 // lastly, we prep the childmost level
                 let i = 0;
