@@ -13,16 +13,16 @@ A stacked bar chart showing browser market share by year, adapted from the [Boke
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between years (or browsers at the deepest level) |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Navigate between browsers (or years at the deepest level) |
-| <kbd>Enter</kbd> | Drill in |
-| <kbd>W</kbd> | Go up to year level |
-| <kbd>J</kbd> | Go up to browser level |
-| <kbd>Backspace</kbd> | Go back to chart root (from dimension roots) |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                    |
+| ---------------------------- | --------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                 |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between years (or browsers at the deepest level) |
+| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between browsers (or years at the deepest level) |
+| <kbd>Enter</kbd>             | Drill in                                                  |
+| <kbd>W</kbd>                 | Go up to year level                                       |
+| <kbd>J</kbd>                 | Go up to browser level                                    |
+| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)              |
+| <kbd>Escape</kbd>            | Exit navigation                                           |
 
 </div>
 
@@ -234,38 +234,38 @@ import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 // Flatten the stacked data into one record per (year, browser) combination
 const data = [
-  { year: '2015', browser: 'Chrome',  share: 62 },
-  { year: '2015', browser: 'Firefox', share: 12 },
-  // ... all years × browsers
+    { year: '2015', browser: 'Chrome', share: 62 },
+    { year: '2015', browser: 'Firefox', share: 12 }
+    // ... all years × browsers
 ];
 
 const wrapper = addDataNavigator({
-  plotContainer: 'stacked-plot',
-  data,
-  type: 'stacked_bar',
-  xField: 'year',
-  yField: 'share',
-  groupField: 'browser',
-  title: 'Browser market share (%)',
-  onNavigate(node) {
-    if (!node.derivedNode) {
-      const isChartRoot = node.data?.year == null && node.data?.browser == null;
-      if (isChartRoot) {
-        highlight('__all__', null);   // all bars on first entry
-      } else {
-        highlight(node.data.year, node.data.browser);   // leaf segment
-      }
-    } else if (node.derivedNode === 'year') {
-      // null year = year dimension root → highlight all; otherwise specific year column
-      highlight(node.data?.year ?? null, null);
-    } else if (node.derivedNode === 'browser') {
-      // null browser = browser dimension root → all years; otherwise specific browser
-      highlight('__all__', node.data?.browser ?? null);
+    plotContainer: 'stacked-plot',
+    data,
+    type: 'stacked_bar',
+    xField: 'year',
+    yField: 'share',
+    groupField: 'browser',
+    title: 'Browser market share (%)',
+    onNavigate(node) {
+        if (!node.derivedNode) {
+            const isChartRoot = node.data?.year == null && node.data?.browser == null;
+            if (isChartRoot) {
+                highlight('__all__', null); // all bars on first entry
+            } else {
+                highlight(node.data.year, node.data.browser); // leaf segment
+            }
+        } else if (node.derivedNode === 'year') {
+            // null year = year dimension root → highlight all; otherwise specific year column
+            highlight(node.data?.year ?? null, null);
+        } else if (node.derivedNode === 'browser') {
+            // null browser = browser dimension root → all years; otherwise specific browser
+            highlight('__all__', node.data?.browser ?? null);
+        }
+    },
+    onExit() {
+        clearHighlight();
     }
-  },
-  onExit() {
-    clearHighlight();
-  },
 });
 ```
 

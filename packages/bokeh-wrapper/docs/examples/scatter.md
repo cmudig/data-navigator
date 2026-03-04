@@ -13,16 +13,16 @@ A scatter plot of the classic [Iris dataset](https://en.wikipedia.org/wiki/Iris_
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between sepal-length bins (or data points at leaf level) |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Navigate between petal-length bins (or data points at leaf level) |
-| <kbd>Enter</kbd> | Drill in |
-| <kbd>W</kbd> | Go up to sepal-length level |
-| <kbd>J</kbd> | Go up to petal-length level |
-| <kbd>Backspace</kbd> | Go back to chart root (from dimension roots) |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                            |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                         |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level) |
+| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level) |
+| <kbd>Enter</kbd>             | Drill in                                                          |
+| <kbd>W</kbd>                 | Go up to sepal-length level                                       |
+| <kbd>J</kbd>                 | Go up to petal-length level                                       |
+| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)                      |
+| <kbd>Escape</kbd>            | Exit navigation                                                   |
 
 </div>
 
@@ -230,8 +230,8 @@ onUnmounted(() => wrapper?.destroy());
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 const data = [
-  { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' },
-  // ...
+    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' }
+    // ...
 ];
 
 const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
@@ -248,58 +248,61 @@ let points = [];
 let divisionRectsByDimension = {};
 
 const drawChart = () => {
-  const container = document.getElementById('scatter-chart-inner');
-  container.innerHTML = '';
-  const plt = Bokeh.Plotting;
-  const p = plt.figure({
-    height: 320, width: 480,
-    title: 'Iris: sepal length vs petal length',
-    x_axis_label: 'Sepal length (cm)',
-    y_axis_label: 'Petal length (cm)',
-    toolbar_location: null,
-    output_backend: 'svg',
-  });
-
-  // Focus rectangles (stroke only, no fill) drawn behind the data points.
-  for (const rect of rects) {
-    p.quad({
-      left: [rect.x1], right: [rect.x2],
-      bottom: [rect.y1], top: [rect.y2],
-      fill_alpha: 0,
-      line_color: '#333',
-      line_width: rect.lineWidth,
+    const container = document.getElementById('scatter-chart-inner');
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        height: 320,
+        width: 480,
+        title: 'Iris: sepal length vs petal length',
+        x_axis_label: 'Sepal length (cm)',
+        y_axis_label: 'Petal length (cm)',
+        toolbar_location: null,
+        output_backend: 'svg'
     });
-  }
 
-  // All scatter points rendered identically — no dimming or size changes.
-  data.forEach(d => {
-    p.scatter({
-      marker: 'circle',
-      x: [d.sepal_length],
-      y: [d.petal_length],
-      size: 8,
-      fill_color: colors[d.species],
-      line_color: colors[d.species],
-      line_width: 1,
-      fill_alpha: 0.7,
+    // Focus rectangles (stroke only, no fill) drawn behind the data points.
+    for (const rect of rects) {
+        p.quad({
+            left: [rect.x1],
+            right: [rect.x2],
+            bottom: [rect.y1],
+            top: [rect.y2],
+            fill_alpha: 0,
+            line_color: '#333',
+            line_width: rect.lineWidth
+        });
+    }
+
+    // All scatter points rendered identically — no dimming or size changes.
+    data.forEach(d => {
+        p.scatter({
+            marker: 'circle',
+            x: [d.sepal_length],
+            y: [d.petal_length],
+            size: 8,
+            fill_color: colors[d.species],
+            line_color: colors[d.species],
+            line_width: 1,
+            fill_alpha: 0.7
+        });
     });
-  });
 
-  // focus indicator over points, shown at the lowest level when navigating
-  for (const point of points) {
-    p.scatter({
-      marker: 'circle',
-      x: [point.x],
-      y: [point.y],
-      size: 8,
-      fill_color: '#333',
-      line_color: '#333',
-      line_width: 2,
-      fill_alpha: 0,
-    });
-  }
+    // focus indicator over points, shown at the lowest level when navigating
+    for (const point of points) {
+        p.scatter({
+            marker: 'circle',
+            x: [point.x],
+            y: [point.y],
+            size: 8,
+            fill_color: '#333',
+            line_color: '#333',
+            line_width: 2,
+            fill_alpha: 0
+        });
+    }
 
-  plt.show(p, '#scatter-chart-inner');
+    plt.show(p, '#scatter-chart-inner');
 };
 
 drawChart();
@@ -309,82 +312,84 @@ drawChart();
 // Indexes all bin boundary rects from the structure, keyed by dimension field name,
 // so the dimension root level can display every bin of that dimension at once.
 const buildDivisionRects = () => {
-  divisionRectsByDimension = {};
-  if (!wrapper) return;
-  for (const node of Object.values(wrapper.structure.nodes)) {
-    if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
-      const dimKey = node.derivedNode;
-      const [lo, hi] = node.data.numericalExtents;
-      if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
-      if (dimKey === 'sepal_length') {
-        divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
-      } else {
-        divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
-      }
+    divisionRectsByDimension = {};
+    if (!wrapper) return;
+    for (const node of Object.values(wrapper.structure.nodes)) {
+        if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
+            const dimKey = node.derivedNode;
+            const [lo, hi] = node.data.numericalExtents;
+            if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
+            if (dimKey === 'sepal_length') {
+                divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
+            } else {
+                divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
+            }
+        }
     }
-  }
 };
 
-const initWrapper = (mode) => {
-  wrapper?.destroy();
-  rects = [];
-  points = [];
-  divisionRectsByDimension = {};
-  drawChart();
-  wrapper = addDataNavigator({
-    plotContainer: 'scatter-plot',
-    chatContainer: 'scatter-chat',
-    mode,
-    data,
-    type: 'cartesian',
-    xField: 'sepal_length',
-    yField: 'petal_length',
-    idField: 'pt',
-    title: 'Iris: sepal length vs petal length',
-    onNavigate(node) {
-      const level = node.dimensionLevel;
-      if (level === 0) {
-        // Chart root — grid overlay: all bins from both dimensions at once (1px)
-        points = [];
-        rects = Object.values(divisionRectsByDimension).flat();
-      } else if (level === 1) {
-        // Dimension root — show every bin of this dimension at once (1px)
-        points = [];
-        const dimKey = node.data?.dimensionKey;
-        rects = divisionRectsByDimension[dimKey] ?? [];
-      } else if (node.derivedNode) {
-        // Division node — exact bin boundary, no padding, 2px
-        points = [];
-        const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
-        if (node.derivedNode === 'sepal_length') {
-          rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
-        } else {
-          rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
+const initWrapper = mode => {
+    wrapper?.destroy();
+    rects = [];
+    points = [];
+    divisionRectsByDimension = {};
+    drawChart();
+    wrapper = addDataNavigator({
+        plotContainer: 'scatter-plot',
+        chatContainer: 'scatter-chat',
+        mode,
+        data,
+        type: 'cartesian',
+        xField: 'sepal_length',
+        yField: 'petal_length',
+        idField: 'pt',
+        title: 'Iris: sepal length vs petal length',
+        onNavigate(node) {
+            const level = node.dimensionLevel;
+            if (level === 0) {
+                // Chart root — grid overlay: all bins from both dimensions at once (1px)
+                points = [];
+                rects = Object.values(divisionRectsByDimension).flat();
+            } else if (level === 1) {
+                // Dimension root — show every bin of this dimension at once (1px)
+                points = [];
+                const dimKey = node.data?.dimensionKey;
+                rects = divisionRectsByDimension[dimKey] ?? [];
+            } else if (node.derivedNode) {
+                // Division node — exact bin boundary, no padding, 2px
+                points = [];
+                const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
+                if (node.derivedNode === 'sepal_length') {
+                    rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
+                } else {
+                    rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
+                }
+            } else {
+                // Leaf node — small padded box around the individual point, 2px
+                rects = [];
+                points = [
+                    {
+                        x: +node.data.sepal_length,
+                        y: +node.data.petal_length
+                    }
+                ];
+            }
+            drawChart();
+        },
+        onExit() {
+            rects = [];
+            points = [];
+            drawChart();
         }
-      } else {
-        // Leaf node — small padded box around the individual point, 2px
-        rects = [];
-        points = [{
-          x: +node.data.sepal_length,
-          y: +node.data.petal_length
-        }]
-      }
-      drawChart();
-    },
-    onExit() {
-      rects = [];
-      points = [];
-      drawChart();
-    },
-  });
-  buildDivisionRects();
+    });
+    buildDivisionRects();
 };
 
 initWrapper('text');
 
 document.getElementById('scatter-keyboard')?.addEventListener('change', e => {
-  keyboardMode.value = e.target.checked;
-  initWrapper(e.target.checked ? 'keyboard' : 'text');
+    keyboardMode.value = e.target.checked;
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
 });
 ```
 
@@ -410,14 +415,14 @@ chart root
 
 ### Navigation summary
 
-| Location | ← → | ↑ ↓ | Enter | W | J | Backspace |
-|----------|-----|-----|-------|---|---|-----------|
-| Chart root | — | — | Go to sepal_length dimension | — | — | — |
-| sepal_length dimension root | Go to petal_length dimension | — | Go to first bin | — | — | Chart root |
-| sepal_length bin | Previous / next bin | — | Go to first leaf | sepal_length dimension | — | — |
-| petal_length dimension root | Go to sepal_length dimension | — | Go to first bin | — | — | Chart root |
-| petal_length bin | — | Previous / next bin | Go to first leaf | — | petal_length dimension | — |
-| Leaf | Previous / next sepal bin | Previous / next petal bin | — | Parent sepal bin | Parent petal bin | — |
+| Location                    | ← →                          | ↑ ↓                       | Enter                        | W                      | J                      | Backspace  |
+| --------------------------- | ---------------------------- | ------------------------- | ---------------------------- | ---------------------- | ---------------------- | ---------- |
+| Chart root                  | —                            | —                         | Go to sepal_length dimension | —                      | —                      | —          |
+| sepal_length dimension root | Go to petal_length dimension | —                         | Go to first bin              | —                      | —                      | Chart root |
+| sepal_length bin            | Previous / next bin          | —                         | Go to first leaf             | sepal_length dimension | —                      | —          |
+| petal_length dimension root | Go to sepal_length dimension | —                         | Go to first bin              | —                      | —                      | Chart root |
+| petal_length bin            | —                            | Previous / next bin       | Go to first leaf             | —                      | petal_length dimension | —          |
+| Leaf                        | Previous / next sepal bin    | Previous / next petal bin | —                            | Parent sepal bin       | Parent petal bin       | —          |
 
 - The bin count is derived automatically as `ceil(sqrt(N))` (minimum 3), where N is the number of data points.
 - Bins are sorted in ascending order and use **terminal** extents — navigation stops at the first / last bin rather than wrapping.

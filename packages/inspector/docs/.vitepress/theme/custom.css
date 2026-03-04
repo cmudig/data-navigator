@@ -387,7 +387,7 @@ nav button {
     background: var(--vp-c-bg-soft);
 }
 
-.dn-inspector-menu .dn-menu-item input[type="checkbox"] {
+.dn-inspector-menu .dn-menu-item input[type='checkbox'] {
     border: 1px solid var(--vp-c-border);
 }
 

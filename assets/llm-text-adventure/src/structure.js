@@ -85,8 +85,18 @@ export const structure = dataNavigator.structure({
                     sortFunction: (a, b) => {
                         if (a.values) {
                             const months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec'
                             ];
                             let aMonth =
                                 a.values[Object.keys(a.values)[0]].date ||

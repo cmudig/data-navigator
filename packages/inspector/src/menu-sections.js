@@ -116,7 +116,7 @@ function makeGroupDetails(summaryText, childItems, state, container, populateFn,
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'dn-menu-group-checkbox';
-    checkbox.addEventListener('click', (e) => {
+    checkbox.addEventListener('click', e => {
         e.stopPropagation(); // Don't toggle <details> when clicking checkbox
     });
     checkbox.addEventListener('change', () => {
@@ -147,7 +147,7 @@ function makeGroupDetails(summaryText, childItems, state, container, populateFn,
     }
     syncGroupCheckbox();
 
-    const unsub = state.subscribe((changeType) => {
+    const unsub = state.subscribe(changeType => {
         if (changeType === 'check' || changeType === 'uncheck') {
             syncGroupCheckbox();
         }
@@ -210,7 +210,8 @@ function buildInlineArray({ label, items, state, container, structure }) {
         chip.addEventListener('mouseenter', () => {
             state.setHover(item.type, item.id);
             dispatch(container, EVENTS.ITEM_HOVER, {
-                type: item.type, id: item.id,
+                type: item.type,
+                id: item.id,
                 sourceData: getSourceData(item.type, item.id, structure)
             });
         });
@@ -278,7 +279,7 @@ export function buildMenuItem({ type, id, label, state, container, showLog, logF
         const logBtn = document.createElement('button');
         logBtn.className = 'dn-menu-log-btn';
         logBtn.textContent = 'log';
-        logBtn.addEventListener('click', (e) => {
+        logBtn.addEventListener('click', e => {
             e.stopPropagation();
             const result = logFn();
             if (result && consoleListEl) {
@@ -302,7 +303,9 @@ export function buildMenuItem({ type, id, label, state, container, showLog, logF
     row.addEventListener('mouseenter', () => {
         state.setHover(type, id);
         dispatch(container, EVENTS.ITEM_HOVER, {
-            type, id, sourceData: getSourceData(type, id, structure)
+            type,
+            id,
+            sourceData: getSourceData(type, id, structure)
         });
     });
     row.addEventListener('mouseleave', () => {
@@ -311,8 +314,7 @@ export function buildMenuItem({ type, id, label, state, container, showLog, logF
     });
 
     const unsub = state.subscribe((changeType, payload) => {
-        if ((changeType === 'check' || changeType === 'uncheck') &&
-            payload.type === type && payload.id === id) {
+        if ((changeType === 'check' || changeType === 'uncheck') && payload.type === type && payload.id === id) {
             checkbox.checked = state.isChecked(type, id);
         }
     });
@@ -340,7 +342,10 @@ function appendConsoleLogGroup(result, state, container, consoleListEl, structur
         type: mainEntry.type,
         id: mainEntry.id,
         label: mainEntry.label,
-        state, container, showLog: false, structure
+        state,
+        container,
+        showLog: false,
+        structure
     });
     mainRow.classList.add('dn-menu-console-entry');
     consoleListEl.appendChild(mainRow);
@@ -352,7 +357,9 @@ function appendConsoleLogGroup(result, state, container, consoleListEl, structur
             const inlineEl = buildInlineArray({
                 label: arr.label,
                 items: arr.items,
-                state, container, structure
+                state,
+                container,
+                structure
             });
             inlineEl.classList.add('dn-menu-console-entry');
             inlineEl.style.paddingLeft = '24px';
@@ -383,14 +390,21 @@ function buildNodeLogResult(nodeId, structure) {
 
     return {
         mainEntry: {
-            type: 'node', id: nodeId,
+            type: 'node',
+            id: nodeId,
             label: 'node: ' + nodeId,
-            data: node, timestamp: Date.now()
+            data: node,
+            timestamp: Date.now()
         },
-        relatedArrays: edgeItems.length > 0 ? [{
-            label: 'edges',
-            items: edgeItems
-        }] : []
+        relatedArrays:
+            edgeItems.length > 0
+                ? [
+                      {
+                          label: 'edges',
+                          items: edgeItems
+                      }
+                  ]
+                : []
     };
 }
 
@@ -411,9 +425,11 @@ function buildEdgeLogResult(edgeKey, structure) {
 
     return {
         mainEntry: {
-            type: 'edge', id: edgeKey,
+            type: 'edge',
+            id: edgeKey,
             label: 'edge: ' + (src || '?') + ' \u2192 ' + (tgt || '?'),
-            data: edge, timestamp: Date.now()
+            data: edge,
+            timestamp: Date.now()
         },
         relatedArrays
     };
@@ -450,9 +466,11 @@ function buildNavRuleLogResult(ruleId, structure) {
 
     return {
         mainEntry: {
-            type: 'rule', id: ruleId,
+            type: 'rule',
+            id: ruleId,
             label: 'rule: ' + ruleId,
-            data: rule || ruleId, timestamp: Date.now()
+            data: rule || ruleId,
+            timestamp: Date.now()
         },
         relatedArrays
     };
@@ -469,10 +487,15 @@ function buildEdgeMenuItem(edgeKey, structure, state, container, consoleListEl) 
     const rules = (edge.navigationRules || []).join(',');
     const label = src + ' \u2192 ' + tgt + (rules ? ' [' + rules + ']' : '');
     return buildMenuItem({
-        type: 'edge', id: edgeKey, label,
-        state, container, showLog: true,
+        type: 'edge',
+        id: edgeKey,
+        label,
+        state,
+        container,
+        showLog: true,
         logFn: () => buildEdgeLogResult(edgeKey, structure),
-        consoleListEl, structure
+        consoleListEl,
+        structure
     });
 }
 
@@ -497,7 +520,7 @@ export function buildConsoleSection() {
     const clearBtn = document.createElement('button');
     clearBtn.className = 'dn-menu-log-btn dn-menu-clear-btn';
     clearBtn.textContent = 'clear';
-    clearBtn.addEventListener('click', (e) => {
+    clearBtn.addEventListener('click', e => {
         e.stopPropagation();
         e.preventDefault();
         listEl.innerHTML = '';
@@ -536,151 +559,217 @@ export function buildRenderedElementsSection(structure, state, container, consol
     const sortedRules = [...ruleToEdges.keys()].sort();
 
     // Top-level: Rendered Elements
-    const details = makeLazyDetails('Rendered Elements', (parent) => {
+    const details = makeLazyDetails(
+        'Rendered Elements',
+        parent => {
+            // --- Nodes ---
+            const nodesDetails = makeLazyDetails(
+                'Nodes (' + allNodeKeys.length + ')',
+                nodesParent => {
+                    // Group nodes by dimension > division
+                    if (structure.dimensions) {
+                        const dimKeys = Object.keys(structure.dimensions);
+                        dimKeys.forEach(dimKey => {
+                            const dim = structure.dimensions[dimKey];
+                            const dimNode = structure.nodes[dim.nodeId];
+                            const divIds = Object.keys(dim.divisions || {});
 
-        // --- Nodes ---
-        const nodesDetails = makeLazyDetails('Nodes (' + allNodeKeys.length + ')', (nodesParent) => {
-
-            // Group nodes by dimension > division
-            if (structure.dimensions) {
-                const dimKeys = Object.keys(structure.dimensions);
-                dimKeys.forEach(dimKey => {
-                    const dim = structure.dimensions[dimKey];
-                    const dimNode = structure.nodes[dim.nodeId];
-                    const divIds = Object.keys(dim.divisions || {});
-
-                    // Collect all node IDs in this dimension for the group checkbox
-                    const dimChildItems = [];
-                    if (dimNode) dimChildItems.push({ type: 'node', id: dim.nodeId });
-                    divIds.forEach(divId => {
-                        const div = dim.divisions[divId];
-                        const divNodeId = findDivisionNodeId(structure, dimKey, divId);
-                        if (divNodeId) dimChildItems.push({ type: 'node', id: divNodeId });
-                        Object.keys(div.values || {}).forEach(leafId => {
-                            if (structure.nodes[leafId]) dimChildItems.push({ type: 'node', id: leafId });
-                        });
-                    });
-
-                    // Dimension-level details with group checkbox
-                    const dimDetails = makeGroupDetails(
-                        dimKey + ' (' + dim.type + ', ' + divIds.length + ' div' + (divIds.length !== 1 ? 's' : '') + ')',
-                        dimChildItems, state, container,
-                        (dimParent) => {
-                            // The dimension node itself
-                            if (dimNode) {
-                                dimParent.appendChild(buildMenuItem({
-                                    type: 'node', id: dim.nodeId,
-                                    label: dim.nodeId + ' (dimension)',
-                                    state, container, showLog: true,
-                                    logFn: () => buildNodeLogResult(dim.nodeId, structure),
-                                    consoleListEl, structure
-                                }));
-                            }
-
-                            // Each division
+                            // Collect all node IDs in this dimension for the group checkbox
+                            const dimChildItems = [];
+                            if (dimNode) dimChildItems.push({ type: 'node', id: dim.nodeId });
                             divIds.forEach(divId => {
                                 const div = dim.divisions[divId];
-                                const leafIds = Object.keys(div.values || {});
-
-                                // Collect node IDs in this division for the group checkbox
-                                const divChildItems = [];
                                 const divNodeId = findDivisionNodeId(structure, dimKey, divId);
-                                if (divNodeId) divChildItems.push({ type: 'node', id: divNodeId });
-                                leafIds.forEach(leafId => {
-                                    if (structure.nodes[leafId]) divChildItems.push({ type: 'node', id: leafId });
+                                if (divNodeId) dimChildItems.push({ type: 'node', id: divNodeId });
+                                Object.keys(div.values || {}).forEach(leafId => {
+                                    if (structure.nodes[leafId]) dimChildItems.push({ type: 'node', id: leafId });
                                 });
-
-                                const divDetails = makeGroupDetails(
-                                    divId + ' (' + leafIds.length + ' item' + (leafIds.length !== 1 ? 's' : '') + ')',
-                                    divChildItems, state, container,
-                                    (divParent) => {
-                                        // Division node itself
-                                        if (divNodeId) {
-                                            divParent.appendChild(buildMenuItem({
-                                                type: 'node', id: divNodeId,
-                                                label: divNodeId + ' (division)',
-                                                state, container, showLog: true,
-                                                logFn: () => buildNodeLogResult(divNodeId, structure),
-                                                consoleListEl, structure
-                                            }));
-                                        }
-
-                                        // Leaf nodes in this division
-                                        leafIds.forEach(leafId => {
-                                            const node = structure.nodes[leafId];
-                                            if (!node) return;
-                                            const desc = buildLabelFn ? buildLabelFn(node) : leafId;
-                                            const label = leafId + (desc !== leafId ? ' \u2014 ' + truncate(desc, 30) : '');
-                                            divParent.appendChild(buildMenuItem({
-                                                type: 'node', id: leafId, label,
-                                                state, container, showLog: true,
-                                                logFn: () => buildNodeLogResult(leafId, structure),
-                                                consoleListEl, structure
-                                            }));
-                                        });
-                                    }
-                                );
-
-                                dimParent.appendChild(divDetails);
                             });
-                        }
-                    );
 
-                    nodesParent.appendChild(dimDetails);
-                });
-            }
+                            // Dimension-level details with group checkbox
+                            const dimDetails = makeGroupDetails(
+                                dimKey +
+                                    ' (' +
+                                    dim.type +
+                                    ', ' +
+                                    divIds.length +
+                                    ' div' +
+                                    (divIds.length !== 1 ? 's' : '') +
+                                    ')',
+                                dimChildItems,
+                                state,
+                                container,
+                                dimParent => {
+                                    // The dimension node itself
+                                    if (dimNode) {
+                                        dimParent.appendChild(
+                                            buildMenuItem({
+                                                type: 'node',
+                                                id: dim.nodeId,
+                                                label: dim.nodeId + ' (dimension)',
+                                                state,
+                                                container,
+                                                showLog: true,
+                                                logFn: () => buildNodeLogResult(dim.nodeId, structure),
+                                                consoleListEl,
+                                                structure
+                                            })
+                                        );
+                                    }
 
-            // All Nodes flat list
-            const allNodesDetails = makeLazyDetails('All Nodes (' + allNodeKeys.length + ')', (allParent) => {
-                allNodeKeys.forEach(nodeId => {
-                    const node = structure.nodes[nodeId];
-                    const desc = buildLabelFn ? buildLabelFn(node) : nodeId;
-                    const label = nodeId + (desc !== nodeId ? ' \u2014 ' + truncate(desc, 30) : '');
-                    allParent.appendChild(buildMenuItem({
-                        type: 'node', id: nodeId, label,
-                        state, container, showLog: true,
-                        logFn: () => buildNodeLogResult(nodeId, structure),
-                        consoleListEl, structure
-                    }));
-                });
-            }, state);
-            nodesParent.appendChild(allNodesDetails);
+                                    // Each division
+                                    divIds.forEach(divId => {
+                                        const div = dim.divisions[divId];
+                                        const leafIds = Object.keys(div.values || {});
 
-        }, state);
-        parent.appendChild(nodesDetails);
+                                        // Collect node IDs in this division for the group checkbox
+                                        const divChildItems = [];
+                                        const divNodeId = findDivisionNodeId(structure, dimKey, divId);
+                                        if (divNodeId) divChildItems.push({ type: 'node', id: divNodeId });
+                                        leafIds.forEach(leafId => {
+                                            if (structure.nodes[leafId])
+                                                divChildItems.push({ type: 'node', id: leafId });
+                                        });
 
-        // --- Edges ---
-        const edgesDetails = makeLazyDetails('Edges (' + allEdgeKeys.length + ')', (edgesParent) => {
+                                        const divDetails = makeGroupDetails(
+                                            divId +
+                                                ' (' +
+                                                leafIds.length +
+                                                ' item' +
+                                                (leafIds.length !== 1 ? 's' : '') +
+                                                ')',
+                                            divChildItems,
+                                            state,
+                                            container,
+                                            divParent => {
+                                                // Division node itself
+                                                if (divNodeId) {
+                                                    divParent.appendChild(
+                                                        buildMenuItem({
+                                                            type: 'node',
+                                                            id: divNodeId,
+                                                            label: divNodeId + ' (division)',
+                                                            state,
+                                                            container,
+                                                            showLog: true,
+                                                            logFn: () => buildNodeLogResult(divNodeId, structure),
+                                                            consoleListEl,
+                                                            structure
+                                                        })
+                                                    );
+                                                }
 
-            // Group edges by navigation rule
-            sortedRules.forEach(rule => {
-                const edgeKeysForRule = ruleToEdges.get(rule);
-                const ruleChildItems = edgeKeysForRule.map(edgeKey => ({ type: 'edge', id: edgeKey }));
-                const ruleDetails = makeGroupDetails(
-                    rule + ' (' + edgeKeysForRule.length + ')',
-                    ruleChildItems, state, container,
-                    (ruleParent) => {
-                        edgeKeysForRule.forEach(edgeKey => {
-                            ruleParent.appendChild(buildEdgeMenuItem(edgeKey, structure, state, container, consoleListEl));
+                                                // Leaf nodes in this division
+                                                leafIds.forEach(leafId => {
+                                                    const node = structure.nodes[leafId];
+                                                    if (!node) return;
+                                                    const desc = buildLabelFn ? buildLabelFn(node) : leafId;
+                                                    const label =
+                                                        leafId +
+                                                        (desc !== leafId ? ' \u2014 ' + truncate(desc, 30) : '');
+                                                    divParent.appendChild(
+                                                        buildMenuItem({
+                                                            type: 'node',
+                                                            id: leafId,
+                                                            label,
+                                                            state,
+                                                            container,
+                                                            showLog: true,
+                                                            logFn: () => buildNodeLogResult(leafId, structure),
+                                                            consoleListEl,
+                                                            structure
+                                                        })
+                                                    );
+                                                });
+                                            }
+                                        );
+
+                                        dimParent.appendChild(divDetails);
+                                    });
+                                }
+                            );
+
+                            nodesParent.appendChild(dimDetails);
                         });
                     }
-                );
 
-                edgesParent.appendChild(ruleDetails);
-            });
+                    // All Nodes flat list
+                    const allNodesDetails = makeLazyDetails(
+                        'All Nodes (' + allNodeKeys.length + ')',
+                        allParent => {
+                            allNodeKeys.forEach(nodeId => {
+                                const node = structure.nodes[nodeId];
+                                const desc = buildLabelFn ? buildLabelFn(node) : nodeId;
+                                const label = nodeId + (desc !== nodeId ? ' \u2014 ' + truncate(desc, 30) : '');
+                                allParent.appendChild(
+                                    buildMenuItem({
+                                        type: 'node',
+                                        id: nodeId,
+                                        label,
+                                        state,
+                                        container,
+                                        showLog: true,
+                                        logFn: () => buildNodeLogResult(nodeId, structure),
+                                        consoleListEl,
+                                        structure
+                                    })
+                                );
+                            });
+                        },
+                        state
+                    );
+                    nodesParent.appendChild(allNodesDetails);
+                },
+                state
+            );
+            parent.appendChild(nodesDetails);
 
-            // All Edges flat list
-            const allEdgesDetails = makeLazyDetails('All Edges (' + allEdgeKeys.length + ')', (allParent) => {
-                allEdgeKeys.forEach(edgeKey => {
-                    allParent.appendChild(buildEdgeMenuItem(edgeKey, structure, state, container, consoleListEl));
-                });
-            }, state);
-            edgesParent.appendChild(allEdgesDetails);
+            // --- Edges ---
+            const edgesDetails = makeLazyDetails(
+                'Edges (' + allEdgeKeys.length + ')',
+                edgesParent => {
+                    // Group edges by navigation rule
+                    sortedRules.forEach(rule => {
+                        const edgeKeysForRule = ruleToEdges.get(rule);
+                        const ruleChildItems = edgeKeysForRule.map(edgeKey => ({ type: 'edge', id: edgeKey }));
+                        const ruleDetails = makeGroupDetails(
+                            rule + ' (' + edgeKeysForRule.length + ')',
+                            ruleChildItems,
+                            state,
+                            container,
+                            ruleParent => {
+                                edgeKeysForRule.forEach(edgeKey => {
+                                    ruleParent.appendChild(
+                                        buildEdgeMenuItem(edgeKey, structure, state, container, consoleListEl)
+                                    );
+                                });
+                            }
+                        );
 
-        }, state);
-        parent.appendChild(edgesDetails);
+                        edgesParent.appendChild(ruleDetails);
+                    });
 
-    }, state, { summaryClass: 'dn-menu-summary-top' });
+                    // All Edges flat list
+                    const allEdgesDetails = makeLazyDetails(
+                        'All Edges (' + allEdgeKeys.length + ')',
+                        allParent => {
+                            allEdgeKeys.forEach(edgeKey => {
+                                allParent.appendChild(
+                                    buildEdgeMenuItem(edgeKey, structure, state, container, consoleListEl)
+                                );
+                            });
+                        },
+                        state
+                    );
+                    edgesParent.appendChild(allEdgesDetails);
+                },
+                state
+            );
+            parent.appendChild(edgesDetails);
+        },
+        state,
+        { summaryClass: 'dn-menu-summary-top' }
+    );
 
     return details;
 }

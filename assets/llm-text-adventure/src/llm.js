@@ -1,7 +1,7 @@
 // Creates an LLM function for use with dataNavigator.textChat().
 // getApiKey is called on each request so the key can change at runtime.
 export function createLLM(getApiKey) {
-    return async (messages) => {
+    return async messages => {
         const apiKey = getApiKey();
         if (!apiKey) return null;
 

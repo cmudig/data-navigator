@@ -379,15 +379,16 @@ const stackedBar = createChart('stacked-chart-wrapper', data);
 
 // Create the inspector (passive — defaults to tree layout)
 let currentMode = 'tree';
-const createInspector = (mode) => Inspector({
-    structure,
-    container: 'inspector',
-    size: 325,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit'],
-    mode
-});
+const createInspector = mode =>
+    Inspector({
+        structure,
+        container: 'inspector',
+        size: 325,
+        colorBy: 'dimensionLevel',
+        edgeExclusions: ['any-exit'],
+        nodeInclusions: ['exit'],
+        mode
+    });
 let inspector = createInspector(currentMode);
 
 // Toggle button switches between tree and force modes
@@ -573,8 +574,18 @@ export const structure = dataNavigator.structure({
                     sortFunction: (a, b) => {
                         if (a.values) {
                             const months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec'
                             ];
                             let aMonth =
                                 a.values[Object.keys(a.values)[0]].date ||
@@ -601,9 +612,7 @@ export const structure = dataNavigator.structure({
     ]
 });
 
-export const entryPoint = structure.dimensions[
-    Object.keys(structure.dimensions)[0]
-].nodeId;
+export const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 ```
 
 ```js [chart.js]
@@ -653,9 +662,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(stackedBar, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific bar segment
-        stackedBar.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        stackedBar.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         stackedBar.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all bars
@@ -693,18 +700,18 @@ export function createInput(structure, entryPoint, exitPointId) {
     <head>
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
-                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                    "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
             }
-        }
         </script>
     </head>
     <body>
@@ -720,7 +727,10 @@ export function createInput(structure, entryPoint, exitPointId) {
             </div>
         </div>
     </body>
-    <script src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js" type="module"></script>
+    <script
+        src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js"
+        type="module"
+    ></script>
     <script type="module" src="./src/coordinator.js"></script>
 </html>
 ```

@@ -6,8 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
     title: 'Data Navigator · Bokeh Wrapper',
-    description:
-        'Add accessible data navigation to Bokeh charts with one function call.',
+    description: 'Add accessible data navigation to Bokeh charts with one function call.',
 
     base: '/data-navigator/bokeh-wrapper/',
 
@@ -57,7 +56,8 @@ export default defineConfig({
                     { text: 'Line Chart', link: '/examples/line-chart' },
                     { text: 'Cross-navigable Line Chart', link: '/examples/crossline' },
                     { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
-                    { text: 'Using the Inspector', link: '/examples/with-inspector' }
+                    { text: 'Using the Inspector', link: '/examples/with-inspector' },
+                    { text: 'Interactive Elements', link: '/examples/interactive-elements' }
                 ]
             }
         ],
@@ -80,19 +80,10 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
-                'data-navigator/text-chat.css': resolve(
-                    __dirname,
-                    '../../../../packages/data-navigator/text-chat.css'
-                ),
-                'data-navigator': resolve(
-                    __dirname,
-                    '../../../../packages/data-navigator/src/index.ts'
-                ),
+                'data-navigator/text-chat.css': resolve(__dirname, '../../../../packages/data-navigator/text-chat.css'),
+                'data-navigator': resolve(__dirname, '../../../../packages/data-navigator/src/index.ts'),
                 '@data-navigator/bokeh-wrapper': resolve(__dirname, '../../src/index.ts'),
-                '@data-navigator/inspector': resolve(
-                    __dirname,
-                    '../../../inspector/src/inspector.js'
-                )
+                '@data-navigator/inspector': resolve(__dirname, '../../../inspector/src/inspector.js')
             }
         }
     }

@@ -340,9 +340,7 @@ const toggleBtn = document.getElementById('mode-toggle');
 toggleBtn.addEventListener('click', () => {
     currentMode = currentMode === 'tree' ? 'force' : 'tree';
     createInspector(currentMode);
-    toggleBtn.textContent = currentMode === 'tree'
-        ? 'Switch to force graph'
-        : 'Switch to tree graph';
+    toggleBtn.textContent = currentMode === 'tree' ? 'Switch to force graph' : 'Switch to tree graph';
 });
 
 function enter() {
@@ -464,9 +462,7 @@ export const structureOptions = {
 
 export const structure = dataNavigator.structure(structureOptions);
 
-export const entryPoint = structure.dimensions[
-    Object.keys(structure.dimensions)[0]
-].nodeId;
+export const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 ```
 
 ```js [chart.js]
@@ -551,18 +547,18 @@ export function createInput(structure, entryPoint, exitPointId) {
         <link rel="stylesheet" href="./node_modules/@data-navigator/inspector/style.css" />
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.js",
-                "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
-                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.js",
+                    "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
             }
-        }
         </script>
     </head>
     <body>

@@ -227,8 +227,12 @@ const chat = dataNavigator.textChat({
     structure,
     container: 'text-chat-container',
     commandLabels: { child: 'drill in', parent: 'back out' },
-    onNavigate: (node) => { /* update your chart */ },
-    onExit: () => { /* clear highlights */ }
+    onNavigate: node => {
+        /* update your chart */
+    },
+    onExit: () => {
+        /* clear highlights */
+    }
 });
 ```
 
@@ -285,7 +289,7 @@ dataNavigator.textChat({
         parent: 'back out',
         exit: 'exit navigation'
     },
-    onNavigate: (node) => {
+    onNavigate: node => {
         updateChartHighlight(stackedBar, node);
     },
     onExit: () => {
@@ -382,8 +386,18 @@ export const structure = dataNavigator.structure({
                     sortFunction: (a, b) => {
                         if (a.values) {
                             const months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec'
                             ];
                             let aMonth =
                                 a.values[Object.keys(a.values)[0]].date ||
@@ -448,9 +462,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(stackedBar, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific bar segment
-        stackedBar.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        stackedBar.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         stackedBar.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all bars
@@ -476,11 +488,11 @@ export function clearChartHighlight(stackedBar) {
         <link rel="stylesheet" href="./node_modules/data-navigator/text-chat.css" />
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
+                }
             }
-        }
         </script>
     </head>
     <body>
@@ -495,7 +507,10 @@ export function clearChartHighlight(stackedBar) {
             </div>
         </div>
     </body>
-    <script src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js" type="module"></script>
+    <script
+        src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js"
+        type="module"
+    ></script>
     <script type="module" src="./src/coordinator.js"></script>
 </html>
 ```

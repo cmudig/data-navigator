@@ -9,7 +9,13 @@
 
 import dataNavigator from 'data-navigator';
 import type { Structure, TextChatInstance } from 'data-navigator';
-import { buildStructureOptions, buildCommandLabels, buildChartDescription, prepareNodeSemantics, resolveEl } from './structure-builder';
+import {
+    buildStructureOptions,
+    buildCommandLabels,
+    buildChartDescription,
+    prepareNodeSemantics,
+    resolveEl
+} from './structure-builder';
 import type { BokehWrapperOptions, BokehWrapperInstance } from './types';
 
 export type { BokehWrapperOptions, BokehWrapperInstance, BokehChartType, BokehWrapperMode } from './types';
@@ -17,18 +23,14 @@ export { buildChartDescription, buildNodeLabel, prepareNodeSemantics } from './s
 
 // ─── Chat container helper ───────────────────────────────────────────────────
 
-function resolveChatContainer(
-    options: BokehWrapperOptions,
-    plotEl: HTMLElement
-): { el: HTMLElement; owned: boolean } {
+function resolveChatContainer(options: BokehWrapperOptions, plotEl: HTMLElement): { el: HTMLElement; owned: boolean } {
     if (options.chatContainer) {
         const el = resolveEl(options.chatContainer);
         if (el) return { el, owned: false };
     }
     const div = document.createElement('div');
     div.className = 'dn-bokeh-wrapper';
-    plotEl.parentElement?.insertBefore(div, plotEl.nextSibling) ??
-        document.body.appendChild(div);
+    plotEl.parentElement?.insertBefore(div, plotEl.nextSibling) ?? document.body.appendChild(div);
     return { el: div, owned: true };
 }
 
@@ -40,7 +42,7 @@ function setupKeyboardMode(
     options: BokehWrapperOptions,
     entryPoint: string | undefined
 ): { destroy: () => void; getCurrentNode: () => import('data-navigator').NodeObject | null } {
-    const { onNavigate, onExit, renderingOptions = {} } = options;
+    const { onNavigate, onExit, onClick, renderingOptions = {} } = options;
     const width = plotEl.clientWidth || 400;
     const height = plotEl.clientHeight || 300;
 
@@ -64,9 +66,10 @@ function setupKeyboardMode(
         },
         suffixId,
         root: {
-            id: typeof options.plotContainer === 'string'
-                ? options.plotContainer
-                : (options.plotContainer as HTMLElement).id || 'dn-bokeh-root',
+            id:
+                typeof options.plotContainer === 'string'
+                    ? options.plotContainer
+                    : (options.plotContainer as HTMLElement).id || 'dn-bokeh-root',
             description: 'Accessible data navigation',
             width: '100%',
             height: 0
@@ -133,8 +136,19 @@ function setupKeyboardMode(
                     const next = input.move(current, direction);
                     if (next) navigate(next);
                 }
+            } else if (e.key === ' ' && onClick) {
+                // Space = select / toggle this element
+                e.preventDefault();
+                onClick(node);
             }
         });
+
+        // When onClick is available, mark elements as selectable for assistive tech.
+        // aria-selected="false" will be updated to "true" by the caller's onNavigate /
+        // onClick callbacks (e.g. document.getElementById(node.id)?.setAttribute(...)).
+        if (onClick) {
+            el.setAttribute('aria-selected', 'false');
+        }
 
         el.addEventListener('focus', () => {
             if (onNavigate) onNavigate(node);
@@ -156,8 +170,12 @@ function setupKeyboardMode(
     return {
         destroy() {
             // Remove elements the rendering module appended to plotEl
-            try { rendering.wrapper?.remove?.(); } catch (_) {}
-            try { rendering.exitElement?.remove?.(); } catch (_) {}
+            try {
+                rendering.wrapper?.remove?.();
+            } catch (_) {}
+            try {
+                rendering.exitElement?.remove?.();
+            } catch (_) {}
         },
         getCurrentNode() {
             return current ? (structure.nodes[current] ?? null) : null;
@@ -180,18 +198,20 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
 
     const plotEl = resolveEl(options.plotContainer);
     if (!plotEl) {
-        throw new Error(
-            `@data-navigator/bokeh-wrapper: plotContainer "${options.plotContainer}" not found.`
-        );
+        throw new Error(`@data-navigator/bokeh-wrapper: plotContainer "${options.plotContainer}" not found.`);
     }
 
-    // Only mark inert in text mode — the accessible UI is outside the container.
-    // In keyboard mode the navigation elements live INSIDE the container, so inert
-    // would block them entirely.
-    const didSetInert = mode === 'text';
-    if (didSetInert) {
-        plotEl.setAttribute('inert', 'true');
-    }
+    // Only hide the plot in text mode — the accessible UI is outside the container.
+    // In keyboard mode the navigation elements live INSIDE the container, so hiding
+    // the container would block them entirely.
+    //
+    // When onClick is provided the chart is interactive: use aria-hidden so pointer
+    // events still reach the BokehJS canvas (inert blocks all pointer events).
+    // Without onClick, inert is safer — it also prevents accidental focus into canvas.
+    const didSetInert = mode === 'text' && !onClick;
+    const didSetAriaHidden = mode === 'text' && !!onClick;
+    if (didSetInert) plotEl.setAttribute('inert', 'true');
+    if (didSetAriaHidden) plotEl.setAttribute('aria-hidden', 'true');
 
     const structOpts = buildStructureOptions(options);
 
@@ -212,9 +232,8 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         const dims = (structOpts as any).dimensions;
         if (!dims.parentOptions) dims.parentOptions = {};
         if (!dims.parentOptions.addLevel0) {
-            const plotId = typeof options.plotContainer === 'string'
-                ? options.plotContainer.replace(/[^a-zA-Z0-9_-]/g, '')
-                : 'dn';
+            const plotId =
+                typeof options.plotContainer === 'string' ? options.plotContainer.replace(/[^a-zA-Z0-9_-]/g, '') : 'dn';
             dims.parentOptions.addLevel0 = {
                 id: `${plotId}-chart-root`,
                 edges: [],
@@ -245,10 +264,9 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
     // For multi-dimension charts the Level 0 root (dimensionLevel === 0) is the
     // natural starting point; for single-dimension charts it is the dimension root.
     const level0Node = Object.values(structure.nodes).find((n: any) => n.dimensionLevel === 0) as any;
-    const resolvedEntryPoint: string | undefined = level0Node?.id
-        ?? (structure.dimensions
-            ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
-            : undefined);
+    const resolvedEntryPoint: string | undefined =
+        level0Node?.id ??
+        (structure.dimensions ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId : undefined);
 
     const cleanups: Array<() => void> = [];
 
@@ -272,7 +290,9 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
 
         if (owned) {
             cleanups.push(() => {
-                try { chatEl.parentElement?.removeChild(chatEl); } catch (_) {}
+                try {
+                    chatEl.parentElement?.removeChild(chatEl);
+                } catch (_) {}
             });
         }
     }
@@ -289,6 +309,7 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
             textChatInstance?.destroy();
             for (const cleanup of cleanups) cleanup();
             if (didSetInert) plotEl.removeAttribute('inert');
+            if (didSetAriaHidden) plotEl.removeAttribute('aria-hidden');
         },
         getCurrentNode() {
             return textChatInstance?.getCurrentNode() ?? keyboardMode?.getCurrentNode() ?? null;

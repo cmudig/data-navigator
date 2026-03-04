@@ -13,13 +13,13 @@ A multi-line chart showing monthly average temperatures for three cities. The wr
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between cities (or months when drilled in) |
-| <kbd>Enter</kbd> | Drill into cities or into monthly data for the focused city |
-| <kbd>Backspace</kbd> | Go back to city level |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                      |
+| ---------------------------- | ----------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                   |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between cities (or months when drilled in)         |
+| <kbd>Enter</kbd>             | Drill into cities or into monthly data for the focused city |
+| <kbd>Backspace</kbd>         | Go back to city level                                       |
+| <kbd>Escape</kbd>            | Exit navigation                                             |
 
 </div>
 
@@ -171,42 +171,42 @@ import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 // Flatten multi-series data into one array
 const data = [
-  { city: 'New York', month: 'Jan', month_index: 0, temp_c: 0  },
-  { city: 'New York', month: 'Feb', month_index: 1, temp_c: 2  },
-  // ... all cities × months
+    { city: 'New York', month: 'Jan', month_index: 0, temp_c: 0 },
+    { city: 'New York', month: 'Feb', month_index: 1, temp_c: 2 }
+    // ... all cities × months
 ];
 
 const wrapper = addDataNavigator({
-  plotContainer: '#line-plot',
-  data,
-  type: 'multiline',
-  xField: 'month',
-  yField: 'temp_c',
-  groupField: 'city',        // outer navigation dimension
-  commandLabels: {
-    left:   'Move to previous city',
-    right:  'Move to next city',
-    child:  'Drill into monthly data for this city',
-    parent: 'Go back to cities',
-  },
-  onNavigate(node) {
-    if (node.derivedNode) {
-      const city = node.data?.city ?? node.data?.[node.derivedNode] ?? null;
-      if (city) {
-        // Division node — a specific city
-        highlightCity(city, null);
-      } else {
-        // Dimension root — tint all series
-        highlightCity('__all__', null);
-      }
-    } else {
-      // Leaf node — specific city + month
-      highlightCity(node.data.city, node.data.month);
+    plotContainer: '#line-plot',
+    data,
+    type: 'multiline',
+    xField: 'month',
+    yField: 'temp_c',
+    groupField: 'city', // outer navigation dimension
+    commandLabels: {
+        left: 'Move to previous city',
+        right: 'Move to next city',
+        child: 'Drill into monthly data for this city',
+        parent: 'Go back to cities'
+    },
+    onNavigate(node) {
+        if (node.derivedNode) {
+            const city = node.data?.city ?? node.data?.[node.derivedNode] ?? null;
+            if (city) {
+                // Division node — a specific city
+                highlightCity(city, null);
+            } else {
+                // Dimension root — tint all series
+                highlightCity('__all__', null);
+            }
+        } else {
+            // Leaf node — specific city + month
+            highlightCity(node.data.city, node.data.month);
+        }
+    },
+    onExit() {
+        clearHighlight();
     }
-  },
-  onExit() {
-    clearHighlight();
-  },
 });
 ```
 

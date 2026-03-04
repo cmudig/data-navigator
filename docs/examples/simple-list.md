@@ -8,12 +8,12 @@ This example shows a simple linked-list navigation structure on a Bokeh stacked 
 
 <div v-show="showControls">
 
-| Command                    | Key                                         |
-| -------------------------- | ------------------------------------------- |
-| Enter the structure        | Activate the "Enter navigation area" button |
-| Exit                       | <kbd>Esc</kbd>                              |
-| Previous data point        | <kbd>←</kbd>                                |
-| Next data point            | <kbd>→</kbd>                                |
+| Command             | Key                                         |
+| ------------------- | ------------------------------------------- |
+| Enter the structure | Activate the "Enter navigation area" button |
+| Exit                | <kbd>Esc</kbd>                              |
+| Previous data point | <kbd>←</kbd>                                |
+| Next data point     | <kbd>→</kbd>                                |
 
 </div>
 
@@ -414,8 +414,14 @@ export const chartHeight = 300;
 // Lookup table for drawing focus outlines on the correct bar.
 export const interactiveData = {
     data: [
-        [[3, 2.75], [0, 0]],       // apple: [topValues, bottomValues]
-        [[3.75, 4], [3, 2.75]]     // banana: [topValues, bottomValues]
+        [
+            [3, 2.75],
+            [0, 0]
+        ], // apple: [topValues, bottomValues]
+        [
+            [3.75, 4],
+            [3, 2.75]
+        ] // banana: [topValues, bottomValues]
     ],
     indices: {
         fruit: { apple: 0, banana: 1 },
@@ -430,28 +436,32 @@ export const callbacks = { onExit: null };
 export const structure = {
     nodes: {
         _0: {
-            id: '_0', renderId: '_0',
+            id: '_0',
+            renderId: '_0',
             data: { fruit: 'apple', store: 'a', cost: 3 },
             edges: ['_0-_1', 'any-exit'],
             semantics: { label: 'fruit: apple. store: a. cost: 3. Data point.' },
             spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
         },
         _1: {
-            id: '_1', renderId: '_1',
+            id: '_1',
+            renderId: '_1',
             data: { fruit: 'banana', store: 'a', cost: 0.75 },
             edges: ['_0-_1', '_1-_2', 'any-exit'],
             semantics: { label: 'fruit: banana. store: a. cost: 0.75. Data point.' },
             spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
         },
         _2: {
-            id: '_2', renderId: '_2',
+            id: '_2',
+            renderId: '_2',
             data: { fruit: 'apple', store: 'b', cost: 2.75 },
             edges: ['_1-_2', '_2-_3', 'any-exit'],
             semantics: { label: 'fruit: apple. store: b. cost: 2.75. Data point.' },
             spatialProperties: { x: 0, y: 0, width: chartWidth, height: chartHeight }
         },
         _3: {
-            id: '_3', renderId: '_3',
+            id: '_3',
+            renderId: '_3',
             data: { fruit: 'banana', store: 'b', cost: 1.25 },
             edges: ['_2-_3', 'any-exit'],
             semantics: { label: 'fruit: banana. store: b. cost: 1.25. Data point.' },
@@ -464,7 +474,10 @@ export const structure = {
         '_2-_3': { source: '_2', target: '_3', navigationRules: ['left', 'right'] },
         'any-exit': {
             source: (d, c) => c,
-            target: () => { if (callbacks.onExit) callbacks.onExit(); return ''; },
+            target: () => {
+                if (callbacks.onExit) callbacks.onExit();
+                return '';
+            },
             navigationRules: ['exit']
         }
     },
@@ -488,21 +501,26 @@ export function drawChart(focusData) {
 
     const stores = ['a', 'b'];
     const p = Bokeh.Plotting.figure({
-        x_range: stores, y_range: [0, 5.5],
-        height: chartHeight, width: chartWidth,
-        title: 'Fruit cost by store', output_backend: 'svg',
-        toolbar_location: null, tools: ''
+        x_range: stores,
+        y_range: [0, 5.5],
+        height: chartHeight,
+        width: chartWidth,
+        title: 'Fruit cost by store',
+        output_backend: 'svg',
+        toolbar_location: null,
+        tools: ''
     });
 
-    p.vbar({ x: stores, top: [3, 2.75], bottom: [0, 0], width: 0.8,
-             color: '#FCB5B6', line_color: '#8F0002' });
-    p.vbar({ x: stores, top: [3.75, 4], bottom: [3, 2.75], width: 0.8,
-             color: '#F9E782', line_color: '#766500' });
+    p.vbar({ x: stores, top: [3, 2.75], bottom: [0, 0], width: 0.8, color: '#FCB5B6', line_color: '#8F0002' });
+    p.vbar({ x: stores, top: [3.75, 4], bottom: [3, 2.75], width: 0.8, color: '#F9E782', line_color: '#766500' });
 
     if (focusData) {
         p.vbar({
-            x: stores, top: focusData.top, bottom: focusData.bottom,
-            width: 0.8, line_width: 3,
+            x: stores,
+            top: focusData.top,
+            bottom: focusData.bottom,
+            width: 0.8,
+            line_width: 3,
             color: ['transparent', 'transparent'],
             line_color: focusData.line_color
         });
@@ -510,13 +528,16 @@ export function drawChart(focusData) {
 
     const r1 = p.square([-10000], [-10000], { color: '#FCB5B6', line_color: '#8F0002' });
     const r2 = p.square([-10000], [-10000], { color: '#F9E782', line_color: '#766500' });
-    p.add_layout(new Bokeh.Legend({
-        items: [
-            new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
-            new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
-        ],
-        location: 'top_left', orientation: 'horizontal'
-    }));
+    p.add_layout(
+        new Bokeh.Legend({
+            items: [
+                new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
+                new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
+            ],
+            location: 'top_left',
+            orientation: 'horizontal'
+        })
+    );
 
     Bokeh.Plotting.show(p, '#chart');
     const bokehPlot = document.querySelector('#chart');
@@ -529,9 +550,7 @@ export function drawFocusIndicator(node) {
     const fruitIndex = interactiveData.indices.fruit[node.data.fruit];
     const storeIndex = interactiveData.indices.store[node.data.store];
     const barData = interactiveData.data[fruitIndex];
-    const line_color = storeIndex === 0
-        ? ['#000000', 'transparent']
-        : ['transparent', '#000000'];
+    const line_color = storeIndex === 0 ? ['#000000', 'transparent'] : ['transparent', '#000000'];
     drawChart({ top: barData[0], bottom: barData[1], line_color });
 }
 
@@ -544,7 +563,8 @@ export function createRenderer(structure, onEnter) {
         root: {
             id: 'chart-wrapper',
             description: 'Fruit cost by store chart. Use arrow keys to navigate.',
-            width: '100%', height: 0
+            width: '100%',
+            height: 0
         },
         entryButton: { include: true, callbacks: { click: onEnter } },
         exitElement: { include: true }
@@ -572,18 +592,18 @@ export function createInput(structure, exitPointId) {
     <head>
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
-                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                    "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
             }
-        }
         </script>
     </head>
     <body>

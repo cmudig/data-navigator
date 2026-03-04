@@ -20,9 +20,15 @@
         "docs:preview": "yarn workspace data-navigator-docs preview",
         "inspector:dev": "yarn workspace @data-navigator/inspector dev",
         "bokeh-wrapper:dev": "yarn workspace @data-navigator/bokeh-wrapper dev",
-        "bokeh-wrapper:build:docs": "yarn workspace @data-navigator/bokeh-wrapper build:docs"
+        "bokeh-wrapper:build:docs": "yarn workspace @data-navigator/bokeh-wrapper build:docs",
+        "prepare": "husky"
+    },
+    "lint-staged": {
+        "**/*.{js,jsx,ts,tsx,html,json,css,scss,md}": "prettier --write"
     },
     "devDependencies": {
+        "husky": "^9.1.7",
+        "lint-staged": "^16.3.2",
         "prettier": "^3.0.0"
     }
 }

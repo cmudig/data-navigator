@@ -28,7 +28,7 @@ The previous example had divisions under the main categorical dimension that eac
 
 This happens when using a nominative data type where each category happens to be a unique instance. So rather than "Apples" having 3 different instances, "Apples" are unique and only appear once, like an ID or name. This is a common way to organize categorical data as a bar chart. So, to make this navigation experience better (so that users can treat each individual entity more like a sibling in a list than children of other single-child parents), we use the property `compressSparseDivisions: true` here, instead.
 
-In this example below, we have improved the structure (notice how it *looks* different than the one above). This type of incorrect structure is very hard to discover simply by navigating around, one element at a time. This is why the visual inspector is so useful as a development, design, and user experience testing tool.
+In this example below, we have improved the structure (notice how it _looks_ different than the one above). This type of incorrect structure is very hard to discover simply by navigating around, one element at a time. This is why the visual inspector is so useful as a development, design, and user experience testing tool.
 
 <div style="display:flex;flex-wrap:wrap; align-items:flex-start;">
   <div>
@@ -217,7 +217,6 @@ onUnmounted(() => {
 });
 </script>
 
-
 ## Code
 
 ```js
@@ -226,36 +225,36 @@ import { Inspector } from '@data-navigator/inspector';
 import '@data-navigator/inspector/style.css';
 
 const data = [
-  { fruit: 'Apples', count: 5 },
-  // ...
+    { fruit: 'Apples', count: 5 }
+    // ...
 ];
 
 // Step 1: add data-navigator to the chart
 const wrapper = addDataNavigator({
-  plotContainer: '#my-plot',
-  data,
-  type: 'bar',
-  xField: 'fruit',
-  yField: 'count',
-  compressSparseDivisions: true, // this is the fix we want for this chart!
-  onNavigate(node) {
-    redrawChart({ highlight: node.data?.fruit ?? '__all__' });
-    // Step 3: sync inspector focus
-    inspector.highlight(node.renderId ?? node.id);
-  },
-  onExit() {
-    redrawChart({ highlight: null });
-    inspector.clear();
-  },
+    plotContainer: '#my-plot',
+    data,
+    type: 'bar',
+    xField: 'fruit',
+    yField: 'count',
+    compressSparseDivisions: true, // this is the fix we want for this chart!
+    onNavigate(node) {
+        redrawChart({ highlight: node.data?.fruit ?? '__all__' });
+        // Step 3: sync inspector focus
+        inspector.highlight(node.renderId ?? node.id);
+    },
+    onExit() {
+        redrawChart({ highlight: null });
+        inspector.clear();
+    }
 });
 
 // Step 2: create the inspector from wrapper.structure
 const inspector = Inspector({
-  structure: wrapper.structure,   // ← use wrapper.structure directly
-  container: 'inspector-container',
-  size: 300,
-  colorBy: 'dimensionLevel',
-  edgeExclusions: ['dn-exit'],    // hide the exit edge for clarity
+    structure: wrapper.structure, // ← use wrapper.structure directly
+    container: 'inspector-container',
+    size: 300,
+    colorBy: 'dimensionLevel',
+    edgeExclusions: ['dn-exit'] // hide the exit edge for clarity
 });
 ```
 

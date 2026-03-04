@@ -13,15 +13,16 @@ const stackedBar = createChart('stacked-chart-wrapper', data);
 
 // Create the inspector (passive — defaults to tree layout)
 let currentMode = 'tree';
-const createInspector = (mode) => Inspector({
-    structure,
-    container: 'inspector',
-    size: 325,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit'],
-    mode
-});
+const createInspector = mode =>
+    Inspector({
+        structure,
+        container: 'inspector',
+        size: 325,
+        colorBy: 'dimensionLevel',
+        edgeExclusions: ['any-exit'],
+        nodeInclusions: ['exit'],
+        mode
+    });
 let inspector = createInspector(currentMode);
 
 // Toggle button switches between tree and force modes

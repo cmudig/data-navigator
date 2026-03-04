@@ -44,9 +44,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(lineChart, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific data point
-        lineChart.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        lineChart.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         lineChart.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all lines

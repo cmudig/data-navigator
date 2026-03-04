@@ -54,7 +54,7 @@
     border: 1px solid #ccc;
 }
 
-.dn-text-chat-form input[type="text"] {
+.dn-text-chat-form input[type='text'] {
     flex: 1;
     padding: 6px 8px;
     border: none;
@@ -62,7 +62,7 @@
     outline: none;
 }
 
-.dn-text-chat-form input[type="text"]:focus {
+.dn-text-chat-form input[type='text']:focus {
     box-shadow: inset 0 0 0 2px #1e3369;
 }
 

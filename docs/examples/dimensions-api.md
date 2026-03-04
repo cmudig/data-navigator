@@ -10,17 +10,17 @@ This example uses the same dataset as the [Stacked Bar Chart](/examples/stacked-
 
 <div v-show="showControls">
 
-| Command                           | Key                                         |
-| --------------------------------- | ------------------------------------------- |
-| Enter the structure               | Activate the "Enter navigation area" button |
-| Exit                              | <kbd>Esc</kbd>                              |
-| Left (backward along date)        | <kbd>←</kbd>                                |
-| Right (forward along date)        | <kbd>→</kbd>                                |
-| Up (backward along category)      | <kbd>↑</kbd>                                |
-| Down (forward along category)     | <kbd>↓</kbd>                                |
-| Drill down to child               | <kbd>Enter</kbd>                            |
-| Drill up to date parent           | <kbd>W</kbd>                                |
-| Drill up to category parent       | <kbd>J</kbd>                                |
+| Command                       | Key                                         |
+| ----------------------------- | ------------------------------------------- |
+| Enter the structure           | Activate the "Enter navigation area" button |
+| Exit                          | <kbd>Esc</kbd>                              |
+| Left (backward along date)    | <kbd>←</kbd>                                |
+| Right (forward along date)    | <kbd>→</kbd>                                |
+| Up (backward along category)  | <kbd>↑</kbd>                                |
+| Down (forward along category) | <kbd>↓</kbd>                                |
+| Drill down to child           | <kbd>Enter</kbd>                            |
+| Drill up to date parent       | <kbd>W</kbd>                                |
+| Drill up to category parent   | <kbd>J</kbd>                                |
 
 At the deepest level, left/right moves across categories and up/down moves across dates. Both dimensions wrap around circularly.
 
@@ -539,8 +539,18 @@ export const structure = dataNavigator.structure({
                     sortFunction: (a, b) => {
                         if (a.values) {
                             const months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec'
                             ];
                             let aMonth =
                                 a.values[Object.keys(a.values)[0]].date ||
@@ -580,9 +590,7 @@ export const structure = dataNavigator.structure({
     ]
 });
 
-export const entryPoint = structure.dimensions[
-    Object.keys(structure.dimensions)[0]
-].nodeId;
+export const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 ```
 
 ```js [chart.js]
@@ -632,9 +640,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(lineChart, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific data point
-        lineChart.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        lineChart.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         lineChart.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all lines
@@ -672,18 +678,18 @@ export function createInput(structure, entryPoint, exitPointId) {
     <head>
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
-                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
+                    "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
             }
-        }
         </script>
     </head>
     <body>

@@ -45,6 +45,7 @@ Press the **Enter navigation area** button in the chart area below, then use arr
 The **force graph** positions nodes using a physics simulation. Connected nodes attract each other and unconnected nodes repel. This reveals the overall connectivity pattern and is much more compact but the exact layout changes dramatically depending on the data and structure used.
 
 The **tree layout** uses a deterministic algorithm:
+
 - **Dimension nodes** are placed along the top row
 - **Division nodes** are grouped underneath their parent dimension
 - **Leaf data points** are arranged at the bottom
@@ -444,9 +445,7 @@ export const structure = dataNavigator.structure({
     ]
 });
 
-export const entryPoint = structure.dimensions[
-    Object.keys(structure.dimensions)[0]
-].nodeId;
+export const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
 ```
 
 ```js [chart.js]
@@ -530,18 +529,18 @@ export function createInput(structure, entryPoint, exitPointId) {
     <head>
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.js",
-                "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
-                "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.js",
+                    "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
             }
-        }
         </script>
     </head>
     <body>

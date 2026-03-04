@@ -30,9 +30,9 @@ const DYNAMIC_EDGE_STROKE_WIDTH = '1.5';
  */
 export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicatorEl) {
     // Build direct reference maps at setup time
-    const nodeElMap = new Map();   // nodeId -> SVGElement
-    const edgeElMap = new Map();   // edgeKey -> SVGElement[]
-    const allGraphEls = [];        // every node/edge SVG element
+    const nodeElMap = new Map(); // nodeId -> SVGElement
+    const edgeElMap = new Map(); // edgeKey -> SVGElement[]
+    const allGraphEls = []; // every node/edge SVG element
 
     // Index circles (nodes) by their data ID
     svgEl.querySelectorAll('circle').forEach(el => {
@@ -144,10 +144,14 @@ export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicat
             const srcEl = nodeElMap.get(String(src));
             const tgtEl = nodeElMap.get(String(tgt));
             if (srcEl && tgtEl) {
-                lines.push(insertDynamicLine(
-                    srcEl.getAttribute('cx'), srcEl.getAttribute('cy'),
-                    tgtEl.getAttribute('cx'), tgtEl.getAttribute('cy')
-                ));
+                lines.push(
+                    insertDynamicLine(
+                        srcEl.getAttribute('cx'),
+                        srcEl.getAttribute('cy'),
+                        tgtEl.getAttribute('cx'),
+                        tgtEl.getAttribute('cy')
+                    )
+                );
             }
         } else {
             // At least one endpoint is a function — find connected nodes
@@ -168,10 +172,14 @@ export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicat
                         if (nodeId === src) return;
                         const nodeEl = nodeElMap.get(String(nodeId));
                         if (nodeEl) {
-                            lines.push(insertDynamicLine(
-                                nodeEl.getAttribute('cx'), nodeEl.getAttribute('cy'),
-                                srcEl.getAttribute('cx'), srcEl.getAttribute('cy')
-                            ));
+                            lines.push(
+                                insertDynamicLine(
+                                    nodeEl.getAttribute('cx'),
+                                    nodeEl.getAttribute('cy'),
+                                    srcEl.getAttribute('cx'),
+                                    srcEl.getAttribute('cy')
+                                )
+                            );
                         }
                     });
                 }
@@ -183,10 +191,14 @@ export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicat
                         if (nodeId === tgt) return;
                         const nodeEl = nodeElMap.get(String(nodeId));
                         if (nodeEl) {
-                            lines.push(insertDynamicLine(
-                                nodeEl.getAttribute('cx'), nodeEl.getAttribute('cy'),
-                                tgtEl.getAttribute('cx'), tgtEl.getAttribute('cy')
-                            ));
+                            lines.push(
+                                insertDynamicLine(
+                                    nodeEl.getAttribute('cx'),
+                                    nodeEl.getAttribute('cy'),
+                                    tgtEl.getAttribute('cx'),
+                                    tgtEl.getAttribute('cy')
+                                )
+                            );
                         }
                     });
                 }
@@ -199,10 +211,14 @@ export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicat
                         if (nodeId === pseudoId) return;
                         const nodeEl = nodeElMap.get(String(nodeId));
                         if (nodeEl) {
-                            lines.push(insertDynamicLine(
-                                nodeEl.getAttribute('cx'), nodeEl.getAttribute('cy'),
-                                pseudoEl.getAttribute('cx'), pseudoEl.getAttribute('cy')
-                            ));
+                            lines.push(
+                                insertDynamicLine(
+                                    nodeEl.getAttribute('cx'),
+                                    nodeEl.getAttribute('cy'),
+                                    pseudoEl.getAttribute('cx'),
+                                    pseudoEl.getAttribute('cy')
+                                )
+                            );
                         }
                     });
                 });
@@ -290,8 +306,14 @@ export function connectStateToSvg(svgEl, state, edgeSvgIdMap, structure, indicat
                     // Also include connected nodes for highlighting
                     const src = typeof edge.source === 'function' ? null : edge.source;
                     const tgt = typeof edge.target === 'function' ? null : edge.target;
-                    if (src) { const el = nodeElMap.get(String(src)); if (el) els.push(el); }
-                    if (tgt) { const el = nodeElMap.get(String(tgt)); if (el) els.push(el); }
+                    if (src) {
+                        const el = nodeElMap.get(String(src));
+                        if (el) els.push(el);
+                    }
+                    if (tgt) {
+                        const el = nodeElMap.get(String(tgt));
+                        if (el) els.push(el);
+                    }
                     // For function-based edges, include all nodes that reference this edge
                     if (!src || !tgt) {
                         Object.keys(structure.nodes).forEach(nodeId => {

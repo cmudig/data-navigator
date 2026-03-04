@@ -44,7 +44,7 @@ dataNavigator.textChat({
         parent: 'back out',
         exit: 'exit navigation'
     },
-    onNavigate: (node) => {
+    onNavigate: node => {
         updateChartHighlight(stackedBar, node);
     },
     onExit: () => {

@@ -8,9 +8,9 @@ All examples on this page use this 4-item dataset:
 
 ```js
 const data = [
-    { id: '_0', fruit: 'apple',  store: 'a', cost: 3 },
+    { id: '_0', fruit: 'apple', store: 'a', cost: 3 },
     { id: '_1', fruit: 'banana', store: 'a', cost: 0.75 },
-    { id: '_2', fruit: 'apple',  store: 'b', cost: 2.75 },
+    { id: '_2', fruit: 'apple', store: 'b', cost: 2.75 },
     { id: '_3', fruit: 'banana', store: 'b', cost: 1.25 }
 ];
 ```
@@ -22,14 +22,10 @@ The [first chart](/getting-started/first-chart) in the Getting Started guide cre
 ```js
 const structure = {
     nodes: {
-        _0: { id: '_0', data: { fruit: 'apple', store: 'a', cost: 3 },
-              edges: ['_0-_1', 'any-exit'] },
-        _1: { id: '_1', data: { fruit: 'banana', store: 'a', cost: 0.75 },
-              edges: ['_0-_1', '_1-_2', 'any-exit'] },
-        _2: { id: '_2', data: { fruit: 'apple', store: 'b', cost: 2.75 },
-              edges: ['_1-_2', '_2-_3', 'any-exit'] },
-        _3: { id: '_3', data: { fruit: 'banana', store: 'b', cost: 1.25 },
-              edges: ['_2-_3', 'any-exit'] }
+        _0: { id: '_0', data: { fruit: 'apple', store: 'a', cost: 3 }, edges: ['_0-_1', 'any-exit'] },
+        _1: { id: '_1', data: { fruit: 'banana', store: 'a', cost: 0.75 }, edges: ['_0-_1', '_1-_2', 'any-exit'] },
+        _2: { id: '_2', data: { fruit: 'apple', store: 'b', cost: 2.75 }, edges: ['_1-_2', '_2-_3', 'any-exit'] },
+        _3: { id: '_3', data: { fruit: 'banana', store: 'b', cost: 1.25 }, edges: ['_2-_3', 'any-exit'] }
     },
     edges: {
         '_0-_1': { source: '_0', target: '_1', navigationRules: ['left', 'right'] },
@@ -82,9 +78,16 @@ const structure = dataNavigator.structure({
             }
         ]
     },
-    genericEdges: [{ edgeId: 'any-exit', edge: {
-        source: (_d, c) => c, target: () => '', navigationRules: ['exit']
-    }}]
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => '',
+                navigationRules: ['exit']
+            }
+        }
+    ]
 });
 ```
 
@@ -240,9 +243,16 @@ const structure = dataNavigator.structure({
             }
         ]
     },
-    genericEdges: [{ edgeId: 'any-exit', edge: {
-        source: (_d, c) => c, target: () => '', navigationRules: ['exit']
-    }}]
+    genericEdges: [
+        {
+            edgeId: 'any-exit',
+            edge: {
+                source: (_d, c) => c,
+                target: () => '',
+                navigationRules: ['exit']
+            }
+        }
+    ]
 });
 ```
 
