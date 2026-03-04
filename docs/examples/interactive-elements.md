@@ -154,6 +154,7 @@ onMounted(async () => {
   let focusedGroup = null;
   let focusedPoint = null;
   let divisionRectsByDimension = {};
+  let currentPlotView = null;
 
   const drawChart = () => {
     const container = document.getElementById('ie-chart-inner');
@@ -232,7 +233,13 @@ onMounted(async () => {
     });
     p.add_tools(tap);
     p.toolbar.active_tap = tap;
-    plt.show(p, '#ie-chart-inner');
+    plt.show(p, '#ie-chart-inner').then(v => {
+      if (currentPlotView) {
+        try { currentPlotView.remove(); } catch (_) {}
+        currentPlotView = null;
+      }
+      currentPlotView = v;
+    });
   };
 
   drawChart();
