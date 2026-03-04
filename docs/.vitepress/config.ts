@@ -137,18 +137,33 @@ export default defineConfig({
             ],
             '/examples/': [
                 {
-                    text: 'Examples',
+                    text: 'Basic Examples',
                     items: [
                         { text: 'Overview', link: '/examples/' },
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
+                        { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
+                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                    ]
+                },
+                {
+                    text: "Debugging Assistance",
+                    items: [
                         { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
                         { text: 'Inspecting Force/Tree', link: '/examples/inspecting-force-tree' },
                         { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
-                        { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
-                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
-                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
+                    ]
+                },
+                {
+                    text: "Interactivity and Text",
+                    items: [
                         { text: 'Data Text Adventure', link: '/examples/data-text-adventure' },
-                        { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' },
+                        { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' }
+                    ]
+                },
+                {
+                    text: "Advanced Examples",
+                    items: [
                         { text: 'Interactive Elements', link: '/examples/interactive-elements' }
                     ]
                 }
