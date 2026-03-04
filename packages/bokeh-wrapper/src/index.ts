@@ -40,7 +40,7 @@ function setupKeyboardMode(
     options: BokehWrapperOptions,
     entryPoint: string | undefined
 ): { destroy: () => void; getCurrentNode: () => import('data-navigator').NodeObject | null } {
-    const { onNavigate, onExit, renderingOptions = {} } = options;
+    const { onNavigate, onExit, onClick, renderingOptions = {} } = options;
     const width = plotEl.clientWidth || 400;
     const height = plotEl.clientHeight || 300;
 
@@ -133,8 +133,19 @@ function setupKeyboardMode(
                     const next = input.move(current, direction);
                     if (next) navigate(next);
                 }
+            } else if (e.key === ' ' && onClick) {
+                // Space = select / toggle this element
+                e.preventDefault();
+                onClick(node);
             }
         });
+
+        // When onClick is available, mark elements as selectable for assistive tech.
+        // aria-selected="false" will be updated to "true" by the caller's onNavigate /
+        // onClick callbacks (e.g. document.getElementById(node.id)?.setAttribute(...)).
+        if (onClick) {
+            el.setAttribute('aria-selected', 'false');
+        }
 
         el.addEventListener('focus', () => {
             if (onNavigate) onNavigate(node);

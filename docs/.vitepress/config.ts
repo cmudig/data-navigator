@@ -146,7 +146,8 @@ export default defineConfig({
                         { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
                         { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
                         { text: 'Data Text Adventure', link: '/examples/data-text-adventure' },
-                        { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' }
+                        { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' },
+                        { text: 'Interactive Elements', link: '/examples/interactive-elements' }
                     ]
                 }
             ],
@@ -195,7 +196,8 @@ export default defineConfig({
                 'data-navigator/text-chat.css': '../../packages/data-navigator/text-chat.css',
                 'data-navigator': '../../packages/data-navigator/src/index.ts',
                 'data-navigator-inspector': '../../packages/inspector/src/inspector.js',
-                '@data-navigator/inspector': '../../packages/inspector/src/inspector.js'
+                '@data-navigator/inspector': '../../packages/inspector/src/inspector.js',
+                '@data-navigator/bokeh-wrapper': '../../packages/bokeh-wrapper/src/index.ts'
             }
         }
     }
