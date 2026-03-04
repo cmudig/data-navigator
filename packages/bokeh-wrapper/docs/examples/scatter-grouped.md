@@ -13,18 +13,18 @@ The same [Iris dataset](https://en.wikipedia.org/wiki/Iris_flower_data_set) as t
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between sepal-length bins (or data points at leaf level) |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Navigate between petal-length bins (or data points at leaf level) |
-| <kbd>[</kbd> <kbd>]</kbd> | Navigate between species groups (or data points at leaf level) |
-| <kbd>Enter</kbd> | Drill in |
-| <kbd>W</kbd> | Go up to sepal-length level |
-| <kbd>J</kbd> | Go up to petal-length level |
-| <kbd>\\</kbd> | Go up to species level |
-| <kbd>Backspace</kbd> | Go back to chart root (from dimension roots) |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                            |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                         |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level) |
+| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level) |
+| <kbd>[</kbd> <kbd>]</kbd>    | Navigate between species groups (or data points at leaf level)    |
+| <kbd>Enter</kbd>             | Drill in                                                          |
+| <kbd>W</kbd>                 | Go up to sepal-length level                                       |
+| <kbd>J</kbd>                 | Go up to petal-length level                                       |
+| <kbd>\\</kbd>                | Go up to species level                                            |
+| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)                      |
+| <kbd>Escape</kbd>            | Exit navigation                                                   |
 
 </div>
 
@@ -265,46 +265,48 @@ onUnmounted(() => wrapper?.destroy());
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 const data = [
-  { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' },
-  // ...
+    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' }
+    // ...
 ];
 
 const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
 
 const wrapper = addDataNavigator({
-  plotContainer: 'gs-plot',
-  data,
-  type: 'cartesian',
-  xField: 'sepal_length',
-  yField: 'petal_length',
-  groupField: 'species',   // ← adds the third [ / ] navigation axis
-  idField: 'pt',
-  title: 'Iris: sepal length vs petal length',
-  onNavigate(node) {
-    const level = node.dimensionLevel;
-    if (level === 0) {
-      // Chart root — show all bin outlines.
-      showAllRects();
-    } else if (level === 1) {
-      const dimKey = node.data?.dimensionKey ?? node.derivedNode;
-      if (dimKey === 'species') {
-        showGroupRings('__all__');   // all species highlighted
-      } else {
-        showDimensionRects(dimKey);  // all bins of this axis
-      }
-    } else if (node.derivedNode === 'sepal_length') {
-      showBinRect('x', node.data.numericalExtents);
-    } else if (node.derivedNode === 'petal_length') {
-      showBinRect('y', node.data.numericalExtents);
-    } else if (node.derivedNode === 'species') {
-      showGroupRings(node.data.species);  // dim other species
-    } else {
-      // Leaf — point indicator + keep species highlighted.
-      showPointIndicator(node.data.sepal_length, node.data.petal_length);
-      showGroupRings(node.data.species);
+    plotContainer: 'gs-plot',
+    data,
+    type: 'cartesian',
+    xField: 'sepal_length',
+    yField: 'petal_length',
+    groupField: 'species', // ← adds the third [ / ] navigation axis
+    idField: 'pt',
+    title: 'Iris: sepal length vs petal length',
+    onNavigate(node) {
+        const level = node.dimensionLevel;
+        if (level === 0) {
+            // Chart root — show all bin outlines.
+            showAllRects();
+        } else if (level === 1) {
+            const dimKey = node.data?.dimensionKey ?? node.derivedNode;
+            if (dimKey === 'species') {
+                showGroupRings('__all__'); // all species highlighted
+            } else {
+                showDimensionRects(dimKey); // all bins of this axis
+            }
+        } else if (node.derivedNode === 'sepal_length') {
+            showBinRect('x', node.data.numericalExtents);
+        } else if (node.derivedNode === 'petal_length') {
+            showBinRect('y', node.data.numericalExtents);
+        } else if (node.derivedNode === 'species') {
+            showGroupRings(node.data.species); // dim other species
+        } else {
+            // Leaf — point indicator + keep species highlighted.
+            showPointIndicator(node.data.sepal_length, node.data.petal_length);
+            showGroupRings(node.data.species);
+        }
+    },
+    onExit() {
+        clearAll();
     }
-  },
-  onExit() { clearAll(); },
 });
 ```
 
@@ -331,16 +333,16 @@ chart root
 
 ### Navigation summary
 
-| Location | ← → | ↑ ↓ | [ ] | Enter | W | J | \\ | Backspace |
-|----------|-----|-----|-----|-------|---|---|----|-----------|
-| Chart root | — | — | — | sepal_length dimension | — | — | — | — |
-| sepal_length dimension | cycle dims | — | — | First bin | — | — | — | Chart root |
-| sepal_length bin | Prev / next bin | — | — | First leaf | sepal_length dim | — | — | — |
-| petal_length dimension | — | cycle dims | — | First bin | — | — | — | Chart root |
-| petal_length bin | — | Prev / next bin | — | First leaf | — | petal_length dim | — | — |
-| species dimension | — | — | cycle dims | First species | — | — | — | Chart root |
-| species category | — | — | Prev / next species | First leaf | — | — | species dim | — |
-| Leaf | Prev / next sepal bin | Prev / next petal bin | Prev / next species | — | Parent sepal bin | Parent petal bin | Parent species | — |
+| Location               | ← →                   | ↑ ↓                   | [ ]                 | Enter                  | W                | J                | \\             | Backspace  |
+| ---------------------- | --------------------- | --------------------- | ------------------- | ---------------------- | ---------------- | ---------------- | -------------- | ---------- |
+| Chart root             | —                     | —                     | —                   | sepal_length dimension | —                | —                | —              | —          |
+| sepal_length dimension | cycle dims            | —                     | —                   | First bin              | —                | —                | —              | Chart root |
+| sepal_length bin       | Prev / next bin       | —                     | —                   | First leaf             | sepal_length dim | —                | —              | —          |
+| petal_length dimension | —                     | cycle dims            | —                   | First bin              | —                | —                | —              | Chart root |
+| petal_length bin       | —                     | Prev / next bin       | —                   | First leaf             | —                | petal_length dim | —              | —          |
+| species dimension      | —                     | —                     | cycle dims          | First species          | —                | —                | —              | Chart root |
+| species category       | —                     | —                     | Prev / next species | First leaf             | —                | —                | species dim    | —          |
+| Leaf                   | Prev / next sepal bin | Prev / next petal bin | Prev / next species | —                      | Parent sepal bin | Parent petal bin | Parent species | —          |
 
 - At the **leaf** level all three axis controls stay active for free 3-D roaming without drilling back up.
 - The sepal-length and petal-length dimensions use **terminal** extents (navigation stops at first/last bin). Species uses **circular** extents (wraps from last species back to first).

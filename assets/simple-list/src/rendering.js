@@ -9,21 +9,26 @@ export function drawChart(focusData) {
 
     const stores = ['a', 'b'];
     const p = Bokeh.Plotting.figure({
-        x_range: stores, y_range: [0, 5.5],
-        height: chartHeight, width: chartWidth,
-        title: 'Fruit cost by store', output_backend: 'svg',
-        toolbar_location: null, tools: ''
+        x_range: stores,
+        y_range: [0, 5.5],
+        height: chartHeight,
+        width: chartWidth,
+        title: 'Fruit cost by store',
+        output_backend: 'svg',
+        toolbar_location: null,
+        tools: ''
     });
 
-    p.vbar({ x: stores, top: [3, 2.75], bottom: [0, 0], width: 0.8,
-             color: '#FCB5B6', line_color: '#8F0002' });
-    p.vbar({ x: stores, top: [3.75, 4], bottom: [3, 2.75], width: 0.8,
-             color: '#F9E782', line_color: '#766500' });
+    p.vbar({ x: stores, top: [3, 2.75], bottom: [0, 0], width: 0.8, color: '#FCB5B6', line_color: '#8F0002' });
+    p.vbar({ x: stores, top: [3.75, 4], bottom: [3, 2.75], width: 0.8, color: '#F9E782', line_color: '#766500' });
 
     if (focusData) {
         p.vbar({
-            x: stores, top: focusData.top, bottom: focusData.bottom,
-            width: 0.8, line_width: 3,
+            x: stores,
+            top: focusData.top,
+            bottom: focusData.bottom,
+            width: 0.8,
+            line_width: 3,
             color: ['transparent', 'transparent'],
             line_color: focusData.line_color
         });
@@ -31,13 +36,16 @@ export function drawChart(focusData) {
 
     const r1 = p.square([-10000], [-10000], { color: '#FCB5B6', line_color: '#8F0002' });
     const r2 = p.square([-10000], [-10000], { color: '#F9E782', line_color: '#766500' });
-    p.add_layout(new Bokeh.Legend({
-        items: [
-            new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
-            new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
-        ],
-        location: 'top_left', orientation: 'horizontal'
-    }));
+    p.add_layout(
+        new Bokeh.Legend({
+            items: [
+                new Bokeh.LegendItem({ label: 'apple', renderers: [r1] }),
+                new Bokeh.LegendItem({ label: 'banana', renderers: [r2] })
+            ],
+            location: 'top_left',
+            orientation: 'horizontal'
+        })
+    );
 
     Bokeh.Plotting.show(p, '#chart');
     const bokehPlot = document.querySelector('#chart');
@@ -50,9 +58,7 @@ export function drawFocusIndicator(node) {
     const fruitIndex = interactiveData.indices.fruit[node.data.fruit];
     const storeIndex = interactiveData.indices.store[node.data.store];
     const barData = interactiveData.data[fruitIndex];
-    const line_color = storeIndex === 0
-        ? ['#000000', 'transparent']
-        : ['transparent', '#000000'];
+    const line_color = storeIndex === 0 ? ['#000000', 'transparent'] : ['transparent', '#000000'];
     drawChart({ top: barData[0], bottom: barData[1], line_color });
 }
 
@@ -65,7 +71,8 @@ export function createRenderer(structure, onEnter) {
         root: {
             id: 'chart-wrapper',
             description: 'Fruit cost by store chart. Use arrow keys to navigate.',
-            width: '100%', height: 0
+            width: '100%',
+            height: 0
         },
         entryButton: { include: true, callbacks: { click: onEnter } },
         exitElement: { include: true }

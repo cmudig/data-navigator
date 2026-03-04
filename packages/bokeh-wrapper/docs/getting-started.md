@@ -28,22 +28,23 @@ Render your Bokeh chart first, then call `addDataNavigator`:
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 const myData = [
-  { fruit: 'Apples',      count: 5 },
-  { fruit: 'Pears',       count: 3 },
-  { fruit: 'Nectarines',  count: 4 },
-  { fruit: 'Plums',       count: 2 },
-  { fruit: 'Grapes',      count: 4 },
-  { fruit: 'Strawberries', count: 6 },
+    { fruit: 'Apples', count: 5 },
+    { fruit: 'Pears', count: 3 },
+    { fruit: 'Nectarines', count: 4 },
+    { fruit: 'Plums', count: 2 },
+    { fruit: 'Grapes', count: 4 },
+    { fruit: 'Strawberries', count: 6 }
 ];
 
 // Render Bokeh chart into #my-plot first, then:
 const wrapper = addDataNavigator({
-  plotContainer: '#my-plot',
-  data: myData,
+    plotContainer: '#my-plot',
+    data: myData
 });
 ```
 
 The wrapper automatically:
+
 - Infers the chart type (`bar` in this case)
 - Builds a navigable structure
 - Appends a text-chat interface after the plot
@@ -55,78 +56,78 @@ The wrapper automatically:
 
 ```ts
 addDataNavigator({
-  // Required ──────────────────────────────────────────────
+    // Required ──────────────────────────────────────────────
 
-  plotContainer: '#my-plot',   // CSS selector or HTMLElement
-  data: myData,                // Array of plain objects (same data passed to Bokeh)
+    plotContainer: '#my-plot', // CSS selector or HTMLElement
+    data: myData, // Array of plain objects (same data passed to Bokeh)
 
-  // Chart type (optional — auto-detected from data shape) ─
+    // Chart type (optional — auto-detected from data shape) ─
 
-  type: 'bar',
-  // 'bar' | 'hbar' | 'scatter' | 'line' | 'multiline' | 'stacked_bar' | 'auto'
+    type: 'bar',
+    // 'bar' | 'hbar' | 'scatter' | 'line' | 'multiline' | 'stacked_bar' | 'auto'
 
-  // Field mappings (optional) ─────────────────────────────
+    // Field mappings (optional) ─────────────────────────────
 
-  xField: 'fruit',    // Categorical or x-axis field
-  yField: 'count',    // Numerical or y-axis field
-  groupField: 'year', // Series / stack layer field (multiline, stacked_bar)
+    xField: 'fruit', // Categorical or x-axis field
+    yField: 'count', // Numerical or y-axis field
+    groupField: 'year', // Series / stack layer field (multiline, stacked_bar)
 
-  // Interface mode (default: 'text') ──────────────────────
+    // Interface mode (default: 'text') ──────────────────────
 
-  mode: 'text',       // 'text' | 'keyboard' | 'both'
+    mode: 'text', // 'text' | 'keyboard' | 'both'
 
-  // Place the chat UI somewhere specific (optional) ───────
-  chatContainer: '#my-chat-area',
+    // Place the chat UI somewhere specific (optional) ───────
+    chatContainer: '#my-chat-area',
 
-  // Sync with the Bokeh chart (optional) ──────────────────
+    // Sync with the Bokeh chart (optional) ──────────────────
 
-  onNavigate(node) {
-    // Called on every navigation move.
-    // node.data contains the underlying datum.
-    // Use this to redraw focus indicators, update tooltips, etc.
-    highlightBar(node.data);
-  },
+    onNavigate(node) {
+        // Called on every navigation move.
+        // node.data contains the underlying datum.
+        // Use this to redraw focus indicators, update tooltips, etc.
+        highlightBar(node.data);
+    },
 
-  onExit() {
-    clearHighlight();
-  },
+    onExit() {
+        clearHighlight();
+    },
 
-  // Interaction callbacks (text mode) ─────────────────────
+    // Interaction callbacks (text mode) ─────────────────────
 
-  onClick(node) {
-    // Called when user types "click" or "select".
-    // Dispatch a programmatic click on the Bokeh element.
-    triggerBokehClick(node.data);
-  },
+    onClick(node) {
+        // Called when user types "click" or "select".
+        // Dispatch a programmatic click on the Bokeh element.
+        triggerBokehClick(node.data);
+    },
 
-  onHover(node) {
-    // Called when user types "hover" or "inspect".
-    triggerBokehHover(node.data);
-  },
+    onHover(node) {
+        // Called when user types "hover" or "inspect".
+        triggerBokehHover(node.data);
+    },
 
-  // LLM integration (optional) ────────────────────────────
+    // LLM integration (optional) ────────────────────────────
 
-  llm: async (messages) => {
-    const res = await fetch('/api/llm', {
-      method: 'POST',
-      body: JSON.stringify({ messages }),
-    });
-    const json = await res.json();
-    return json.content;
-  },
+    llm: async messages => {
+        const res = await fetch('/api/llm', {
+            method: 'POST',
+            body: JSON.stringify({ messages })
+        });
+        const json = await res.json();
+        return json.content;
+    },
 
-  // Override auto-generated command labels ────────────────
+    // Override auto-generated command labels ────────────────
 
-  commandLabels: {
-    left: 'Previous fruit',
-    right: 'Next fruit',
-  },
+    commandLabels: {
+        left: 'Previous fruit',
+        right: 'Next fruit'
+    },
 
-  // Advanced: pass extra options to the structure builder ─
+    // Advanced: pass extra options to the structure builder ─
 
-  structureOptions: {
-    // Any StructureOptions from data-navigator
-  },
+    structureOptions: {
+        // Any StructureOptions from data-navigator
+    }
 });
 ```
 
@@ -156,26 +157,26 @@ The most common use of `onNavigate` is to redraw a focus indicator on the Bokeh 
 Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer:
 
 ```js
-const drawChart = (highlight) => {
-  // Re-render Bokeh plot, adding a highlight layer if highlight !== null
+const drawChart = highlight => {
+    // Re-render Bokeh plot, adding a highlight layer if highlight !== null
 };
 
 const wrapper = addDataNavigator({
-  plotContainer: '#my-plot',
-  data,
-  xField: 'fruit',
-  yField: 'count',
-  onNavigate(node) {
-    if (!node.derivedNode) {
-      // Leaf node — highlight this bar
-      drawChart({ x: node.data.fruit });
-    } else {
-      drawChart(null);
+    plotContainer: '#my-plot',
+    data,
+    xField: 'fruit',
+    yField: 'count',
+    onNavigate(node) {
+        if (!node.derivedNode) {
+            // Leaf node — highlight this bar
+            drawChart({ x: node.data.fruit });
+        } else {
+            drawChart(null);
+        }
+    },
+    onExit() {
+        drawChart(null);
     }
-  },
-  onExit() {
-    drawChart(null);
-  },
 });
 ```
 
@@ -193,14 +194,14 @@ import { Inspector } from '@data-navigator/inspector';
 const wrapper = addDataNavigator({ plotContainer: '#plot', data });
 
 const inspector = Inspector({
-  structure: wrapper.structure,
-  container: 'inspector-container',
-  size: 300,
-  colorBy: 'dimensionLevel',
+    structure: wrapper.structure,
+    container: 'inspector-container',
+    size: 300,
+    colorBy: 'dimensionLevel'
 });
 
 // Highlight inspector node when user navigates
-wrapper.onNavigate = (node) => inspector.highlight(node.renderId ?? node.id);
+wrapper.onNavigate = node => inspector.highlight(node.renderId ?? node.id);
 ```
 
 ::: warning Note
@@ -217,13 +218,13 @@ Set `mode: 'keyboard'` to replace the text-chat UI with keyboard navigation that
 
 ```js
 addDataNavigator({
-  plotContainer: '#my-plot',
-  data,
-  mode: 'keyboard',
-  onNavigate(node) {
-    // Sync the Bokeh chart on each navigation
-    drawFocusIndicator(node.data);
-  },
+    plotContainer: '#my-plot',
+    data,
+    mode: 'keyboard',
+    onNavigate(node) {
+        // Sync the Bokeh chart on each navigation
+        drawFocusIndicator(node.data);
+    }
 });
 ```
 

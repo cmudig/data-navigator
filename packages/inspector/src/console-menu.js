@@ -14,11 +14,7 @@
 
 import { createMenuState } from './menu-state.js';
 import { connectStateToSvg } from './svg-highlight.js';
-import {
-    buildConsoleSection,
-    buildRenderedElementsSection,
-    buildSourceInputSection
-} from './menu-sections.js';
+import { buildConsoleSection, buildRenderedElementsSection, buildSourceInputSection } from './menu-sections.js';
 
 /**
  * Create and mount the console menu.
@@ -59,9 +55,7 @@ export function createConsoleMenu({
     outerDetails.appendChild(consoleEl);
 
     // 2. Rendered Elements (collapsed — Nodes grouped by dim/div, Edges grouped by nav rule)
-    const renderedEl = buildRenderedElementsSection(
-        structure, state, container, consoleListEl, buildLabelFn
-    );
+    const renderedEl = buildRenderedElementsSection(structure, state, container, consoleListEl, buildLabelFn);
     outerDetails.appendChild(renderedEl);
 
     // 3. Source Input (collapsed — Data, Props, Dimensions, Divisions)

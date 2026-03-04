@@ -50,12 +50,13 @@ import 'data-navigator/text-chat.css';
 
 // After your Bokeh chart is rendered:
 const wrapper = addDataNavigator({
-  plotContainer: '#my-plot',
-  data: myData,
+    plotContainer: '#my-plot',
+    data: myData
 });
 ```
 
 That's it. The wrapper will:
+
 1. Set the Bokeh plot to `inert` so screen readers skip the inaccessible output
 2. Infer the chart type from your data
 3. Build a navigable graph structure

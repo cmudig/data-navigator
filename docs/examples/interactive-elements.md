@@ -23,19 +23,19 @@ All three paths converge on the same `onClick` callback, so your interaction log
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between sepal-length bins (or data points at leaf level) |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Navigate between petal-length bins (or data points at leaf level) |
-| <kbd>[</kbd> <kbd>]</kbd> | Navigate between species groups (or data points at leaf level) |
-| <kbd>Enter</kbd> | Drill in |
-| <kbd>Space</kbd> | **Select / deselect current element** (also selects all children if at a group level) |
-| <kbd>W</kbd> | Go up to sepal-length level |
-| <kbd>J</kbd> | Go up to petal-length level |
-| <kbd>\\</kbd> | Go up to species level |
-| <kbd>Backspace</kbd> | Go back to chart root |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                                             |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level)                     |
+| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level)                     |
+| <kbd>[</kbd> <kbd>]</kbd>    | Navigate between species groups (or data points at leaf level)                        |
+| <kbd>Enter</kbd>             | Drill in                                                                              |
+| <kbd>Space</kbd>             | **Select / deselect current element** (also selects all children if at a group level) |
+| <kbd>W</kbd>                 | Go up to sepal-length level                                                           |
+| <kbd>J</kbd>                 | Go up to petal-length level                                                           |
+| <kbd>\\</kbd>                | Go up to species level                                                                |
+| <kbd>Backspace</kbd>         | Go back to chart root                                                                 |
+| <kbd>Escape</kbd>            | Exit navigation                                                                       |
 
 </div>
 
@@ -345,52 +345,51 @@ import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 const selectedIds = new Set();
 
 // Collect leaf IDs from any node type (leaf, division, or dimension)
-const getLeafIds = (node) => {
-  if (!node.derivedNode) return [node.id];              // leaf
-  if (node.data?.dimensionKey) {                        // dimension root
-    const ids = [];
-    for (const div of Object.values(node.data.divisions || {}))
-      ids.push(...Object.keys(div.values || {}));
-    return ids;
-  }
-  return Object.keys(node.data?.values || {});          // division
+const getLeafIds = node => {
+    if (!node.derivedNode) return [node.id]; // leaf
+    if (node.data?.dimensionKey) {
+        // dimension root
+        const ids = [];
+        for (const div of Object.values(node.data.divisions || {})) ids.push(...Object.keys(div.values || {}));
+        return ids;
+    }
+    return Object.keys(node.data?.values || {}); // division
 };
 
 const wrapper = addDataNavigator({
-  plotContainer: 'my-plot',
-  data,
-  type: 'cartesian',
-  xField: 'sepal_length',
-  yField: 'petal_length',
-  groupField: 'species',
-  idField: 'pt',
-  // Keyboard mode: aria-selected communicates toggle state to assistive tech
-  renderingOptions: {
-    defaults: { parentSemantics: { elementType: 'figure', role: 'option' } }
-  },
-  onNavigate(node) {
-    updateChartFocus(node);
-    // Reflect current selection state on the keyboard-nav overlay element
-    const el = document.getElementById(node.id);
-    if (el) {
-      const leafIds = getLeafIds(node);
-      el.setAttribute('aria-selected',
-        String(leafIds.length > 0 && leafIds.every(id => selectedIds.has(id))));
+    plotContainer: 'my-plot',
+    data,
+    type: 'cartesian',
+    xField: 'sepal_length',
+    yField: 'petal_length',
+    groupField: 'species',
+    idField: 'pt',
+    // Keyboard mode: aria-selected communicates toggle state to assistive tech
+    renderingOptions: {
+        defaults: { parentSemantics: { elementType: 'figure', role: 'option' } }
+    },
+    onNavigate(node) {
+        updateChartFocus(node);
+        // Reflect current selection state on the keyboard-nav overlay element
+        const el = document.getElementById(node.id);
+        if (el) {
+            const leafIds = getLeafIds(node);
+            el.setAttribute('aria-selected', String(leafIds.length > 0 && leafIds.every(id => selectedIds.has(id))));
+        }
+    },
+    onClick(node) {
+        // Works for leaf, division (group), and dimension (all) nodes
+        const leafIds = getLeafIds(node);
+        const allSelected = leafIds.every(id => selectedIds.has(id));
+        if (allSelected) leafIds.forEach(id => selectedIds.delete(id));
+        else leafIds.forEach(id => selectedIds.add(id));
+
+        updateSelectionTable(selectedIds, data);
+        redrawChart(selectedIds, data);
+
+        const el = document.getElementById(node.id);
+        if (el) el.setAttribute('aria-selected', String(!allSelected));
     }
-  },
-  onClick(node) {
-    // Works for leaf, division (group), and dimension (all) nodes
-    const leafIds = getLeafIds(node);
-    const allSelected = leafIds.every(id => selectedIds.has(id));
-    if (allSelected) leafIds.forEach(id => selectedIds.delete(id));
-    else             leafIds.forEach(id => selectedIds.add(id));
-
-    updateSelectionTable(selectedIds, data);
-    redrawChart(selectedIds, data);
-
-    const el = document.getElementById(node.id);
-    if (el) el.setAttribute('aria-selected', String(!allSelected));
-  },
 });
 ```
 

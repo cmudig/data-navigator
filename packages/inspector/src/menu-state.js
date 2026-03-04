@@ -5,7 +5,7 @@
  */
 export function createMenuState() {
     const checked = new Map(); // Map<"type:id", {type, id}>
-    const logEntries = [];     // Array<{type, id, data, relatedItems, timestamp}>
+    const logEntries = []; // Array<{type, id, data, relatedItems, timestamp}>
     const listeners = new Set();
 
     function notify(changeType, payload) {

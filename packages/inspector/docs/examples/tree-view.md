@@ -12,10 +12,10 @@ This example shows the **tree mode** alongside the default **force mode** for th
 | ------------------------------ | ------------------------------------------- |
 | Enter the structure            | Activate the "Enter navigation area" button |
 | Exit                           | <kbd>Esc</kbd>                              |
-| Left (backward along category) | <kbd>&larr;</kbd>                            |
-| Right (forward along category) | <kbd>&rarr;</kbd>                            |
-| Up (backward along date)       | <kbd>&uarr;</kbd>                            |
-| Down (forward along date)      | <kbd>&darr;</kbd>                            |
+| Left (backward along category) | <kbd>&larr;</kbd>                           |
+| Right (forward along category) | <kbd>&rarr;</kbd>                           |
+| Up (backward along date)       | <kbd>&uarr;</kbd>                           |
+| Down (forward along date)      | <kbd>&darr;</kbd>                           |
 | Drill down to child            | <kbd>Enter</kbd>                            |
 | Drill up to category parent    | <kbd>W</kbd>                                |
 | Drill up to date parent        | <kbd>J</kbd>                                |

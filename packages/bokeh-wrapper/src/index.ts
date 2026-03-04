@@ -9,7 +9,13 @@
 
 import dataNavigator from 'data-navigator';
 import type { Structure, TextChatInstance } from 'data-navigator';
-import { buildStructureOptions, buildCommandLabels, buildChartDescription, prepareNodeSemantics, resolveEl } from './structure-builder';
+import {
+    buildStructureOptions,
+    buildCommandLabels,
+    buildChartDescription,
+    prepareNodeSemantics,
+    resolveEl
+} from './structure-builder';
 import type { BokehWrapperOptions, BokehWrapperInstance } from './types';
 
 export type { BokehWrapperOptions, BokehWrapperInstance, BokehChartType, BokehWrapperMode } from './types';
@@ -17,18 +23,14 @@ export { buildChartDescription, buildNodeLabel, prepareNodeSemantics } from './s
 
 // ─── Chat container helper ───────────────────────────────────────────────────
 
-function resolveChatContainer(
-    options: BokehWrapperOptions,
-    plotEl: HTMLElement
-): { el: HTMLElement; owned: boolean } {
+function resolveChatContainer(options: BokehWrapperOptions, plotEl: HTMLElement): { el: HTMLElement; owned: boolean } {
     if (options.chatContainer) {
         const el = resolveEl(options.chatContainer);
         if (el) return { el, owned: false };
     }
     const div = document.createElement('div');
     div.className = 'dn-bokeh-wrapper';
-    plotEl.parentElement?.insertBefore(div, plotEl.nextSibling) ??
-        document.body.appendChild(div);
+    plotEl.parentElement?.insertBefore(div, plotEl.nextSibling) ?? document.body.appendChild(div);
     return { el: div, owned: true };
 }
 
@@ -64,9 +66,10 @@ function setupKeyboardMode(
         },
         suffixId,
         root: {
-            id: typeof options.plotContainer === 'string'
-                ? options.plotContainer
-                : (options.plotContainer as HTMLElement).id || 'dn-bokeh-root',
+            id:
+                typeof options.plotContainer === 'string'
+                    ? options.plotContainer
+                    : (options.plotContainer as HTMLElement).id || 'dn-bokeh-root',
             description: 'Accessible data navigation',
             width: '100%',
             height: 0
@@ -167,8 +170,12 @@ function setupKeyboardMode(
     return {
         destroy() {
             // Remove elements the rendering module appended to plotEl
-            try { rendering.wrapper?.remove?.(); } catch (_) {}
-            try { rendering.exitElement?.remove?.(); } catch (_) {}
+            try {
+                rendering.wrapper?.remove?.();
+            } catch (_) {}
+            try {
+                rendering.exitElement?.remove?.();
+            } catch (_) {}
         },
         getCurrentNode() {
             return current ? (structure.nodes[current] ?? null) : null;
@@ -191,9 +198,7 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
 
     const plotEl = resolveEl(options.plotContainer);
     if (!plotEl) {
-        throw new Error(
-            `@data-navigator/bokeh-wrapper: plotContainer "${options.plotContainer}" not found.`
-        );
+        throw new Error(`@data-navigator/bokeh-wrapper: plotContainer "${options.plotContainer}" not found.`);
     }
 
     // Only hide the plot in text mode — the accessible UI is outside the container.
@@ -227,9 +232,8 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         const dims = (structOpts as any).dimensions;
         if (!dims.parentOptions) dims.parentOptions = {};
         if (!dims.parentOptions.addLevel0) {
-            const plotId = typeof options.plotContainer === 'string'
-                ? options.plotContainer.replace(/[^a-zA-Z0-9_-]/g, '')
-                : 'dn';
+            const plotId =
+                typeof options.plotContainer === 'string' ? options.plotContainer.replace(/[^a-zA-Z0-9_-]/g, '') : 'dn';
             dims.parentOptions.addLevel0 = {
                 id: `${plotId}-chart-root`,
                 edges: [],
@@ -260,10 +264,9 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
     // For multi-dimension charts the Level 0 root (dimensionLevel === 0) is the
     // natural starting point; for single-dimension charts it is the dimension root.
     const level0Node = Object.values(structure.nodes).find((n: any) => n.dimensionLevel === 0) as any;
-    const resolvedEntryPoint: string | undefined = level0Node?.id
-        ?? (structure.dimensions
-            ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
-            : undefined);
+    const resolvedEntryPoint: string | undefined =
+        level0Node?.id ??
+        (structure.dimensions ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId : undefined);
 
     const cleanups: Array<() => void> = [];
 
@@ -287,7 +290,9 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
 
         if (owned) {
             cleanups.push(() => {
-                try { chatEl.parentElement?.removeChild(chatEl); } catch (_) {}
+                try {
+                    chatEl.parentElement?.removeChild(chatEl);
+                } catch (_) {}
             });
         }
     }

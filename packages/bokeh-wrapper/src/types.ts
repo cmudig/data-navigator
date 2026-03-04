@@ -1,10 +1,4 @@
-import type {
-    Structure,
-    StructureOptions,
-    RenderingOptions,
-    NodeObject,
-    LLMMessage
-} from 'data-navigator';
+import type { Structure, StructureOptions, RenderingOptions, NodeObject, LLMMessage } from 'data-navigator';
 
 /**
  * Supported Bokeh chart types for smart defaults.

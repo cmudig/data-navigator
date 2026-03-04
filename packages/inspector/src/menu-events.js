@@ -19,8 +19,10 @@ export const EVENTS = {
  * @param {Object} detail - Event detail payload
  */
 export function dispatch(container, eventName, detail) {
-    container.dispatchEvent(new CustomEvent(eventName, {
-        bubbles: true,
-        detail
-    }));
+    container.dispatchEvent(
+        new CustomEvent(eventName, {
+            bubbles: true,
+            detail
+        })
+    );
 }

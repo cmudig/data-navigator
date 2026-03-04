@@ -44,9 +44,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(stackedBar, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific bar segment
-        stackedBar.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        stackedBar.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         stackedBar.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all bars

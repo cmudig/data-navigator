@@ -119,33 +119,33 @@ onUnmounted(() => wrapper?.destroy());
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
 
 const data = [
-  { fruit: 'Apples',       count: 5 },
-  { fruit: 'Pears',        count: 3 },
-  { fruit: 'Nectarines',   count: 4 },
-  { fruit: 'Plums',        count: 2 },
-  { fruit: 'Grapes',       count: 4 },
-  { fruit: 'Strawberries', count: 6 },
+    { fruit: 'Apples', count: 5 },
+    { fruit: 'Pears', count: 3 },
+    { fruit: 'Nectarines', count: 4 },
+    { fruit: 'Plums', count: 2 },
+    { fruit: 'Grapes', count: 4 },
+    { fruit: 'Strawberries', count: 6 }
 ];
 
 const wrapper = addDataNavigator({
-  plotContainer: '#my-plot',
-  data,
-  type: 'bar',        // optional — auto-detected from data shape
-  title: 'Fruit counts',
-  xField: 'fruit',
-  yField: 'count',
-  compressSparseDivisions: true,
-  onNavigate(node) {
-    if (node.derivedNode && node.data?.fruit == null) {
-      // Dimension root — no specific fruit yet; highlight the whole group.
-      drawChart({ highlight: '__all__' });
-    } else {
-      drawChart({ highlight: node.data.fruit });
+    plotContainer: '#my-plot',
+    data,
+    type: 'bar', // optional — auto-detected from data shape
+    title: 'Fruit counts',
+    xField: 'fruit',
+    yField: 'count',
+    compressSparseDivisions: true,
+    onNavigate(node) {
+        if (node.derivedNode && node.data?.fruit == null) {
+            // Dimension root — no specific fruit yet; highlight the whole group.
+            drawChart({ highlight: '__all__' });
+        } else {
+            drawChart({ highlight: node.data.fruit });
+        }
+    },
+    onExit() {
+        drawChart({ highlight: null });
     }
-  },
-  onExit() {
-    drawChart({ highlight: null });
-  },
 });
 ```
 
@@ -159,10 +159,10 @@ const wrapper = addDataNavigator({
 
 ## Commands
 
-| Command | Action |
-|---------|--------|
-| `enter` | Enter the navigation structure |
-| `right` | Move to the next fruit |
-| `left` | Move to the previous fruit |
-| `move to <search>` | Jump to a fruit by name |
-| `help` | List available commands |
+| Command            | Action                         |
+| ------------------ | ------------------------------ |
+| `enter`            | Enter the navigation structure |
+| `right`            | Move to the next fruit         |
+| `left`             | Move to the previous fruit     |
+| `move to <search>` | Jump to a fruit by name        |
+| `help`             | List available commands        |

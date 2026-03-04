@@ -10,7 +10,9 @@ export function resolveEl(ref: string | HTMLElement): HTMLElement | null {
 
 /** Make a string safe for use as a node / DOM id. */
 function safeId(s: unknown): string {
-    return String(s).replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    return String(s)
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]/g, '');
 }
 
 function isNumericField(data: Record<string, unknown>[], field: string): boolean {
@@ -69,25 +71,25 @@ const exitEdge = {
 
 const baseNavRules: NavigationRules = {
     // Primary (x-axis) navigation
-    left:     { key: 'ArrowLeft',    direction: 'source' },
-    right:    { key: 'ArrowRight',   direction: 'target' },
+    left: { key: 'ArrowLeft', direction: 'source' },
+    right: { key: 'ArrowRight', direction: 'target' },
     // Secondary encoding (y-axis / group) navigation
-    up:       { key: 'ArrowUp',      direction: 'source' },
-    down:     { key: 'ArrowDown',    direction: 'target' },
+    up: { key: 'ArrowUp', direction: 'source' },
+    down: { key: 'ArrowDown', direction: 'target' },
     // Tertiary encoding navigation  ([  /  ])
-    backward: { key: 'BracketLeft',  direction: 'source' },
-    forward:  { key: 'BracketRight', direction: 'target' },
+    backward: { key: 'BracketLeft', direction: 'source' },
+    forward: { key: 'BracketRight', direction: 'target' },
     // Hierarchy traversal
-    child:    { key: 'Enter',        direction: 'target' },
-    parent:   { key: 'Backspace',    direction: 'source' },
-    undo:     { key: 'Delete',       direction: 'source' },
+    child: { key: 'Enter', direction: 'target' },
+    parent: { key: 'Backspace', direction: 'source' },
+    undo: { key: 'Delete', direction: 'source' },
     // Encoding-specific parent shortcuts (W = x-axis parent, J = y-axis parent, \ = tertiary parent)
-    xParent:  { key: 'KeyW',         direction: 'source' },
-    yParent:  { key: 'KeyJ',         direction: 'source' },
-    zParent:  { key: 'Backslash',    direction: 'source' },
+    xParent: { key: 'KeyW', direction: 'source' },
+    yParent: { key: 'KeyJ', direction: 'source' },
+    zParent: { key: 'Backslash', direction: 'source' },
     // Exit and help
-    exit:     { key: 'Escape',       direction: 'target' },
-    help:     { key: 'KeyY',         direction: 'target' },
+    exit: { key: 'Escape', direction: 'target' },
+    help: { key: 'KeyY', direction: 'target' }
 };
 
 /** Flat circular list: left ↔ right through sorted items. */
@@ -106,9 +108,7 @@ function buildFlatStructure(
           })
         : [...data];
 
-    const ids: string[] = sorted.map((d, i) =>
-        idField && d[idField] != null ? safeId(d[idField]) : `dn-item-${i}`
-    );
+    const ids: string[] = sorted.map((d, i) => (idField && d[idField] != null ? safeId(d[idField]) : `dn-item-${i}`));
 
     const augmented = sorted.map((d, i) => ({ ...d, _dnId: ids[i] }));
 
@@ -162,7 +162,7 @@ function buildCrosslineStructure(
     // visual stacking means the first group is at the top of the chart. Swapping
     // up/down directions matches the rendered order for crossline and stacked_bar.
     const augNavRules = { ...baseNavRules };
-    augNavRules.up   = { key: 'ArrowUp',   direction: 'target' as const };
+    augNavRules.up = { key: 'ArrowUp', direction: 'target' as const };
     augNavRules.down = { key: 'ArrowDown', direction: 'source' as const };
 
     return {
@@ -225,21 +225,21 @@ function buildCartesianStructure(
             idField && d[idField] != null
                 ? safeId(String(d[idField]))
                 : d['id'] != null
-                    ? safeId(String(d['id']))
-                    : `dn-pt-${i}`;
+                  ? safeId(String(d['id']))
+                  : `dn-pt-${i}`;
         return { ...d, id: baseId };
     });
 
     // Automatic bin count: ceil(sqrt(N)), minimum 3, max 12.
     // createNumericalSubdivisions receives (dimensionKey, sortedValues) at build time.
     const autoSubdivs = (_key: string, values: Record<string, unknown>) =>
-        Math.min(12,Math.max(3, Math.ceil(Math.sqrt(Object.keys(values).length))));
+        Math.min(12, Math.max(3, Math.ceil(Math.sqrt(Object.keys(values).length))));
 
     // We want to swap up/down in a scatterplot so that low values (first) go "up" to higher ones
     // (Typically "down" means to move "forward")
-    const augNavRules = {...baseNavRules}
-    augNavRules.up = { key: 'ArrowUp',      direction: 'target' as const };
-    augNavRules.down = { key: 'ArrowDown',    direction: 'source' as const };
+    const augNavRules = { ...baseNavRules };
+    augNavRules.up = { key: 'ArrowUp', direction: 'target' as const };
+    augNavRules.down = { key: 'ArrowDown', direction: 'source' as const };
     return {
         data: augmented,
         idKey: 'id',
@@ -264,7 +264,7 @@ function buildCartesianStructure(
                     behavior: {
                         extents: 'terminal' as const
                     },
-                    operations: { 
+                    operations: {
                         createNumericalSubdivisions: autoSubdivs
                         // sortFunction: (a:any,b:any) => {
                         //     console.log("sorting dim",yField,a,b)
@@ -305,8 +305,8 @@ function buildCartesianGroupedStructure(
             idField && d[idField] != null
                 ? safeId(String(d[idField]))
                 : d['id'] != null
-                    ? safeId(String(d['id']))
-                    : `dn-pt-${i}`;
+                  ? safeId(String(d['id']))
+                  : `dn-pt-${i}`;
         return { ...d, id: baseId };
     });
 
@@ -315,7 +315,7 @@ function buildCartesianGroupedStructure(
 
     // Match cartesian: up goes to higher values, down to lower.
     const augNavRules = { ...baseNavRules };
-    augNavRules.up   = { key: 'ArrowUp',   direction: 'target' as const };
+    augNavRules.up = { key: 'ArrowUp', direction: 'target' as const };
     augNavRules.down = { key: 'ArrowDown', direction: 'source' as const };
 
     return {
@@ -400,7 +400,7 @@ function buildDimensionStructure(
                     // Without this, data-navigator auto-generates 'parent_<dimensionKey>'
                     // (e.g. 'parent_city'), which won't match the 'parent' rule.
                     operations: {
-                        compressSparseDivisions: compressSparseDivisions || false,
+                        compressSparseDivisions: compressSparseDivisions || false
                     },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
@@ -524,10 +524,7 @@ export function buildStructureOptions(
 
         case 'bar':
         case 'hbar': {
-            const catField =
-                xField ||
-                Object.keys(data[0] ?? {}).find(k => !isNumericField(data, k)) ||
-                'x';
+            const catField = xField || Object.keys(data[0] ?? {}).find(k => !isNumericField(data, k)) || 'x';
             base = buildDimensionStructure(data, catField, idField, '', options.compressSparseDivisions);
             break;
         }
@@ -598,11 +595,11 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             break;
 
         case 'stacked_bar':
-            auto.left    = `Move to previous ${xField ?? 'category'}`;
-            auto.right   = `Move to next ${xField ?? 'category'}`;
-            auto.up      = `Move to previous ${groupField ?? 'group'}`;
-            auto.down    = `Move to next ${groupField ?? 'group'}`;
-            auto.child   = 'Drill in';
+            auto.left = `Move to previous ${xField ?? 'category'}`;
+            auto.right = `Move to next ${xField ?? 'category'}`;
+            auto.up = `Move to previous ${groupField ?? 'group'}`;
+            auto.down = `Move to next ${groupField ?? 'group'}`;
+            auto.child = 'Drill in';
             auto.xParent = `Go up to ${xField ?? 'category'} level`;
             auto.yParent = `Go up to ${groupField ?? 'group'} level`;
             break;
@@ -625,8 +622,8 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.yParent = `Go up to ${yField ?? 'y'} level`;
             if (groupField) {
                 auto.backward = `Move to previous ${groupField} group`;
-                auto.forward  = `Move to next ${groupField} group`;
-                auto.zParent  = `Go up to ${groupField} level`;
+                auto.forward = `Move to next ${groupField} group`;
+                auto.zParent = `Go up to ${groupField} level`;
             }
             break;
 
@@ -684,12 +681,7 @@ export function buildNodeLabel(node: any): string {
     // Leaf node: raw datum — skip internal '_' prefixed keys and any non-primitive values
     // (objects / arrays / functions would stringify as [object Object]).
     const parts = Object.entries(data)
-        .filter(([k, v]) =>
-            !k.startsWith('_') &&
-            v != null &&
-            typeof v !== 'object' &&
-            typeof v !== 'function'
-        )
+        .filter(([k, v]) => !k.startsWith('_') && v != null && typeof v !== 'object' && typeof v !== 'function')
         .map(([k, v]) => `${k}: ${v}`);
     return parts.length > 0 ? parts.join('. ') + '.' : String(node.id);
 }
@@ -712,4 +704,3 @@ export function prepareNodeSemantics(structure: Structure): void {
         }
     }
 }
-

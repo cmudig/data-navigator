@@ -878,7 +878,9 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 // set up edge to first child (skip if this bin is empty — no data in range)
                 if (valueKeys.length > 0) {
                     const firstChildId =
-                        typeof options.idKey === 'function' ? options.idKey(division.values[valueKeys[0]]) : options.idKey;
+                        typeof options.idKey === 'function'
+                            ? options.idKey(division.values[valueKeys[0]])
+                            : options.idKey;
                     createEdge(
                         division.id,
                         division.values[valueKeys[0]][firstChildId],

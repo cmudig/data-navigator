@@ -17,19 +17,19 @@ This example lets you click (or select) individual Iris data points and groups. 
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key | Action |
-|-----|--------|
-| Enter navigation area button | Start keyboard navigation |
-| <kbd>←</kbd> <kbd>→</kbd> | Navigate between sepal-length bins (or data points at leaf level) |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Navigate between petal-length bins (or data points at leaf level) |
-| <kbd>[</kbd> <kbd>]</kbd> | Navigate between species groups (or data points at leaf level) |
-| <kbd>Enter</kbd> | Drill in |
-| <kbd>Space</kbd> | **Select / deselect current element** (also selects all children if at a group level) |
-| <kbd>W</kbd> | Go up to sepal-length level |
-| <kbd>J</kbd> | Go up to petal-length level |
-| <kbd>\\</kbd> | Go up to species level |
-| <kbd>Backspace</kbd> | Go back to chart root (from dimension roots) |
-| <kbd>Escape</kbd> | Exit navigation |
+| Key                          | Action                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| Enter navigation area button | Start keyboard navigation                                                             |
+| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level)                     |
+| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level)                     |
+| <kbd>[</kbd> <kbd>]</kbd>    | Navigate between species groups (or data points at leaf level)                        |
+| <kbd>Enter</kbd>             | Drill in                                                                              |
+| <kbd>Space</kbd>             | **Select / deselect current element** (also selects all children if at a group level) |
+| <kbd>W</kbd>                 | Go up to sepal-length level                                                           |
+| <kbd>J</kbd>                 | Go up to petal-length level                                                           |
+| <kbd>\\</kbd>                | Go up to species level                                                                |
+| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)                                          |
+| <kbd>Escape</kbd>            | Exit navigation                                                                       |
 
 </div>
 
@@ -428,7 +428,7 @@ onUnmounted(() => { wrapper?.destroy(); delete window.__bokehIeTap; });
 
 ## Why interactive visualizations need Data Navigator
 
-Most accessible chart implementations stop at *read-only* access: a data table, an alt text, or a structured description. Those approaches work well when users only need to **understand** the chart. They break down when users need to **interact** with it.
+Most accessible chart implementations stop at _read-only_ access: a data table, an alt text, or a structured description. Those approaches work well when users only need to **understand** the chart. They break down when users need to **interact** with it.
 
 Consider a dashboard where clicking data points applies a filter. A mouse user clicks a scatter point and the rest of the dashboard updates. A keyboard-only user, or a screen reader user on mobile, has no way to reach that scatter point through normal keyboard navigation — Bokeh renders it as an SVG element with no focusable role, no keyboard handler, and no accessible label.
 
@@ -442,7 +442,7 @@ All three paths converge on the same `onClick` callback, so your interaction log
 
 ### Group-level selection
 
-At a **division level** (e.g. a species category like `setosa`) or a **dimension root** (e.g. the `species` dimension), pressing <kbd>Space</kbd> or typing `"select"` will toggle *all child data points* in that group. The `onClick` callback receives the group node, and your handler can inspect `node.data.values` (division) or `node.data.divisions` (dimension) to enumerate the children.
+At a **division level** (e.g. a species category like `setosa`) or a **dimension root** (e.g. the `species` dimension), pressing <kbd>Space</kbd> or typing `"select"` will toggle _all child data points_ in that group. The `onClick` callback receives the group node, and your handler can inspect `node.data.values` (division) or `node.data.divisions` (dimension) to enumerate the children.
 
 In the text chat, typing `"select"` at a division node will say "Clicked: setosa. 5 child data points. Division." — then your callback handles the bulk operation.
 
@@ -456,52 +456,52 @@ const selectedIds = new Set();
 
 // Resolve leaf IDs for any node type (leaf, division, or dimension)
 const getLeafIds = (node, structure) => {
-  if (!node.derivedNode) return [node.id];                    // leaf
-  if (node.data?.dimensionKey) {                              // dimension root
-    const ids = [];
-    for (const div of Object.values(node.data.divisions || {}))
-      ids.push(...Object.keys(div.values || {}));
-    return ids;
-  }
-  return Object.keys(node.data?.values || {});                // division
+    if (!node.derivedNode) return [node.id]; // leaf
+    if (node.data?.dimensionKey) {
+        // dimension root
+        const ids = [];
+        for (const div of Object.values(node.data.divisions || {})) ids.push(...Object.keys(div.values || {}));
+        return ids;
+    }
+    return Object.keys(node.data?.values || {}); // division
 };
 
 const wrapper = addDataNavigator({
-  plotContainer: 'my-plot',
-  data,
-  type: 'cartesian',
-  xField: 'sepal_length',
-  yField: 'petal_length',
-  groupField: 'species',
-  idField: 'pt',
-  // Keyboard mode: expose selectable role so AT announces aria-selected state
-  renderingOptions: {
-    defaults: { parentSemantics: { elementType: 'figure', role: 'option' } }
-  },
-  onNavigate(node) {
-    updateChartFocus(node);
-    // Reflect current selection state on the keyboard-nav element
-    const el = document.getElementById(node.id);
-    if (el) {
-      const leafIds = getLeafIds(node, wrapper.structure);
-      const allSelected = leafIds.length > 0 && leafIds.every(id => selectedIds.has(id));
-      el.setAttribute('aria-selected', String(allSelected));
+    plotContainer: 'my-plot',
+    data,
+    type: 'cartesian',
+    xField: 'sepal_length',
+    yField: 'petal_length',
+    groupField: 'species',
+    idField: 'pt',
+    // Keyboard mode: expose selectable role so AT announces aria-selected state
+    renderingOptions: {
+        defaults: { parentSemantics: { elementType: 'figure', role: 'option' } }
+    },
+    onNavigate(node) {
+        updateChartFocus(node);
+        // Reflect current selection state on the keyboard-nav element
+        const el = document.getElementById(node.id);
+        if (el) {
+            const leafIds = getLeafIds(node, wrapper.structure);
+            const allSelected = leafIds.length > 0 && leafIds.every(id => selectedIds.has(id));
+            el.setAttribute('aria-selected', String(allSelected));
+        }
+    },
+    onClick(node) {
+        // Toggle leaf(s) — works for leaf, division, and dimension nodes
+        const leafIds = getLeafIds(node, wrapper.structure);
+        const allSelected = leafIds.every(id => selectedIds.has(id));
+        if (allSelected) leafIds.forEach(id => selectedIds.delete(id));
+        else leafIds.forEach(id => selectedIds.add(id));
+
+        updateSelectionTable(selectedIds, data);
+        updateChartHighlights(selectedIds, data);
+
+        // Sync aria-selected
+        const el = document.getElementById(node.id);
+        if (el) el.setAttribute('aria-selected', String(!allSelected));
     }
-  },
-  onClick(node) {
-    // Toggle leaf(s) — works for leaf, division, and dimension nodes
-    const leafIds = getLeafIds(node, wrapper.structure);
-    const allSelected = leafIds.every(id => selectedIds.has(id));
-    if (allSelected) leafIds.forEach(id => selectedIds.delete(id));
-    else             leafIds.forEach(id => selectedIds.add(id));
-
-    updateSelectionTable(selectedIds, data);
-    updateChartHighlights(selectedIds, data);
-
-    // Sync aria-selected
-    const el = document.getElementById(node.id);
-    if (el) el.setAttribute('aria-selected', String(!allSelected));
-  },
 });
 ```
 
@@ -517,53 +517,58 @@ The correct approach uses BokehJS's `ColumnDataSource`, `TapTool`, and a `Custom
 
 ```js
 const source = new Bokeh.ColumnDataSource({
-  data: {
-    x: data.map(d => d.sepal_length),
-    y: data.map(d => d.petal_length),
-    pt: data.map(d => d.pt),
-    species: data.map(d => d.species),
-    fill_color: data.map(d => colors[d.species]),
-    fill_alpha: data.map(d => selectedIds.has(d.pt) ? 1.0 : 0.4),
-  }
+    data: {
+        x: data.map(d => d.sepal_length),
+        y: data.map(d => d.petal_length),
+        pt: data.map(d => d.pt),
+        species: data.map(d => d.species),
+        fill_color: data.map(d => colors[d.species]),
+        fill_alpha: data.map(d => (selectedIds.has(d.pt) ? 1.0 : 0.4))
+    }
 });
 
 const renderer = p.scatter({
-  x: { field: 'x' },
-  y: { field: 'y' },
-  source,
-  size: 8,
-  fill_color: { field: 'fill_color' },
-  fill_alpha: { field: 'fill_alpha' },
-  line_color: { field: 'fill_color' },
+    x: { field: 'x' },
+    y: { field: 'y' },
+    source,
+    size: 8,
+    fill_color: { field: 'fill_color' },
+    fill_alpha: { field: 'fill_alpha' },
+    line_color: { field: 'fill_color' }
 });
 
 // HoverTool reads directly from the ColumnDataSource columns.
 const hover = new Bokeh.HoverTool({
-  renderers: [renderer],
-  tooltips: [['ID', '@pt'], ['Species', '@species'], ['Sepal length', '@x{0.0}'], ['Petal length', '@y{0.0}']],
+    renderers: [renderer],
+    tooltips: [
+        ['ID', '@pt'],
+        ['Species', '@species'],
+        ['Sepal length', '@x{0.0}'],
+        ['Petal length', '@y{0.0}']
+    ]
 });
 p.add_tools(hover);
 
 // CustomJS bridges BokehJS's event into our JS closure via a stable global.
 // Overwrite the global each drawChart() to keep the closure current.
-window.__bokehIeTap = (idx) => {
-  const d = data[idx];
-  if (!d) return;
-  if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
-  else selectedIds.add(d.pt);
-  updateSelectionTable(selectedIds, data);
-  setTimeout(drawChart, 0); // defer out of BokehJS callback stack
+window.__bokehIeTap = idx => {
+    const d = data[idx];
+    if (!d) return;
+    if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
+    else selectedIds.add(d.pt);
+    updateSelectionTable(selectedIds, data);
+    setTimeout(drawChart, 0); // defer out of BokehJS callback stack
 };
 
 const tap = new Bokeh.TapTool({
-  renderers: [renderer],
-  callback: new Bokeh.CustomJS({
-    args: { source },
-    code: `
+    renderers: [renderer],
+    callback: new Bokeh.CustomJS({
+        args: { source },
+        code: `
       const idx = source.selected.indices[0];
       if (idx !== undefined) window.__bokehIeTap(idx);
     `
-  })
+    })
 });
 p.add_tools(tap);
 p.toolbar.active_tap = tap; // must be set explicitly when toolbar_location is null

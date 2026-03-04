@@ -168,15 +168,10 @@ export function Inspector({
         idPrefix
     };
 
-    const graph = mode === 'tree'
-        ? TreeGraph(
-            { nodes: nodeArray, links: linkArray },
-            { ...graphOptions, dimensions: structure.dimensions }
-          )
-        : ForceGraph(
-            { nodes: nodeArray, links: linkArray },
-            graphOptions
-          );
+    const graph =
+        mode === 'tree'
+            ? TreeGraph({ nodes: nodeArray, links: linkArray }, { ...graphOptions, dimensions: structure.dimensions })
+            : ForceGraph({ nodes: nodeArray, links: linkArray }, graphOptions);
 
     // Create wrapper structure
     const wrapperEl = document.createElement('div');
@@ -250,7 +245,7 @@ export function Inspector({
             showConsoleMenu,
             indicatorEl,
             edgeSvgIdMap,
-            buildLabelFn: (node) => buildLabel(node, colorBy)
+            buildLabelFn: node => buildLabel(node, colorBy)
         });
     }
 

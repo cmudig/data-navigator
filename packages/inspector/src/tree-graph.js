@@ -8,10 +8,7 @@ import { schemeTableau10 } from 'd3-scale-chromatic';
 import { create } from 'd3-selection';
 
 export function TreeGraph(
-    {
-        nodes,
-        links
-    },
+    { nodes, links },
     {
         nodeId = d => d.id,
         nodeGroup,
@@ -32,15 +29,19 @@ export function TreeGraph(
 
     // Build a lookup from node id to original node data.
     const nodeById = {};
-    nodes.forEach((n, i) => { nodeById[N[i]] = n; });
+    nodes.forEach((n, i) => {
+        nodeById[N[i]] = n;
+    });
 
     // Replace input nodes with positioned objects.
     nodes = map(nodes, (_, i) => ({ id: N[i], x: 0, y: 0 }));
     const nodeObjById = {};
-    nodes.forEach(n => { nodeObjById[n.id] = n; });
+    nodes.forEach(n => {
+        nodeObjById[n.id] = n;
+    });
 
     // Map links to source/target ids.
-    const linkData = map(links, (l) => ({
+    const linkData = map(links, l => ({
         source: intern(l.source),
         target: intern(l.target),
         navigationRules: l.navigationRules || []
@@ -69,7 +70,9 @@ export function TreeGraph(
     // Map each sibling rule name to its pair for splitting merged edges.
     const ruleToPair = {};
     siblingRulePairs.forEach(pair => {
-        pair.forEach(r => { ruleToPair[r] = pair.join(','); });
+        pair.forEach(r => {
+            ruleToPair[r] = pair.join(',');
+        });
     });
 
     // Classify links. Sibling links with merged rules (multiple pairs)
@@ -106,7 +109,10 @@ export function TreeGraph(
 
     nodes.forEach(n => {
         const orig = nodeById[n.id];
-        if (!orig) { otherNodes.push(n); return; }
+        if (!orig) {
+            otherNodes.push(n);
+            return;
+        }
         const dl = orig.dimensionLevel;
         const dn = orig.derivedNode;
         if (dl === 0) level0.push(n);
@@ -140,7 +146,9 @@ export function TreeGraph(
 
     // Organize level2 nodes by their parent dimension.
     const divisionsByDim = {};
-    dimOrder.forEach(key => { divisionsByDim[key] = []; });
+    dimOrder.forEach(key => {
+        divisionsByDim[key] = [];
+    });
     level2.forEach(n => {
         const orig = nodeById[n.id];
         if (orig && orig.derivedNode && divisionsByDim[orig.derivedNode]) {
@@ -163,7 +171,7 @@ export function TreeGraph(
     const leafYPos = padding.top + upperHeight + leafGap;
 
     let currentRow = 0;
-    const yFor = (row) => padding.top + row * upperSpacing;
+    const yFor = row => padding.top + row * upperSpacing;
 
     // Level 0
     if (hasLevel0) {
@@ -299,7 +307,7 @@ export function TreeGraph(
 
     // Other nodes (exit, etc.) — placed bottom-right
     otherNodes.forEach((n, i) => {
-        n.x = width - padding.right - (i * nodeRadius * 3);
+        n.x = width - padding.right - i * nodeRadius * 3;
         n.y = height - padding.bottom;
     });
 
@@ -317,17 +325,21 @@ export function TreeGraph(
     // Wrap-around (circular) siblings arc below/right with a larger curve.
     // When multiple edges share the same node pair, each gets a larger arc.
     const edgePairCounts = {};
-    const siblingArc = (d) => {
+    const siblingArc = d => {
         const s = nodeObjById[d.source];
         const t = nodeObjById[d.target];
         if (!s || !t) return '';
-        const sx = s.x, sy = s.y, tx = t.x, ty = t.y;
-        const dx = tx - sx, dy = ty - sy;
+        const sx = s.x,
+            sy = s.y,
+            tx = t.x,
+            ty = t.y;
+        const dx = tx - sx,
+            dy = ty - sy;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const isHorizontal = Math.abs(dx) > Math.abs(dy);
         // Detect wrap-around: source is to the right of target (horizontal)
         // or below target (vertical) — these are circular edges.
-        const isWrap = isHorizontal ? (sx > tx) : (sy > ty);
+        const isWrap = isHorizontal ? sx > tx : sy > ty;
         // Track regular and wrap arcs separately — they curve in opposite
         // directions so only same-direction arcs need stacking.
         const pairKey = [d.source, d.target].sort().join('::') + (isWrap ? '::wrap' : '::reg');
@@ -392,10 +404,11 @@ export function TreeGraph(
         .attr('r', nodeRadius)
         .attr('role', 'presentation');
 
-    if (G) node.attr('fill', ({ id }) => {
-        const idx = N.indexOf(id);
-        return idx >= 0 ? color(G[idx]) : '#999';
-    });
+    if (G)
+        node.attr('fill', ({ id }) => {
+            const idx = N.indexOf(id);
+            return idx >= 0 ? color(G[idx]) : '#999';
+        });
 
     function intern(value) {
         return value !== null && typeof value === 'object' ? value.valueOf() : value;

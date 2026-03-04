@@ -45,9 +45,7 @@ const toggleBtn = document.getElementById('mode-toggle');
 toggleBtn.addEventListener('click', () => {
     currentMode = currentMode === 'tree' ? 'force' : 'tree';
     createInspector(currentMode);
-    toggleBtn.textContent = currentMode === 'tree'
-        ? 'Switch to force graph'
-        : 'Switch to tree graph';
+    toggleBtn.textContent = currentMode === 'tree' ? 'Switch to force graph' : 'Switch to tree graph';
 });
 
 function enter() {

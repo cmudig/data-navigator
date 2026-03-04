@@ -432,11 +432,12 @@ This example extends the stacked bar pattern with two key additions:
 1. **Graph mode toggle** — Switch between `mode: 'tree'` (deterministic hierarchical layout) and `mode: 'force'` (force-directed graph) to compare how each visualizes the structure.
 
 2. **Console menu** — The `showConsoleMenu` prop enables an interactive text-based panel below the tree inspector. It includes:
-   - **Console** (collapsed) — Logged items appear here when you click "log" buttons
-   - **Rendered Elements** — Nodes grouped by dimension/division, edges grouped by navigation rule, each with checkbox and log button
-   - **Source Input** — Data, props, dimensions, and divisions
+    - **Console** (collapsed) — Logged items appear here when you click "log" buttons
+    - **Rendered Elements** — Nodes grouped by dimension/division, edges grouped by navigation rule, each with checkbox and log button
+    - **Source Input** — Data, props, dimensions, and divisions
 
 **Interacting with the menu:**
+
 - **Checkbox** any node or edge to highlight it in the tree (other elements dim to 50% opacity, selected nodes get a dark stroke, selected edges get thickened)
 - **Group checkboxes** on dimension, division, and nav rule headings select/deselect all items in that group
 - **Hover** a menu item to see a focus indicator on the corresponding tree node or a thickened edge

@@ -147,25 +147,23 @@ export default defineConfig({
                     ]
                 },
                 {
-                    text: "Debugging Assistance",
+                    text: 'Debugging Assistance',
                     items: [
                         { text: 'Using the Inspector', link: '/examples/using-the-inspector' },
                         { text: 'Inspecting Force/Tree', link: '/examples/inspecting-force-tree' },
-                        { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' },
+                        { text: 'Inspector Console Menu', link: '/examples/inspector-console-menu' }
                     ]
                 },
                 {
-                    text: "Interactivity and Text",
+                    text: 'Interactivity and Text',
                     items: [
                         { text: 'Data Text Adventure', link: '/examples/data-text-adventure' },
                         { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' }
                     ]
                 },
                 {
-                    text: "Advanced Examples",
-                    items: [
-                        { text: 'Interactive Elements', link: '/examples/interactive-elements' }
-                    ]
+                    text: 'Advanced Examples',
+                    items: [{ text: 'Interactive Elements', link: '/examples/interactive-elements' }]
                 }
             ],
             '/api/': [

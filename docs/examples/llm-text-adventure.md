@@ -8,7 +8,7 @@ Navigation commands (`enter`, `left`, `help`, `move to`, etc.) always work, with
 (This is Frank:)
 Folks, for those that know me know that I am immensely skeptical of modern genAI and [especially critical](https://www.frank.computer/blog/2025/05/just-a-tool.html) of the effect it is having politically, socially, economically, and environmentally. I don't recommend it.
 
-And in terms of data visualization, [especially in terms of accessibility](https://www.computer.org/csdl/proceedings-article/accessviz/2025/571700a014/2dp6pc6GagE), AI-generated answers may be inaccurate and bias users. Blind users in particular may lack the ability to independently verify information given to them by an LLM. For this reason, the below example uses the *input dataset*, not the chart, as input.
+And in terms of data visualization, [especially in terms of accessibility](https://www.computer.org/csdl/proceedings-article/accessviz/2025/571700a014/2dp6pc6GagE), AI-generated answers may be inaccurate and bias users. Blind users in particular may lack the ability to independently verify information given to them by an LLM. For this reason, the below example uses the _input dataset_, not the chart, as input.
 
 You can ask the model to **"verify"** any answer — it will attempt to provide a Python script that checks the claim against the dataset. If a claim cannot be verified with code (e.g. it requires context beyond the data), the model will (hopefully) say so and recommend external verification.
 
@@ -297,8 +297,8 @@ The `textChat()` API accepts two additional options for LLM support:
 dataNavigator.textChat({
     structure,
     container: 'my-container',
-    data,  // raw dataset — included in the LLM's context
-    llm: async (messages) => {
+    data, // raw dataset — included in the LLM's context
+    llm: async messages => {
         // messages is an array of { role, content } objects
         // Return a string response, or null to decline (e.g. no API key)
         const response = await callYourBackend(messages);
@@ -375,7 +375,7 @@ dataNavigator.textChat({
         parent: 'back out',
         exit: 'exit navigation'
     },
-    onNavigate: (node) => {
+    onNavigate: node => {
         updateChartHighlight(stackedBar, node);
     },
     onExit: () => {
@@ -388,7 +388,7 @@ dataNavigator.textChat({
 // Creates an LLM function for use with dataNavigator.textChat().
 // getApiKey is called on each request so the key can change at runtime.
 export function createLLM(getApiKey) {
-    return async (messages) => {
+    return async messages => {
         const apiKey = getApiKey();
         if (!apiKey) return null;
 
@@ -510,8 +510,18 @@ export const structure = dataNavigator.structure({
                     sortFunction: (a, b) => {
                         if (a.values) {
                             const months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec'
                             ];
                             let aMonth =
                                 a.values[Object.keys(a.values)[0]].date ||
@@ -576,9 +586,7 @@ export function createChart(containerId, data) {
 export function updateChartHighlight(stackedBar, node) {
     if (!node.derivedNode) {
         // Leaf node — highlight specific bar segment
-        stackedBar.clickHighlight = [
-            { category: node.data.category, date: node.data.date }
-        ];
+        stackedBar.clickHighlight = [{ category: node.data.category, date: node.data.date }];
         stackedBar.interactionKeys = ['category', 'date'];
     } else if (node.data?.dimensionKey) {
         // Dimension node — highlight all bars
@@ -604,17 +612,24 @@ export function clearChartHighlight(stackedBar) {
         <link rel="stylesheet" href="./node_modules/data-navigator/text-chat.css" />
         <link rel="stylesheet" href="./src/style.css" />
         <script type="importmap">
-        {
-            "imports": {
-                "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
+                }
             }
-        }
         </script>
     </head>
     <body>
         <div style="margin-bottom: 1em;">
-            <label for="api-key-input" style="display: block; font-weight: bold; margin-bottom: 4px;">Anthropic API Key</label>
-            <input id="api-key-input" type="password" placeholder="sk-ant-..." style="width: 100%; max-width: 400px; padding: 6px 8px; font-size: 14px; border: 1px solid #ccc;" />
+            <label for="api-key-input" style="display: block; font-weight: bold; margin-bottom: 4px;"
+                >Anthropic API Key</label
+            >
+            <input
+                id="api-key-input"
+                type="password"
+                placeholder="sk-ant-..."
+                style="width: 100%; max-width: 400px; padding: 6px 8px; font-size: 14px; border: 1px solid #ccc;"
+            />
             <div id="api-key-status" style="font-size: 12px; color: #666; margin-top: 4px;"></div>
         </div>
         <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
@@ -628,7 +643,10 @@ export function clearChartHighlight(stackedBar) {
             </div>
         </div>
     </body>
-    <script src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js" type="module"></script>
+    <script
+        src="https://unpkg.com/@visa/stacked-bar-chart@7/dist/stacked-bar-chart/stacked-bar-chart.esm.js"
+        type="module"
+    ></script>
     <script type="module" src="./src/coordinator.js"></script>
 </html>
 ```

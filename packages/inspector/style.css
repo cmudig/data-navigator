@@ -152,7 +152,7 @@
     background: #f0f0f0;
 }
 
-.dn-inspector-menu .dn-menu-item input[type="checkbox"] {
+.dn-inspector-menu .dn-menu-item input[type='checkbox'] {
     margin: 0;
     flex-shrink: 0;
     width: 13px;
@@ -238,7 +238,7 @@
 }
 
 .dn-inspector-menu .dn-menu-console-list:empty::after {
-    content: "(empty)";
+    content: '(empty)';
     color: #999;
     padding: 2px 30px;
     display: block;

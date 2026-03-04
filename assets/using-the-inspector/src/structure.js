@@ -44,6 +44,4 @@ export const structure = dataNavigator.structure({
     ]
 });
 
-export const entryPoint = structure.dimensions[
-    Object.keys(structure.dimensions)[0]
-].nodeId;
+export const entryPoint = structure.dimensions[Object.keys(structure.dimensions)[0]].nodeId;
