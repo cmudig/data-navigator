@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitepress';
 
+const r = (rel: string) => new URL(rel, import.meta.url).pathname;
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
     title: 'Data Navigator',
@@ -193,11 +195,11 @@ export default defineConfig({
     vite: {
         resolve: {
             alias: {
-                'data-navigator/text-chat.css': '../../packages/data-navigator/text-chat.css',
-                'data-navigator': '../../packages/data-navigator/src/index.ts',
-                'data-navigator-inspector': '../../packages/inspector/src/inspector.js',
-                '@data-navigator/inspector': '../../packages/inspector/src/inspector.js',
-                '@data-navigator/bokeh-wrapper': '../../packages/bokeh-wrapper/src/index.ts'
+                'data-navigator/text-chat.css': r('../../packages/data-navigator/text-chat.css'),
+                'data-navigator': r('../../packages/data-navigator/src/index.ts'),
+                'data-navigator-inspector': r('../../packages/inspector/src/inspector.js'),
+                '@data-navigator/inspector': r('../../packages/inspector/src/inspector.js'),
+                '@data-navigator/bokeh-wrapper': r('../../packages/bokeh-wrapper/src/index.ts')
             }
         }
     }
