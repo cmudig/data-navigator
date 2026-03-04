@@ -186,20 +186,36 @@ onMounted(async () => {
       });
     }
 
-    // Base scatter — selected points drawn with full opacity, others slightly dimmed
-    data.forEach(d => {
-      const isSelected = selectedIds.has(d.pt);
-      p.scatter({
-        marker: 'circle',
-        x: [d.sepal_length],
-        y: [d.petal_length],
-        size: 8,
-        fill_color: colors[d.species],
-        line_color: colors[d.species],
-        line_width: 1,
-        fill_alpha: isSelected ? 1.0 : (selectedIds.size > 0 ? 0.3 : 0.7),
-      });
+    // Base scatter — ColumnDataSource enables TapTool click events and HoverTool tooltips
+    const source = new Bokeh.ColumnDataSource({
+      data: {
+        x: data.map(d => d.sepal_length),
+        y: data.map(d => d.petal_length),
+        pt: data.map(d => d.pt),
+        species: data.map(d => d.species),
+        fill_color: data.map(d => colors[d.species]),
+        fill_alpha: data.map(d =>
+          selectedIds.has(d.pt) ? 1.0 : (selectedIds.size > 0 ? 0.3 : 0.7)
+        ),
+      }
     });
+
+    const renderer = p.scatter({
+      x: { field: 'x' },
+      y: { field: 'y' },
+      source,
+      size: 8,
+      fill_color: { field: 'fill_color' },
+      line_color: { field: 'fill_color' },
+      line_width: 1,
+      fill_alpha: { field: 'fill_alpha' },
+    });
+
+    const hover = new Bokeh.HoverTool({
+      renderers: [renderer],
+      tooltips: [['ID', '@pt'], ['Species', '@species'], ['Sepal length', '@x{0.0}'], ['Petal length', '@y{0.0}']],
+    });
+    p.add_tools(hover);
 
     // Selected point rings
     data.filter(d => selectedIds.has(d.pt)).forEach(d => {
@@ -243,30 +259,31 @@ onMounted(async () => {
       });
     }
 
-    plt.show(p, '#ie-chart-inner');
+    // CustomJS bridges BokehJS's click into our JS closure via a stable global.
+    // window.__bokehIeTap is overwritten each drawChart() so it always captures
+    // the current selectedIds / renderTable / drawChart references.
+    window.__bokehIeTap = (idx) => {
+      const d = data[idx];
+      if (!d) return;
+      if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
+      else selectedIds.add(d.pt);
+      renderTable();
+      setTimeout(drawChart, 0); // defer out of BokehJS callback stack
+    };
 
-    // Wire up mouse click on SVG circles after Bokeh renders
-    requestAnimationFrame(() => {
-      const svg = document.querySelector('#ie-chart-inner svg');
-      if (!svg) return;
-      svg.querySelectorAll('circle').forEach((circle, i) => {
-        circle.style.cursor = 'pointer';
-        circle.addEventListener('click', () => {
-          // Map SVG circle index back to data point (base circles come first)
-          if (i < data.length) {
-            const d = data[i];
-            const nodeId = d.pt;
-            if (selectedIds.has(nodeId)) selectedIds.delete(nodeId);
-            else selectedIds.add(nodeId);
-            renderTable();
-            // Update aria-selected on keyboard nav element if present
-            const navEl = document.getElementById(nodeId);
-            if (navEl) navEl.setAttribute('aria-selected', String(selectedIds.has(nodeId)));
-            drawChart();
-          }
-        });
-      });
+    const tap = new Bokeh.TapTool({
+      renderers: [renderer],
+      callback: new Bokeh.CustomJS({
+        args: { source },
+        code: `
+          const idx = source.selected.indices[0];
+          if (idx !== undefined) window.__bokehIeTap(idx);
+        `
+      })
     });
+    p.add_tools(tap);
+    p.toolbar.active_tap = tap;
+    plt.show(p, '#ie-chart-inner');
   };
 
   // ─── Selection update helper for keyboard nav elements ───────────────────────
@@ -389,7 +406,7 @@ onMounted(async () => {
   });
 });
 
-onUnmounted(() => wrapper?.destroy());
+onUnmounted(() => { wrapper?.destroy(); delete window.__bokehIeTap; });
 </script>
 
 ## Why interactive visualizations need Data Navigator
@@ -477,21 +494,61 @@ When `mode: 'keyboard'` is active, Data Navigator overlays focusable elements on
 
 ### Mouse click wiring
 
-Bokeh renders SVG circles that are not keyboard-focusable by default. After `plt.show()`, you can query those circles and add click listeners that call the same `toggleNode` logic:
+Bokeh uses an internal canvas event overlay that intercepts pointer events before they reach the SVG. Querying `svg circle` elements and attaching `addEventListener('click')` will not work — those events never fire.
+
+The correct approach uses BokehJS's `ColumnDataSource`, `TapTool`, and a `CustomJS` callback that runs inside BokehJS's own execution context (where `source.selected.indices` is reliably populated). Bridge it to your JavaScript via a stable global that is updated on every redraw:
 
 ```js
-requestAnimationFrame(() => {
-  document.querySelectorAll('#my-plot svg circle').forEach((circle, i) => {
-    circle.style.cursor = 'pointer';
-    circle.addEventListener('click', () => {
-      if (i < data.length) {
-        const d = data[i];
-        if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
-        else selectedIds.add(d.pt);
-        updateSelectionTable(selectedIds, data);
-        drawChart(); // redraws with updated selection styling
-      }
-    });
-  });
+const source = new Bokeh.ColumnDataSource({
+  data: {
+    x: data.map(d => d.sepal_length),
+    y: data.map(d => d.petal_length),
+    pt: data.map(d => d.pt),
+    species: data.map(d => d.species),
+    fill_color: data.map(d => colors[d.species]),
+    fill_alpha: data.map(d => selectedIds.has(d.pt) ? 1.0 : 0.4),
+  }
 });
+
+const renderer = p.scatter({
+  x: { field: 'x' },
+  y: { field: 'y' },
+  source,
+  size: 8,
+  fill_color: { field: 'fill_color' },
+  fill_alpha: { field: 'fill_alpha' },
+  line_color: { field: 'fill_color' },
+});
+
+// HoverTool reads directly from the ColumnDataSource columns.
+const hover = new Bokeh.HoverTool({
+  renderers: [renderer],
+  tooltips: [['ID', '@pt'], ['Species', '@species'], ['Sepal length', '@x{0.0}'], ['Petal length', '@y{0.0}']],
+});
+p.add_tools(hover);
+
+// CustomJS bridges BokehJS's event into our JS closure via a stable global.
+// Overwrite the global each drawChart() to keep the closure current.
+window.__bokehIeTap = (idx) => {
+  const d = data[idx];
+  if (!d) return;
+  if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
+  else selectedIds.add(d.pt);
+  updateSelectionTable(selectedIds, data);
+  setTimeout(drawChart, 0); // defer out of BokehJS callback stack
+};
+
+const tap = new Bokeh.TapTool({
+  renderers: [renderer],
+  callback: new Bokeh.CustomJS({
+    args: { source },
+    code: `
+      const idx = source.selected.indices[0];
+      if (idx !== undefined) window.__bokehIeTap(idx);
+    `
+  })
+});
+p.add_tools(tap);
+p.toolbar.active_tap = tap; // must be set explicitly when toolbar_location is null
+plt.show(p, '#my-plot');
 ```

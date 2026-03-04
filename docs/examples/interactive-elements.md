@@ -171,12 +171,28 @@ onMounted(async () => {
       p.quad({ left:[rect.x1], right:[rect.x2], bottom:[rect.y1], top:[rect.y2],
                fill_alpha:0, line_color:'#333', line_width:rect.lineWidth });
     }
-    data.forEach(d => {
-      const isSelected = selectedIds.has(d.pt);
-      p.scatter({ marker:'circle', x:[d.sepal_length], y:[d.petal_length], size:8,
-                  fill_color:colors[d.species], line_color:colors[d.species], line_width:1,
-                  fill_alpha: isSelected ? 1.0 : (selectedIds.size > 0 ? 0.3 : 0.7) });
+    const source = new Bokeh.ColumnDataSource({
+      data: {
+        x: data.map(d => d.sepal_length),
+        y: data.map(d => d.petal_length),
+        pt: data.map(d => d.pt),
+        species: data.map(d => d.species),
+        fill_color: data.map(d => colors[d.species]),
+        fill_alpha: data.map(d =>
+          selectedIds.has(d.pt) ? 1.0 : (selectedIds.size > 0 ? 0.3 : 0.7)
+        ),
+      }
     });
+    const renderer = p.scatter({
+      x: { field: 'x' }, y: { field: 'y' }, source, size: 8,
+      fill_color: { field: 'fill_color' }, line_color: { field: 'fill_color' },
+      line_width: 1, fill_alpha: { field: 'fill_alpha' },
+    });
+    const hover = new Bokeh.HoverTool({
+      renderers: [renderer],
+      tooltips: [['ID', '@pt'], ['Species', '@species'], ['Sepal length', '@x{0.0}'], ['Petal length', '@y{0.0}']],
+    });
+    p.add_tools(hover);
     data.filter(d => selectedIds.has(d.pt)).forEach(d => {
       p.scatter({ marker:'circle', x:[d.sepal_length], y:[d.petal_length], size:12,
                   fill_alpha:0, line_color:'#000', line_width:2 });
@@ -192,25 +208,31 @@ onMounted(async () => {
       p.scatter({ marker:'circle', x:[focusedPoint.x], y:[focusedPoint.y], size:14,
                   fill_alpha:0, line_color:'#333', line_width:2.5 });
     }
-    plt.show(p, '#ie-chart-inner');
-    requestAnimationFrame(() => {
-      const svg = document.querySelector('#ie-chart-inner svg');
-      if (!svg) return;
-      svg.querySelectorAll('circle').forEach((circle, i) => {
-        circle.style.cursor = 'pointer';
-        circle.addEventListener('click', () => {
-          if (i < data.length) {
-            const d = data[i];
-            if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
-            else selectedIds.add(d.pt);
-            renderTable();
-            const navEl = document.getElementById(d.pt);
-            if (navEl) navEl.setAttribute('aria-selected', String(selectedIds.has(d.pt)));
-            drawChart();
-          }
-        });
-      });
+    // CustomJS bridges BokehJS's click into our JS closure via a stable global.
+    // window.__bokehIeTap is overwritten each drawChart() so it always captures
+    // the current selectedIds / renderTable / drawChart references.
+    window.__bokehIeTap = (idx) => {
+      const d = data[idx];
+      if (!d) return;
+      if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
+      else selectedIds.add(d.pt);
+      renderTable();
+      setTimeout(drawChart, 0); // defer out of BokehJS callback stack
+    };
+
+    const tap = new Bokeh.TapTool({
+      renderers: [renderer],
+      callback: new Bokeh.CustomJS({
+        args: { source },
+        code: `
+          const idx = source.selected.indices[0];
+          if (idx !== undefined) window.__bokehIeTap(idx);
+        `
+      })
     });
+    p.add_tools(tap);
+    p.toolbar.active_tap = tap;
+    plt.show(p, '#ie-chart-inner');
   };
 
   drawChart();
@@ -292,7 +314,7 @@ onMounted(async () => {
   });
 });
 
-onUnmounted(() => wrapper?.destroy());
+onUnmounted(() => { wrapper?.destroy(); delete window.__bokehIeTap; });
 </script>
 
 <style>

@@ -196,13 +196,17 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
         );
     }
 
-    // Only mark inert in text mode — the accessible UI is outside the container.
-    // In keyboard mode the navigation elements live INSIDE the container, so inert
-    // would block them entirely.
-    const didSetInert = mode === 'text';
-    if (didSetInert) {
-        plotEl.setAttribute('inert', 'true');
-    }
+    // Only hide the plot in text mode — the accessible UI is outside the container.
+    // In keyboard mode the navigation elements live INSIDE the container, so hiding
+    // the container would block them entirely.
+    //
+    // When onClick is provided the chart is interactive: use aria-hidden so pointer
+    // events still reach the BokehJS canvas (inert blocks all pointer events).
+    // Without onClick, inert is safer — it also prevents accidental focus into canvas.
+    const didSetInert = mode === 'text' && !onClick;
+    const didSetAriaHidden = mode === 'text' && !!onClick;
+    if (didSetInert) plotEl.setAttribute('inert', 'true');
+    if (didSetAriaHidden) plotEl.setAttribute('aria-hidden', 'true');
 
     const structOpts = buildStructureOptions(options);
 
@@ -300,6 +304,7 @@ export function addDataNavigator(options: BokehWrapperOptions): BokehWrapperInst
             textChatInstance?.destroy();
             for (const cleanup of cleanups) cleanup();
             if (didSetInert) plotEl.removeAttribute('inert');
+            if (didSetAriaHidden) plotEl.removeAttribute('aria-hidden');
         },
         getCurrentNode() {
             return textChatInstance?.getCurrentNode() ?? keyboardMode?.getCurrentNode() ?? null;
