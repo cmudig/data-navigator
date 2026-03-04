@@ -215,8 +215,13 @@ onMounted(async () => {
     window.__bokehIeTap = (idx) => {
       const d = data[idx];
       if (!d) return;
-      if (selectedIds.has(d.pt)) selectedIds.delete(d.pt);
-      else selectedIds.add(d.pt);
+      if (selectedIds.has(d.pt)) {
+        selectedIds.delete(d.pt);
+        focusedPoint = null; // clear indicator on deselect
+      } else {
+        selectedIds.add(d.pt);
+        focusedPoint = { x: d.sepal_length, y: d.petal_length }; // individual point indicator only
+      }
       renderTable();
       setTimeout(drawChart, 0); // defer out of BokehJS callback stack
     };
