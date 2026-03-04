@@ -142,8 +142,7 @@ export default defineConfig({
                         { text: 'Overview', link: '/examples/' },
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
-                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
-                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' }
                     ]
                 },
                 {
@@ -163,7 +162,10 @@ export default defineConfig({
                 },
                 {
                     text: 'Advanced Examples',
-                    items: [{ text: 'Interactive Elements', link: '/examples/interactive-elements' }]
+                    items: [
+                        { text: 'Interactive Elements', link: '/examples/interactive-elements' },
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                    ]
                 }
             ],
             '/api/': [
