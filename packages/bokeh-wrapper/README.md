@@ -1,61 +1,154 @@
-# Data Navigator
+# @data-navigator/bokeh-wrapper
 
-![Data Navigator provides visualization toolkits with rich, accessible navigation structures, robust input handling, and flexible, semantic rendering.](https://raw.githubusercontent.com/cmudig/data-navigator/main/assets/data_navigator.png)
+Accessible data navigation for [Bokeh](https://bokeh.org/) charts. One function call adds a keyboard, screen reader, and text-chat navigation interface to any Bokeh chart.
 
-Data Navigator is a JavaScript library that enables keyboard, screen reader, and multi-modal navigation of data structures and visualizations. It works with any rendering technology — SVG, Canvas, images, or WebGL — by creating a semantic, accessible HTML layer on top of your graphics.
+Part of the [Data Navigator](https://dig.cmu.edu/data-navigator/) project.
 
-**[Documentation](https://dig.cmu.edu/data-navigator/)** · **[Getting Started](https://dig.cmu.edu/data-navigator/getting-started/)** · **[Demo](https://dig.cmu.edu/data-navigator/demo)** · **[npm](https://www.npmjs.com/package/data-navigator)**
+**[Documentation](https://dig.cmu.edu/data-navigator/bokeh-wrapper/)** · **[Getting Started](https://dig.cmu.edu/data-navigator/bokeh-wrapper/getting-started)** · **[npm](https://www.npmjs.com/package/@data-navigator/bokeh-wrapper)**
 
 ## Install
 
+```bash
+npm install data-navigator @data-navigator/bokeh-wrapper
 ```
-npm install data-navigator
-```
+
+Also import the text-chat stylesheet:
 
 ```js
-import dataNavigator from 'data-navigator';
+import 'data-navigator/text-chat.css';
 ```
 
-## How it works
+## Quick start
 
-Data Navigator is organized into 3 composable modules:
-
-1. **Structure** — a graph of nodes and edges that defines navigation paths through your data
-2. **Input** — handles keyboard, touch, voice, gesture, and custom input modalities
-3. **Rendering** — creates semantic HTML elements overlaid on your visualization
-
-These modules can be used together or independently. Visit [the docs](https://dig.cmu.edu/data-navigator/getting-started/) for a step-by-step guide to building your first navigable chart.
-
-## Inspector
-
-The optional **[@data-navigator/inspector](https://www.npmjs.com/package/@data-navigator/inspector)** package provides a visual graph of your data-navigator structure, useful for debugging and understanding navigation paths.
-
-```
-npm install @data-navigator/inspector data-navigator d3-array d3-drag d3-force d3-scale d3-scale-chromatic d3-selection
-```
+Render your Bokeh chart first, then call `addDataNavigator`:
 
 ```js
-import dataNavigator from 'data-navigator';
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import 'data-navigator/text-chat.css';
+
+const wrapper = addDataNavigator({
+    plotContainer: '#my-plot',
+    data: myData
+});
+```
+
+The wrapper automatically:
+
+1. Sets the Bokeh plot to `inert` so screen readers skip the inaccessible canvas output
+2. Infers the chart type from your data shape
+3. Builds a navigable graph structure
+4. Appends a text-chat interface after the plot
+
+## Options
+
+```ts
+addDataNavigator({
+    // Required
+    plotContainer: '#my-plot', // CSS selector or HTMLElement
+    data: myData, // Array of plain objects (same data passed to Bokeh)
+
+    // Chart type — auto-detected if omitted
+    type: 'bar',
+    // 'bar' | 'hbar' | 'scatter' | 'line' | 'multiline' | 'stacked_bar' | 'auto'
+
+    // Field mappings — inferred from data if omitted
+    xField: 'fruit', // Categorical or x-axis field
+    yField: 'count', // Numerical or y-axis field
+    groupField: 'year', // Series/stack layer field (multiline, stacked_bar)
+
+    // Interface mode (default: 'text')
+    mode: 'text', // 'text' | 'keyboard' | 'both'
+
+    // Place the chat UI in a specific container (optional)
+    chatContainer: '#my-chat-area',
+
+    // Sync with the Bokeh chart
+    onNavigate(node) {
+        // Called on every navigation move — use to redraw focus indicators
+        highlightBar(node.data);
+    },
+    onExit() {
+        clearHighlight();
+    },
+
+    // Interaction callbacks (text mode)
+    onClick(node) {
+        // Triggered when user types "click" or "select"
+        triggerBokehClick(node.data);
+    },
+    onHover(node) {
+        // Triggered when user types "hover" or "inspect"
+        triggerBokehHover(node.data);
+    },
+
+    // LLM integration (optional)
+    llm: async messages => {
+        const res = await fetch('/api/llm', { method: 'POST', body: JSON.stringify({ messages }) });
+        return (await res.json()).content;
+    },
+
+    // Override auto-generated navigation command labels
+    commandLabels: {
+        left: 'Previous fruit',
+        right: 'Next fruit'
+    },
+
+    // Advanced: pass extra options to the underlying data-navigator structure builder
+    structureOptions: {}
+});
+```
+
+## Returned instance
+
+```ts
+const wrapper = addDataNavigator({ ... });
+
+wrapper.getCurrentNode();  // Currently focused node, or null
+wrapper.structure;         // Underlying data-navigator Structure (pass to Inspector, etc.)
+wrapper.destroy();         // Remove all DOM additions and restore the plot
+```
+
+## Connecting to Bokeh
+
+Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer on each navigation event:
+
+```js
+const drawChart = highlight => {
+    /* re-render with highlight layer */
+};
+
+const wrapper = addDataNavigator({
+    plotContainer: '#my-plot',
+    data,
+    onNavigate(node) {
+        drawChart(node.derivedNode ? null : { x: node.data.fruit });
+    },
+    onExit() {
+        drawChart(null);
+    }
+});
+```
+
+See the [Getting Started guide](https://dig.cmu.edu/data-navigator/bokeh-wrapper/getting-started) for the full walkthrough and [examples](https://dig.cmu.edu/data-navigator/bokeh-wrapper/examples/bar-chart) for complete runnable code.
+
+## Using with the Inspector
+
+Pass `wrapper.structure` to [`@data-navigator/inspector`](https://www.npmjs.com/package/@data-navigator/inspector) to visualize the navigation graph:
+
+```js
 import { Inspector } from '@data-navigator/inspector';
 
-const inspector = Inspector({
-    structure: myStructure, // made using data navigator
-    container: 'inspector-container' // render to DOM
-});
-
-// Sync with navigation events
-inspector.highlight(nodeId);
-inspector.clear();
-inspector.destroy();
+const wrapper = addDataNavigator({ plotContainer: '#plot', data });
+const inspector = Inspector({ structure: wrapper.structure, container: 'inspector-container' });
 ```
 
-## Contributing
+## Background
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and development workflow.
+Bokeh charts are visually rich but historically inaccessible — assistive technologies cannot meaningfully interact with the canvas or SVG output. This wrapper builds a parallel accessible interface over the underlying data. It is informed by the ongoing [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents accessibility issues in Bokeh. This work was supported by a [CZI Essential Open Source Software](https://chanzuckerberg.com/eoss/) (EOSS) Cycle 6 grant.
 
 ## Credit
 
-Data Navigator was developed at CMU's [Data Interaction Group](https://dig.cmu.edu/) (CMU DIG), primarily by [Frank Elavsky](https://frank.computer).
+Developed at CMU's [Data Interaction Group](https://dig.cmu.edu/) by [Frank Elavsky](https://frank.computer), in collaboration with Quansight, Anaconda, and Bokeh.
 
 ## Citing Data Navigator
 
