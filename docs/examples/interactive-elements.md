@@ -16,10 +16,15 @@ All three paths converge on the same `onClick` callback, so your interaction log
 
 <div id="ie-plot" style="display:inline-block;"><div id="ie-chart-inner"></div></div>
 
-<label class="dn-nav-toggle" style="display:block;margin:0.5em 0;">
+<label class="dn-nav-toggle">
   <input type="checkbox" id="ie-keyboard">
   Use keyboard navigation
 </label>
+
+<div id="ie-chat" style="max-width:500px;margin-top:0.5em;"></div>
+
+<h3 id="ie-table-title" aria-live="polite">0 Selected Data Points</h3>
+<div id="ie-table-container"></div>
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
@@ -38,11 +43,6 @@ All three paths converge on the same `onClick` callback, so your interaction log
 | <kbd>Escape</kbd>            | Exit navigation                                                                       |
 
 </div>
-
-<div id="ie-chat" style="max-width:500px;margin-top:0.5em;"></div>
-
-<h3 id="ie-table-title" aria-live="polite">0 Selected Data Points</h3>
-<div id="ie-table-container"></div>
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';

@@ -15,6 +15,12 @@ This example lets you click (or select) individual Iris data points and groups. 
   Use keyboard navigation
 </label>
 
+<div id="ie-chat" style="max-width:500px;"></div>
+
+<h3 id="ie-table-title" aria-live="polite">0 Selected Data Points</h3>
+
+<div id="ie-table-container"></div>
+
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
 | Key                          | Action                                                                                |
@@ -32,11 +38,6 @@ This example lets you click (or select) individual Iris data points and groups. 
 | <kbd>Escape</kbd>            | Exit navigation                                                                       |
 
 </div>
-
-<div id="ie-chat" style="max-width:500px;"></div>
-
-<h3 id="ie-table-title" aria-live="polite">0 Selected Data Points</h3>
-<div id="ie-table-container"></div>
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
