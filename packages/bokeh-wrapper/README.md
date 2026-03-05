@@ -49,7 +49,7 @@ addDataNavigator({
 
     // Chart type — auto-detected if omitted
     type: 'bar',
-    // 'bar' | 'hbar' | 'scatter' | 'line' | 'multiline' | 'stacked_bar' | 'auto'
+    // 'bar' | 'hbar' | 'cartesian' | 'line' | 'multiline' | 'stacked_bar' | 'auto'
 
     // Field mappings — inferred from data if omitted
     xField: 'fruit', // Categorical or x-axis field
