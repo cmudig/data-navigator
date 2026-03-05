@@ -162,6 +162,58 @@
     pointer-events: none;
 }
 
+/* ─── Keyboard navigation toggle switch ──────────────────────────────────── */
+
+.dn-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 14px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: var(--vp-c-text-1);
+    user-select: none;
+}
+
+.dn-nav-toggle input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 36px;
+    height: 20px;
+    background: var(--vp-c-border);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    border: none;
+}
+
+.dn-nav-toggle input[type='checkbox']::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    top: 2px;
+    left: 2px;
+    transition: left 0.2s;
+}
+
+.dn-nav-toggle input[type='checkbox']:checked {
+    background: var(--vp-c-brand-1);
+}
+
+.dn-nav-toggle input[type='checkbox']:checked::before {
+    left: 18px;
+}
+
+.dn-nav-toggle input[type='checkbox']:focus-visible {
+    outline: 2px solid var(--vp-c-brand-1);
+    outline-offset: 2px;
+}
+
 /* Toggle controls button */
 .toggle-controls {
     display: inline-block;

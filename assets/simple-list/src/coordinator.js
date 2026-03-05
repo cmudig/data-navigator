@@ -1,7 +1,7 @@
 import { structure, callbacks, interactiveData, chartWidth, chartHeight } from './structure.js';
 import { drawChart, drawFocusIndicator, createRenderer } from './rendering.js';
 import { createInput } from './input.js';
-import { Inspector } from 'data-navigator-inspector';
+import { Inspector } from '@data-navigator/inspector';
 
 let current = null;
 let previous = null;
