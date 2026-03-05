@@ -1,7 +1,7 @@
 // Copyright 2021-2024 Observable, Inc.
 // Released under the ISC license.
 // https://observablehq.com/@d3/force-directed-graph
-// Adapted for data-navigator-inspector with modular D3 imports.
+// Adapted for @data-navigator/inspector with modular D3 imports.
 
 import { map, sort } from 'd3-array';
 import { drag } from 'd3-drag';

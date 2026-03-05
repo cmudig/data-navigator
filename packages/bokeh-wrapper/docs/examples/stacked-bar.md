@@ -227,48 +227,6 @@ onMounted(async () => {
 onUnmounted(() => wrapper?.destroy());
 </script>
 
-## Code
-
-```js
-import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
-
-// Flatten the stacked data into one record per (year, browser) combination
-const data = [
-    { year: '2015', browser: 'Chrome', share: 62 },
-    { year: '2015', browser: 'Firefox', share: 12 }
-    // ... all years × browsers
-];
-
-const wrapper = addDataNavigator({
-    plotContainer: 'stacked-plot',
-    data,
-    type: 'stacked_bar',
-    xField: 'year',
-    yField: 'share',
-    groupField: 'browser',
-    title: 'Browser market share (%)',
-    onNavigate(node) {
-        if (!node.derivedNode) {
-            const isChartRoot = node.data?.year == null && node.data?.browser == null;
-            if (isChartRoot) {
-                highlight('__all__', null); // all bars on first entry
-            } else {
-                highlight(node.data.year, node.data.browser); // leaf segment
-            }
-        } else if (node.derivedNode === 'year') {
-            // null year = year dimension root → highlight all; otherwise specific year column
-            highlight(node.data?.year ?? null, null);
-        } else if (node.derivedNode === 'browser') {
-            // null browser = browser dimension root → all years; otherwise specific browser
-            highlight('__all__', node.data?.browser ?? null);
-        }
-    },
-    onExit() {
-        clearHighlight();
-    }
-});
-```
-
 ## Structure
 
 For `type: 'stacked_bar'` the navigation hierarchy is a dual-dimension cross-navigable graph.
@@ -300,3 +258,235 @@ Chart root
 - `W` returns to the year dimension
 - `J` returns to the browser dimension
 - At the leaf (data point) level, all four arrow keys remain active for free 2D roaming
+
+## Full code
+
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh is loaded from CDN; the wrapper is loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
+
+::: code-group
+
+```js [wrapper.js]
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { data, drawChart } from './chart.js';
+
+let wrapper = null;
+let focusedYear = null;
+let focusedBrowser = null;
+// 'root' = chart root, 'year' = year dimension/division, 'browser' = browser dimension/division
+let focusedDimension = null;
+
+function initWrapper(mode) {
+    wrapper?.destroy();
+    focusedYear = null;
+    focusedBrowser = null;
+    focusedDimension = null;
+    drawChart({ focusedYear, focusedBrowser, focusedDimension });
+    wrapper = addDataNavigator({
+        plotContainer: 'stacked-plot',
+        chatContainer: 'stacked-chat',
+        mode,
+        data,
+        type: 'stacked_bar',
+        xField: 'year',
+        yField: 'share',
+        groupField: 'browser',
+        title: 'Browser market share (%)',
+        onNavigate(node) {
+            if (!node.derivedNode) {
+                // Chart root has no year/browser; leaf nodes have both.
+                const isChartRoot = node.data?.year == null && node.data?.browser == null;
+                if (isChartRoot) {
+                    focusedDimension = 'root';
+                    focusedYear = '__all__';
+                    focusedBrowser = null;
+                } else {
+                    // Leaf node — specific (year, browser) segment
+                    focusedDimension = null;
+                    focusedYear = node.data?.year ?? null;
+                    focusedBrowser = node.data?.browser ?? null;
+                }
+            } else if (node.derivedNode === 'year') {
+                // Year dimension root (null year) or a specific year division
+                focusedDimension = 'year';
+                focusedYear = node.data?.year ?? null;
+                focusedBrowser = null;
+            } else if (node.derivedNode === 'browser') {
+                // Browser dimension root (null browser) or a specific browser division
+                focusedDimension = 'browser';
+                focusedYear = '__all__';
+                focusedBrowser = node.data?.browser ?? null;
+            }
+            drawChart({ focusedYear, focusedBrowser, focusedDimension });
+        },
+        onExit() {
+            focusedYear = null;
+            focusedBrowser = null;
+            focusedDimension = null;
+            drawChart({ focusedYear, focusedBrowser, focusedDimension });
+        }
+    });
+}
+
+initWrapper('text');
+
+document.getElementById('stacked-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+const years = ['2015', '2016', '2017'];
+const browsers = ['Chrome', 'Firefox', 'Safari', 'Edge', 'Other'];
+
+// Shares as integer percentages, indexed by browser then year
+const shares = {
+    Chrome: [62, 63, 65],
+    Firefox: [12, 12, 11],
+    Safari: [11, 12, 12],
+    Edge: [4, 4, 4],
+    Other: [11, 9, 8]
+};
+
+const palette = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f'];
+
+// Flatten for data-navigator: one row per (browser, year) combination.
+export const data = [];
+browsers.forEach((browser, bi) => {
+    years.forEach((year, yi) => {
+        data.push({ year, browser, share: shares[browser][yi] });
+    });
+});
+
+export function drawChart({ focusedYear = null, focusedBrowser = null, focusedDimension = null } = {}) {
+    const container = document.getElementById('stacked-chart-inner');
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        x_range: years,
+        y_range: [0, 110],
+        height: 300,
+        width: 400,
+        title: 'Browser market share (%)',
+        y_axis_label: 'Market share (%)',
+        toolbar_location: null,
+        output_backend: 'svg'
+    });
+
+    let bottoms = { 2015: 0, 2016: 0, 2017: 0 };
+
+    browsers.forEach((browser, bi) => {
+        const tops = years.map((y, yi) => bottoms[y] + shares[browser][yi]);
+        const bots = years.map(y => bottoms[y]);
+        years.forEach((y, yi) => {
+            bottoms[y] = tops[yi];
+        });
+
+        const isFocusedBrowser = focusedBrowser === browser;
+
+        // Segment borders are used for browser-level navigation only.
+        // Browser dim root highlights all segments; division/leaf highlights just the focused browser.
+        const shouldHighlight = y => {
+            if (focusedDimension === 'root' || (focusedDimension === 'browser' && focusedBrowser == null)) return true;
+            if (focusedBrowser == null) return false;
+            return isFocusedBrowser && (focusedYear === '__all__' || y === focusedYear);
+        };
+
+        const lineColor = years.map(y => (shouldHighlight(y) ? '#000' : 'white'));
+        const lineWidth = years.map(y => (shouldHighlight(y) ? 2 : 0.5));
+        const fillAlpha = focusedBrowser != null && !isFocusedBrowser ? 0.3 : 1.0;
+
+        // Real bars — accurate per-bar borders, no legend_label so the legend
+        // square is driven independently below.
+        p.vbar({
+            x: years,
+            top: tops,
+            bottom: bots,
+            width: 0.8,
+            color: palette[bi],
+            line_color: lineColor,
+            line_width: lineWidth,
+            fill_alpha: fillAlpha
+        });
+
+        // Zero-size legend proxy: owns legend_label and carries a scalar line_color
+        // so Bokeh uses it for the legend square styling rather than line_color[0]
+        // of the per-bar array above. Invisible (zero width and height) but always
+        // present so the legend entry is stable across redraws.
+        p.vbar({
+            x: [years[0]],
+            top: [0],
+            bottom: [0],
+            width: 0,
+            color: palette[bi],
+            line_color: isFocusedBrowser && focusedBrowser != null ? '#000' : 'white',
+            line_width: isFocusedBrowser && focusedBrowser != null ? 2 : 0.5,
+            fill_alpha: fillAlpha,
+            legend_label: browser
+        });
+    });
+
+    // Year-level nav: draw a single outline rect spanning the full stack.
+    // Only active when navigating the year dimension (root or division), not at browser/leaf level.
+    const drawYearRect = y => {
+        const yi = years.indexOf(y);
+        const totalHeight = browsers.reduce((sum, b) => sum + shares[b][yi], 0);
+        p.rect({
+            x: [y],
+            y: [totalHeight / 2],
+            width: 0.85,
+            height: totalHeight,
+            fill_alpha: 0,
+            line_color: '#000',
+            line_width: 2
+        });
+    };
+
+    if (focusedDimension === 'root' || (focusedDimension === 'year' && focusedYear == null)) {
+        // Chart root or year dimension root — outline all year columns
+        years.forEach(drawYearRect);
+    } else if (focusedDimension === 'year' && focusedYear != null) {
+        // Specific year division — outline just that column
+        drawYearRect(focusedYear);
+    }
+
+    p.legend.location = 'top_right';
+    plt.show(p, '#stacked-chart-inner');
+}
+```
+
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Stacked Bar Chart — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="stacked-plot">
+            <div id="stacked-chart-inner"></div>
+        </div>
+        <label>
+            <input type="checkbox" id="stacked-keyboard" />
+            Use keyboard navigation
+        </label>
+        <div id="stacked-chat" style="max-width:500px;"></div>
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
+```
+
+:::

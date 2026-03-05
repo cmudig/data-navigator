@@ -1,7 +1,7 @@
 import { structure, entryPoint, data, callbacks } from './structure.js';
 import { createChart, updateChartHighlight, clearChartHighlight } from './chart.js';
 import { createInput } from './input.js';
-import { Inspector, buildLabel } from 'data-navigator-inspector';
+import { Inspector, buildLabel } from '@data-navigator/inspector';
 import dataNavigator from 'data-navigator';
 
 let current = null;

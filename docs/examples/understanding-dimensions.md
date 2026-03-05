@@ -299,7 +299,7 @@ onMounted(async () => {
         await waitFor(() => typeof Bokeh !== 'undefined' && Bokeh.Plotting);
 
         const { default: dataNavigator } = await import('data-navigator');
-        const { Inspector, buildLabel } = await import('data-navigator-inspector');
+        const { Inspector, buildLabel } = await import('@data-navigator/inspector');
 
         const chartWidth = 250;
         const chartHeight = 200;

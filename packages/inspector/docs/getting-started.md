@@ -7,14 +7,14 @@ The inspector is a passive visualization tool that draws a [data-navigator](http
 The inspector uses modular D3 packages internally. Install alongside data-navigator:
 
 ```bash
-npm install data-navigator data-navigator-inspector
+npm install data-navigator @data-navigator/inspector
 ```
 
 ## Basic Usage
 
 ```js
 import dataNavigator from 'data-navigator';
-import { Inspector } from 'data-navigator-inspector';
+import { Inspector } from '@data-navigator/inspector';
 
 // 1. Build a structure
 const structure = dataNavigator.structure({

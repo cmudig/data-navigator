@@ -217,7 +217,7 @@ onUnmounted(() => {
 });
 </script>
 
-## Code
+## Code Summary
 
 ```js
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
@@ -264,3 +264,215 @@ const inspector = Inspector({
 - `edgeExclusions: ['dn-exit']` hides the internal exit edge so the inspector graph only shows navigable paths.
 - `colorBy: 'dimensionLevel'` colours nodes by their depth in the hierarchy, making it easy to distinguish dimension nodes, division nodes, and leaf nodes.
 - Call `inspector.highlight(node.renderId ?? node.id)` in `onNavigate` to keep the inspector in sync with both text-chat and keyboard navigation.
+
+## Full code
+
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh and the inspector CSS are loaded from CDN; the wrapper and inspector are loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
+
+This full example includes both the bar chart **without** `compressSparseDivisions` (showing the sparse structure) and the version **with** `compressSparseDivisions: true` (the corrected structure).
+
+::: code-group
+
+```js [wrapper.js]
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { Inspector } from '@data-navigator/inspector';
+import { data, drawChart } from './chart.js';
+
+let wrapper = null;
+let inspector = null;
+let wrapperFixed = null;
+let inspectorFixed = null;
+
+let highlightFruit = null;
+let highlightFruitFixed = null;
+
+// ── Unfixed version (no compressSparseDivisions) ───────────────────────────
+function initWrapper(mode) {
+    wrapper?.destroy();
+    highlightFruit = null;
+    drawChart({ suffix: '', highlightFruit });
+
+    wrapper = addDataNavigator({
+        plotContainer: 'insp-plot',
+        chatContainer: 'insp-chat',
+        mode,
+        data,
+        type: 'bar',
+        xField: 'fruit',
+        yField: 'count',
+        onNavigate(node) {
+            const renderId = node.renderId ?? node.id;
+            inspector?.highlight(renderId);
+            highlightFruit = node.derivedNode && node.data?.fruit == null ? '__all__' : (node.data?.fruit ?? null);
+            drawChart({ suffix: '', highlightFruit });
+        },
+        onExit() {
+            inspector?.clear();
+            highlightFruit = null;
+            drawChart({ suffix: '', highlightFruit });
+        }
+    });
+
+    if (!inspector) {
+        inspector = Inspector({
+            structure: wrapper.structure,
+            container: 'insp-graph',
+            size: 300,
+            colorBy: 'dimensionLevel',
+            edgeExclusions: ['dn-exit']
+        });
+    }
+}
+
+// ── Fixed version (with compressSparseDivisions) ───────────────────────────
+function initWrapperFixed(mode) {
+    wrapperFixed?.destroy();
+    highlightFruitFixed = null;
+    drawChart({ suffix: '-fixed', highlightFruit: highlightFruitFixed });
+
+    wrapperFixed = addDataNavigator({
+        plotContainer: 'insp-plot-fixed',
+        chatContainer: 'insp-chat-fixed',
+        mode,
+        data,
+        type: 'bar',
+        xField: 'fruit',
+        yField: 'count',
+        compressSparseDivisions: true,
+        onNavigate(node) {
+            const renderId = node.renderId ?? node.id;
+            inspectorFixed?.highlight(renderId);
+            highlightFruitFixed = node.derivedNode && node.data?.fruit == null ? '__all__' : (node.data?.fruit ?? null);
+            drawChart({ suffix: '-fixed', highlightFruit: highlightFruitFixed });
+        },
+        onExit() {
+            inspectorFixed?.clear();
+            highlightFruitFixed = null;
+            drawChart({ suffix: '-fixed', highlightFruit: highlightFruitFixed });
+        }
+    });
+
+    if (!inspectorFixed) {
+        inspectorFixed = Inspector({
+            structure: wrapperFixed.structure,
+            container: 'insp-graph-fixed',
+            size: 300,
+            colorBy: 'dimensionLevel',
+            edgeExclusions: ['dn-exit']
+        });
+    }
+}
+
+initWrapper('text');
+initWrapperFixed('text');
+
+document.getElementById('insp-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+document.getElementById('insp-keyboard-fixed')?.addEventListener('change', e => {
+    initWrapperFixed(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+export const data = [
+    { fruit: 'Apples', count: 5 },
+    { fruit: 'Pears', count: 3 },
+    { fruit: 'Nectarines', count: 4 },
+    { fruit: 'Plums', count: 2 },
+    { fruit: 'Grapes', count: 4 },
+    { fruit: 'Strawberries', count: 6 }
+];
+
+// suffix is '' for the first chart and '-fixed' for the second.
+export function drawChart({ suffix = '', highlightFruit = null } = {}) {
+    const container = document.getElementById('insp-chart-inner' + suffix);
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        x_range: data.map(d => d.fruit),
+        y_range: [0, 8],
+        height: 260,
+        width: 400,
+        title: 'Fruit counts',
+        toolbar_location: null,
+        output_backend: 'svg'
+    });
+
+    p.vbar({
+        x: data.map(d => d.fruit),
+        top: data.map(d => d.count),
+        bottom: 0,
+        width: 0.8,
+        color: data.map(d => (highlightFruit === '__all__' || d.fruit === highlightFruit ? '#1e3369' : '#aec7e8')),
+        line_color: '#1e3369'
+    });
+
+    plt.show(p, '#insp-chart-inner' + suffix);
+}
+```
+
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Using the Inspector — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@data-navigator/inspector/style.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator",
+                    "@data-navigator/inspector": "https://esm.sh/@data-navigator/inspector"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Bar Chart (without compressSparseDivisions)</h2>
+        <div style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:2em;">
+            <div>
+                <h3>Bokeh Chart</h3>
+                <div id="insp-plot"><div id="insp-chart-inner"></div></div>
+                <label>
+                    <input type="checkbox" id="insp-keyboard" />
+                    Use keyboard navigation
+                </label>
+                <div id="insp-chat" style="max-width:400px;"></div>
+            </div>
+            <div>
+                <h3>Structure Inspector</h3>
+                <div id="insp-graph" style="min-height:320px; min-width:320px;"></div>
+            </div>
+        </div>
+
+        <h2>Bar Chart (with compressSparseDivisions: true)</h2>
+        <div style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:2em;">
+            <div>
+                <h3>Bokeh Chart</h3>
+                <div id="insp-plot-fixed"><div id="insp-chart-inner-fixed"></div></div>
+                <label>
+                    <input type="checkbox" id="insp-keyboard-fixed" />
+                    Use keyboard navigation
+                </label>
+                <div id="insp-chat-fixed" style="max-width:400px;"></div>
+            </div>
+            <div>
+                <h3>Structure Inspector</h3>
+                <div id="insp-graph-fixed" style="min-height:320px; min-width:320px;"></div>
+            </div>
+        </div>
+
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
+```
+
+:::

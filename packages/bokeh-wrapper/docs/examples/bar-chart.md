@@ -113,7 +113,25 @@ onMounted(async () => {
 onUnmounted(() => wrapper?.destroy());
 </script>
 
-## Code
+## What is happening
+
+1. The wrapper marks the Bokeh container `inert` so screen readers skip the canvas.
+2. A text-chat interface appears below the chart. Toggle **Use keyboard navigation** to switch to arrow-key navigation instead.
+3. Type `enter` to begin navigating, then `right` / `left` to move between fruits.
+4. `onNavigate` fires at every level — including the dimension root — so the chart can show a focus indicator as soon as navigation starts.
+5. Type `help` at any time to see available commands.
+
+## Commands
+
+| Command            | Action                         |
+| ------------------ | ------------------------------ |
+| `enter`            | Enter the navigation structure |
+| `right`            | Move to the next fruit         |
+| `left`             | Move to the previous fruit     |
+| `move to <search>` | Jump to a fruit by name        |
+| `help`             | List available commands        |
+
+## Code Summary
 
 ```js
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
@@ -136,6 +154,7 @@ const wrapper = addDataNavigator({
     yField: 'count',
     compressSparseDivisions: true,
     onNavigate(node) {
+        // onNavigate is when we draw our focus indicators (outlines)
         if (node.derivedNode && node.data?.fruit == null) {
             // Dimension root — no specific fruit yet; highlight the whole group.
             drawChart({ highlight: '__all__' });
@@ -149,20 +168,125 @@ const wrapper = addDataNavigator({
 });
 ```
 
-## What happens
+## Full code
 
-1. The wrapper marks the Bokeh container `inert` so screen readers skip the canvas.
-2. A text-chat interface appears below the chart. Toggle **Use keyboard navigation** to switch to arrow-key navigation instead.
-3. Type `enter` to begin navigating, then `right` / `left` to move between fruits.
-4. `onNavigate` fires at every level — including the dimension root — so the chart can show a focus indicator as soon as navigation starts.
-5. Type `help` at any time to see available commands.
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh is loaded from CDN; the wrapper is loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
 
-## Commands
+::: code-group
 
-| Command            | Action                         |
-| ------------------ | ------------------------------ |
-| `enter`            | Enter the navigation structure |
-| `right`            | Move to the next fruit         |
-| `left`             | Move to the previous fruit     |
-| `move to <search>` | Jump to a fruit by name        |
-| `help`             | List available commands        |
+```js [wrapper.js]
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { data, drawChart } from './chart.js';
+
+let wrapper = null;
+let highlightFruit = null;
+
+function initWrapper(mode) {
+    wrapper?.destroy();
+    highlightFruit = null;
+    drawChart({ highlightFruit });
+    wrapper = addDataNavigator({
+        plotContainer: 'bar-plot',
+        chatContainer: 'bar-chat',
+        mode,
+        data,
+        type: 'bar',
+        title: 'Fruit counts',
+        xField: 'fruit',
+        yField: 'count',
+        compressSparseDivisions: true,
+        onNavigate(node) {
+            if (node.derivedNode && node.data?.fruit == null) {
+                highlightFruit = '__all__';
+            } else {
+                highlightFruit = node.data?.fruit ?? null;
+            }
+            drawChart({ highlightFruit });
+        },
+        onExit() {
+            highlightFruit = null;
+            drawChart({ highlightFruit });
+        }
+    });
+}
+
+initWrapper('text');
+
+document.getElementById('bar-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+export const data = [
+    { fruit: 'Apples', count: 5 },
+    { fruit: 'Pears', count: 3 },
+    { fruit: 'Nectarines', count: 4 },
+    { fruit: 'Plums', count: 2 },
+    { fruit: 'Grapes', count: 4 },
+    { fruit: 'Strawberries', count: 6 }
+];
+
+export function drawChart({ highlightFruit = null } = {}) {
+    const container = document.getElementById('bar-chart-inner');
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        x_range: data.map(d => d.fruit),
+        y_range: [0, 8],
+        height: 300,
+        width: 500,
+        title: 'Fruit counts',
+        toolbar_location: null,
+        output_backend: 'svg'
+    });
+
+    p.vbar({
+        x: data.map(d => d.fruit),
+        top: data.map(d => d.count),
+        bottom: 0,
+        width: 0.8,
+        color: data.map(d => (highlightFruit === '__all__' || d.fruit === highlightFruit ? '#1e3369' : '#aec7e8')),
+        line_color: '#1e3369'
+    });
+
+    plt.show(p, '#bar-chart-inner');
+}
+```
+
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bar Chart — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="bar-plot" style="display:inline-block;">
+            <div id="bar-chart-inner"></div>
+        </div>
+        <label>
+            <input type="checkbox" id="bar-keyboard" />
+            Use keyboard navigation
+        </label>
+        <div id="bar-chat" style="max-width:500px;"></div>
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
+```
+
+:::
