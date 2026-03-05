@@ -1,0 +1,34 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="./src/style.css" />
+        <script type="importmap">
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.js",
+                    "@data-navigator/bokeh-wrapper": "./node_modules/@data-navigator/bokeh-wrapper/dist/index.js"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Iris Scatter Plot — Interactive Selection</h2>
+        <div id="ie-plot" style="display: inline-block">
+            <div id="ie-chart-inner"></div>
+        </div>
+
+        <label style="display: block; margin: 0.5em 0">
+            <input type="checkbox" id="ie-keyboard" />
+            Use keyboard navigation
+        </label>
+
+        <div id="ie-chat" style="max-width: 500px; margin-top: 0.5em"></div>
+
+        <h3 id="ie-table-title" aria-live="polite">0 Selected Data Points</h3>
+        <div id="ie-table-container"></div>
+    </body>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.7.3.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="./src/coordinator.js"></script>
+</html>

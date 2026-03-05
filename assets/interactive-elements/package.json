@@ -1,0 +1,6 @@
+{
+    "dependencies": {
+        "data-navigator": "^2.4.0",
+        "@data-navigator/bokeh-wrapper": "^0.2.0"
+    }
+}
