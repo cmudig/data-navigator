@@ -35,9 +35,9 @@ const wrapper = addDataNavigator({
 The wrapper automatically:
 
 1. Sets the Bokeh plot to `inert` so screen readers skip the inaccessible canvas output
-2. Infers the chart type from your data shape
-3. Builds a navigable graph structure
-4. Appends a text-chat interface after the plot
+2. Infers the chart type from your data shape (you can also specify it)
+3. Builds a navigable graph structure (the hard part!)
+4. Appends a text-chat interface after the plot (this can be styled further using css)
 
 ## Options
 
@@ -110,7 +110,7 @@ wrapper.destroy();         // Remove all DOM additions and restore the plot
 
 ## Connecting to Bokeh
 
-Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer on each navigation event:
+Because Bokeh renders to a `<canvas>`, the cleanest way to show focus is to redraw the chart with an extra highlight layer on each navigation event. Bokeh also, unfortunately, makes it hard for Data Navigator to know where elements are rendered. This means that focus during navigation takes place on the whole visualization, while an indicator is added using bokeh to the specific location. This isn't ideal, but is the best approach we can take unless Bokeh adds some way to query element `x`, `y`, `width`, and `height` programmatically. We also [discuss the focus indication challenge further](https://dig.cmu.edu/data-navigator/getting-started/first-chart.html#trouble-with-focus-indication) in our core docs for Data Navigator.
 
 ```js
 const drawChart = highlight => {
@@ -144,7 +144,7 @@ const inspector = Inspector({ structure: wrapper.structure, container: 'inspecto
 
 ## Background
 
-Bokeh charts are visually rich but historically inaccessible — assistive technologies cannot meaningfully interact with the canvas or SVG output. This wrapper builds a parallel accessible interface over the underlying data. It is informed by the ongoing [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents accessibility issues in Bokeh. This work was supported by a [CZI Essential Open Source Software](https://chanzuckerberg.com/eoss/) (EOSS) Cycle 6 grant.
+Bokeh charts are visually rich but historically inaccessible — assistive technologies cannot meaningfully interact with the canvas or SVG output. This wrapper builds a parallel accessible interface using a bokeh visualization's underlying data. Our work is informed by the ongoing [Bokeh Accessibility Audit](https://bokeh-a11y-audit.readthedocs.io/), which documents accessibility issues in Bokeh. The audit and this package was supported by a [CZI Essential Open Source Software](https://chanzuckerberg.com/eoss/) (EOSS) Cycle 6 grant.
 
 ## Credit
 
