@@ -65,7 +65,7 @@ const toggleGraphMode = () => {
 
 onMounted(async () => {
     const { default: dataNavigator } = await import('data-navigator');
-    const { Inspector, buildLabel } = await import('data-navigator-inspector');
+    const { Inspector, buildLabel } = await import('@data-navigator/inspector');
 
     const data = [
         { id: 'a', cat: 'meow', num: 3, selectAll: 'yes' },

@@ -54,7 +54,7 @@ onMounted(async () => {
         await waitFor(() => document.getElementById('chart'));
 
         const { default: dataNavigator } = await import('data-navigator');
-        const { Inspector, buildLabel } = await import('data-navigator-inspector');
+        const { Inspector, buildLabel } = await import('@data-navigator/inspector');
 
         const chartWidth = 300;
         const chartHeight = 300;
@@ -316,9 +316,9 @@ The [inspector's](/examples/using-the-inspector) force graph shows the same line
 
 ## The Complete Code
 
-This code is designed to work **without a bundler**. Run `npm install data-navigator data-navigator-inspector`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers, and loads Bokeh and D3 from CDNs.
+This code is designed to work **without a bundler**. Run `npm install data-navigator @data-navigator/inspector`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers, and loads Bokeh and D3 from CDNs.
 
-If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector, buildLabel } from 'data-navigator-inspector'`, and remove the import map and CDN script tags from the HTML.
+If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector, buildLabel } from '@data-navigator/inspector'`, and remove the import map and CDN script tags from the HTML.
 
 The structure is a manually defined linked list — four nodes connected by left/right edges. `coordinator.js` is the entry point that wires everything together. `structure.js` defines the data and navigation graph. `rendering.js` handles both the Bokeh chart drawing and the Data Navigator accessible layer. `input.js` creates the keyboard handler.
 
@@ -328,7 +328,7 @@ The structure is a manually defined linked list — four nodes connected by left
 import { structure, callbacks, interactiveData, chartWidth, chartHeight } from './structure.js';
 import { drawChart, drawFocusIndicator, createRenderer } from './rendering.js';
 import { createInput } from './input.js';
-import { Inspector } from 'data-navigator-inspector';
+import { Inspector } from '@data-navigator/inspector';
 
 // Assumes the page has:
 //   <div id="chart-wrapper">
@@ -595,7 +595,7 @@ export function createInput(structure, exitPointId) {
             {
                 "imports": {
                     "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                    "data-navigator-inspector": "./node_modules/data-navigator-inspector/src/inspector.js",
+                    "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
                     "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
                     "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
                     "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",

@@ -212,7 +212,6 @@ export default defineConfig({
             alias: {
                 'data-navigator/text-chat.css': r('../../packages/data-navigator/text-chat.css'),
                 'data-navigator': r('../../packages/data-navigator/src/index.ts'),
-                'data-navigator-inspector': r('../../packages/inspector/src/inspector.js'),
                 '@data-navigator/inspector': r('../../packages/inspector/src/inspector.js'),
                 '@data-navigator/bokeh-wrapper': r('../../packages/bokeh-wrapper/src/index.ts')
             }
