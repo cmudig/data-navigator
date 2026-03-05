@@ -154,7 +154,7 @@ export default defineConfig({
                     ]
                 },
                 {
-                    text: 'Interactivity and Text',
+                    text: 'Text Input (mobile friendly)',
                     items: [
                         { text: 'Data Text Adventure', link: '/examples/data-text-adventure' },
                         { text: 'LLM Text Adventure', link: '/examples/llm-text-adventure' }
