@@ -196,61 +196,138 @@ onMounted(async () => {
 onUnmounted(() => wrapper?.destroy());
 </script>
 
-## Code
+## Structure
 
-```js
+For `type: 'crossline'` the navigation hierarchy has **two independent dimensions** that share the same leaf nodes:
+
+```
+chart root
+  ├─ month dimension  (← →)
+  │    ├─ Jan division
+  │    │    ├─ New York: 0°C   ← leaf (all four arrow keys active here)
+  │    │    ├─ London: 5°C
+  │    │    └─ Sydney: 22°C
+  │    ├─ Feb division
+  │    │    └─ ...
+  │    └─ ... (12 months total)
+  └─ city dimension   (↑ ↓)
+       ├─ New York division
+       │    ├─ Jan: 0°C        ← same leaf nodes, reached via a different path
+       │    ├─ Feb: 2°C
+       │    └─ ... (12 months)
+       ├─ London division
+       │    └─ ...
+       └─ Sydney division
+            └─ ...
+```
+
+### Navigation summary
+
+| Location             | ← →                   | ↑ ↓                  | Enter                 | W                     | J                    | Backspace  |
+| -------------------- | --------------------- | -------------------- | --------------------- | --------------------- | -------------------- | ---------- |
+| Chart root           | —                     | —                    | Go to month dimension | —                     | —                    | —          |
+| Month dimension root | Go to city dimension  | —                    | Go to first month     | —                     | —                    | Chart root |
+| Month division       | Previous / next month | —                    | Go to first leaf      | Month dimension       | —                    | —          |
+| City dimension root  | Go to month dimension | —                    | Go to first city      | —                     | —                    | Chart root |
+| City division        | —                     | Previous / next city | Go to first leaf      | —                     | City dimension       | —          |
+| Leaf                 | Previous / next month | Previous / next city | —                     | Parent month division | Parent city division | —          |
+
+When navigating at a **month division**, the chart shows dots at every city for that month — a cross-section of the data across all series. When navigating at a **city division**, only that city's line is highlighted. At the leaf (deepest) level, the dot for the specific city and month is shown, and all four arrow keys move freely across both axes.
+
+## Full code
+
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh is loaded from CDN; the wrapper is loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
+
+::: code-group
+
+```js [wrapper.js]
 import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { data, drawChart } from './chart.js';
 
-// Flatten multi-series data into one record per (city, month)
-const data = [
-    { city: 'New York', month: 'Jan', month_index: 0, temp_c: 0 },
-    { city: 'New York', month: 'Feb', month_index: 1, temp_c: 2 }
-    // ... all cities × months
-];
+let wrapper = null;
+let focusedCity = null;
+let focusedMonth = null;
+let focusedDimension = null;
 
-const wrapper = addDataNavigator({
-    plotContainer: 'cross-plot',
-    chatContainer: 'cross-chat',
-    mode,
-    data,
-    type: 'crossline',
-    xField: 'month',
-    yField: 'temp_c',
-    groupField: 'city',
-    title: 'Monthly average temperatures',
-    onNavigate(node) {
-        if (!node.derivedNode) {
-            // Chart root has no city/month in its data; leaf nodes have both.
-            const isChartRoot = node.data?.city == null && node.data?.month == null;
-            // Chart root falls back to '__all__' → all lines highlighted on first entry.
-            // we also highlight the month axis too
-            focusedDimension = isChartRoot ? 'root' : null;
-            focusedCity = node.data?.city ?? '__all__';
-            focusedMonth = node.data?.month ?? null;
-        } else if (node.derivedNode === 'month') {
-            // Month dimension root or a specific month division.
-            // Always show all cities (dots will appear at focusedMonth for every city).
-            focusedDimension = 'month';
-            focusedMonth = node.data?.month ?? null;
-            focusedCity = '__all__';
-        } else if (node.derivedNode === 'city') {
-            // City dimension root or a specific city division.
-            // null city means dimension root → highlight all lines.
-            focusedDimension = 'city';
-            focusedCity = node.data?.city ?? '__all__';
+function initWrapper(mode) {
+    wrapper?.destroy();
+    focusedCity = null;
+    focusedMonth = null;
+    focusedDimension = null;
+    drawChart({ focusedCity, focusedMonth, focusedDimension });
+    wrapper = addDataNavigator({
+        plotContainer: 'cross-plot',
+        chatContainer: 'cross-chat',
+        mode,
+        data,
+        type: 'crossline',
+        xField: 'month',
+        yField: 'temp_c',
+        groupField: 'city',
+        title: 'Monthly average temperatures',
+        onNavigate(node) {
+            if (!node.derivedNode) {
+                // Chart root has no city/month in its data; leaf nodes have both.
+                // Chart root falls back to '__all__' → all lines highlighted on first entry.
+                const isChartRoot = node.data?.city == null && node.data?.month == null;
+                focusedDimension = isChartRoot ? 'root' : null;
+                focusedCity = node.data?.city ?? '__all__';
+                focusedMonth = node.data?.month ?? null;
+            } else if (node.derivedNode === 'month') {
+                // Month dimension root or a specific month division.
+                // Always show all cities (dots will appear at focusedMonth for every city).
+                focusedDimension = 'month';
+                focusedMonth = node.data?.month ?? null;
+                focusedCity = '__all__';
+            } else if (node.derivedNode === 'city') {
+                // City dimension root or a specific city division.
+                // null city means dimension root → highlight all lines.
+                focusedDimension = 'city';
+                focusedCity = node.data?.city ?? '__all__';
+                focusedMonth = null;
+            }
+            drawChart({ focusedCity, focusedMonth, focusedDimension });
+        },
+        onExit() {
+            focusedCity = null;
             focusedMonth = null;
+            focusedDimension = null;
+            drawChart({ focusedCity, focusedMonth, focusedDimension });
         }
-        drawChart();
-    },
-    onExit() {
-        focusedCity = null;
-        focusedMonth = null;
-        focusedDimension = null;
-        drawChart();
-    }
-});
+    });
+}
 
-const drawChart = () => {
+initWrapper('text');
+
+document.getElementById('cross-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const cityData = {
+    'New York': [0, 2, 7, 13, 19, 24, 27, 26, 22, 15, 9, 3],
+    London: [5, 5, 7, 10, 14, 17, 19, 18, 15, 11, 7, 5],
+    Sydney: [22, 22, 20, 17, 14, 11, 10, 11, 13, 16, 19, 21]
+};
+
+const colors = { 'New York': '#e41a1c', London: '#377eb8', Sydney: '#ff7f00' };
+
+// Flatten for data-navigator: one row per (city, month) combination.
+export const data = [];
+for (const [city, temps] of Object.entries(cityData)) {
+    months.forEach((month, i) => {
+        data.push({ city, month, month_index: i, temp_c: temps[i] });
+    });
+}
+
+// Lowest temperature in the dataset — used to anchor the month axis indicator.
+const allTemps = Object.values(cityData).flat();
+const yMin = Math.min(...allTemps);
+
+export function drawChart({ focusedCity = null, focusedMonth = null, focusedDimension = null } = {}) {
     const container = document.getElementById('cross-chart-inner');
     container.innerHTML = '';
     const plt = Bokeh.Plotting;
@@ -310,46 +387,42 @@ const drawChart = () => {
 
     p.legend.location = 'top_left';
     plt.show(p, '#cross-chart-inner');
-
-    // City dimension encoding cue: highlight the legend box for the focused city.
-    console.log('yo');
-};
+}
 ```
 
-## Structure
-
-For `type: 'crossline'` the navigation hierarchy has **two independent dimensions** that share the same leaf nodes:
-
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cross-navigable Line Chart — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="cross-plot" style="display:inline-block;">
+            <div id="cross-chart-inner"></div>
+        </div>
+        <label>
+            <input type="checkbox" id="cross-keyboard" />
+            Use keyboard navigation
+        </label>
+        <div id="cross-chat" style="max-width:500px;"></div>
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
 ```
-chart root
-  ├─ month dimension  (← →)
-  │    ├─ Jan division
-  │    │    ├─ New York: 0°C   ← leaf (all four arrow keys active here)
-  │    │    ├─ London: 5°C
-  │    │    └─ Sydney: 22°C
-  │    ├─ Feb division
-  │    │    └─ ...
-  │    └─ ... (12 months total)
-  └─ city dimension   (↑ ↓)
-       ├─ New York division
-       │    ├─ Jan: 0°C        ← same leaf nodes, reached via a different path
-       │    ├─ Feb: 2°C
-       │    └─ ... (12 months)
-       ├─ London division
-       │    └─ ...
-       └─ Sydney division
-            └─ ...
-```
 
-### Navigation summary
-
-| Location             | ← →                   | ↑ ↓                  | Enter                 | W                     | J                    | Backspace  |
-| -------------------- | --------------------- | -------------------- | --------------------- | --------------------- | -------------------- | ---------- |
-| Chart root           | —                     | —                    | Go to month dimension | —                     | —                    | —          |
-| Month dimension root | Go to city dimension  | —                    | Go to first month     | —                     | —                    | Chart root |
-| Month division       | Previous / next month | —                    | Go to first leaf      | Month dimension       | —                    | —          |
-| City dimension root  | Go to month dimension | —                    | Go to first city      | —                     | —                    | Chart root |
-| City division        | —                     | Previous / next city | Go to first leaf      | —                     | City dimension       | —          |
-| Leaf                 | Previous / next month | Previous / next city | —                     | Parent month division | Parent city division | —          |
-
-When navigating at a **month division**, the chart shows dots at every city for that month — a cross-section of the data across all series. When navigating at a **city division**, only that city's line is highlighted. At the leaf (deepest) level, the dot for the specific city and month is shown, and all four arrow keys move freely across both axes.
+:::

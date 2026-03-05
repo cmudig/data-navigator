@@ -224,175 +224,6 @@ onMounted(async () => {
 onUnmounted(() => wrapper?.destroy());
 </script>
 
-## Code
-
-```js
-import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
-
-const data = [
-    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' }
-    // ...
-];
-
-const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
-
-// Precompute global data bounds and padding for the focus rectangle.
-const globalXMin = Math.min(...data.map(d => d.sepal_length));
-const globalXMax = Math.max(...data.map(d => d.sepal_length));
-const globalYMin = Math.min(...data.map(d => d.petal_length));
-const globalYMax = Math.max(...data.map(d => d.petal_length));
-
-// Focus rectangles: [{ x1, x2, y1, y2, lineWidth }]. Each rect is stroke-only, no fill.
-let rects = [];
-let points = [];
-let divisionRectsByDimension = {};
-
-const drawChart = () => {
-    const container = document.getElementById('scatter-chart-inner');
-    container.innerHTML = '';
-    const plt = Bokeh.Plotting;
-    const p = plt.figure({
-        height: 320,
-        width: 480,
-        title: 'Iris: sepal length vs petal length',
-        x_axis_label: 'Sepal length (cm)',
-        y_axis_label: 'Petal length (cm)',
-        toolbar_location: null,
-        output_backend: 'svg'
-    });
-
-    // Focus rectangles (stroke only, no fill) drawn behind the data points.
-    for (const rect of rects) {
-        p.quad({
-            left: [rect.x1],
-            right: [rect.x2],
-            bottom: [rect.y1],
-            top: [rect.y2],
-            fill_alpha: 0,
-            line_color: '#333',
-            line_width: rect.lineWidth
-        });
-    }
-
-    // All scatter points rendered identically — no dimming or size changes.
-    data.forEach(d => {
-        p.scatter({
-            marker: 'circle',
-            x: [d.sepal_length],
-            y: [d.petal_length],
-            size: 8,
-            fill_color: colors[d.species],
-            line_color: colors[d.species],
-            line_width: 1,
-            fill_alpha: 0.7
-        });
-    });
-
-    // focus indicator over points, shown at the lowest level when navigating
-    for (const point of points) {
-        p.scatter({
-            marker: 'circle',
-            x: [point.x],
-            y: [point.y],
-            size: 8,
-            fill_color: '#333',
-            line_color: '#333',
-            line_width: 2,
-            fill_alpha: 0
-        });
-    }
-
-    plt.show(p, '#scatter-chart-inner');
-};
-
-drawChart();
-
-({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
-
-// Indexes all bin boundary rects from the structure, keyed by dimension field name,
-// so the dimension root level can display every bin of that dimension at once.
-const buildDivisionRects = () => {
-    divisionRectsByDimension = {};
-    if (!wrapper) return;
-    for (const node of Object.values(wrapper.structure.nodes)) {
-        if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
-            const dimKey = node.derivedNode;
-            const [lo, hi] = node.data.numericalExtents;
-            if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
-            if (dimKey === 'sepal_length') {
-                divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
-            } else {
-                divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
-            }
-        }
-    }
-};
-
-const initWrapper = mode => {
-    wrapper?.destroy();
-    rects = [];
-    points = [];
-    divisionRectsByDimension = {};
-    drawChart();
-    wrapper = addDataNavigator({
-        plotContainer: 'scatter-plot',
-        chatContainer: 'scatter-chat',
-        mode,
-        data,
-        type: 'cartesian',
-        xField: 'sepal_length',
-        yField: 'petal_length',
-        idField: 'pt',
-        title: 'Iris: sepal length vs petal length',
-        onNavigate(node) {
-            const level = node.dimensionLevel;
-            if (level === 0) {
-                // Chart root — grid overlay: all bins from both dimensions at once (1px)
-                points = [];
-                rects = Object.values(divisionRectsByDimension).flat();
-            } else if (level === 1) {
-                // Dimension root — show every bin of this dimension at once (1px)
-                points = [];
-                const dimKey = node.data?.dimensionKey;
-                rects = divisionRectsByDimension[dimKey] ?? [];
-            } else if (node.derivedNode) {
-                // Division node — exact bin boundary, no padding, 2px
-                points = [];
-                const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
-                if (node.derivedNode === 'sepal_length') {
-                    rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
-                } else {
-                    rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
-                }
-            } else {
-                // Leaf node — small padded box around the individual point, 2px
-                rects = [];
-                points = [
-                    {
-                        x: +node.data.sepal_length,
-                        y: +node.data.petal_length
-                    }
-                ];
-            }
-            drawChart();
-        },
-        onExit() {
-            rects = [];
-            points = [];
-            drawChart();
-        }
-    });
-    buildDivisionRects();
-};
-
-initWrapper('text');
-
-document.getElementById('scatter-keyboard')?.addEventListener('change', e => {
-    keyboardMode.value = e.target.checked;
-    initWrapper(e.target.checked ? 'keyboard' : 'text');
-});
-```
-
 ## Structure
 
 For `type: 'cartesian'` the navigation hierarchy has **two independent numerical dimensions** that share the same leaf nodes. Each numerical dimension is automatically divided into bins:
@@ -427,3 +258,216 @@ chart root
 - The bin count is derived automatically as `ceil(sqrt(N))` (minimum 3), where N is the number of data points.
 - Bins are sorted in ascending order and use **terminal** extents — navigation stops at the first / last bin rather than wrapping.
 - Use `idField` to specify which data field uniquely identifies each point; without it the wrapper generates sequential IDs.
+
+## Full code
+
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh is loaded from CDN; the wrapper is loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
+
+::: code-group
+
+```js [wrapper.js]
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { data, globalXMin, globalXMax, globalYMin, globalYMax, drawChart } from './chart.js';
+
+let wrapper = null;
+let rects = [];
+let points = [];
+let divisionRectsByDimension = {};
+
+function buildDivisionRects() {
+    divisionRectsByDimension = {};
+    if (!wrapper) return;
+    for (const node of Object.values(wrapper.structure.nodes)) {
+        if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
+            const dimKey = node.derivedNode;
+            const [lo, hi] = node.data.numericalExtents;
+            if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
+            if (dimKey === 'sepal_length') {
+                divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
+            } else {
+                divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
+            }
+        }
+    }
+}
+
+function initWrapper(mode) {
+    wrapper?.destroy();
+    rects = [];
+    points = [];
+    divisionRectsByDimension = {};
+    drawChart({ rects, points });
+    wrapper = addDataNavigator({
+        plotContainer: 'scatter-plot',
+        chatContainer: 'scatter-chat',
+        mode,
+        data,
+        type: 'cartesian',
+        xField: 'sepal_length',
+        yField: 'petal_length',
+        idField: 'pt',
+        title: 'Iris: sepal length vs petal length',
+        onNavigate(node) {
+            const level = node.dimensionLevel;
+            if (level === 0) {
+                // Chart root — show all bins from both dimensions at once
+                points = [];
+                rects = Object.values(divisionRectsByDimension).flat();
+            } else if (level === 1) {
+                // Dimension root — show every bin of this dimension
+                points = [];
+                const dimKey = node.data?.dimensionKey;
+                rects = divisionRectsByDimension[dimKey] ?? [];
+            } else if (node.derivedNode) {
+                // Division node — exact bin boundary, 2px stroke
+                points = [];
+                const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
+                if (node.derivedNode === 'sepal_length') {
+                    rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
+                } else {
+                    rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
+                }
+            } else {
+                // Leaf node — individual point indicator
+                rects = [];
+                points = [{ x: +node.data.sepal_length, y: +node.data.petal_length }];
+            }
+            drawChart({ rects, points });
+        },
+        onExit() {
+            rects = [];
+            points = [];
+            drawChart({ rects, points });
+        }
+    });
+    buildDivisionRects();
+}
+
+initWrapper('text');
+
+document.getElementById('scatter-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+export const data = [
+    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' },
+    { pt: 's2', sepal_length: 4.9, petal_length: 1.4, species: 'setosa' },
+    { pt: 's3', sepal_length: 4.7, petal_length: 1.3, species: 'setosa' },
+    { pt: 's4', sepal_length: 5.8, petal_length: 1.2, species: 'setosa' },
+    { pt: 's5', sepal_length: 5.0, petal_length: 1.0, species: 'setosa' },
+    { pt: 'v1', sepal_length: 7.0, petal_length: 4.7, species: 'versicolor' },
+    { pt: 'v2', sepal_length: 6.4, petal_length: 4.5, species: 'versicolor' },
+    { pt: 'v3', sepal_length: 6.9, petal_length: 4.9, species: 'versicolor' },
+    { pt: 'v4', sepal_length: 5.5, petal_length: 4.0, species: 'versicolor' },
+    { pt: 'v5', sepal_length: 6.5, petal_length: 4.6, species: 'versicolor' },
+    { pt: 'g1', sepal_length: 6.3, petal_length: 6.0, species: 'virginica' },
+    { pt: 'g2', sepal_length: 5.8, petal_length: 5.1, species: 'virginica' },
+    { pt: 'g3', sepal_length: 7.1, petal_length: 5.9, species: 'virginica' },
+    { pt: 'g4', sepal_length: 6.3, petal_length: 5.6, species: 'virginica' },
+    { pt: 'g5', sepal_length: 6.5, petal_length: 5.8, species: 'virginica' }
+];
+
+export const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
+
+export const globalXMin = Math.min(...data.map(d => d.sepal_length));
+export const globalXMax = Math.max(...data.map(d => d.sepal_length));
+export const globalYMin = Math.min(...data.map(d => d.petal_length));
+export const globalYMax = Math.max(...data.map(d => d.petal_length));
+
+export function drawChart({ rects = [], points = [] } = {}) {
+    const container = document.getElementById('scatter-chart-inner');
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        height: 320,
+        width: 480,
+        title: 'Iris: sepal length vs petal length',
+        x_axis_label: 'Sepal length (cm)',
+        y_axis_label: 'Petal length (cm)',
+        toolbar_location: null,
+        output_backend: 'svg'
+    });
+
+    // Focus rectangles (stroke only, no fill) drawn behind the data points
+    for (const rect of rects) {
+        p.quad({
+            left: [rect.x1],
+            right: [rect.x2],
+            bottom: [rect.y1],
+            top: [rect.y2],
+            fill_alpha: 0,
+            line_color: '#333',
+            line_width: rect.lineWidth
+        });
+    }
+
+    // All scatter points rendered identically — no dimming or size changes
+    data.forEach(d => {
+        p.scatter({
+            marker: 'circle',
+            x: [d.sepal_length],
+            y: [d.petal_length],
+            size: 8,
+            fill_color: colors[d.species],
+            line_color: colors[d.species],
+            line_width: 1,
+            fill_alpha: 0.7
+        });
+    });
+
+    // Focus indicator over individual points at leaf level
+    for (const point of points) {
+        p.scatter({
+            marker: 'circle',
+            x: [point.x],
+            y: [point.y],
+            size: 8,
+            fill_color: '#333',
+            line_color: '#333',
+            line_width: 2,
+            fill_alpha: 0
+        });
+    }
+
+    plt.show(p, '#scatter-chart-inner');
+}
+```
+
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Scatter Plot — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="scatter-plot" style="display:inline-block;">
+            <div id="scatter-chart-inner"></div>
+        </div>
+        <label>
+            <input type="checkbox" id="scatter-keyboard" />
+            Use keyboard navigation
+        </label>
+        <div id="scatter-chat" style="max-width:500px;"></div>
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
+```
+
+:::

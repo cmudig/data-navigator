@@ -259,57 +259,6 @@ onMounted(async () => {
 onUnmounted(() => wrapper?.destroy());
 </script>
 
-## Code
-
-```js
-import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
-
-const data = [
-    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' }
-    // ...
-];
-
-const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
-
-const wrapper = addDataNavigator({
-    plotContainer: 'gs-plot',
-    data,
-    type: 'cartesian',
-    xField: 'sepal_length',
-    yField: 'petal_length',
-    groupField: 'species', // ← adds the third [ / ] navigation axis
-    idField: 'pt',
-    title: 'Iris: sepal length vs petal length',
-    onNavigate(node) {
-        const level = node.dimensionLevel;
-        if (level === 0) {
-            // Chart root — show all bin outlines.
-            showAllRects();
-        } else if (level === 1) {
-            const dimKey = node.data?.dimensionKey ?? node.derivedNode;
-            if (dimKey === 'species') {
-                showGroupRings('__all__'); // all species highlighted
-            } else {
-                showDimensionRects(dimKey); // all bins of this axis
-            }
-        } else if (node.derivedNode === 'sepal_length') {
-            showBinRect('x', node.data.numericalExtents);
-        } else if (node.derivedNode === 'petal_length') {
-            showBinRect('y', node.data.numericalExtents);
-        } else if (node.derivedNode === 'species') {
-            showGroupRings(node.data.species); // dim other species
-        } else {
-            // Leaf — point indicator + keep species highlighted.
-            showPointIndicator(node.data.sepal_length, node.data.petal_length);
-            showGroupRings(node.data.species);
-        }
-    },
-    onExit() {
-        clearAll();
-    }
-});
-```
-
 ## Structure
 
 Adding `groupField` to `type: 'cartesian'` produces a **three-dimensional** navigation graph. Each dimension shares the same leaf nodes.
@@ -347,3 +296,251 @@ chart root
 - At the **leaf** level all three axis controls stay active for free 3-D roaming without drilling back up.
 - The sepal-length and petal-length dimensions use **terminal** extents (navigation stops at first/last bin). Species uses **circular** extents (wraps from last species back to first).
 - Bin count for numerical dimensions is `ceil(sqrt(N))` (minimum 3), where N is the number of data points.
+
+## Full code
+
+Create three files in the same directory and serve them with a local server (e.g. `npx serve .` or `python -m http.server`). Bokeh is loaded from CDN; the wrapper is loaded via import map. The **wrapper** tab is the integration layer; **chart** is the Bokeh rendering code.
+
+::: code-group
+
+```js [wrapper.js]
+import { addDataNavigator } from '@data-navigator/bokeh-wrapper';
+import { data, globalXMin, globalXMax, globalYMin, globalYMax, drawChart } from './chart.js';
+
+let wrapper = null;
+let rects = [];
+let focusedGroup = null;
+let focusedPoint = null;
+let divisionRectsByDimension = {};
+
+function buildDivisionRects() {
+    divisionRectsByDimension = {};
+    if (!wrapper) return;
+    for (const node of Object.values(wrapper.structure.nodes)) {
+        if (node.dimensionLevel === 2 && node.data?.numericalExtents) {
+            const dimKey = node.derivedNode;
+            const [lo, hi] = node.data.numericalExtents;
+            if (!divisionRectsByDimension[dimKey]) divisionRectsByDimension[dimKey] = [];
+            if (dimKey === 'sepal_length') {
+                divisionRectsByDimension[dimKey].push({ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 1 });
+            } else {
+                divisionRectsByDimension[dimKey].push({ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 1 });
+            }
+        }
+    }
+}
+
+function initWrapper(mode) {
+    wrapper?.destroy();
+    rects = [];
+    focusedGroup = null;
+    focusedPoint = null;
+    divisionRectsByDimension = {};
+    drawChart({ rects, focusedGroup, focusedPoint });
+    wrapper = addDataNavigator({
+        plotContainer: 'gs-plot',
+        chatContainer: 'gs-chat',
+        mode,
+        data,
+        type: 'cartesian',
+        xField: 'sepal_length',
+        yField: 'petal_length',
+        groupField: 'species',
+        idField: 'pt',
+        title: 'Iris: sepal length vs petal length',
+        onNavigate(node) {
+            const level = node.dimensionLevel;
+            if (level === 0) {
+                // Chart root — show all bin outlines from both numerical dimensions
+                rects = Object.values(divisionRectsByDimension).flat();
+                focusedGroup = null;
+                focusedPoint = null;
+            } else if (level === 1) {
+                // Dimension root — show all bins of this dimension, or all group rings
+                const dimKey = node.data?.dimensionKey ?? node.derivedNode;
+                if (dimKey === 'species') {
+                    rects = [];
+                    focusedGroup = '__all__';
+                } else {
+                    rects = divisionRectsByDimension[dimKey] ?? [];
+                    focusedGroup = null;
+                }
+                focusedPoint = null;
+            } else if (node.derivedNode === 'sepal_length') {
+                // Sepal-length bin — vertical stripe
+                const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
+                rects = [{ x1: lo, x2: hi, y1: globalYMin, y2: globalYMax, lineWidth: 2 }];
+                focusedGroup = null;
+                focusedPoint = null;
+            } else if (node.derivedNode === 'petal_length') {
+                // Petal-length bin — horizontal stripe
+                const [lo, hi] = node.data?.numericalExtents ?? [0, 0];
+                rects = [{ x1: globalXMin, x2: globalXMax, y1: lo, y2: hi, lineWidth: 2 }];
+                focusedGroup = null;
+                focusedPoint = null;
+            } else if (node.derivedNode === 'species') {
+                // Species category — highlight this group
+                rects = [];
+                focusedGroup = node.data?.species ?? null;
+                focusedPoint = null;
+            } else {
+                // Leaf node — individual point + keep species highlighted
+                rects = [];
+                focusedGroup = node.data?.species ?? null;
+                focusedPoint = { x: +node.data.sepal_length, y: +node.data.petal_length };
+            }
+            drawChart({ rects, focusedGroup, focusedPoint });
+        },
+        onExit() {
+            rects = [];
+            focusedGroup = null;
+            focusedPoint = null;
+            drawChart({ rects, focusedGroup, focusedPoint });
+        }
+    });
+    buildDivisionRects();
+}
+
+initWrapper('text');
+
+document.getElementById('gs-keyboard')?.addEventListener('change', e => {
+    initWrapper(e.target.checked ? 'keyboard' : 'text');
+});
+```
+
+```js [chart.js]
+export const data = [
+    { pt: 's1', sepal_length: 5.1, petal_length: 1.4, species: 'setosa' },
+    { pt: 's2', sepal_length: 4.9, petal_length: 1.4, species: 'setosa' },
+    { pt: 's3', sepal_length: 4.7, petal_length: 1.3, species: 'setosa' },
+    { pt: 's4', sepal_length: 5.8, petal_length: 1.2, species: 'setosa' },
+    { pt: 's5', sepal_length: 5.0, petal_length: 1.0, species: 'setosa' },
+    { pt: 'v1', sepal_length: 7.0, petal_length: 4.7, species: 'versicolor' },
+    { pt: 'v2', sepal_length: 6.4, petal_length: 4.5, species: 'versicolor' },
+    { pt: 'v3', sepal_length: 6.9, petal_length: 4.9, species: 'versicolor' },
+    { pt: 'v4', sepal_length: 5.5, petal_length: 4.0, species: 'versicolor' },
+    { pt: 'v5', sepal_length: 6.5, petal_length: 4.6, species: 'versicolor' },
+    { pt: 'g1', sepal_length: 6.3, petal_length: 6.0, species: 'virginica' },
+    { pt: 'g2', sepal_length: 5.8, petal_length: 5.1, species: 'virginica' },
+    { pt: 'g3', sepal_length: 7.1, petal_length: 5.9, species: 'virginica' },
+    { pt: 'g4', sepal_length: 6.3, petal_length: 5.6, species: 'virginica' },
+    { pt: 'g5', sepal_length: 6.5, petal_length: 5.8, species: 'virginica' }
+];
+
+export const colors = { setosa: '#e41a1c', versicolor: '#377eb8', virginica: '#4daf4a' };
+
+export const globalXMin = Math.min(...data.map(d => d.sepal_length));
+export const globalXMax = Math.max(...data.map(d => d.sepal_length));
+export const globalYMin = Math.min(...data.map(d => d.petal_length));
+export const globalYMax = Math.max(...data.map(d => d.petal_length));
+
+export function drawChart({ rects = [], focusedGroup = null, focusedPoint = null } = {}) {
+    const container = document.getElementById('gs-chart-inner');
+    container.innerHTML = '';
+    const plt = Bokeh.Plotting;
+    const p = plt.figure({
+        height: 320,
+        width: 480,
+        title: 'Iris: sepal length vs petal length',
+        x_axis_label: 'Sepal length (cm)',
+        y_axis_label: 'Petal length (cm)',
+        toolbar_location: null,
+        output_backend: 'svg'
+    });
+
+    // x / y bin indicator rectangles
+    for (const rect of rects) {
+        p.quad({
+            left: [rect.x1],
+            right: [rect.x2],
+            bottom: [rect.y1],
+            top: [rect.y2],
+            fill_alpha: 0,
+            line_color: '#333',
+            line_width: rect.lineWidth
+        });
+    }
+
+    // Base scatter — all points at full opacity regardless of group focus
+    data.forEach(d => {
+        p.scatter({
+            marker: 'circle',
+            x: [d.sepal_length],
+            y: [d.petal_length],
+            size: 8,
+            fill_color: colors[d.species],
+            line_color: colors[d.species],
+            line_width: 1,
+            fill_alpha: 0.7
+        });
+    });
+
+    // Colored rings around focused-group points
+    if (focusedGroup !== null) {
+        data.forEach(d => {
+            if (focusedGroup !== '__all__' && d.species !== focusedGroup) return;
+            p.scatter({
+                marker: 'circle',
+                x: [d.sepal_length],
+                y: [d.petal_length],
+                size: 11,
+                fill_alpha: 0,
+                line_color: colors[d.species],
+                line_width: 2
+            });
+        });
+    }
+
+    // Individual point indicator (leaf level)
+    if (focusedPoint) {
+        p.scatter({
+            marker: 'circle',
+            x: [focusedPoint.x],
+            y: [focusedPoint.y],
+            size: 14,
+            fill_alpha: 0,
+            line_color: '#333',
+            line_width: 2.5
+        });
+    }
+
+    plt.show(p, '#gs-chart-inner');
+}
+```
+
+```html [index.html]
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Grouped Scatter Plot — Data Navigator Bokeh Wrapper</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/data-navigator/text-chat.css" />
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.7.3.min.js" crossorigin="anonymous"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@data-navigator/bokeh-wrapper": "https://esm.sh/@data-navigator/bokeh-wrapper",
+                    "data-navigator": "https://esm.sh/data-navigator"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div id="gs-plot" style="display:inline-block;">
+            <div id="gs-chart-inner"></div>
+        </div>
+        <label>
+            <input type="checkbox" id="gs-keyboard" />
+            Use keyboard navigation
+        </label>
+        <div id="gs-chat" style="max-width:500px;"></div>
+        <script type="module" src="./wrapper.js"></script>
+    </body>
+</html>
+```
+
+:::
