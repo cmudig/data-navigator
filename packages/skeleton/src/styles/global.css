@@ -186,6 +186,73 @@ button {
     color: var(--dn-text-muted);
 }
 
+/* ── Visually hidden (screen-reader only) ── */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Button variants ── */
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--dn-space) * 0.75);
+    padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 2.5);
+    background: var(--dn-accent);
+    color: #fff;
+    border: none;
+    font-family: var(--dn-font);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    border-radius: var(--dn-radius);
+    transition: background 0.15s;
+    min-height: 44px;
+}
+
+.btn-primary:hover {
+    background: var(--dn-accent-hover);
+}
+
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--dn-space) * 0.75);
+    padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
+    background: transparent;
+    color: var(--dn-text-muted);
+    border: 1px solid var(--dn-border);
+    font-family: var(--dn-font);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--dn-radius);
+    transition:
+        background 0.15s,
+        color 0.15s;
+    min-height: 44px;
+}
+
+.btn-ghost:hover {
+    background: var(--dn-accent-soft);
+    color: var(--dn-text);
+}
+
+.btn-sm {
+    min-height: 32px;
+    padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1.5);
+    font-size: 0.8125rem;
+}
+
 /* ── Reduced motion ── */
 
 @media (prefers-reduced-motion: reduce) {
