@@ -1,0 +1,31 @@
+export type SkeletonNode = {
+    id: string; // crypto.randomUUID()
+    label: string;
+    x: number; // pixels in image coordinate space (top-left)
+    y: number;
+    width: number;
+    height: number;
+    isEntry: boolean;
+    isCluster: boolean;
+    clusterCount?: number;
+    semantics: {
+        label: string; // maps to DN's node.semantics.label
+    };
+    data: Record<string, unknown>; // maps to DN's node.data
+    renderProperties: {
+        shape: 'rect' | 'ellipse' | 'custom';
+        fill: string;
+        opacity: number;
+        ariaRole: string;
+        customClass: string;
+    };
+};
+
+export type SkeletonEdge = {
+    id: string;
+    sourceId: string;
+    targetId: string;
+    direction: 'up' | 'down' | 'left' | 'right' | 'exit' | 'custom';
+    label: string;
+    dnProperties: Record<string, unknown>;
+};

@@ -1,4 +1,7 @@
 import { writable } from 'svelte/store';
+import type { SkeletonNode, SkeletonEdge } from './types';
+
+export type { SkeletonNode, SkeletonEdge };
 
 export interface UploadedDataRaw {
     filename: string;
@@ -13,9 +16,12 @@ export interface AppState {
     imageHeight: number | null;
     uploadedData: Record<string, unknown>[] | null;
     uploadedDataRaw: UploadedDataRaw | null;
-    // Step 1 — Structure (populated later)
-    nodes: Record<string, unknown>;
-    edges: Record<string, unknown>;
+    // Step 1 — Structure
+    nodes: Map<string, SkeletonNode>;
+    edges: Map<string, SkeletonEdge>;
+    selectedNodeIds: Set<string>;
+    selectedEdgeIds: Set<string>;
+    entryNodeId: string | null;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -25,8 +31,11 @@ export const DEFAULT_APP_STATE: AppState = {
     imageHeight: null,
     uploadedData: null,
     uploadedDataRaw: null,
-    nodes: {},
-    edges: {}
+    nodes: new Map<string, SkeletonNode>(),
+    edges: new Map<string, SkeletonEdge>(),
+    selectedNodeIds: new Set<string>(),
+    selectedEdgeIds: new Set<string>(),
+    entryNodeId: null
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

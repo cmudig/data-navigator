@@ -138,9 +138,20 @@
         reader.onload = () => {
             try {
                 const raw = JSON.parse(reader.result as string);
-                const session: AppState = { ...DEFAULT_APP_STATE, ...raw };
-                const nodeCount = session.nodes ? Object.keys(session.nodes).length : 0;
-                const edgeCount = session.edges ? Object.keys(session.edges).length : 0;
+                // JSON.parse gives plain objects; convert to Map/Set
+                const nodes = new Map(Object.entries(raw.nodes ?? {}));
+                const edges = new Map(Object.entries(raw.edges ?? {}));
+                const session: AppState = {
+                    ...DEFAULT_APP_STATE,
+                    ...raw,
+                    nodes,
+                    edges,
+                    selectedNodeIds: new Set<string>(),
+                    selectedEdgeIds: new Set<string>(),
+                    entryNodeId: raw.entryNodeId ?? null,
+                };
+                const nodeCount = nodes.size;
+                const edgeCount = edges.size;
                 appState.set(session);
                 // Sync local mirrors
                 imageDataUrl = session.imageDataUrl;
