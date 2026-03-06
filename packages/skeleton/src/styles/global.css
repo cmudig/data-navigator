@@ -1,0 +1,198 @@
+/* Data Navigator Skeleton — Design System
+ * Brand colors sourced from docs/.vitepress/theme/custom.css
+ */
+
+:root {
+    --dn-font: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --dn-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Brand (from docs custom.css) */
+    --dn-accent: #1e3369;
+    --dn-accent-light: #6780c0;
+    --dn-accent-mid: #4a5d99;
+    --dn-accent-soft: rgba(30, 51, 105, 0.1);
+    --dn-accent-hover: #162855;
+
+    /* Surface */
+    --dn-bg: #ffffff;
+    --dn-surface: #f6f6f7;
+    --dn-border: #e2e2e3;
+
+    /* Text */
+    --dn-text: #213547;
+    --dn-text-muted: #476582;
+
+    /* Code */
+    --dn-code-bg: #1e1e2e;
+
+    /* Layout */
+    --dn-radius: 8px;
+    --dn-space: 8px;
+
+    /* Panel */
+    --dn-panel-width: 320px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --dn-accent: #6780c0;
+        --dn-accent-hover: #8a9fd4;
+        --dn-accent-soft: rgba(103, 128, 192, 0.15);
+        --dn-bg: #1b1b1f;
+        --dn-surface: #242429;
+        --dn-border: #3c3c43;
+        --dn-text: #f0f0f0;
+        --dn-text-muted: #adbac7;
+    }
+}
+
+/* ── Reset / Base ── */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--dn-font);
+    background: var(--dn-bg);
+    color: var(--dn-text);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* ── Accessibility: skip link ── */
+
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: calc(var(--dn-space) * 2);
+    z-index: 9999;
+    padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 2);
+    background: var(--dn-accent);
+    color: #fff;
+    border-radius: var(--dn-radius);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.skip-link:focus {
+    top: calc(var(--dn-space) * 2);
+}
+
+/* ── Focus rings — always visible ── */
+
+*:focus-visible {
+    outline: 3px solid var(--dn-accent);
+    outline-offset: 2px;
+}
+
+/* ── Buttons ── */
+
+button {
+    font-family: var(--dn-font);
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: var(--dn-radius);
+}
+
+/* ── App shell header ── */
+
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--dn-space) * 1.5);
+    padding: calc(var(--dn-space) * 1.5) calc(var(--dn-space) * 3);
+    background: var(--dn-surface);
+    border-bottom: 1px solid var(--dn-border);
+}
+
+.app-header img {
+    display: block;
+}
+
+.app-header-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--dn-text);
+    margin: 0;
+}
+
+/* ── Two-column workspace ── */
+
+.workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.workspace-canvas {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    padding: calc(var(--dn-space) * 3);
+}
+
+.workspace-panel {
+    width: var(--dn-panel-width);
+    flex-shrink: 0;
+    border-left: 1px solid var(--dn-border);
+    background: var(--dn-surface);
+    overflow-y: auto;
+    padding: calc(var(--dn-space) * 2);
+}
+
+/* Full-width steps: 0, 4, 5, 6 */
+.workspace.full-width .workspace-panel {
+    display: none;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+    .workspace {
+        flex-direction: column;
+    }
+
+    .workspace-panel {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--dn-border);
+    }
+}
+
+/* ── Step placeholder ── */
+
+.step-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--dn-space) * 2);
+}
+
+.step-placeholder h2 {
+    margin: 0 0 calc(var(--dn-space) * 1);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--dn-text);
+}
+
+.step-placeholder p {
+    margin: 0;
+    color: var(--dn-text-muted);
+}
+
+/* ── Reduced motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
