@@ -3,6 +3,7 @@
     import { tick } from 'svelte';
     import { appState } from './store/appState';
     import StepNav from './app/components/StepNav.svelte';
+    import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Structure from './app/steps/Step1_Structure.svelte';
     import Step2_Input from './app/steps/Step2_Input.svelte';
@@ -70,7 +71,7 @@
 
         {#if !isFullWidth}
             <aside class="workspace-panel" aria-label="Properties">
-                <!-- Properties panel — populated by each step -->
+                <PropertiesPanel />
             </aside>
         {/if}
     </div>
