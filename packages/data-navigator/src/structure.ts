@@ -931,28 +931,27 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                             } else if (i === valueKeys.length - 1 && extents === 'bridgedCousins') {
                                 if (j !== divisionKeys.length - 1) {
                                     // we are at the end of values but not divisions, create forwards bridge to the first child of the next division
+                                    // NOTE: must derive valueKeys from the TARGET division, not the current one —
+                                    // each division has its own datum IDs and using the current division's keys
+                                    // to index into a different division will always return undefined.
+                                    const nextDivValues = dimension.divisions[divisionKeys[j + 1]].values;
+                                    const nextDivValueKeys = Object.keys(nextDivValues);
+                                    const targetDatum = nextDivValues[nextDivValueKeys[0]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]]
-                                              )
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        v[id],
-                                        dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]][targetId],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(v[id], targetDatum[targetId], dimension.navigationRules.sibling_sibling);
                                 } else {
                                     // we are at the end of values and divisions, create forwards bridge to the first child of the first division
+                                    const firstDivValues = dimension.divisions[divisionKeys[0]].values;
+                                    const firstDivValueKeys = Object.keys(firstDivValues);
+                                    const targetDatum = firstDivValues[firstDivValueKeys[0]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]])
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        v[id],
-                                        dimension.divisions[divisionKeys[0]].values[valueKeys[0]][targetId],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(v[id], targetDatum[targetId], dimension.navigationRules.sibling_sibling);
                                 }
                             } else if (i === valueKeys.length - 1 && extents === 'bridgedCustom') {
                                 // we are at the end, create forwards bridge to new element
@@ -977,38 +976,26 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                             if (!i && extents === 'bridgedCousins') {
                                 if (j !== 0) {
                                     // we are at the start of values (but not divisions) and bridge is set, we need to create backwards bridge to the previous division's last child
+                                    // NOTE: same key-mismatch fix — derive valueKeys from the TARGET (previous) division.
+                                    const prevDivValues = dimension.divisions[divisionKeys[j - 1]].values;
+                                    const prevDivValueKeys = Object.keys(prevDivValues);
+                                    const targetDatum = prevDivValues[prevDivValueKeys[prevDivValueKeys.length - 1]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[j - 1]].values[
-                                                      valueKeys[valueKeys.length - 1]
-                                                  ]
-                                              )
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        dimension.divisions[divisionKeys[j - 1]].values[
-                                            valueKeys[valueKeys.length - 1]
-                                        ][targetId],
-                                        v[id],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(targetDatum[targetId], v[id], dimension.navigationRules.sibling_sibling);
                                 } else {
-                                    // we are at the start of values and divivions and bridge is set, we need to create backwards bridge to the last division's last child
+                                    // we are at the start of values and divisions and bridge is set, we need to create backwards bridge to the last division's last child
+                                    const lastDivValues =
+                                        dimension.divisions[divisionKeys[divisionKeys.length - 1]].values;
+                                    const lastDivValueKeys = Object.keys(lastDivValues);
+                                    const targetDatum = lastDivValues[lastDivValueKeys[lastDivValueKeys.length - 1]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                                      valueKeys[valueKeys.length - 1]
-                                                  ]
-                                              )
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                            valueKeys[valueKeys.length - 1]
-                                        ][targetId],
-                                        v[id],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(targetDatum[targetId], v[id], dimension.navigationRules.sibling_sibling);
                                 }
                             } else if (!i && extents === 'bridgedCustom') {
                                 // if we started the dimension and bridge is set, we need to create backwards bridge to new element
