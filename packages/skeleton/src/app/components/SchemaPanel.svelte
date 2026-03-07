@@ -87,7 +87,7 @@
 
         return {
             dimensions: dims, childmostNavigation, allowMoreThan3: false,
-            collapsed: false, graphMode: 'tree', hideLeafNodes: true,
+            collapsed: false, graphMode: 'tree', hideLeafNodes: false,
             level0Enabled: false, level0Id: 'root',
             level1Extents: 'terminal',
             level1NavForwardName: 'left',  level1NavForwardKey: 'ArrowLeft',
