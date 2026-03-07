@@ -596,7 +596,11 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         let node = values[valueKeys[index]];
                         let value = node[s];
                         if (value <= i) {
-                            dimension.divisions[divisionId].values[node.id] = node;
+                            const leafId =
+                                typeof options.idKey === 'function'
+                                    ? options.idKey(node)
+                                    : node[options.idKey as string];
+                            dimension.divisions[divisionId].values[leafId] = node;
                             index++;
                         } else {
                             // Node belongs to a later bin — do not advance index so it
@@ -612,7 +616,9 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 if (lastDivisionId && index < valueKeys.length) {
                     while (index < valueKeys.length) {
                         let node = values[valueKeys[index]];
-                        dimension.divisions[lastDivisionId].values[node.id] = node;
+                        const leafId =
+                            typeof options.idKey === 'function' ? options.idKey(node) : node[options.idKey as string];
+                        dimension.divisions[lastDivisionId].values[leafId] = node;
                         index++;
                     }
                 }
