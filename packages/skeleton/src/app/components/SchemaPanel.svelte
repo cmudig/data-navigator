@@ -578,7 +578,7 @@
                                                 onchange={(e) => updateDim(dim.key, 'extents', (e.target as HTMLSelectElement).value as DimensionSchema['extents'])}>
                                                 <option value="circular">Circular</option>
                                                 <option value="terminal">Terminal</option>
-                                                <!-- <option value="bridgedCousins">Bridged cousins</option> -->
+                                                <option value="bridgedCousins">Bridged cousins</option>
                                             </select>
                                         </label>
 
