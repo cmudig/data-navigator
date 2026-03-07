@@ -651,6 +651,69 @@
         edgeSourceId = null;
         lassoRect = null;
     }
+
+    // ── Resize tooltip ────────────────────────────────────────────────────────
+
+    const tooltipNode = $derived(
+        !readonly && selectedNodeIds.size === 1
+            ? (nodes.get([...selectedNodeIds][0]) ?? null)
+            : null
+    );
+
+    let tipX = $state(0);
+    let tipY = $state(0);
+
+    $effect(() => {
+        if (!svgEl || !tooltipNode) return;
+        const cx = tooltipNode.x + tooltipNode.width / 2;
+        const cy = tooltipNode.y;
+        const pt = svgEl.createSVGPoint();
+        pt.x = tx + cx * scale;
+        pt.y = ty + cy * scale;
+        const ctm = svgEl.getScreenCTM();
+        if (!ctm) return;
+        const screen = pt.matrixTransform(ctm);
+        tipX = screen.x;
+        tipY = screen.y;
+    });
+
+    const tipStep = $derived(renderConfig.positionUnit === '%' ? 0.1 : 1);
+
+    function toDisplayW(node: SkeletonNode): number {
+        if (renderConfig.positionUnit === '%' && imageWidth && imageWidth > 0)
+            return Math.round((node.width / imageWidth) * 1000) / 10;
+        return Math.round(node.width);
+    }
+
+    function toDisplayH(node: SkeletonNode): number {
+        if (renderConfig.positionUnit === '%' && imageHeight && imageHeight > 0)
+            return Math.round((node.height / imageHeight) * 1000) / 10;
+        return Math.round(node.height);
+    }
+
+    function tipSetWidth(nodeId: string, displayVal: number) {
+        if (isNaN(displayVal)) return;
+        const px = renderConfig.positionUnit === '%' && imageWidth
+            ? (displayVal / 100) * imageWidth
+            : displayVal;
+        appState.update(s => {
+            const n = s.nodes.get(nodeId);
+            if (!n) return s;
+            return { ...s, nodes: new Map(s.nodes).set(nodeId, { ...n, width: px }) };
+        });
+    }
+
+    function tipSetHeight(nodeId: string, displayVal: number) {
+        if (isNaN(displayVal)) return;
+        const px = renderConfig.positionUnit === '%' && imageHeight
+            ? (displayVal / 100) * imageHeight
+            : displayVal;
+        appState.update(s => {
+            const n = s.nodes.get(nodeId);
+            if (!n) return s;
+            return { ...s, nodes: new Map(s.nodes).set(nodeId, { ...n, height: px }) };
+        });
+    }
 </script>
 
 <!-- aria-live for screen-reader announcements -->
@@ -966,6 +1029,71 @@
     </g>
 </svg>
 
+<!-- Resize tooltip: shown when a single node is selected in edit mode -->
+{#if tooltipNode}
+    {@const tn = tooltipNode}
+    <div
+        class="resize-tooltip"
+        style="left: {tipX}px; top: {tipY}px"
+        aria-label="Size of {tn.label}"
+        onmousedown={(e) => e.stopPropagation()}
+    >
+        <div class="rtip-row">
+            <span class="rtip-label">W</span>
+            <button
+                class="rtip-btn"
+                type="button"
+                aria-label="Decrease width"
+                onmousedown={(e) => e.stopPropagation()}
+                onclick={() => tipSetWidth(tn.id, toDisplayW(tn) - tipStep)}
+            >−</button>
+            <input
+                type="number"
+                class="rtip-input"
+                step={tipStep}
+                value={toDisplayW(tn)}
+                aria-label="Width"
+                onmousedown={(e) => e.stopPropagation()}
+                oninput={(e) => tipSetWidth(tn.id, parseFloat(e.currentTarget.value))}
+            />
+            <button
+                class="rtip-btn"
+                type="button"
+                aria-label="Increase width"
+                onmousedown={(e) => e.stopPropagation()}
+                onclick={() => tipSetWidth(tn.id, toDisplayW(tn) + tipStep)}
+            >+</button>
+        </div>
+        <div class="rtip-row">
+            <span class="rtip-label">H</span>
+            <button
+                class="rtip-btn"
+                type="button"
+                aria-label="Decrease height"
+                onmousedown={(e) => e.stopPropagation()}
+                onclick={() => tipSetHeight(tn.id, toDisplayH(tn) - tipStep)}
+            >−</button>
+            <input
+                type="number"
+                class="rtip-input"
+                step={tipStep}
+                value={toDisplayH(tn)}
+                aria-label="Height"
+                onmousedown={(e) => e.stopPropagation()}
+                oninput={(e) => tipSetHeight(tn.id, parseFloat(e.currentTarget.value))}
+            />
+            <button
+                class="rtip-btn"
+                type="button"
+                aria-label="Increase height"
+                onmousedown={(e) => e.stopPropagation()}
+                onclick={() => tipSetHeight(tn.id, toDisplayH(tn) + tipStep)}
+            >+</button>
+        </div>
+        <span class="rtip-unit">{renderConfig.positionUnit}</span>
+    </div>
+{/if}
+
 <style>
     .canvas-toolbar {
         display: flex;
@@ -1054,5 +1182,95 @@
 
     :global(.resize-handle:hover) {
         fill: var(--dn-accent-soft);
+    }
+
+    /* ── Resize tooltip ── */
+    .resize-tooltip {
+        position: fixed;
+        transform: translate(-50%, calc(-100% - 10px));
+        background: var(--dn-bg);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 0.875);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.375);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        z-index: 50;
+        pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .rtip-row {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.375);
+    }
+
+    .rtip-label {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        color: var(--dn-text-muted);
+        width: 10px;
+        font-family: var(--dn-font-mono);
+        text-transform: uppercase;
+    }
+
+    .rtip-input {
+        font-family: var(--dn-font-mono);
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        padding: 2px 4px;
+        width: 58px;
+        text-align: right;
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+
+    .rtip-input::-webkit-outer-spin-button,
+    .rtip-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .rtip-input:focus {
+        border-color: var(--dn-accent);
+        outline: none;
+    }
+
+    .rtip-btn {
+        background: none;
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.9375rem;
+        color: var(--dn-text-muted);
+        padding: 0;
+        line-height: 1;
+        font-family: var(--dn-font-mono);
+        flex-shrink: 0;
+    }
+
+    .rtip-btn:hover {
+        background: var(--dn-accent-soft);
+        color: var(--dn-accent);
+        border-color: var(--dn-accent-light);
+    }
+
+    .rtip-unit {
+        font-size: 0.625rem;
+        color: var(--dn-text-muted);
+        text-align: center;
+        font-family: var(--dn-font-mono);
+        letter-spacing: 0.03em;
     }
 </style>

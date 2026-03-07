@@ -419,10 +419,9 @@
                     <input
                         id="node-width"
                         type="number"
-                        min="10"
                         step="1"
                         value={Math.round(node.width)}
-                        oninput={(e) => updateNode({ width: Math.max(10, parseFloat(e.currentTarget.value) || 10) })}
+                        oninput={(e) => updateNode({ width: parseFloat(e.currentTarget.value) || 0 })}
                     />
                 </div>
                 <div class="field">
@@ -430,10 +429,9 @@
                     <input
                         id="node-height"
                         type="number"
-                        min="10"
                         step="1"
                         value={Math.round(node.height)}
-                        oninput={(e) => updateNode({ height: Math.max(10, parseFloat(e.currentTarget.value) || 10) })}
+                        oninput={(e) => updateNode({ height: parseFloat(e.currentTarget.value) || 0 })}
                     />
                 </div>
             </div>
