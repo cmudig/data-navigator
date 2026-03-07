@@ -169,6 +169,7 @@ export function TreeGraph(
     const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
     const leafGap = usableHeight * 0.05; // small gap between hierarchy and leaves
     const leafYPos = padding.top + upperHeight + leafGap;
+    const leafAreaCenter = (leafYPos + height - padding.bottom) / 2;
 
     let currentRow = 0;
     const yFor = row => padding.top + row * upperSpacing;
@@ -224,13 +225,13 @@ export function TreeGraph(
     // Leaf nodes
     const leafY = leafYPos;
     if (dimOrder.length === 0 || !dimensions) {
-        // No dimensions — flat row
+        // No dimensions — flat row, centered in leaf area
         leafNodes.forEach((n, i) => {
             n.x = padding.left + (usableWidth / (leafNodes.length + 1)) * (i + 1);
-            n.y = leafY;
+            n.y = leafAreaCenter;
         });
     } else if (dimOrder.length === 1) {
-        // Single dimension — spread leaves under their division parent
+        // Single dimension — spread leaves under their division parent, centered in leaf area
         const key = dimOrder[0];
         const dim = dimensions[key];
         const divIds = Object.keys(dim.divisions || {});
@@ -244,22 +245,30 @@ export function TreeGraph(
                 const n = nodeObjById[leafId];
                 if (n) {
                     n.x = parentX - spreadWidth / 2 + leafSpacing * (i + 1);
-                    n.y = leafY;
+                    n.y = leafAreaCenter;
                 }
             });
         });
     } else {
         // 2+ dimensions — grid layout
-        // First dimension controls columns, second controls rows
-        const dim1Key = dimOrder[0];
-        const dim2Key = dimOrder[1];
-        const dim1 = dimensions[dim1Key];
-        const dim2 = dimensions[dim2Key];
-        const div1Ids = Object.keys(dim1.divisions || {});
-        const div2Ids = Object.keys(dim2.divisions || {});
+        // Prefer horizontal spread: ensure cols >= rows by swapping dims if needed.
+        // This prevents single-column layouts (e.g. when dim1 is compressed to 1 division).
+        let dim1Key = dimOrder[0];
+        let dim2Key = dimOrder[1];
+        let dim1 = dimensions[dim1Key];
+        let dim2 = dimensions[dim2Key];
+        let div1Ids = Object.keys(dim1.divisions || {});
+        let div2Ids = Object.keys(dim2.divisions || {});
 
-        const cols = div1Ids.length || 1;
-        const rows = div2Ids.length || 1;
+        let cols = div1Ids.length || 1;
+        let rows = div2Ids.length || 1;
+
+        if (cols < rows) {
+            [dim1Key, dim2Key] = [dim2Key, dim1Key];
+            [dim1, dim2] = [dim2, dim1];
+            [div1Ids, div2Ids] = [div2Ids, div1Ids];
+            [cols, rows] = [rows, cols];
+        }
 
         // Grid occupies the full leaf area
         const gridTop = leafY;
