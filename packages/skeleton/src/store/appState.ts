@@ -107,7 +107,7 @@ export const DEFAULT_APP_STATE: AppState = {
         allowMoreThan3: false,
         collapsed: false,
         graphMode: 'tree',
-        hideLeafNodes: true,
+        hideLeafNodes: false,
         level0Enabled: false,
         level0Id: 'root',
         level1Extents: 'terminal',
