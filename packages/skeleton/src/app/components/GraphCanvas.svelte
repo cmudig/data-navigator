@@ -42,6 +42,20 @@
         moved: boolean;
     } | null>(null);
 
+    // ── Resize state ──────────────────────────────────────────────────────────
+    type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+    let resize = $state<{
+        nodeId: string;
+        dir: HandleDir;
+        startClientX: number;
+        startClientY: number;
+        startNodeX: number;
+        startNodeY: number;
+        startNodeW: number;
+        startNodeH: number;
+        moved: boolean;
+    } | null>(null);
+
     // ── Lasso state ───────────────────────────────────────────────────────────
     let lassoRect = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
     let activeTouchId = $state<number | null>(null);
@@ -121,6 +135,24 @@
 
     function nodeCenter(node: SkeletonNode) {
         return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    }
+
+    function getHandlePositions(node: SkeletonNode): Array<{ dir: HandleDir; x: number; y: number }> {
+        const { x, y, width, height } = node;
+        const mx = x + width / 2;
+        const my = y + height / 2;
+        const r = x + width;
+        const b = y + height;
+        return [
+            { dir: 'nw', x, y },
+            { dir: 'n',  x: mx, y },
+            { dir: 'ne', x: r, y },
+            { dir: 'e',  x: r, y: my },
+            { dir: 'se', x: r, y: b },
+            { dir: 's',  x: mx, y: b },
+            { dir: 'sw', x, y: b },
+            { dir: 'w',  x, y: my },
+        ];
     }
 
     function rectsOverlap(
@@ -310,6 +342,42 @@
             return;
         }
 
+        if (resize) {
+            if (!svgEl) return;
+            const ctm = svgEl.getScreenCTM();
+            if (!ctm) return;
+            const dx = (e.clientX - resize.startClientX) / ctm.a / scale;
+            const dy = (e.clientY - resize.startClientY) / ctm.d / scale;
+            const MIN = 20;
+            let nx = resize.startNodeX, ny = resize.startNodeY;
+            let nw = resize.startNodeW, nh = resize.startNodeH;
+            // West handles: move x, shrink width
+            if (resize.dir === 'nw' || resize.dir === 'sw' || resize.dir === 'w') {
+                nw = Math.max(MIN, resize.startNodeW - dx);
+                nx = resize.startNodeX + resize.startNodeW - nw;
+            }
+            // East handles: grow width
+            if (resize.dir === 'ne' || resize.dir === 'se' || resize.dir === 'e') {
+                nw = Math.max(MIN, resize.startNodeW + dx);
+            }
+            // North handles: move y, shrink height
+            if (resize.dir === 'nw' || resize.dir === 'n' || resize.dir === 'ne') {
+                nh = Math.max(MIN, resize.startNodeH - dy);
+                ny = resize.startNodeY + resize.startNodeH - nh;
+            }
+            // South handles: grow height
+            if (resize.dir === 'sw' || resize.dir === 's' || resize.dir === 'se') {
+                nh = Math.max(MIN, resize.startNodeH + dy);
+            }
+            resize.moved = true;
+            appState.update(s => {
+                const n = s.nodes.get(resize!.nodeId);
+                if (!n) return s;
+                return { ...s, nodes: new Map(s.nodes).set(resize!.nodeId, { ...n, x: nx, y: ny, width: nw, height: nh }) };
+            });
+            return;
+        }
+
         if (drag) {
             const dx = e.clientX - drag.startClientX;
             const dy = e.clientY - drag.startClientY;
@@ -343,6 +411,14 @@
             isPanning = false;
             return;
         }
+        if (resize) {
+            if (resize.moved) {
+                const node = nodes.get(resize.nodeId);
+                if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
+            }
+            resize = null;
+            return;
+        }
         if (lassoRect) {
             commitLasso();
             return;
@@ -369,6 +445,11 @@
 
     function onSvgMouseleave() {
         isPanning = false;
+        if (resize?.moved) {
+            const node = nodes.get(resize.nodeId);
+            if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
+        }
+        resize = null;
         if (drag?.moved) {
             const node = nodes.get(drag.nodeId);
             if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
@@ -418,6 +499,26 @@
             startClientY: e.clientY,
             startNodeX: node.x,
             startNodeY: node.y,
+            moved: false,
+        };
+    }
+
+    // ── Handle (resize) mouse events ─────────────────────────────────────────
+
+    function onHandleMousedown(e: MouseEvent, nodeId: string, dir: HandleDir) {
+        if (e.button !== 0 || readonly) return;
+        e.stopPropagation();
+        const node = nodes.get(nodeId);
+        if (!node) return;
+        resize = {
+            nodeId,
+            dir,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startNodeX: node.x,
+            startNodeY: node.y,
+            startNodeW: node.width,
+            startNodeH: node.height,
             moved: false,
         };
     }
@@ -615,6 +716,7 @@
     class:cursor-cell={mode === 'addEdge'}
     class:cursor-grab={spaceDown && !isPanning}
     class:cursor-grabbing={isPanning}
+    style={resize ? `cursor: ${resize.dir}-resize` : ''}
     onwheel={onWheel}
     onmousedown={onSvgMousedown}
     onmousemove={onSvgMousemove}
@@ -794,6 +896,23 @@
                             aria-hidden="true"
                         >★</text>
                     {/if}
+
+                    <!-- Resize handles (single selection, editable) -->
+                    {#if isSel && selectedNodeIds.size === 1 && !readonly}
+                        {@const hs = 8 / scale}
+                        {@const hhs = hs / 2}
+                        {#each getHandlePositions(node) as h (h.dir)}
+                            <rect
+                                class="resize-handle"
+                                x={h.x - hhs} y={h.y - hhs}
+                                width={hs} height={hs}
+                                stroke-width={1.5 / scale}
+                                style="cursor: {h.dir}-resize"
+                                aria-hidden="true"
+                                onmousedown={(e) => onHandleMousedown(e, node.id, h.dir)}
+                            />
+                        {/each}
+                    {/if}
                 </g>
             {/each}
         </g>
@@ -926,5 +1045,14 @@
         fill: rgba(20, 184, 166, 0.25);
         stroke: rgba(13, 148, 136, 0.7);
         stroke-width: 1.5;
+    }
+
+    :global(.resize-handle) {
+        fill: var(--dn-bg);
+        stroke: var(--dn-accent);
+    }
+
+    :global(.resize-handle:hover) {
+        fill: var(--dn-accent-soft);
     }
 </style>
