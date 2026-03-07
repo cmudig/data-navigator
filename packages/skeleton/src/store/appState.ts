@@ -3,13 +3,24 @@ import type { SkeletonNode, SkeletonEdge } from './types';
 
 export type { SkeletonNode, SkeletonEdge };
 
+export interface DivisionEntry {
+    id: string; // editable — used as DN division ID
+    originalValue: string; // original data value or range label (read-only display)
+}
+
 export interface DimensionSchema {
     key: string;
     type: 'numerical' | 'categorical';
     included: boolean;
     navIndex: number | null; // 0/1/2 when selected
+    // Behavior
+    extents: 'circular' | 'terminal' | 'bridgedCousins';
     compressSparseDivisions: boolean;
-    // Sibling nav (forward/backward within division)
+    sortMethod: 'ascending' | 'descending' | 'none';
+    subdivisions: number; // numerical only, 1–12, default 4
+    // Computed divisions (editable IDs)
+    divisions: DivisionEntry[];
+    // Sibling nav (forward/backward within dimension)
     forwardName: string;
     forwardKey: string;
     backwardName: string;
@@ -27,6 +38,16 @@ export interface SchemaState {
     allowMoreThan3: boolean;
     collapsed: boolean;
     graphMode: 'tree' | 'force';
+    hideLeafNodes: boolean; // graph only — hides data rows from graph preview
+    // Level 0 (optional root entry node)
+    level0Enabled: boolean;
+    level0Id: string;
+    // Level 1 options (navigation between dimension nodes, via parentOptions.level1Options)
+    level1Extents: 'circular' | 'terminal';
+    level1NavForwardName: string;
+    level1NavForwardKey: string;
+    level1NavBackwardName: string;
+    level1NavBackwardKey: string;
 }
 
 export interface UploadedDataRaw {
@@ -85,7 +106,15 @@ export const DEFAULT_APP_STATE: AppState = {
         childmostNavigation: 'within',
         allowMoreThan3: false,
         collapsed: false,
-        graphMode: 'tree'
+        graphMode: 'tree',
+        hideLeafNodes: true,
+        level0Enabled: false,
+        level0Id: 'root',
+        level1Extents: 'terminal',
+        level1NavForwardName: 'left',
+        level1NavForwardKey: 'ArrowLeft',
+        level1NavBackwardName: 'right',
+        level1NavBackwardKey: 'ArrowRight'
     },
     inputConfig: {
         enableKeyboard: true,
