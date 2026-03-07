@@ -63,7 +63,7 @@
             }
             const sortMethod: 'ascending' | 'descending' | 'none' = type === 'numerical' ? 'ascending' : 'none';
             const subdivisions = 4;
-            const extents: 'circular' | 'terminal' = type === 'categorical' ? 'circular' : 'terminal';
+            const extents: 'circular' | 'terminal' | 'bridgedCousins' = type === 'categorical' ? 'circular' : 'bridgedCousins';
             // divisions start empty — populated by syncDivisionsFromDN after first DN call
             return {
                 key, type, included: false, navIndex: null,
