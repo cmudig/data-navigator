@@ -9,7 +9,10 @@ export type SkeletonNode = {
     isCluster: boolean;
     clusterCount?: number;
     semantics: {
-        label: string; // maps to DN's node.semantics.label
+        label: string; // maps to DN's node.semantics.label; supports {key:"f"}/{value:"f"} templates
+        name: string; // noun appended after label, e.g. "data point", "node"
+        includeParentName: boolean; // append "in [parent]" to output
+        includeIndex: boolean; // append "X of Y" to output
     };
     data: Record<string, unknown>; // maps to DN's node.data
     renderProperties: {

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { appState } from '../../store/appState';
+    import type { RenderConfig } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
 
     // ── Store sync ────────────────────────────────────────────────────────────
@@ -11,6 +12,7 @@
     let imageWidth = $state<number | null>(null);
     let imageHeight = $state<number | null>(null);
     let currentStep = $state(0);
+    let renderConfig = $state<RenderConfig>({ positionUnit: 'px', showOverlay: false, semanticNames: ['data point', 'node'] });
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -22,6 +24,7 @@
             imageWidth = s.imageWidth;
             imageHeight = s.imageHeight;
             currentStep = s.currentStep;
+            renderConfig = s.renderConfig;
         });
     });
 
@@ -160,7 +163,7 @@
         });
     }
 
-    function updateNodeSemantics(label: string) {
+    function updateNodeSemantics(patch: Partial<SkeletonNode['semantics']>) {
         const id = selectedNode?.id;
         if (!id) return;
         appState.update(s => {
@@ -170,11 +173,68 @@
                 ...s,
                 nodes: new Map(s.nodes).set(id, {
                     ...n,
-                    semantics: { ...n.semantics, label },
+                    semantics: { ...n.semantics, ...patch },
                 }),
             };
         });
     }
+
+    // ── Semantic name management ──────────────────────────────────────────────
+    let newNameInput = $state('');
+
+    function addSemanticName() {
+        const trimmed = newNameInput.trim();
+        if (!trimmed || renderConfig.semanticNames.includes(trimmed)) return;
+        appState.update(s => ({
+            ...s,
+            renderConfig: {
+                ...s.renderConfig,
+                semanticNames: [...s.renderConfig.semanticNames, trimmed],
+            },
+        }));
+        newNameInput = '';
+    }
+
+    // ── Semantic preview ──────────────────────────────────────────────────────
+    function buildSemanticOutput(node: SkeletonNode): string {
+        // 1. Resolve label template
+        let resolved = node.semantics.label
+            .replace(/\{key:"([^"]+)"\}/g, (_, key) => key)
+            .replace(/\{value:"([^"]+)"\}/g, (_, key) => {
+                const val = node.data[key];
+                return val !== undefined ? String(val) : `[${key}]`;
+            });
+
+        // 2. Build name + group suffix
+        const name = node.semantics.name || 'data point';
+        const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+
+        let groupSuffix = '';
+        if (node.semantics.includeParentName || node.semantics.includeIndex) {
+            const parentEdge = [...edges.values()].find(e => e.targetId === node.id);
+            const parent = parentEdge ? nodes.get(parentEdge.sourceId) : null;
+            if (parent) {
+                if (node.semantics.includeIndex) {
+                    const siblings = [...edges.values()]
+                        .filter(e => e.sourceId === parent.id)
+                        .map(e => nodes.get(e.targetId))
+                        .filter((n): n is SkeletonNode => !!n);
+                    const idx = siblings.findIndex(n => n.id === node.id) + 1;
+                    groupSuffix += ` ${idx} of ${siblings.length}`;
+                }
+                if (node.semantics.includeParentName) {
+                    groupSuffix += ` in ${parent.label}`;
+                }
+            }
+        }
+
+        const suffix = capitalized + groupSuffix + '.';
+        return resolved ? `${resolved} ${suffix}` : suffix;
+    }
+
+    const semanticPreview = $derived(
+        selectedNode ? buildSemanticOutput(selectedNode) : ''
+    );
 
     function setEntryNode(nodeId: string, makeEntry: boolean) {
         appState.update(s => ({
@@ -385,25 +445,86 @@
         <h3 id="section-semantics" class="section-heading">Semantics</h3>
 
         <div class="field">
-            <label for="node-sem-label">Label (screen reader text)</label>
+            <label for="node-sem-label">Label</label>
             <textarea
                 id="node-sem-label"
                 rows="3"
                 value={node.semantics.label}
-                oninput={(e) => updateNodeSemantics(e.currentTarget.value)}
+                oninput={(e) => updateNodeSemantics({ label: e.currentTarget.value })}
             ></textarea>
-            <button
-                class="btn-ghost btn-sm"
-                type="button"
-                disabled
-                aria-describedby="ai-suggest-tip"
-            >
-                AI Suggest
-            </button>
-            <p id="ai-suggest-tip" class="field-hint">
-                AI suggestions available after Anthropic API key is set.
+            <p class="field-hint">
+                Use <code>{'{key:"field"}'}</code> for the field name,
+                <code>{'{value:"field"}'}</code> for its data value.
             </p>
         </div>
+
+        <div class="field">
+            <label for="node-sem-name">Name</label>
+            <div class="name-row">
+                <select
+                    id="node-sem-name"
+                    value={node.semantics.name}
+                    onchange={(e) => updateNodeSemantics({ name: e.currentTarget.value })}
+                >
+                    {#each renderConfig.semanticNames as n (n)}
+                        <option value={n}>{n}</option>
+                    {/each}
+                </select>
+                <input
+                    type="text"
+                    class="name-new-input"
+                    placeholder="New name…"
+                    aria-label="New name to add"
+                    bind:value={newNameInput}
+                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSemanticName(); } }}
+                />
+                <button
+                    class="btn-ghost btn-sm"
+                    type="button"
+                    aria-label="Add name"
+                    onclick={addSemanticName}
+                >+ Add</button>
+            </div>
+        </div>
+
+        <fieldset class="panel-fieldset">
+            <legend class="fieldset-legend">Group info</legend>
+            <div class="field field-inline">
+                <label for="node-include-index">Include index (X of Y)</label>
+                <input
+                    id="node-include-index"
+                    type="checkbox"
+                    checked={node.semantics.includeIndex}
+                    onchange={(e) => updateNodeSemantics({ includeIndex: e.currentTarget.checked })}
+                />
+            </div>
+            <div class="field field-inline">
+                <label for="node-include-parent">Include parent name</label>
+                <input
+                    id="node-include-parent"
+                    type="checkbox"
+                    checked={node.semantics.includeParentName}
+                    onchange={(e) => updateNodeSemantics({ includeParentName: e.currentTarget.checked })}
+                />
+            </div>
+        </fieldset>
+
+        <div class="sem-preview" aria-label="Semantic label preview">
+            <span class="field-hint">Preview:</span>
+            <p class="sem-preview-text">{semanticPreview}</p>
+        </div>
+
+        <button
+            class="btn-ghost btn-sm"
+            type="button"
+            disabled
+            aria-describedby="ai-suggest-tip"
+        >
+            AI Suggest
+        </button>
+        <p id="ai-suggest-tip" class="field-hint">
+            AI suggestions available after Anthropic API key is set.
+        </p>
     </section>
 
     <!-- DATA -->
@@ -996,5 +1117,71 @@
         clip: rect(0, 0, 0, 0);
         white-space: nowrap;
         border: 0;
+    }
+
+    /* ── Name row (select + new input + add button) ── */
+    .name-row {
+        display: flex;
+        gap: calc(var(--dn-space) * 0.5);
+        align-items: center;
+    }
+
+    .name-row select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .name-new-input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* ── Panel fieldset (group info) ── */
+    .panel-fieldset {
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 1.25);
+        margin: 0 0 calc(var(--dn-space) * 1.25);
+    }
+
+    .fieldset-legend {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--dn-text-muted);
+        padding: 0 calc(var(--dn-space) * 0.5);
+    }
+
+    .panel-fieldset .field {
+        margin-bottom: calc(var(--dn-space) * 0.75);
+    }
+
+    .panel-fieldset .field:last-child {
+        margin-bottom: 0;
+    }
+
+    /* ── Semantic preview ── */
+    .sem-preview {
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 1.25);
+        margin-bottom: calc(var(--dn-space) * 1.25);
+    }
+
+    .sem-preview-text {
+        margin: calc(var(--dn-space) * 0.375) 0 0;
+        font-size: 0.875rem;
+        color: var(--dn-text);
+        line-height: 1.5;
+        font-style: italic;
+    }
+
+    code {
+        font-family: var(--dn-font-mono);
+        font-size: 0.75rem;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        padding: 1px 4px;
     }
 </style>

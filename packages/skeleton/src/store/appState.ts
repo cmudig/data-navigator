@@ -14,6 +14,12 @@ export interface InputConfig {
     enableTextInput: boolean; // default: false
 }
 
+export interface RenderConfig {
+    positionUnit: 'px' | '%';
+    showOverlay: boolean;
+    semanticNames: string[]; // user-defined name options for the name dropdown
+}
+
 export interface AppState {
     currentStep: number; // 0–6
     // Step 0 — Upload
@@ -30,6 +36,8 @@ export interface AppState {
     entryNodeId: string | null;
     // Step 2 — Input
     inputConfig: InputConfig;
+    // Step 3 — Render
+    renderConfig: RenderConfig;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -48,6 +56,11 @@ export const DEFAULT_APP_STATE: AppState = {
         enableKeyboard: true,
         enableSwitch: false,
         enableTextInput: false
+    },
+    renderConfig: {
+        positionUnit: 'px',
+        showOverlay: false,
+        semanticNames: ['data point', 'node']
     }
 };
 

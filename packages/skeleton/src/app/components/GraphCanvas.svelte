@@ -2,6 +2,7 @@
     import { get } from 'svelte/store';
     import { appState } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
+    import type { RenderConfig } from '../../store/appState';
 
     // ── Callback props (Svelte 5 style) ───────────────────────────────────────
     type Props = {
@@ -66,6 +67,7 @@
     let imageDataUrl = $state<string | null>(initial.imageDataUrl);
     let imageWidth = $state<number | null>(initial.imageWidth);
     let imageHeight = $state<number | null>(initial.imageHeight);
+    let renderConfig = $state<RenderConfig>(initial.renderConfig);
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -77,6 +79,7 @@
             imageDataUrl = s.imageDataUrl;
             imageWidth = s.imageWidth;
             imageHeight = s.imageHeight;
+            renderConfig = s.renderConfig;
         });
     });
 
@@ -153,7 +156,7 @@
             height: 60,
             isEntry: isFirst,
             isCluster: false,
-            semantics: { label: `Node ${nodes.size + 1}` },
+            semantics: { label: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false },
             data: {},
             renderProperties: {
                 shape: 'rect',
@@ -812,7 +815,22 @@
             {/if}
         {/if}
 
-        <!-- Layer 5: Lasso rect -->
+        <!-- Layer 5: Placement preview overlay -->
+        {#if renderConfig.showOverlay}
+            <g class="overlay-layer" aria-hidden="true" pointer-events="none">
+                {#each nodeList as node (node.id)}
+                    <rect
+                        class="overlay-rect"
+                        x={node.x} y={node.y}
+                        width={node.width} height={node.height}
+                        rx="4"
+                        pointer-events="none"
+                    />
+                {/each}
+            </g>
+        {/if}
+
+        <!-- Layer 6: Lasso rect -->
         {#if lassoRect}
             {@const lx = Math.min(lassoRect.x0, lassoRect.x1)}
             {@const ly = Math.min(lassoRect.y0, lassoRect.y1)}
@@ -902,5 +920,11 @@
         stroke: var(--dn-accent);
         stroke-width: 1.5;
         stroke-dasharray: 4 2;
+    }
+
+    :global(.overlay-rect) {
+        fill: rgba(20, 184, 166, 0.25);
+        stroke: rgba(13, 148, 136, 0.7);
+        stroke-width: 1.5;
     }
 </style>
