@@ -1,0 +1,8 @@
+[
+    { "fruit": "Apples", "count": 5 },
+    { "fruit": "Pears", "count": 3 },
+    { "fruit": "Nectarines", "count": 4 },
+    { "fruit": "Plums", "count": 2 },
+    { "fruit": "Grapes", "count": 4 },
+    { "fruit": "Strawberries", "count": 6 }
+]

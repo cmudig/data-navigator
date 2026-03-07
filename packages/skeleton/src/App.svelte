@@ -5,6 +5,7 @@
     import { appState } from './store/appState';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
+    import SchemaPanel from './app/components/SchemaPanel.svelte';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Structure from './app/steps/Step1_Structure.svelte';
@@ -29,10 +30,12 @@
     const fullWidthSteps = new Set([0, 2, 4, 5, 6]);
 
     let currentStep = $state(0);
+    let hasUploadedData = $state(false);
     let showEntryGate = $state(false);
 
     appState.subscribe(async s => {
         currentStep = s.currentStep;
+        hasUploadedData = s.uploadedData !== null;
         // After the DOM updates, move focus to the new step heading
         await tick();
         const heading = document.getElementById(`step-heading-${s.currentStep}`);
@@ -52,6 +55,7 @@
 
     const ActiveStep = $derived(stepComponents[currentStep]);
     const isFullWidth = $derived(fullWidthSteps.has(currentStep));
+    const showSchemaPanel = $derived(currentStep === 1 && hasUploadedData);
 </script>
 
 <!-- Skip to main content -->
@@ -80,6 +84,12 @@
         aria-labelledby="tab-{currentStep}"
         id="step-panel-{currentStep}"
     >
+        {#if showSchemaPanel}
+            <aside aria-label="Schema">
+                <SchemaPanel />
+            </aside>
+        {/if}
+
         <div class="workspace-canvas">
             <ActiveStep />
         </div>
