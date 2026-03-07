@@ -1,9 +1,11 @@
 <script lang="ts">
     import './styles/global.css';
     import { tick } from 'svelte';
+    import { get } from 'svelte/store';
     import { appState } from './store/appState';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
+    import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Structure from './app/steps/Step1_Structure.svelte';
     import Step2_Input from './app/steps/Step2_Input.svelte';
@@ -23,9 +25,11 @@
     ] as const;
 
     // Steps that should be full-width (no properties panel)
-    const fullWidthSteps = new Set([0, 4, 5, 6]);
+    // Step 2 is full-width because it manages its own two-column layout internally
+    const fullWidthSteps = new Set([0, 2, 4, 5, 6]);
 
     let currentStep = $state(0);
+    let showEntryGate = $state(false);
 
     appState.subscribe(async s => {
         currentStep = s.currentStep;
@@ -34,6 +38,17 @@
         const heading = document.getElementById(`step-heading-${s.currentStep}`);
         heading?.focus();
     });
+
+    function beforeStepNavigate(targetStep: number): boolean {
+        if (targetStep === 3) {
+            const s = get(appState);
+            if (!s.entryNodeId) {
+                showEntryGate = true;
+                return false;
+            }
+        }
+        return true;
+    }
 
     const ActiveStep = $derived(stepComponents[currentStep]);
     const isFullWidth = $derived(fullWidthSteps.has(currentStep));
@@ -54,7 +69,7 @@
 </header>
 
 <!-- Step navigation -->
-<StepNav />
+<StepNav beforeNavigate={beforeStepNavigate} />
 
 <!-- Main workspace -->
 <main id="main-content">
@@ -76,6 +91,16 @@
         {/if}
     </div>
 </main>
+
+{#if showEntryGate}
+    <EntryNodeModal
+        onclose={() => { showEntryGate = false; }}
+        onconfirm={() => {
+            showEntryGate = false;
+            appState.update(s => ({ ...s, currentStep: 3 }));
+        }}
+    />
+{/if}
 
 <style>
     :global(body) {

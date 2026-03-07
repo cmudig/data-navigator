@@ -1,6 +1,11 @@
 <script lang="ts">
     import { appState } from '../../store/appState';
 
+    type Props = {
+        beforeNavigate?: (targetStep: number) => boolean;
+    };
+    const { beforeNavigate }: Props = $props();
+
     const steps = [
         { label: 'Upload',        index: 0 },
         { label: 'Structure',     index: 1 },
@@ -15,6 +20,7 @@
     appState.subscribe(s => { currentStep = s.currentStep; });
 
     function goTo(index: number) {
+        if (beforeNavigate && !beforeNavigate(index)) return;
         appState.update(s => ({ ...s, currentStep: index }));
     }
 

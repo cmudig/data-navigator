@@ -8,6 +8,12 @@ export interface UploadedDataRaw {
     content: string;
 }
 
+export interface InputConfig {
+    enableKeyboard: boolean; // default: true
+    enableSwitch: boolean; // default: false
+    enableTextInput: boolean; // default: false
+}
+
 export interface AppState {
     currentStep: number; // 0–6
     // Step 0 — Upload
@@ -22,6 +28,8 @@ export interface AppState {
     selectedNodeIds: Set<string>;
     selectedEdgeIds: Set<string>;
     entryNodeId: string | null;
+    // Step 2 — Input
+    inputConfig: InputConfig;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -35,7 +43,12 @@ export const DEFAULT_APP_STATE: AppState = {
     edges: new Map<string, SkeletonEdge>(),
     selectedNodeIds: new Set<string>(),
     selectedEdgeIds: new Set<string>(),
-    entryNodeId: null
+    entryNodeId: null,
+    inputConfig: {
+        enableKeyboard: true,
+        enableSwitch: false,
+        enableTextInput: false
+    }
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

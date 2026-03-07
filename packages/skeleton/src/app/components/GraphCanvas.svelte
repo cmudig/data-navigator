@@ -8,8 +8,9 @@
         selectNodes?: (ids: string[]) => void;
         selectEdges?: (ids: string[]) => void;
         nodesMoved?: (moves: Array<{ nodeId: string; x: number; y: number }>) => void;
+        readonly?: boolean;
     };
-    const { selectNodes, selectEdges, nodesMoved }: Props = $props();
+    const { selectNodes, selectEdges, nodesMoved, readonly = false }: Props = $props();
 
     // ── DOM refs ──────────────────────────────────────────────────────────────
     let svgEl: SVGSVGElement | undefined = $state();
@@ -21,7 +22,7 @@
     let scale = $state(1);
 
     // ── Interaction mode ──────────────────────────────────────────────────────
-    type Mode = 'select' | 'addNode' | 'addEdge';
+    type Mode = 'select' | 'addNode' | 'addEdge' | 'lasso';
     let mode = $state<Mode>('select');
 
     // ── Pan state ─────────────────────────────────────────────────────────────
@@ -39,6 +40,10 @@
         startNodeY: number;
         moved: boolean;
     } | null>(null);
+
+    // ── Lasso state ───────────────────────────────────────────────────────────
+    let lassoRect = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+    let activeTouchId = $state<number | null>(null);
 
     // ── Edge draw state ───────────────────────────────────────────────────────
     let edgeSourceId = $state<string | null>(null);
@@ -83,16 +88,20 @@
 
     // ── Coordinate helpers ────────────────────────────────────────────────────
 
-    /** Convert mouse event to scene (image-space) coordinates. */
-    function mouseToScene(e: MouseEvent): { x: number; y: number } {
+    function clientToScene(clientX: number, clientY: number): { x: number; y: number } {
         if (!svgEl || !sceneEl) return { x: 0, y: 0 };
         const pt = svgEl.createSVGPoint();
-        pt.x = e.clientX;
-        pt.y = e.clientY;
+        pt.x = clientX;
+        pt.y = clientY;
         const ctm = sceneEl.getScreenCTM();
         if (!ctm) return { x: 0, y: 0 };
         const r = pt.matrixTransform(ctm.inverse());
         return { x: r.x, y: r.y };
+    }
+
+    /** Convert mouse event to scene (image-space) coordinates. */
+    function mouseToScene(e: MouseEvent): { x: number; y: number } {
+        return clientToScene(e.clientX, e.clientY);
     }
 
     /** Convert mouse event to SVG viewBox coordinates. */
@@ -109,6 +118,13 @@
 
     function nodeCenter(node: SkeletonNode) {
         return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    }
+
+    function rectsOverlap(
+        ax: number, ay: number, aw: number, ah: number,
+        bx: number, by: number, bw: number, bh: number,
+    ): boolean {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
     }
 
     // ── Store mutators ────────────────────────────────────────────────────────
@@ -210,6 +226,28 @@
         selectEdges?.([]);
     }
 
+    // ── Lasso commit ──────────────────────────────────────────────────────────
+
+    function commitLasso() {
+        if (!lassoRect) return;
+        const lx = Math.min(lassoRect.x0, lassoRect.x1);
+        const ly = Math.min(lassoRect.y0, lassoRect.y1);
+        const lw = Math.abs(lassoRect.x1 - lassoRect.x0);
+        const lh = Math.abs(lassoRect.y1 - lassoRect.y0);
+        if (lw > 2 || lh > 2) {
+            const hitNodeIds = nodeList
+                .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
+                .map(n => n.id);
+            const hitNodeSet = new Set(hitNodeIds);
+            const hitEdgeIds = [...edges.values()]
+                .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
+                .map(e => e.id);
+            setSelection(hitNodeIds, hitEdgeIds);
+            liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
+        }
+        lassoRect = null;
+    }
+
     // ── Wheel zoom ────────────────────────────────────────────────────────────
 
     function onWheel(e: WheelEvent) {
@@ -243,6 +281,9 @@
         } else if (mode === 'addEdge' && edgeSourceId) {
             edgeSourceId = null;
             mode = 'select';
+        } else if (mode === 'lasso') {
+            const pt = mouseToScene(e);
+            lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
         } else {
             setSelection([], []);
             focusedNodeIdx = -1;
@@ -257,6 +298,12 @@
             // ctm.a = screen px per SVG viewBox px
             tx = panStartTransform.tx + (e.clientX - panStartClient.x) / ctm.a;
             ty = panStartTransform.ty + (e.clientY - panStartClient.y) / ctm.d;
+            return;
+        }
+
+        if (lassoRect) {
+            const pt = mouseToScene(e);
+            lassoRect = { ...lassoRect, x1: pt.x, y1: pt.y };
             return;
         }
 
@@ -293,6 +340,10 @@
             isPanning = false;
             return;
         }
+        if (lassoRect) {
+            commitLasso();
+            return;
+        }
         if (drag) {
             if (!drag.moved) {
                 // Treat as node click: select
@@ -320,6 +371,7 @@
             if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
         }
         drag = null;
+        lassoRect = null;
     }
 
     // ── Node mouse events ─────────────────────────────────────────────────────
@@ -339,7 +391,21 @@
             return;
         }
 
+        // In lasso mode, clicks on nodes select immediately without dragging
+        if (mode === 'lasso') {
+            if (e.shiftKey) {
+                const ids = new Set(selectedNodeIds);
+                if (ids.has(nodeId)) ids.delete(nodeId);
+                else ids.add(nodeId);
+                setSelection([...ids], [...selectedEdgeIds]);
+            } else {
+                setSelection([nodeId], []);
+            }
+            return;
+        }
+
         if (spaceDown) return; // space+drag pans, don't start node drag
+        if (readonly) return; // no dragging in read-only mode
 
         const node = nodes.get(nodeId);
         if (!node) return;
@@ -378,7 +444,9 @@
                 spaceDown = true;
                 break;
             case 'Escape':
-                if (mode !== 'select' || edgeSourceId) {
+                if (lassoRect) {
+                    lassoRect = null;
+                } else if (mode === 'addNode' || mode === 'addEdge' || edgeSourceId) {
                     mode = 'select';
                     edgeSourceId = null;
                 } else {
@@ -386,9 +454,17 @@
                     focusedNodeIdx = -1;
                 }
                 break;
+            case 'a':
+            case 'A':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    setSelection(nodeList.map(n => n.id), [...edges.keys()]);
+                    liveMsg = `Selected all ${nodeList.length} node(s) and ${edges.size} edge(s).`;
+                }
+                break;
             case 'Delete':
             case 'Backspace':
-                deleteSelection();
+                if (!readonly) deleteSelection();
                 break;
             case 'ArrowRight':
             case 'ArrowDown':
@@ -418,6 +494,36 @@
         if (e.key === ' ') spaceDown = false;
     }
 
+    // ── Touch events ──────────────────────────────────────────────────────────
+
+    function onTouchStart(e: TouchEvent) {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        activeTouchId = touch.identifier;
+        if (mode === 'lasso') {
+            e.preventDefault();
+            const pt = clientToScene(touch.clientX, touch.clientY);
+            lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+        }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+        if (activeTouchId === null || !lassoRect) return;
+        const touch = [...e.changedTouches].find(t => t.identifier === activeTouchId);
+        if (!touch) return;
+        e.preventDefault();
+        const pt = clientToScene(touch.clientX, touch.clientY);
+        lassoRect = { ...lassoRect, x1: pt.x, y1: pt.y };
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+        if (activeTouchId === null) return;
+        const touch = [...e.changedTouches].find(t => t.identifier === activeTouchId);
+        if (!touch) return;
+        activeTouchId = null;
+        commitLasso();
+    }
+
     // ── View controls ─────────────────────────────────────────────────────────
 
     function resetView() {
@@ -435,6 +541,12 @@
         mode = mode === 'addEdge' ? 'select' : 'addEdge';
         if (mode !== 'addEdge') edgeSourceId = null;
     }
+
+    function toggleLasso() {
+        mode = mode === 'lasso' ? 'select' : 'lasso';
+        edgeSourceId = null;
+        lassoRect = null;
+    }
 </script>
 
 <!-- aria-live for screen-reader announcements -->
@@ -442,25 +554,36 @@
 
 <!-- Toolbar -->
 <div class="canvas-toolbar" role="toolbar" aria-label="Canvas tools">
-    <button
-        class="btn-ghost btn-sm"
-        class:active={mode === 'addNode'}
-        type="button"
-        aria-pressed={mode === 'addNode'}
-        onclick={toggleAddNode}
-    >
-        + Node
-    </button>
-    <button
-        class="btn-ghost btn-sm"
-        class:active={mode === 'addEdge'}
-        type="button"
-        aria-pressed={mode === 'addEdge'}
-        onclick={toggleAddEdge}
-    >
-        + Edge
-    </button>
-    <span class="toolbar-sep" aria-hidden="true"></span>
+    {#if !readonly}
+        <button
+            class="btn-ghost btn-sm"
+            class:active={mode === 'lasso'}
+            type="button"
+            aria-pressed={mode === 'lasso'}
+            onclick={toggleLasso}
+        >
+            Select
+        </button>
+        <button
+            class="btn-ghost btn-sm"
+            class:active={mode === 'addNode'}
+            type="button"
+            aria-pressed={mode === 'addNode'}
+            onclick={toggleAddNode}
+        >
+            + Node
+        </button>
+        <button
+            class="btn-ghost btn-sm"
+            class:active={mode === 'addEdge'}
+            type="button"
+            aria-pressed={mode === 'addEdge'}
+            onclick={toggleAddEdge}
+        >
+            + Edge
+        </button>
+        <span class="toolbar-sep" aria-hidden="true"></span>
+    {/if}
     <button class="btn-ghost btn-sm" type="button" onclick={resetView}>
         Reset View
     </button>
@@ -470,6 +593,8 @@
         <span class="mode-hint" aria-live="polite">
             {edgeSourceId ? 'Click target node — Escape to cancel' : 'Click source node — Escape to cancel'}
         </span>
+    {:else if mode === 'lasso'}
+        <span class="mode-hint" aria-live="polite">Drag to select multiple nodes — Ctrl+A selects all — Escape to clear</span>
     {/if}
 </div>
 
@@ -483,6 +608,7 @@
     tabindex="0"
     class="graph-canvas"
     class:cursor-crosshair={mode === 'addNode'}
+    class:cursor-lasso={mode === 'lasso'}
     class:cursor-cell={mode === 'addEdge'}
     class:cursor-grab={spaceDown && !isPanning}
     class:cursor-grabbing={isPanning}
@@ -493,6 +619,9 @@
     onmouseleave={onSvgMouseleave}
     onkeydown={onSvgKeydown}
     onkeyup={onSvgKeyup}
+    ontouchstart={onTouchStart}
+    ontouchmove={onTouchMove}
+    ontouchend={onTouchEnd}
 >
     <defs>
         <marker id="dn-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
@@ -683,6 +812,20 @@
             {/if}
         {/if}
 
+        <!-- Layer 5: Lasso rect -->
+        {#if lassoRect}
+            {@const lx = Math.min(lassoRect.x0, lassoRect.x1)}
+            {@const ly = Math.min(lassoRect.y0, lassoRect.y1)}
+            {@const lw = Math.abs(lassoRect.x1 - lassoRect.x0)}
+            {@const lh = Math.abs(lassoRect.y1 - lassoRect.y0)}
+            <rect
+                class="lasso-rect"
+                x={lx} y={ly}
+                width={lw} height={lh}
+                pointer-events="none"
+            />
+        {/if}
+
     </g>
 </svg>
 
@@ -737,6 +880,7 @@
     }
 
     .graph-canvas.cursor-crosshair { cursor: crosshair; }
+    .graph-canvas.cursor-lasso     { cursor: crosshair; }
     .graph-canvas.cursor-cell      { cursor: cell; }
     .graph-canvas.cursor-grab      { cursor: grab; }
     .graph-canvas.cursor-grabbing  { cursor: grabbing; }
@@ -751,5 +895,12 @@
 
     :global(.edge) {
         cursor: pointer;
+    }
+
+    :global(.lasso-rect) {
+        fill: rgba(52, 81, 178, 0.08);
+        stroke: var(--dn-accent);
+        stroke-width: 1.5;
+        stroke-dasharray: 4 2;
     }
 </style>
