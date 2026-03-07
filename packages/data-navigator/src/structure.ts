@@ -622,7 +622,8 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         index++;
                     }
                 }
-                delete divisions[s];
+                // divisions[dimension.nodeId] was used for staging, we delete it here
+                delete divisions[dimension.nodeId];
             }
         } else if (typeof dimension.operations?.sortFunction === 'function') {
             // otherwise, we sort the keys of the categorical divisions
@@ -1246,6 +1247,7 @@ export const buildStructure = (options: StructureOptions): Structure => {
     let dimensions = scaffoldDimensions(options, nodes);
     let edges = buildEdges(options, nodes, dimensions);
     let navigationRules = buildRules(options, edges, dimensions);
+    console.log('dimensions', dimensions);
     return {
         nodes,
         edges,
