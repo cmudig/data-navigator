@@ -250,7 +250,7 @@ function buildCartesianStructure(
                     dimensionKey: xField,
                     type: 'numerical' as const,
                     behavior: {
-                        extents: 'terminal' as const
+                        extents: 'bridgedCousins' as const
                     },
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
@@ -262,7 +262,7 @@ function buildCartesianStructure(
                     dimensionKey: yField,
                     type: 'numerical' as const,
                     behavior: {
-                        extents: 'terminal' as const
+                        extents: 'bridgedCousins' as const
                     },
                     operations: {
                         createNumericalSubdivisions: autoSubdivs
@@ -327,7 +327,7 @@ function buildCartesianGroupedStructure(
                 {
                     dimensionKey: xField,
                     type: 'numerical' as const,
-                    behavior: { extents: 'terminal' as const },
+                    behavior: { extents: 'bridgedCousins' as const },
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
@@ -337,7 +337,7 @@ function buildCartesianGroupedStructure(
                 {
                     dimensionKey: yField,
                     type: 'numerical' as const,
-                    behavior: { extents: 'terminal' as const },
+                    behavior: { extents: 'bridgedCousins' as const },
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
                         sibling_sibling: ['down', 'up'],
