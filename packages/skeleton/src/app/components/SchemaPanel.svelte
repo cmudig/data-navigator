@@ -423,6 +423,20 @@
         const padX = 80, padY = 80;
         const usableW = canvasW - padX * 2;
 
+        // ── Schema lookups ────────────────────────────────────────────────────
+        // dimNodeId → DimensionSchema (for navigation rule labels)
+        const dimNodeIdToSchema = new Map<string, typeof schemaSnap.dimensions[0]>();
+        schemaSnap.dimensions.filter(d => d.included).forEach(d => {
+            dimNodeIdToSchema.set(dimNodeId(d.key), d);
+        });
+        // divId → parent dimNodeId (for resolving edge labels on div→leaf edges)
+        const divToDimNodeId = new Map<string, string>();
+        // divId → display label (originalValue from syncDivisionsFromDN, e.g. "3.5–7.0" for bins)
+        const divLabelById = new Map<string, string>();
+        schemaSnap.dimensions.forEach(d => {
+            d.divisions.forEach(div => divLabelById.set(div.id, div.originalValue));
+        });
+
         // Collect hierarchy node IDs grouped by level
         const level0Ids: string[] = [];
         const level1Ids: string[] = [];
@@ -437,6 +451,7 @@
             level1Ids.push(dim.nodeId);
             level2ByDim.set(dim.nodeId, Object.keys(dim.divisions));
             Object.entries(dim.divisions as Record<string, any>).forEach(([divId, div]: [string, any]) => {
+                divToDimNodeId.set(divId, dim.nodeId);
                 const leafIds = Object.keys(div.values || {});
                 if (leafIds.length > 0) level3ByDiv.set(divId, leafIds);
             });
@@ -535,8 +550,9 @@
                 if (dnNode) {
                     const key = dnNode.dimensionKey;
                     if (dnNode.dimensionLevel === 1 && key) label = key;
-                    else if (dnNode.dimensionLevel === 2 && key) {
-                        label = String(dnNode.data?.[key] ?? nodeId);
+                    else if (dnNode.dimensionLevel === 2) {
+                        // Use the range/category label from schemaSnap (correct for numerical bins)
+                        label = divLabelById.get(nodeId) ?? String(dnNode.data?.[key] ?? nodeId);
                     } else if (dnNode.dimensionLevel === 0) {
                         label = schemaSnap.level0Id || 'root';
                     } else if (dnNode.dimensionLevel === undefined && dnNode.data) {
@@ -573,21 +589,29 @@
             });
             const addedPairs = new Set<string>();
             let edgeIdx = 0;
-            const addEdge = (srcId: string, tgtId: string) => {
+            const addEdge = (srcId: string, tgtId: string, label: string = '') => {
                 const key = `${srcId}→${tgtId}`;
                 if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
                 addedPairs.add(key);
                 const id = `schema_edge_${edgeIdx++}`;
-                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction: 'down', label: '', dnProperties: {} });
+                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction: 'down', label, dnProperties: {} });
             };
             if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
-                level1Ids.forEach(dimId => addEdge(schemaSnap.level0Id!, dimId));
+                level1Ids.forEach(dimId => {
+                    const dim = dimNodeIdToSchema.get(dimId);
+                    addEdge(schemaSnap.level0Id!, dimId, dim?.drillInName || 'drill in');
+                });
             }
             level1Ids.forEach(dimId => {
-                (level2ByDim.get(dimId) || []).forEach(divId => addEdge(dimId, divId));
+                const dim = dimNodeIdToSchema.get(dimId);
+                const drillIn = dim?.drillInName || 'drill in';
+                (level2ByDim.get(dimId) || []).forEach(divId => addEdge(dimId, divId, drillIn));
             });
             level3ByDiv.forEach((leafIds, divId) => {
-                leafIds.forEach(leafId => addEdge(divId, leafId));
+                const dimNodeId = divToDimNodeId.get(divId);
+                const dim = dimNodeId ? dimNodeIdToSchema.get(dimNodeId) : undefined;
+                const drillIn = dim?.drillInName || 'drill in';
+                leafIds.forEach(leafId => addEdge(divId, leafId, drillIn));
             });
 
             const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id

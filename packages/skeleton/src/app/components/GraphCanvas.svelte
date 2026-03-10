@@ -962,7 +962,7 @@
                                 x={mx} y={my - 6}
                                 class="edge-label"
                                 text-anchor="middle"
-                                fill={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
+                                fill={isSel ? 'var(--dn-accent)' : '#000000'}
                                 font-size="11"
                                 font-family="var(--dn-font)"
                             >{edge.label || edge.direction}</text>
