@@ -1,5 +1,7 @@
+import { CommandsTable } from './commands-table';
 import { NodeElementDefaults } from './consts';
 import type { RenderingOptions, NodeObject } from './data-navigator';
+import { getGenericCommandInstructionsFromNavRules } from './utilities';
 
 export default (options: RenderingOptions) => {
     const setActiveDescendant = e => {
@@ -133,8 +135,8 @@ export default (options: RenderingOptions) => {
             return typeof p1 === 'function'
                 ? p1(d, nodeData.datum)
                 : typeof s1 === 'function'
-                  ? s1(d, nodeData.datum)
-                  : s1 || s2 || (!subprop ? p1 : undefined);
+                ? s1(d, nodeData.datum)
+                : s1 || s2 || (!subprop ? p1 : undefined);
         };
         useExisting = resolveProp('existingElement', 'useForSpatialProperties');
         existingSpatialProperties = resolveProp('existingElement', 'spatialProperties');
@@ -204,6 +206,45 @@ export default (options: RenderingOptions) => {
         }
         renderer.wrapper.appendChild(node);
         return node;
+    };
+    renderer.initializeCommandInstructions = () => {
+        if (!options.commandInstructionsElement?.include) {
+            return;
+        }
+
+        const root = document.getElementById(options.commandInstructionsElement.rootId);
+
+        if (!root) {
+            console.error('Command instructions element not found in wrapper.');
+            return;
+        }
+
+        if (!customElements.get('commands-table')) {
+            customElements.define('commands-table', CommandsTable);
+        }
+
+        const commandInstructionsElement = document.createElement('commands-table') as CommandsTable;
+
+        commandInstructionsElement.setAttribute('title', options.commandInstructionsElement.title);
+
+        //  Get explicit commands first, then try to build generic commands from nav rules
+        const optionsCommands = options.commandInstructionsElement.commands;
+        const commands = optionsCommands
+            ? typeof optionsCommands === 'function'
+                ? optionsCommands(options.navigationRules)
+                : optionsCommands
+            : getGenericCommandInstructionsFromNavRules(options.navigationRules);
+
+        if (commands.length === 0) {
+            console.error('Command instructions are empty.');
+            return;
+        }
+
+        commandInstructionsElement.commands = commands;
+
+        root.appendChild(commandInstructionsElement);
+
+        return commandInstructionsElement;
     };
     renderer.remove = renderId => {
         const node = document.getElementById(renderId);
