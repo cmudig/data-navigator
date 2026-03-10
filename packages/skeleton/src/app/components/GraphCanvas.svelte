@@ -24,7 +24,7 @@
     let scale = $state(1);
 
     // ── Interaction mode ──────────────────────────────────────────────────────
-    type Mode = 'select' | 'addNode' | 'addEdge' | 'lasso';
+    type Mode = 'select' | 'addNode' | 'addEdge' | 'lasso' | 'pan';
     let mode = $state<Mode>('select');
 
     // ── Pan state ─────────────────────────────────────────────────────────────
@@ -32,6 +32,9 @@
     let spaceDown = $state(false);
     let panStartClient = $state({ x: 0, y: 0 });
     let panStartTransform = $state({ tx: 0, ty: 0 });
+
+    // ── Zoom input ────────────────────────────────────────────────────────────
+    let zoomInput = $state(100);
 
     // ── Drag state ────────────────────────────────────────────────────────────
     let drag = $state<{
@@ -379,25 +382,11 @@
         lassoAdditive = false;
     }
 
-    // ── Wheel zoom ────────────────────────────────────────────────────────────
-
-    function onWheel(e: WheelEvent) {
-        e.preventDefault();
-        if (!svgEl) return;
-        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-        const svgPt = mouseToSVGViewBox(e as unknown as MouseEvent);
-        const newScale = Math.max(0.25, Math.min(8, scale * factor));
-        const actual = newScale / scale;
-        tx = svgPt.x - (svgPt.x - tx) * actual;
-        ty = svgPt.y - (svgPt.y - ty) * actual;
-        scale = newScale;
-    }
-
     // ── SVG mouse events ──────────────────────────────────────────────────────
 
     function onSvgMousedown(e: MouseEvent) {
-        // Middle mouse or space+left = pan
-        if (e.button === 1 || (e.button === 0 && spaceDown)) {
+        // Middle mouse, space+left, or pan mode = pan
+        if (e.button === 1 || (e.button === 0 && spaceDown) || (e.button === 0 && mode === 'pan')) {
             isPanning = true;
             panStartClient = { x: e.clientX, y: e.clientY };
             panStartTransform = { tx, ty };
@@ -586,7 +575,7 @@
             return;
         }
 
-        if (spaceDown) return; // space+drag pans, don't start node drag
+        if (spaceDown || mode === 'pan') return; // space+drag or pan mode pans, don't start node drag
         if (readonly) return; // no dragging in read-only mode
 
         const node = nodes.get(nodeId);
@@ -648,7 +637,7 @@
             case 'Escape':
                 if (lassoRect) {
                     lassoRect = null;
-                } else if (mode === 'addNode' || mode === 'addEdge' || edgeSourceId) {
+                } else if (mode === 'addNode' || mode === 'addEdge' || mode === 'pan' || edgeSourceId) {
                     mode = 'select';
                     edgeSourceId = null;
                 } else {
@@ -732,6 +721,32 @@
         tx = 0;
         ty = 0;
         scale = 1;
+        zoomInput = 100;
+    }
+
+    function applyZoom(percent: number) {
+        const newScale = Math.max(10, Math.min(800, percent)) / 100;
+        // zoom around canvas center
+        if (svgEl) {
+            const { width, height } = svgEl.getBoundingClientRect();
+            const cx = width / 2;
+            const cy = height / 2;
+            const ctm = svgEl.getScreenCTM();
+            if (ctm) {
+                const svgPt = { x: cx / ctm.a, y: cy / ctm.d };
+                const actual = newScale / scale;
+                tx = svgPt.x - (svgPt.x - tx) * actual;
+                ty = svgPt.y - (svgPt.y - ty) * actual;
+            }
+        }
+        scale = newScale;
+        zoomInput = Math.round(newScale * 100);
+    }
+
+    function togglePan() {
+        mode = mode === 'pan' ? 'select' : 'pan';
+        edgeSourceId = null;
+        lassoRect = null;
     }
 
     function toggleAddNode() {
@@ -857,8 +872,30 @@
         >
             + Edge
         </button>
+        <button
+            class="btn-ghost btn-sm"
+            class:active={mode === 'pan'}
+            type="button"
+            aria-pressed={mode === 'pan'}
+            onclick={togglePan}
+        >
+            Pan
+        </button>
         <span class="toolbar-sep" aria-hidden="true"></span>
     {/if}
+    <label class="zoom-label" aria-label="Zoom level">
+        <input
+            type="number"
+            class="zoom-input"
+            min="10"
+            max="800"
+            step="10"
+            bind:value={zoomInput}
+            aria-label="Zoom percentage"
+            onchange={() => applyZoom(zoomInput)}
+            onkeydown={(e) => { if (e.key === 'Enter') applyZoom(zoomInput); }}
+        />%
+    </label>
     <button class="btn-ghost btn-sm" type="button" onclick={resetView}>
         Reset View
     </button>
@@ -870,6 +907,8 @@
         </span>
     {:else if mode === 'lasso'}
         <span class="mode-hint" aria-live="polite">Drag to select multiple nodes — Ctrl+A selects all — Escape to clear</span>
+    {:else if mode === 'pan'}
+        <span class="mode-hint" aria-live="polite">Click and drag to pan the canvas — Escape to exit</span>
     {/if}
 </div>
 
@@ -885,10 +924,9 @@
     class:cursor-crosshair={mode === 'addNode'}
     class:cursor-lasso={mode === 'lasso'}
     class:cursor-cell={mode === 'addEdge'}
-    class:cursor-grab={spaceDown && !isPanning}
+    class:cursor-grab={(spaceDown || mode === 'pan') && !isPanning}
     class:cursor-grabbing={isPanning}
     style={resize ? `cursor: ${resize.dir}-resize` : ''}
-    onwheel={onWheel}
     onmousedown={onSvgMousedown}
     onmousemove={onSvgMousemove}
     onmouseup={onSvgMouseup}
@@ -1285,6 +1323,31 @@
         font-size: 0.8125rem;
         color: var(--dn-accent);
         font-style: italic;
+    }
+
+    .zoom-label {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        flex-shrink: 0;
+    }
+
+    .zoom-input {
+        width: 4.5rem;
+        padding: 2px 4px;
+        font-size: 0.75rem;
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        background: var(--dn-bg);
+        color: var(--dn-text);
+        text-align: right;
+    }
+
+    .zoom-input:focus {
+        outline: 2px solid var(--dn-accent);
+        outline-offset: 1px;
     }
 
     /* Active mode button */
