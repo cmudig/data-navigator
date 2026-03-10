@@ -22,9 +22,11 @@ export type RenderingOptions = {
     elementData: ElementData | Nodes;
     suffixId: string;
     root: RootObject;
+    navigationRules?: NavigationRules;
     defaults?: RenderObject;
     entryButton?: EntryObject;
     exitElement?: ExitObject;
+    commandInstructionsElement?: CommandInstructionsObject;
 };
 
 export type DimensionOptions = {
@@ -178,6 +180,19 @@ export type EntryObject = {
 export type ExitObject = {
     include: boolean;
     callbacks?: ExitCallbacks;
+};
+
+export type CommandInstructionsObject = {
+    include: boolean;
+    rootId?: string;
+    commands?: Array<CommandObject> | ((navigationRules: NavigationRules) => Array<CommandObject>);
+    title?: string;
+};
+
+export type CommandObject = {
+    id: string;
+    command: string;
+    description: string;
 };
 
 export type SemanticsObject = {
