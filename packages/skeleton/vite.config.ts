@@ -11,6 +11,7 @@ export default defineConfig({
     resolve: {
         alias: {
             'data-navigator': resolve(__dirname, '../../packages/data-navigator/src/index.ts'),
+            '@data-navigator/inspector/style.css': resolve(__dirname, '../../packages/inspector/style.css'),
             '@data-navigator/inspector': resolve(__dirname, '../../packages/inspector/src/index.js')
         }
     }

@@ -1,8 +1,9 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import dataNavigator from 'data-navigator';
+    import { Inspector } from '@data-navigator/inspector';
     import { appState, type DimensionSchema, type DivisionEntry, type SchemaState } from '../../store/appState';
-    import { TreeGraph } from '@data-navigator/inspector';
-    import { ForceGraph } from '@data-navigator/inspector';
+    import type { SkeletonNode, SkeletonEdge } from '../../store/types';
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
     const NAV_SLOTS = [
@@ -23,17 +24,73 @@
         level1NavBackwardName: 'right', level1NavBackwardKey: 'ArrowRight',
     });
     let initialized = $state(false);
+    let selectedNodeIds = $state<Set<string>>(new Set());
+    let hoveredNodeId = $state<string | null>(null);
+    let imageWidth = $state<number | null>(null);
+    let imageHeight = $state<number | null>(null);
+    // DN structure result — drives the schema graph viewer (independent of canvas positions).
+    // Stored as a plain (non-reactive) let so that D3 mutations to node objects (x, y, vx, vy
+    // added by force simulation) do not write back through a Svelte 5 proxy and re-trigger
+    // the Inspector effect in an infinite loop. The Inspector effect instead tracks _dnTick,
+    // which is incremented explicitly only when the structure itself changes.
+    let dnResult: any = null;
+    let _dnHasResult = $state(false); // reactive mirror of (dnResult !== null) for the template
+    let _dnTick = $state(0);
+    let _dnCounter = 0; // plain (non-reactive) counter — used to write _dnTick without reading it
+    let schemaGraphContainer: HTMLDivElement | undefined = $state();
+    let _inspector: ReturnType<typeof Inspector> | null = null;
+    // Mirrored separately from schema so the Inspector effect only re-runs when
+    // these values actually change, not on every schema proxy replacement.
+    let _graphMode = $state<'tree' | 'force'>('tree');
+    let _hideLeafNodes = $state(false);
 
-    appState.subscribe(s => {
-        uploadedData = s.uploadedData;
-        schema = s.schemaState;
+    // Track the last schemaState reference so we only reassign `schema` (and re-trigger effects)
+    // when schemaState actually changed. This prevents nodes/edges updates from re-running the
+    // DN-build effect via the subscribe → schema reassignment path.
+    let _lastSchemaRef: SchemaState | null = null;
+    // Same guard for uploadedData: Svelte 5 $state wraps arrays in a reactive proxy, so
+    // assigning the same plain array reference each time appState changes creates a new proxy,
+    // which Svelte treats as a change and re-triggers the DN build effect (infinite loop).
+    let _lastUploadedDataRef: Record<string, unknown>[] | null = null;
+
+    // Set to true by syncDivisionsFromDN before it calls appState.update, so the next
+    // $effect re-run (caused by the division update) skips rebuilding the DN structure.
+    // This prevents a double build on first load: build → syncDivisions updates schema →
+    // effect re-runs → build again (unnecessarily).
+    let _skipNextDivisionTrigger = false;
+
+    const _unsubscribeAppState = appState.subscribe(s => {
+        if (s.uploadedData !== _lastUploadedDataRef) {
+            _lastUploadedDataRef = s.uploadedData;
+            uploadedData = s.uploadedData;
+        }
+        // Only reassign schema when the schemaState object reference changed.
+        // This prevents the DN-build effect from looping when divisions are synced back.
+        if (s.schemaState !== _lastSchemaRef) {
+            _lastSchemaRef = s.schemaState;
+            if (s.schemaState.graphMode !== _graphMode) _graphMode = s.schemaState.graphMode;
+            if (s.schemaState.hideLeafNodes !== _hideLeafNodes) _hideLeafNodes = s.schemaState.hideLeafNodes;
+            schema = s.schemaState;
+        }
+        // Sync selection/hover state so schema graph and canvas share the same UX model.
+        // The schema graph viewer (Inspector) and GraphCanvas both read these to highlight nodes.
+        selectedNodeIds = s.selectedNodeIds;
+        hoveredNodeId = s.hoveredNodeId;
+        imageWidth = s.imageWidth;
+        imageHeight = s.imageHeight;
         if (s.uploadedData && !initialized) {
             initialized = true;
             const inferred = buildInitialSchema(s.uploadedData);
-            appState.update(st => ({ ...st, schemaState: inferred }));
+            // Use queueMicrotask to avoid synchronous re-entrancy: calling appState.update
+            // synchronously here would re-enter this subscribe callback with the NEW state
+            // while the outer callback is still running with the OLD state. When the outer
+            // callback resumes it would see _lastSchemaRef pointing to the NEW schemaState
+            // and incorrectly overwrite schema back to the old (empty) value.
+            queueMicrotask(() => appState.update(st => ({ ...st, schemaState: inferred })));
         }
         if (!s.uploadedData) initialized = false;
     });
+    onDestroy(_unsubscribeAppState);
 
     // ─── ID helpers (mirrors data-navigator's createValidId) ─────────────────
     function makeValidId(s: string): string {
@@ -282,11 +339,11 @@
     // Keeps user-edited IDs when originalValue matches; only updates when changed.
     function r2(n: number) { return Math.round(n * 100) / 100; }
 
-    function syncDivisionsFromDN(included: DimensionSchema[], dnResult: any) {
+    function syncDivisionsFromDN(included: DimensionSchema[], structure: any) {
         const updates: { key: string; divisions: DivisionEntry[] }[] = [];
 
         included.forEach(dim => {
-            const dnDim = dnResult.dimensions?.[dim.key];
+            const dnDim = structure.dimensions?.[dim.key];
             if (!dnDim) return;
 
             const divKeys = Object.keys(dnDim.divisions);
@@ -308,7 +365,7 @@
 
                     if (dim.type === 'categorical') {
                         // The category value is stored on the division's node data
-                        const node = dnResult.nodes[divId];
+                        const node = structure.nodes[divId];
                         originalValue = String(node?.data?.[dim.key] ?? divId);
                     } else {
                         // Numerical: reconstruct the range label from the bin extents
@@ -333,6 +390,10 @@
         });
 
         if (updates.length > 0) {
+            // Signal the main $effect to skip its next re-run caused by this update.
+            // Without this, the effect would rebuild the DN structure a second time even
+            // though the structure hasn't meaningfully changed (divisions are a DN output).
+            _skipNextDivisionTrigger = true;
             appState.update(s => ({
                 ...s,
                 schemaState: {
@@ -346,91 +407,344 @@
         }
     }
 
-    // ─── Graph mounting ───────────────────────────────────────────────────────
-    let graphContainer: HTMLDivElement = $state()!;
+    // ─── Canvas node initialization from schema ───────────────────────────────
+    // Creates rectangular SkeletonNode objects in GraphCanvas for each hierarchy node
+    // (level 0 / dimensions / divisions) the first time they appear. Existing nodes are
+    // never moved — the user can freely reposition them. Nodes no longer present in the
+    // current DN structure (e.g. a deselected dimension) are cleaned up.
+    //
+    // IMPORTANT: The initial x/y positions here are for the CANVAS OVERLAY, not for the
+    // schema graph viewer. The Inspector uses its own independent layout.
+
+    function initCanvasNodesFromSchema(structure: any, schemaSnap: SchemaState) {
+        const canvasW = imageWidth ?? 1200;
+        const canvasH = imageHeight ?? 800;
+        const nodeW = 140, nodeH = 52;
+        const padX = 80, padY = 80;
+        const usableW = canvasW - padX * 2;
+
+        // Collect hierarchy node IDs grouped by level
+        const level0Ids: string[] = [];
+        const level1Ids: string[] = [];
+        const level2ByDim = new Map<string, string[]>();
+
+        if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
+            level0Ids.push(schemaSnap.level0Id);
+        }
+        Object.values(structure.dimensions as Record<string, any>).forEach((dim: any) => {
+            level1Ids.push(dim.nodeId);
+            level2ByDim.set(dim.nodeId, Object.keys(dim.divisions));
+        });
+
+        const allHierarchyIds = new Set<string>([
+            ...level0Ids,
+            ...level1Ids,
+            ...([...level2ByDim.values()].flat()),
+        ]);
+
+        // Compute y positions for each level
+        const numLevels = (level0Ids.length > 0 ? 1 : 0) + 2;
+        const vSpacing = (canvasH - padY * 2) / Math.max(numLevels - 1, 1);
+        let currentY = padY;
+
+        const positions = new Map<string, { x: number; y: number }>();
+
+        // Level 0
+        if (level0Ids.length > 0) {
+            positions.set(level0Ids[0], { x: canvasW / 2 - nodeW / 2, y: currentY });
+            currentY += vSpacing;
+        }
+
+        // Level 1 — dimensions, evenly spaced
+        const l1 = level1Ids.length;
+        level1Ids.forEach((id, i) => {
+            const x = l1 === 1
+                ? canvasW / 2 - nodeW / 2
+                : padX + (i / (l1 - 1)) * usableW - nodeW / 2;
+            positions.set(id, { x: Math.max(padX, x), y: currentY });
+        });
+        currentY += vSpacing;
+
+        // Level 2 — divisions, grouped under their parent dimension
+        level1Ids.forEach((dimId, dimIdx) => {
+            const divIds = level2ByDim.get(dimId) || [];
+            if (divIds.length === 0) return;
+            const rangeW = l1 > 0 ? usableW / l1 : usableW;
+            const rangeStart = padX + dimIdx * rangeW;
+            divIds.forEach((divId, divIdx) => {
+                const x = divIds.length === 1
+                    ? (positions.get(dimId)?.x ?? rangeStart + rangeW / 2 - nodeW / 2)
+                    : rangeStart + (divIdx / (divIds.length - 1)) * rangeW - nodeW / 2;
+                positions.set(divId, { x: Math.max(padX, x), y: currentY });
+            });
+        });
+
+        appState.update(s => {
+            // Check if update is needed: any new hierarchy nodes, or any stale schema nodes
+            const existingSchemaIds = new Set(
+                [...s.nodes.values()].filter(n => n.source === 'schema').map(n => n.id)
+            );
+            const hasNew = [...allHierarchyIds].some(id => !existingSchemaIds.has(id));
+            const hasStale = [...existingSchemaIds].some(id => !allHierarchyIds.has(id));
+            if (!hasNew && !hasStale) return s;
+
+            const newNodes = new Map<string, SkeletonNode>();
+            // Keep manual nodes unchanged; keep schema nodes still in hierarchy
+            s.nodes.forEach((node, id) => {
+                if (node.source !== 'schema' || allHierarchyIds.has(id)) {
+                    newNodes.set(id, node);
+                }
+            });
+
+            // Add newly-seen hierarchy nodes with initial canvas positions
+            allHierarchyIds.forEach(nodeId => {
+                if (newNodes.has(nodeId)) return; // preserve existing
+                const pos = positions.get(nodeId) ?? { x: padX, y: padY };
+                const dnNode = structure.nodes[nodeId];
+                let label = nodeId;
+                if (dnNode) {
+                    const key = dnNode.dimensionKey;
+                    if (dnNode.dimensionLevel === 1 && key) label = key;
+                    else if (dnNode.dimensionLevel === 2 && key) {
+                        label = String(dnNode.data?.[key] ?? nodeId);
+                    } else if (dnNode.dimensionLevel === 0) {
+                        label = schemaSnap.level0Id || 'root';
+                    }
+                }
+                newNodes.set(nodeId, {
+                    id: nodeId,
+                    label: label.length > 24 ? label.substring(0, 24) + '…' : label,
+                    x: pos.x, y: pos.y,
+                    width: nodeW, height: nodeH,
+                    isEntry: nodeId === (schemaSnap.level0Enabled ? schemaSnap.level0Id : null),
+                    isCluster: false,
+                    source: 'schema',
+                    semantics: { label: nodeId, name: 'node', includeParentName: false, includeIndex: false },
+                    data: dnNode?.data ?? {},
+                    renderProperties: { shape: 'rect', fill: 'var(--dn-surface)', opacity: 1, ariaRole: 'button', customClass: '' },
+                } as SkeletonNode);
+            });
+
+            // Rebuild edges: keep non-schema edges, rebuild schema edges
+            const newEdges = new Map<string, SkeletonEdge>();
+            s.edges.forEach((edge, id) => {
+                const srcSchema = s.nodes.get(edge.sourceId)?.source === 'schema';
+                const tgtSchema = s.nodes.get(edge.targetId)?.source === 'schema';
+                if (!srcSchema && !tgtSchema) newEdges.set(id, edge);
+            });
+            const addedPairs = new Set<string>();
+            let edgeIdx = 0;
+            const addEdge = (srcId: string, tgtId: string) => {
+                const key = `${srcId}→${tgtId}`;
+                if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
+                addedPairs.add(key);
+                const id = `schema_edge_${edgeIdx++}`;
+                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction: 'down', label: '', dnProperties: {} });
+            };
+            if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
+                level1Ids.forEach(dimId => addEdge(schemaSnap.level0Id!, dimId));
+            }
+            level1Ids.forEach(dimId => {
+                (level2ByDim.get(dimId) || []).forEach(divId => addEdge(dimId, divId));
+            });
+
+            const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id
+                ? schemaSnap.level0Id
+                : s.entryNodeId;
+
+            return { ...s, nodes: newNodes, edges: newEdges, entryNodeId: newEntryId };
+        });
+    }
+
+    // ─── Debug: reactive trigger inspection ──────────────────────────────────
+    // Remove these once the loop is identified.
+
+    // DN build effect deps
+    $inspect(uploadedData).with((t, v) =>
+        console.log('[SP:DN] uploadedData', t, !!v));
+    $inspect(schema).with((t) => {
+        console.log('[SP:DN] schema', t);
+        console.trace();
+    });
+
+    // Inspector effect deps
+    $inspect(_dnTick).with((t, v) =>
+        console.log('[SP:Inspector] _dnTick', t, v));
+    $inspect(_graphMode).with((t, v) =>
+        console.log('[SP:Inspector] _graphMode', t, v));
+    $inspect(_hideLeafNodes).with((t, v) =>
+        console.log('[SP:Inspector] _hideLeafNodes', t, v));
+    $inspect(schemaGraphContainer).with((t, v) =>
+        console.log('[SP:Inspector] schemaGraphContainer', t, !!v));
+
+    // Visual sync effect deps
+    $inspect(selectedNodeIds).with((t, v) =>
+        console.log('[SP:VisualSync] selectedNodeIds', t, v?.size));
+    $inspect(hoveredNodeId).with((t, v) =>
+        console.log('[SP:VisualSync] hoveredNodeId', t, v));
+
+    // ─── DN structure effect ──────────────────────────────────────────────────
+    // Builds DN structure when schema changes; updates dnResult for the schema graph viewer.
+    // The schema graph viewer (Inspector) is independent of the GraphCanvas coordinate space.
 
     $effect(() => {
-        if (!graphContainer || !uploadedData || schema.collapsed) return;
+        if (!uploadedData || schema.collapsed) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
 
-        // Track all reactive schema fields so the effect re-runs on any change
+        // Track all reactive schema fields BEFORE any early return so that Svelte 5 always
+        // records the correct dependency set for this effect. If we returned early before
+        // reading schema.dimensions, the effect would lose those dependencies and would
+        // not re-run when the user edits dimensions.
         const _dims = schema.dimensions;
-        const _mode = schema.graphMode;
         const _l0 = schema.level0Enabled;
         const _l0id = schema.level0Id;
         const _l1ext = schema.level1Extents;
         const _l1fwd = schema.level1NavForwardName;
-        const _hideLeaves = schema.hideLeafNodes;
         const _childmost = schema.childmostNavigation;
 
         const included = _dims.filter(d => d.included)
             .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
-        graphContainer.innerHTML = '';
+        if (included.length === 0) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
 
-        if (included.length === 0) return;
+        // If this re-run was triggered by syncDivisionsFromDN updating the schema, skip the
+        // rebuild. The DN structure hasn't changed — only the division IDs were populated as
+        // outputs. Rebuilding here would call dataNavigator.structure() a second time and
+        // recreate the Inspector unnecessarily. Dependency tracking above is still correct:
+        // the next user-driven schema change will re-run this effect normally.
+        if (_skipNextDivisionTrigger) {
+            _skipNextDivisionTrigger = false;
+            return;
+        }
 
-        const dnResult = buildDNStructure(uploadedData, schema);
-        if (!dnResult) return;
+        const result = buildDNStructure(uploadedData, schema);
+        if (!result) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
 
-        // Sync divisions from DN result back to schema state (stable — no loop)
-        syncDivisionsFromDN(included, dnResult);
-
-        // Collect the node IDs that belong to the hierarchy (not leaf data rows)
-        const hierarchyIds = new Set<string>();
-        if (_l0 && _l0id) hierarchyIds.add(_l0id);
-        Object.values(dnResult.dimensions as Record<string, any>).forEach((dim: any) => {
-            hierarchyIds.add(dim.nodeId);
-            Object.keys(dim.divisions).forEach((divId: string) => hierarchyIds.add(divId));
+        // Defer side-effects — both have no-op guards so repeated calls are cheap.
+        const capturedInc = [...included];
+        const capturedSchema = { ...schema, dimensions: [...schema.dimensions] };
+        queueMicrotask(() => {
+            syncDivisionsFromDN(capturedInc, result);
+            // Initialize canvas nodes after divisions are known, so labels are correct.
+            // Uses a tree-like layout as the initial x/y; the user can reposition freely.
+            queueMicrotask(() => initCanvasNodesFromSchema(result, capturedSchema));
         });
 
-        // Convert DN node/edge records to arrays for the inspector
-        let visNodes = Object.values(dnResult.nodes as Record<string, any>);
-        let visLinks = Object.values(dnResult.edges as Record<string, any>);
+        // Expose the DN structure for the schema graph viewer (Inspector).
+        // The Inspector renders its own abstract layout — no x/y bleed into GraphCanvas.
+        dnResult = result;
+        _dnHasResult = true;
+        _dnTick = ++_dnCounter;
+    });
 
-        // When hiding leaf nodes, restrict to hierarchy nodes only
-        if (_hideLeaves) {
-            visNodes = visNodes.filter((n: any) => hierarchyIds.has(n.id));
-            visLinks = visLinks.filter((l: any) =>
-                hierarchyIds.has(l.source) && hierarchyIds.has(l.target)
-            );
+    // ─── Inspector graph (schema structure visualization) ─────────────────────
+    // The Inspector renders an abstract tree/force graph of the DN structure.
+    // It uses its own layout — positions here are INDEPENDENT of GraphCanvas x/y.
+    // Hover and selection state is shared via appState (same node IDs), enabling
+    // cross-view highlighting without coupling the two coordinate spaces.
+
+    $effect(() => {
+        // Track _dnTick (not dnResult directly) so D3 mutations to node objects don't
+        // re-trigger this effect. dnResult is a plain let; only _dnTick drives re-runs.
+        const _v = _dnTick;
+        const result = dnResult;
+        const mode = _graphMode;
+        const hideLeafs = _hideLeafNodes;
+        const container = schemaGraphContainer;
+
+        if (!result || !container) {
+            if (_inspector) { _inspector.destroy(); _inspector = null; }
+            return;
         }
 
-        const w = graphContainer.clientWidth || 320;
-        const h = 220;
+        if (_inspector) { _inspector.destroy(); _inspector = null; }
 
-        const nodeGroupFn = (d: any) => {
-            if (d.dimensionLevel === 0) return 'root';
-            if (d.dimensionLevel === 1) return 'dimension';
-            if (d.dimensionLevel === 2) return 'division';
-            return 'leaf';
+        // Optionally omit leaf data rows — they are usually too numerous to be useful
+        const filteredNodes = hideLeafs
+            ? Object.fromEntries(
+                Object.entries(result.nodes as Record<string, any>).filter(
+                    ([, node]: [string, any]) =>
+                        node.dimensionLevel !== undefined || node.derivedNode !== undefined
+                )
+              )
+            : result.nodes;
+        const filteredStructure = hideLeafs ? { ...result, nodes: filteredNodes } : result;
+
+        try {
+            _inspector = Inspector({
+                structure: filteredStructure,
+                container,
+                size: 280,
+                mode,
+                colorBy: 'dimensionLevel',
+                nodeRadius: 6,
+            });
+
+            // Attach click/hover handlers so schema interactions sync to appState
+            // (which GraphCanvas also reads for its own hover/selection highlight).
+            container.querySelectorAll('circle').forEach(el => {
+                const c = el as SVGCircleElement & { __data__?: { id: string } };
+                const nodeId = c.__data__?.id;
+                if (!nodeId) return;
+                c.style.cursor = 'pointer';
+                c.addEventListener('click', (e: Event) => {
+                    const me = e as MouseEvent;
+                    const additive = me.metaKey || me.ctrlKey || me.shiftKey;
+                    appState.update(s => {
+                        if (additive) {
+                            const ids = new Set(s.selectedNodeIds);
+                            if (ids.has(nodeId)) ids.delete(nodeId);
+                            else ids.add(nodeId);
+                            return { ...s, selectedNodeIds: ids, selectedEdgeIds: new Set() };
+                        }
+                        return { ...s, selectedNodeIds: new Set([nodeId]), selectedEdgeIds: new Set() };
+                    });
+                });
+                c.addEventListener('mouseenter', () => {
+                    appState.update(s => ({ ...s, hoveredNodeId: nodeId }));
+                });
+                c.addEventListener('mouseleave', () => {
+                    appState.update(s => ({ ...s, hoveredNodeId: null }));
+                });
+            });
+        } catch (err) {
+            console.error('[SchemaPanel] Inspector failed:', err);
+        }
+
+        return () => {
+            if (_inspector) { _inspector.destroy(); _inspector = null; }
         };
+    });
 
-        let svgEl: SVGSVGElement;
-        if (_mode === 'tree') {
-            svgEl = TreeGraph({ nodes: visNodes, links: visLinks }, {
-                width: w, height: h,
-                // Pass DN dimensions directly — inspector uses them for layout + nav rule classification
-                dimensions: dnResult.dimensions,
-                nodeRadius: 5,
-                nodeGroup: nodeGroupFn,
-                nodeGroups: ['root', 'dimension', 'division', 'leaf'],
-                colors: ['#c05555', '#1e3369', '#6780c0', '#adbac7'],
-                hide: false,
-                description: `Tree layout — ${included.length} dimension(s)${_hideLeaves ? '' : ', with data rows'}.`
-            }) as unknown as SVGSVGElement;
-        } else {
-            svgEl = ForceGraph({ nodes: visNodes, links: visLinks }, {
-                width: w, height: h,
-                nodeRadius: 5,
-                nodeGroup: nodeGroupFn,
-                nodeGroups: ['root', 'dimension', 'division', 'leaf'],
-                colors: ['#c05555', '#1e3369', '#6780c0', '#adbac7'],
-                nodeTitle: (d: any) => d.id,
-                hide: false,
-                description: `Force graph — ${included.length} dimension(s).`
-            }) as unknown as SVGSVGElement;
-        }
-        if (svgEl) graphContainer.appendChild(svgEl);
+    // ─── Visual sync: reflect appState hover/selection in the schema graph ────
+    // When the user hovers or selects a node in GraphCanvas, the Inspector circles
+    // update their stroke color to show the cross-view link.
+
+    $effect(() => {
+        const selIds = selectedNodeIds;
+        const hovId = hoveredNodeId;
+        const container = schemaGraphContainer;
+        if (!container) return;
+
+        container.querySelectorAll('circle').forEach(el => {
+            const c = el as SVGCircleElement & { __data__?: { id: string } };
+            const nodeId = c.__data__?.id;
+            if (!nodeId) return; // skip focus indicator
+            const isSel = selIds.has(nodeId);
+            const isHov = hovId === nodeId;
+            if (isSel) {
+                c.setAttribute('stroke', 'var(--dn-accent)');
+                c.setAttribute('stroke-width', '3');
+                c.setAttribute('stroke-opacity', '1');
+            } else if (isHov) {
+                c.setAttribute('stroke', 'var(--dn-accent-mid)');
+                c.setAttribute('stroke-width', '2.5');
+                c.setAttribute('stroke-opacity', '1');
+            } else {
+                c.setAttribute('stroke', '#fff');
+                c.setAttribute('stroke-width', '1.5');
+                c.setAttribute('stroke-opacity', '1');
+            }
+        });
     });
 </script>
 
@@ -451,30 +765,46 @@
     </div>
 
     {#if !schema.collapsed}
-        <!-- ── Top half: graph ── -->
+        <!-- ── Top half: structure graph (abstract, Inspector-based) ── -->
+        <!-- The schema graph shows an abstract view of the DN navigation structure.
+             It uses the inspector's tree/force layout — positions here are INDEPENDENT
+             of x/y coordinates in GraphCanvas. The two views share node IDs so that
+             hover and selection highlight the same node in both views. -->
         <div class="schema-graph-section">
-            <div class="graph-toolbar" role="group" aria-label="Graph view mode">
-                <label class="radio-label">
-                    <input type="radio" name="graphMode" value="tree" checked={schema.graphMode === 'tree'}
-                        onchange={() => setSchemaField('graphMode', 'tree')} />
-                    Tree
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="graphMode" value="force" checked={schema.graphMode === 'force'}
-                        onchange={() => setSchemaField('graphMode', 'force')} />
-                    Force
-                </label>
+            <div class="graph-mode-bar" role="group" aria-label="Graph layout mode">
+                <button
+                    class="graph-mode-btn"
+                    class:active={schema.graphMode === 'tree'}
+                    type="button"
+                    aria-pressed={schema.graphMode === 'tree'}
+                    onclick={() => setSchemaField('graphMode', 'tree')}
+                >Tree</button>
+                <button
+                    class="graph-mode-btn"
+                    class:active={schema.graphMode === 'force'}
+                    type="button"
+                    aria-pressed={schema.graphMode === 'force'}
+                    onclick={() => setSchemaField('graphMode', 'force')}
+                >Force</button>
             </div>
-            <div class="graph-container" bind:this={graphContainer} aria-label="Data structure graph">
-                {#if !uploadedData}<p class="graph-empty">No data loaded.</p>{/if}
-            </div>
-            <div class="graph-footer">
-                <label class="graph-toggle">
-                    <input type="checkbox" checked={schema.hideLeafNodes}
-                        onchange={(e) => setSchemaField('hideLeafNodes', (e.target as HTMLInputElement).checked)} />
-                    Hide child nodes
-                </label>
-            </div>
+            {#if _dnHasResult}
+                <!-- Inspector mounts here — its layout is self-contained -->
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <div
+                    class="schema-inspector-container"
+                    bind:this={schemaGraphContainer}
+                    role="img"
+                    aria-label="Structure graph. Click nodes to select in canvas."
+                ></div>
+            {:else}
+                <div class="graph-empty-state">
+                    <p class="graph-empty">
+                        {uploadedData
+                            ? 'Select a dimension below to build the structure.'
+                            : 'Upload data to see the navigation structure.'}
+                    </p>
+                </div>
+            {/if}
         </div>
 
         <!-- ── Bottom half: schema builder ── -->
@@ -760,36 +1090,67 @@
         display: flex;
         flex-direction: column;
         border-bottom: 1px solid var(--dn-border);
+        background: var(--dn-bg);
     }
-    .graph-toolbar {
+    /* ── Graph mode toggle bar ── */
+    .graph-mode-bar {
         display: flex;
-        gap: calc(var(--dn-space) * 2);
-        padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 1.5);
+        gap: 4px;
+        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 1.25);
         border-bottom: 1px solid var(--dn-border);
         flex-shrink: 0;
     }
-    .radio-label {
-        display: flex; align-items: center; gap: calc(var(--dn-space) * 0.5);
-        font-size: 0.8125rem; color: var(--dn-text-muted); cursor: pointer; user-select: none;
-    }
-    .radio-label input { accent-color: var(--dn-accent); cursor: pointer; }
-    .graph-container {
-        height: 220px; overflow: hidden;
-        display: flex; align-items: center; justify-content: center;
+    .graph-mode-btn {
+        font-size: 0.75rem;
+        font-family: var(--dn-font);
+        padding: 2px calc(var(--dn-space) * 0.875);
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
         background: var(--dn-bg);
+        color: var(--dn-text-muted);
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s;
     }
-    .graph-container :global(svg) { max-width: 100%; height: auto; display: block; }
+    .graph-mode-btn.active {
+        background: var(--dn-accent-soft);
+        color: var(--dn-accent);
+        border-color: var(--dn-accent-light);
+    }
+
+    /* ── Inspector container ── */
+    .schema-inspector-container {
+        width: 100%;
+        min-height: 220px;
+        overflow: hidden;
+        position: relative;
+    }
+    :global(.schema-inspector-container .dn-inspector-wrapper) {
+        width: 100%;
+    }
+    :global(.schema-inspector-container svg) {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    :global(.schema-inspector-container .dn-inspector-tooltip) {
+        font-size: 0.75rem;
+        font-family: var(--dn-font);
+        background: var(--dn-bg);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        color: var(--dn-text);
+        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
+        width: 160px;
+    }
+
     .graph-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
-    .graph-footer {
-        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1.5);
-        border-top: 1px solid var(--dn-border);
-        flex-shrink: 0;
+    .graph-empty-state {
+        height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: calc(var(--dn-space) * 2);
     }
-    .graph-toggle {
-        display: flex; align-items: center; gap: calc(var(--dn-space) * 0.75);
-        font-size: 0.8125rem; color: var(--dn-text-muted); cursor: pointer;
-    }
-    .graph-toggle input { accent-color: var(--dn-accent); cursor: pointer; flex-shrink: 0; }
 
     /* ── Builder section ── */
     .schema-builder-section {

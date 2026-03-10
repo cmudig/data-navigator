@@ -81,6 +81,8 @@ export interface AppState {
     selectedNodeIds: Set<string>;
     selectedEdgeIds: Set<string>;
     entryNodeId: string | null;
+    hoveredNodeId: string | null; // linked hover between schema and canvas
+    hoveredEdgeId: string | null;
     // Step 1 — Schema (data-driven structure)
     schemaState: SchemaState;
     // Step 2 — Input
@@ -101,6 +103,8 @@ export const DEFAULT_APP_STATE: AppState = {
     selectedNodeIds: new Set<string>(),
     selectedEdgeIds: new Set<string>(),
     entryNodeId: null,
+    hoveredNodeId: null,
+    hoveredEdgeId: null,
     schemaState: {
         dimensions: [],
         childmostNavigation: 'within',

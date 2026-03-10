@@ -1,5 +1,6 @@
 <script lang="ts">
     import { get } from 'svelte/store';
+    import { untrack } from 'svelte';
     import { appState } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import type { RenderConfig } from '../../store/appState';
@@ -58,7 +59,11 @@
 
     // ── Lasso state ───────────────────────────────────────────────────────────
     let lassoRect = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+    let lassoAdditive = $state(false); // true when Cmd/Ctrl held at lasso start
     let activeTouchId = $state<number | null>(null);
+
+    // ── Select filter ─────────────────────────────────────────────────────────
+    let selectFilter = $state<'nodes' | 'edges'>('nodes');
 
     // ── Edge draw state ───────────────────────────────────────────────────────
     let edgeSourceId = $state<string | null>(null);
@@ -78,6 +83,8 @@
     let selectedNodeIds = $state<Set<string>>(initial.selectedNodeIds);
     let selectedEdgeIds = $state<Set<string>>(initial.selectedEdgeIds);
     let entryNodeId = $state<string | null>(initial.entryNodeId);
+    let hoveredNodeId = $state<string | null>(initial.hoveredNodeId);
+    let hoveredEdgeId = $state<string | null>(initial.hoveredEdgeId);
     let imageDataUrl = $state<string | null>(initial.imageDataUrl);
     let imageWidth = $state<number | null>(initial.imageWidth);
     let imageHeight = $state<number | null>(initial.imageHeight);
@@ -90,6 +97,8 @@
             selectedNodeIds = s.selectedNodeIds;
             selectedEdgeIds = s.selectedEdgeIds;
             entryNodeId = s.entryNodeId;
+            hoveredNodeId = s.hoveredNodeId;
+            hoveredEdgeId = s.hoveredEdgeId;
             imageDataUrl = s.imageDataUrl;
             imageWidth = s.imageWidth;
             imageHeight = s.imageHeight;
@@ -102,6 +111,23 @@
     const vbH = $derived(imageHeight ?? 800);
     const viewBox = $derived(`0 0 ${vbW} ${vbH}`);
     const nodeList = $derived([...nodes.values()]);
+
+    // ── Debug: reactive trigger inspection ───────────────────────────────────
+    // Remove these once the loop is identified.
+
+    // Keyboard hover sync effect deps
+    $inspect(focusedNodeIdx).with((t, v) =>
+        console.log('[GC:HoverSync] focusedNodeIdx', t, v));
+    $inspect(nodes).with((t, v) =>
+        console.log('[GC:HoverSync] nodes', t, v?.size));
+
+    // Store-synced values that touch multiple effects
+    $inspect(hoveredNodeId).with((t, v) => {
+        console.log('[GC] hoveredNodeId', t, v);
+        console.trace();
+    });
+    $inspect(selectedNodeIds).with((t, v) =>
+        console.log('[GC] selectedNodeIds', t, v?.size));
 
     // ── Coordinate helpers ────────────────────────────────────────────────────
 
@@ -174,6 +200,24 @@
         selectEdges?.(edgeIds);
     }
 
+    function setHoveredNode(id: string | null) {
+        appState.update(s => ({ ...s, hoveredNodeId: id }));
+    }
+
+    function setHoveredEdge(id: string | null) {
+        appState.update(s => ({ ...s, hoveredEdgeId: id }));
+    }
+
+    // Keyboard focus → hover: sync focusedNodeIdx to shared hoveredNodeId.
+    // Guard reads hoveredNodeId via untrack so it doesn't become a reactive dependency —
+    // otherwise the effect would loop: write hoveredNodeId → re-run → write again.
+    $effect(() => {
+        const id = focusedNodeIdx >= 0 && focusedNodeIdx < nodeList.length
+            ? nodeList[focusedNodeIdx].id
+            : null;
+        if (id !== untrack(() => hoveredNodeId)) setHoveredNode(id);
+    });
+
     // ── Add node ──────────────────────────────────────────────────────────────
 
     function addNodeAt(pt: { x: number; y: number }) {
@@ -188,6 +232,7 @@
             height: 60,
             isEntry: isFirst,
             isCluster: false,
+            source: 'manual',
             semantics: { label: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false },
             data: {},
             renderProperties: {
@@ -270,17 +315,68 @@
         const lw = Math.abs(lassoRect.x1 - lassoRect.x0);
         const lh = Math.abs(lassoRect.y1 - lassoRect.y0);
         if (lw > 2 || lh > 2) {
-            const hitNodeIds = nodeList
-                .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
-                .map(n => n.id);
-            const hitNodeSet = new Set(hitNodeIds);
-            const hitEdgeIds = [...edges.values()]
-                .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
-                .map(e => e.id);
-            setSelection(hitNodeIds, hitEdgeIds);
-            liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
+            if (selectFilter === 'nodes') {
+                const hitNodeIds = nodeList
+                    .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
+                    .map(n => n.id);
+                const hitNodeSet = new Set(hitNodeIds);
+                const hitEdgeIds = [...edges.values()]
+                    .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
+                    .map(e => e.id);
+
+                if (lassoAdditive) {
+                    const newNodeIds = hitNodeIds.filter(id => !selectedNodeIds.has(id));
+                    if (newNodeIds.length > 0) {
+                        // Add new nodes (and their edges) to current selection
+                        const merged = new Set([...selectedNodeIds, ...hitNodeIds]);
+                        const mergedEdges = new Set([...selectedEdgeIds, ...hitEdgeIds]);
+                        setSelection([...merged], [...mergedEdges]);
+                        liveMsg = `Added ${newNodeIds.length} node(s) to selection.`;
+                    } else {
+                        // No new nodes — subtract hit nodes from selection
+                        const remaining = [...selectedNodeIds].filter(id => !hitNodeSet.has(id));
+                        const removedEdgeSet = new Set(hitEdgeIds);
+                        const remainingEdges = [...selectedEdgeIds].filter(id => !removedEdgeSet.has(id));
+                        setSelection(remaining, remainingEdges);
+                        liveMsg = `Removed ${hitNodeIds.length} node(s) from selection.`;
+                    }
+                } else {
+                    setSelection(hitNodeIds, hitEdgeIds);
+                    liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
+                }
+            } else {
+                // Edge filter: select edges whose midpoint falls in lasso rect
+                const hitEdgeIds = [...edges.values()]
+                    .filter(e => {
+                        const src = nodes.get(e.sourceId);
+                        const tgt = nodes.get(e.targetId);
+                        if (!src || !tgt) return false;
+                        const mx = (src.x + src.width / 2 + tgt.x + tgt.width / 2) / 2;
+                        const my = (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2;
+                        return mx >= lx && mx <= lx + lw && my >= ly && my <= ly + lh;
+                    })
+                    .map(e => e.id);
+                const hitEdgeSet = new Set(hitEdgeIds);
+
+                if (lassoAdditive) {
+                    const newEdgeIds = hitEdgeIds.filter(id => !selectedEdgeIds.has(id));
+                    if (newEdgeIds.length > 0) {
+                        const merged = new Set([...selectedEdgeIds, ...hitEdgeIds]);
+                        setSelection([...selectedNodeIds], [...merged]);
+                        liveMsg = `Added ${newEdgeIds.length} edge(s) to selection.`;
+                    } else {
+                        const remaining = [...selectedEdgeIds].filter(id => !hitEdgeSet.has(id));
+                        setSelection([...selectedNodeIds], remaining);
+                        liveMsg = `Removed ${hitEdgeIds.length} edge(s) from selection.`;
+                    }
+                } else {
+                    setSelection([], hitEdgeIds);
+                    liveMsg = `Selected ${hitEdgeIds.length} edge(s).`;
+                }
+            }
         }
         lassoRect = null;
+        lassoAdditive = false;
     }
 
     // ── Wheel zoom ────────────────────────────────────────────────────────────
@@ -319,6 +415,7 @@
         } else if (mode === 'lasso') {
             const pt = mouseToScene(e);
             lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+            lassoAdditive = e.metaKey || e.ctrlKey;
         } else {
             setSelection([], []);
             focusedNodeIdx = -1;
@@ -426,7 +523,8 @@
         if (drag) {
             if (!drag.moved) {
                 // Treat as node click: select
-                if (e.shiftKey) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    // Additive/subtractive toggle
                     const ids = new Set(selectedNodeIds);
                     if (ids.has(drag.nodeId)) ids.delete(drag.nodeId);
                     else ids.add(drag.nodeId);
@@ -731,6 +829,16 @@
         >
             Select
         </button>
+        <span class="select-filter" role="group" aria-label="Selection target">
+            <label class="filter-label" class:active={selectFilter === 'nodes'}>
+                <input type="radio" name="selectFilter" value="nodes" bind:group={selectFilter} />
+                Nodes
+            </label>
+            <label class="filter-label" class:active={selectFilter === 'edges'}>
+                <input type="radio" name="selectFilter" value="edges" bind:group={selectFilter} />
+                Edges
+            </label>
+        </span>
         <button
             class="btn-ghost btn-sm"
             class:active={mode === 'addNode'}
@@ -826,13 +934,17 @@
                     {@const mx = (sc.x + tc.x) / 2}
                     {@const my = (sc.y + tc.y) / 2}
                     {@const isSel = selectedEdgeIds.has(edge.id)}
+                    {@const isEdgeHov = hoveredEdgeId === edge.id && !isSel}
                     <g
                         class="edge"
                         class:selected={isSel}
+                        class:hovered={isEdgeHov}
                         role="button"
                         tabindex="-1"
                         aria-label="Edge {edge.label || edge.direction} from {src.label} to {tgt.label}{isSel ? ', selected' : ''}"
                         onmousedown={(e) => onEdgeMousedown(e, edge.id)}
+                        onmouseenter={() => setHoveredEdge(edge.id)}
+                        onmouseleave={() => setHoveredEdge(null)}
                     >
                         <!-- Invisible wide hit target -->
                         <line
@@ -864,17 +976,47 @@
         <g class="node-layer">
             {#each nodeList as node (node.id)}
                 {@const isSel = selectedNodeIds.has(node.id)}
+                {@const isHov = hoveredNodeId === node.id && !isSel}
                 {@const isEntry = node.id === entryNodeId}
                 {@const cx = node.x + node.width / 2}
                 {@const cy = node.y + node.height / 2}
                 <g
                     class="node"
                     class:selected={isSel}
+                    class:hovered={isHov}
                     role="button"
                     tabindex="-1"
                     aria-label="{node.label}{isEntry ? ', entry node' : ''}{node.isCluster ? ', cluster node' : ''}{isSel ? ', selected' : ''}"
                     onmousedown={(e) => onNodeMousedown(e, node.id)}
+                    onmouseenter={() => setHoveredNode(node.id)}
+                    onmouseleave={() => setHoveredNode(null)}
                 >
+                    <!-- Hover ring (linked from schema or keyboard focus) -->
+                    {#if isHov}
+                        {#if node.renderProperties.shape === 'ellipse'}
+                            <ellipse
+                                {cx} {cy}
+                                rx={node.width / 2 + 4} ry={node.height / 2 + 4}
+                                fill="none"
+                                stroke="var(--dn-accent-mid)"
+                                stroke-width="1.5"
+                                stroke-dasharray="3 2"
+                                opacity="0.7"
+                            />
+                        {:else}
+                            <rect
+                                x={node.x - 4} y={node.y - 4}
+                                width={node.width + 8} height={node.height + 8}
+                                fill="none"
+                                stroke="var(--dn-accent-mid)"
+                                stroke-width="1.5"
+                                stroke-dasharray="3 2"
+                                rx="6"
+                                opacity="0.7"
+                            />
+                        {/if}
+                    {/if}
+
                     <!-- Selection ring -->
                     {#if isSel}
                         {#if node.renderProperties.shape === 'ellipse'}
@@ -1112,6 +1254,33 @@
         flex-shrink: 0;
     }
 
+    .select-filter {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .filter-label {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.4);
+        padding: 3px calc(var(--dn-space) * 0.75);
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.1s, color 0.1s;
+    }
+    .filter-label.active {
+        background: var(--dn-accent-soft);
+        color: var(--dn-accent);
+    }
+    .filter-label input { display: none; }
+
     .mode-hint {
         font-size: 0.8125rem;
         color: var(--dn-accent);
@@ -1158,8 +1327,17 @@
         cursor: pointer;
     }
 
+    :global(.node.hovered) {
+        filter: brightness(0.97);
+    }
+
     :global(.edge) {
         cursor: pointer;
+    }
+
+    :global(.edge.hovered line:last-of-type) {
+        stroke: var(--dn-accent-mid) !important;
+        opacity: 0.7;
     }
 
     :global(.lasso-rect) {

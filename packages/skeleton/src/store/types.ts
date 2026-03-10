@@ -1,6 +1,7 @@
 export type SkeletonNode = {
     id: string; // crypto.randomUUID()
     label: string;
+    source?: 'schema' | 'manual'; // origin: 'schema' = DN-derived, 'manual' = user-drawn
     x: number; // pixels in image coordinate space (top-left)
     y: number;
     width: number;
