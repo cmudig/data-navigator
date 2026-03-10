@@ -427,6 +427,8 @@
         const level0Ids: string[] = [];
         const level1Ids: string[] = [];
         const level2ByDim = new Map<string, string[]>();
+        // level3ByDiv: divisionId → leaf node IDs (actual data rows)
+        const level3ByDiv = new Map<string, string[]>();
 
         if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
             level0Ids.push(schemaSnap.level0Id);
@@ -434,16 +436,22 @@
         Object.values(structure.dimensions as Record<string, any>).forEach((dim: any) => {
             level1Ids.push(dim.nodeId);
             level2ByDim.set(dim.nodeId, Object.keys(dim.divisions));
+            Object.entries(dim.divisions as Record<string, any>).forEach(([divId, div]: [string, any]) => {
+                const leafIds = Object.keys(div.values || {});
+                if (leafIds.length > 0) level3ByDiv.set(divId, leafIds);
+            });
         });
 
         const allHierarchyIds = new Set<string>([
             ...level0Ids,
             ...level1Ids,
             ...([...level2ByDim.values()].flat()),
+            ...([...level3ByDiv.values()].flat()),
         ]);
 
         // Compute y positions for each level
-        const numLevels = (level0Ids.length > 0 ? 1 : 0) + 2;
+        const hasLeafLevel = level3ByDiv.size > 0;
+        const numLevels = (level0Ids.length > 0 ? 1 : 0) + 2 + (hasLeafLevel ? 1 : 0);
         const vSpacing = (canvasH - padY * 2) / Math.max(numLevels - 1, 1);
         let currentY = padY;
 
@@ -479,6 +487,28 @@
             });
         });
 
+        // Level 3 — leaf data row nodes, grouped under their parent division
+        if (hasLeafLevel) {
+            currentY += vSpacing;
+            level1Ids.forEach((dimId, dimIdx) => {
+                const divIds = level2ByDim.get(dimId) || [];
+                const rangeW = l1 > 0 ? usableW / l1 : usableW;
+                const rangeStart = padX + dimIdx * rangeW;
+                divIds.forEach((divId, divIdx) => {
+                    const leafIds = level3ByDiv.get(divId) || [];
+                    if (leafIds.length === 0) return;
+                    const subRangeW = divIds.length > 0 ? rangeW / divIds.length : rangeW;
+                    const subRangeStart = rangeStart + divIdx * subRangeW;
+                    leafIds.forEach((leafId, leafIdx) => {
+                        const x = leafIds.length === 1
+                            ? subRangeStart + subRangeW / 2 - nodeW / 2
+                            : subRangeStart + (leafIdx / (leafIds.length - 1)) * subRangeW - nodeW / 2;
+                        positions.set(leafId, { x: Math.max(padX, x), y: currentY });
+                    });
+                });
+            });
+        }
+
         appState.update(s => {
             // Check if update is needed: any new hierarchy nodes, or any stale schema nodes
             const existingSchemaIds = new Set(
@@ -509,6 +539,15 @@
                         label = String(dnNode.data?.[key] ?? nodeId);
                     } else if (dnNode.dimensionLevel === 0) {
                         label = schemaSnap.level0Id || 'root';
+                    } else if (dnNode.dimensionLevel === undefined && dnNode.data) {
+                        // Leaf data row — use the first included dimension's value
+                        const firstIncluded = schemaSnap.dimensions.find(d => d.included);
+                        if (firstIncluded) {
+                            label = String(dnNode.data[firstIncluded.key] ?? nodeId);
+                        } else {
+                            const firstKey = Object.keys(dnNode.data).find((k: string) => !k.startsWith('_'));
+                            if (firstKey) label = String(dnNode.data[firstKey] ?? nodeId);
+                        }
                     }
                 }
                 newNodes.set(nodeId, {
@@ -546,6 +585,9 @@
             }
             level1Ids.forEach(dimId => {
                 (level2ByDim.get(dimId) || []).forEach(divId => addEdge(dimId, divId));
+            });
+            level3ByDiv.forEach((leafIds, divId) => {
+                leafIds.forEach(leafId => addEdge(divId, leafId));
             });
 
             const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id
