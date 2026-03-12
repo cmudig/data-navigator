@@ -919,7 +919,6 @@
     {viewBox}
     role="application"
     aria-label="Graph editor canvas. Use arrow keys to cycle nodes, Enter to open properties, Delete to remove selection."
-    tabindex="0"
     class="graph-canvas"
     class:cursor-crosshair={mode === 'addNode'}
     class:cursor-lasso={mode === 'lasso'}
@@ -1427,7 +1426,7 @@
 
     /* ── Resize tooltip ── */
     .resize-tooltip {
-        position: fixed;
+        position: absolute;
         transform: translate(-50%, calc(-100% - 10px));
         background: var(--dn-bg);
         border: 1px solid var(--dn-border);
