@@ -33,13 +33,18 @@
     let hasUploadedData = $state(false);
     let showEntryGate = $state(false);
 
+    let _lastStep = -1;
     appState.subscribe(async s => {
+        const stepChanged = s.currentStep !== _lastStep;
+        _lastStep = s.currentStep;
         currentStep = s.currentStep;
         hasUploadedData = s.uploadedData !== null;
-        // After the DOM updates, move focus to the new step heading
-        await tick();
-        const heading = document.getElementById(`step-heading-${s.currentStep}`);
-        heading?.focus();
+        // Move focus to the new step heading only when the step actually changes
+        if (stepChanged) {
+            await tick();
+            const heading = document.getElementById(`step-heading-${s.currentStep}`);
+            heading?.focus();
+        }
     });
 
     function beforeStepNavigate(targetStep: number): boolean {
