@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { appState, DEFAULT_APP_STATE, type AppState } from '../../store/appState';
+    import { appState } from '../../store/appState';
 
     // ─── Image upload ──────────────────────────────────────────────────────────
     let imageDataUrl: string | null = $state(null);
@@ -66,10 +66,6 @@
             dataStatus = `Error loading example dataset: ${(e as Error).message}`;
         }
     }
-
-    // ─── Session restore ───────────────────────────────────────────────────────
-    let sessionFileInput: HTMLInputElement;
-    let sessionStatus = $state('');
 
     // ─── Minimal CSV parser ───────────────────────────────────────────────────
     function parseCSVLine(line: string): string[] {
@@ -181,41 +177,6 @@
         dataStatus = 'Data removed.';
         dataFileInput.value = '';
         appState.update(s => ({ ...s, uploadedData: null, uploadedDataRaw: null }));
-    }
-
-    // ─── Session restore ──────────────────────────────────────────────────────
-    function handleSessionFile(file: File) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const raw = JSON.parse(reader.result as string);
-                // JSON.parse gives plain objects; convert to Map/Set
-                const nodes = new Map(Object.entries(raw.nodes ?? {}));
-                const edges = new Map(Object.entries(raw.edges ?? {}));
-                const session: AppState = {
-                    ...DEFAULT_APP_STATE,
-                    ...raw,
-                    nodes,
-                    edges,
-                    selectedNodeIds: new Set<string>(),
-                    selectedEdgeIds: new Set<string>(),
-                    entryNodeId: raw.entryNodeId ?? null,
-                };
-                const nodeCount = nodes.size;
-                const edgeCount = edges.size;
-                appState.set(session);
-                // Sync local mirrors
-                imageDataUrl = session.imageDataUrl;
-                imageWidth = session.imageWidth;
-                imageHeight = session.imageHeight;
-                uploadedData = session.uploadedData;
-                uploadedDataRaw = session.uploadedDataRaw;
-                sessionStatus = `Session loaded: ${nodeCount} node${nodeCount !== 1 ? 's' : ''}, ${edgeCount} edge${edgeCount !== 1 ? 's' : ''}.`;
-            } catch (e) {
-                sessionStatus = `Error loading session: ${(e as Error).message}`;
-            }
-        };
-        reader.readAsText(file);
     }
 
     // ─── Drag-and-drop ────────────────────────────────────────────────────────
@@ -461,34 +422,6 @@
 
     <!-- ── Actions row ─────────────────────────────────────────────────────── -->
     <div class="step-actions">
-        <div class="session-load">
-            <input
-                bind:this={sessionFileInput}
-                type="file"
-                accept=".json"
-                class="visually-hidden"
-                aria-hidden="true"
-                tabindex="-1"
-                onchange={(e) => {
-                    const f = (e.target as HTMLInputElement).files?.[0];
-                    if (f) handleSessionFile(f);
-                    (e.target as HTMLInputElement).value = '';
-                }}
-            />
-            <button
-                class="btn-ghost"
-                type="button"
-                onclick={() => sessionFileInput.click()}
-            >
-                Load previous session
-            </button>
-            {#if sessionStatus}
-                <span class="session-status" aria-live="polite" aria-atomic="true">
-                    {sessionStatus}
-                </span>
-            {/if}
-        </div>
-
         <button class="btn-primary" type="button" onclick={continueToStructure}>
             Continue to Structure →
         </button>
@@ -717,16 +650,4 @@
         flex-wrap: wrap;
     }
 
-    .session-load {
-        display: flex;
-        align-items: center;
-        gap: calc(var(--dn-space) * 1.5);
-        flex-wrap: wrap;
-    }
-
-    .session-status {
-        font-size: 0.875rem;
-        color: var(--dn-accent);
-        font-weight: 500;
-    }
 </style>

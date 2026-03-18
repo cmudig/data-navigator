@@ -3,6 +3,7 @@
     import { tick } from 'svelte';
     import { get } from 'svelte/store';
     import { appState } from './store/appState';
+    import { saveState, loadState } from './utils/saveLoad';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
@@ -61,6 +62,35 @@
     const ActiveStep = $derived(stepComponents[currentStep]);
     const isFullWidth = $derived(fullWidthSteps.has(currentStep));
     const showSchemaPanel = $derived(currentStep === 1 && hasUploadedData);
+
+    // ── Save / Load ───────────────────────────────────────────────────────────
+    let loadFileInput: HTMLInputElement;
+    let saveLoadStatus = $state('');
+    let saveLoadStatusTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    function showStatus(msg: string) {
+        saveLoadStatus = msg;
+        if (saveLoadStatusTimeout) clearTimeout(saveLoadStatusTimeout);
+        saveLoadStatusTimeout = setTimeout(() => { saveLoadStatus = ''; }, 5000);
+    }
+
+    function handleSave() {
+        try {
+            saveState();
+            showStatus('Session saved.');
+        } catch (e) {
+            showStatus(`Save failed: ${(e as Error).message}`);
+        }
+    }
+
+    async function handleLoadFile(file: File) {
+        try {
+            const summary = await loadState(file);
+            showStatus(summary);
+        } catch (e) {
+            showStatus(`Load failed: ${(e as Error).message}`);
+        }
+    }
 </script>
 
 <!-- Skip to main content -->
@@ -75,6 +105,47 @@
         width="auto"
     />
     <h1 class="app-header-title">Skeleton</h1>
+
+    <div class="app-header-actions">
+        <!-- Hidden file input for loading a session ZIP -->
+        <input
+            bind:this={loadFileInput}
+            type="file"
+            accept=".zip"
+            class="visually-hidden"
+            aria-hidden="true"
+            tabindex="-1"
+            onchange={(e) => {
+                const f = (e.target as HTMLInputElement).files?.[0];
+                if (f) handleLoadFile(f);
+                (e.target as HTMLInputElement).value = '';
+            }}
+        />
+
+        <button
+            class="btn-ghost btn-sm"
+            type="button"
+            onclick={() => loadFileInput.click()}
+            title="Load a previously saved session (.zip)"
+        >
+            Load session
+        </button>
+
+        <button
+            class="btn-ghost btn-sm"
+            type="button"
+            onclick={handleSave}
+            title="Save the current session as a .zip file"
+        >
+            Save session
+        </button>
+
+        {#if saveLoadStatus}
+            <span class="save-load-status" aria-live="polite" aria-atomic="true">
+                {saveLoadStatus}
+            </span>
+        {/if}
+    </div>
 </header>
 
 <!-- Step navigation -->
@@ -118,6 +189,20 @@
 {/if}
 
 <style>
+    .app-header-actions {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 1);
+        margin-left: auto;
+        flex-wrap: wrap;
+    }
+
+    .save-load-status {
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+        white-space: nowrap;
+    }
+
     :global(body) {
         display: flex;
         flex-direction: column;
