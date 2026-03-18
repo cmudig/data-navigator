@@ -161,7 +161,26 @@ export async function loadState(file: File): Promise<string> {
         }
     }
 
-    const nodes = new Map<string, SkeletonNode>(ss.nodes);
+    const DEFAULT_RENDER: SkeletonNode['renderProperties'] = {
+        shape: 'rect',
+        fillEnabled: false,
+        fill: '#f6f6f7',
+        opacity: 1,
+        strokeWidth: 2,
+        strokeColor: '#000000',
+        strokeDash: 'solid',
+        ariaRole: 'button',
+        customClass: ''
+    };
+    const nodes = new Map<string, SkeletonNode>(
+        ss.nodes.map(([id, n]) => [
+            id,
+            {
+                ...n,
+                renderProperties: { ...DEFAULT_RENDER, ...n.renderProperties }
+            }
+        ])
+    );
     const edges = new Map<string, SkeletonEdge>(ss.edges);
 
     // Merge with DEFAULT_APP_STATE so that fields added in future versions

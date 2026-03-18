@@ -249,8 +249,12 @@
             data: {},
             renderProperties: {
                 shape: 'rect',
-                fill: 'var(--dn-surface)',
+                fillEnabled: false,
+                fill: '#f6f6f7',
                 opacity: 1,
+                strokeWidth: 2,
+                strokeColor: '#000000',
+                strokeDash: 'solid',
                 ariaRole: 'button',
                 customClass: '',
             },
@@ -1110,12 +1114,13 @@
 
                     <!-- Cluster shadow rect -->
                     {#if node.isCluster && node.renderProperties.shape !== 'ellipse'}
+                        {@const shadowFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
                         <rect
                             x={node.x + 5} y={node.y + 5}
                             width={node.width} height={node.height}
-                            fill={node.renderProperties.fill}
-                            stroke="var(--dn-border)"
-                            stroke-width="1.5"
+                            fill={shadowFill}
+                            stroke={node.renderProperties.strokeColor ?? '#000000'}
+                            stroke-width={node.renderProperties.strokeWidth ?? 2}
                             rx="4"
                             opacity="0.5"
                         />
@@ -1123,21 +1128,31 @@
 
                     <!-- Main shape -->
                     {#if node.renderProperties.shape === 'ellipse'}
+                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
+                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
+                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
+                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
                         <ellipse
                             {cx} {cy}
                             rx={node.width / 2} ry={node.height / 2}
-                            fill={node.renderProperties.fill}
-                            stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-border)'}
-                            stroke-width="1.5"
+                            fill={nodeFill}
+                            stroke={nodeStroke}
+                            stroke-width={nodeStrokeWidth}
+                            stroke-dasharray={nodeDashArray}
                             opacity={node.renderProperties.opacity}
                         />
                     {:else}
+                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
+                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
+                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
+                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
                         <rect
                             x={node.x} y={node.y}
                             width={node.width} height={node.height}
-                            fill={node.renderProperties.fill}
-                            stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-border)'}
-                            stroke-width="1.5"
+                            fill={nodeFill}
+                            stroke={nodeStroke}
+                            stroke-width={nodeStrokeWidth}
+                            stroke-dasharray={nodeDashArray}
                             rx="4"
                             opacity={node.renderProperties.opacity}
                         />

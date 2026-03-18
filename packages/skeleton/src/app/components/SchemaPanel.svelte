@@ -576,7 +576,7 @@
                     source: 'schema',
                     semantics: { label: nodeId, name: 'node', includeParentName: false, includeIndex: false },
                     data: dnNode?.data ?? {},
-                    renderProperties: { shape: 'rect', fill: 'var(--dn-surface)', opacity: 1, ariaRole: 'button', customClass: '' },
+                    renderProperties: { shape: 'rect', fillEnabled: false, fill: '#f6f6f7', opacity: 1, strokeWidth: 2, strokeColor: '#000000', strokeDash: 'solid', ariaRole: 'button', customClass: '' },
                 } as SkeletonNode);
             });
 

@@ -596,14 +596,68 @@
         </div>
 
         <div class="field field-inline">
-            <label for="node-fill">Fill color</label>
-            <input
-                id="node-fill"
-                type="color"
-                value={node.renderProperties.fill.startsWith('#') ? node.renderProperties.fill : '#f6f6f7'}
-                oninput={(e) => updateNodeRender({ fill: e.currentTarget.value })}
-            />
+            <label for="node-fill-enabled">Fill color</label>
+            <div class="fill-row">
+                <input
+                    id="node-fill-enabled"
+                    type="checkbox"
+                    checked={node.renderProperties.fillEnabled}
+                    onchange={(e) => updateNodeRender({ fillEnabled: e.currentTarget.checked })}
+                    aria-label="Enable fill color"
+                />
+                <input
+                    id="node-fill"
+                    type="color"
+                    disabled={!node.renderProperties.fillEnabled}
+                    value={node.renderProperties.fill.startsWith('#') ? node.renderProperties.fill : '#f6f6f7'}
+                    oninput={(e) => updateNodeRender({ fill: e.currentTarget.value })}
+                    aria-label="Fill color"
+                />
+            </div>
         </div>
+
+        <fieldset class="panel-fieldset">
+            <legend class="fieldset-legend">Stroke</legend>
+
+            <div class="field field-inline">
+                <label for="node-stroke-color">Color</label>
+                <input
+                    id="node-stroke-color"
+                    type="color"
+                    value={node.renderProperties.strokeColor ?? '#000000'}
+                    oninput={(e) => updateNodeRender({ strokeColor: e.currentTarget.value })}
+                />
+            </div>
+
+            <div class="field">
+                <label for="node-stroke-width">
+                    Width (px)
+                    <span class="value-hint" aria-hidden="true">{node.renderProperties.strokeWidth ?? 2}</span>
+                </label>
+                <input
+                    id="node-stroke-width"
+                    type="number"
+                    min="0"
+                    max="20"
+                    step="0.5"
+                    value={node.renderProperties.strokeWidth ?? 2}
+                    oninput={(e) => updateNodeRender({ strokeWidth: parseFloat(e.currentTarget.value) || 0 })}
+                />
+            </div>
+
+            <div class="field">
+                <label for="node-stroke-dash">Dash pattern</label>
+                <select
+                    id="node-stroke-dash"
+                    value={node.renderProperties.strokeDash ?? 'solid'}
+                    onchange={(e) => updateNodeRender({ strokeDash: e.currentTarget.value as 'solid' | 'dashed' | 'dotted' })}
+                >
+                    <option value="solid">Solid</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="dotted">Dotted</option>
+                </select>
+            </div>
+        </fieldset>
 
         <div class="field">
             <label for="node-opacity">
@@ -979,6 +1033,17 @@
         cursor: pointer;
         background: var(--dn-bg);
         flex-shrink: 0;
+    }
+
+    input[type='color']:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+    .fill-row {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.75);
     }
 
     input[type='checkbox'] {

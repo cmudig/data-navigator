@@ -18,8 +18,12 @@ export type SkeletonNode = {
     data: Record<string, unknown>; // maps to DN's node.data
     renderProperties: {
         shape: 'rect' | 'ellipse' | 'custom';
+        fillEnabled: boolean;
         fill: string;
         opacity: number;
+        strokeWidth: number;
+        strokeColor: string;
+        strokeDash: 'solid' | 'dashed' | 'dotted';
         ariaRole: string;
         customClass: string;
     };
