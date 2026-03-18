@@ -1128,7 +1128,8 @@
 
                     <!-- Main shape -->
                     {#if node.renderProperties.shape === 'ellipse'}
-                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
+                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
                         {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
                         {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
                         {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
@@ -1136,13 +1137,15 @@
                             {cx} {cy}
                             rx={node.width / 2} ry={node.height / 2}
                             fill={nodeFill}
+                            fill-opacity={nodeFillOpacity}
                             stroke={nodeStroke}
                             stroke-width={nodeStrokeWidth}
                             stroke-dasharray={nodeDashArray}
                             opacity={node.renderProperties.opacity}
                         />
                     {:else}
-                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
+                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
                         {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
                         {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
                         {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
@@ -1150,6 +1153,7 @@
                             x={node.x} y={node.y}
                             width={node.width} height={node.height}
                             fill={nodeFill}
+                            fill-opacity={nodeFillOpacity}
                             stroke={nodeStroke}
                             stroke-width={nodeStrokeWidth}
                             stroke-dasharray={nodeDashArray}
@@ -1158,7 +1162,7 @@
                         />
                     {/if}
 
-                    <!-- Label -->
+                    <!-- Label (white halo pass + black text pass for legibility) -->
                     <text
                         x={cx} y={cy}
                         text-anchor="middle"
@@ -1166,7 +1170,24 @@
                         font-size="13"
                         font-family="var(--dn-font)"
                         font-weight="500"
-                        fill="var(--dn-text)"
+                        fill="none"
+                        stroke="white"
+                        stroke-width="3"
+                        stroke-linejoin="round"
+                        paint-order="stroke"
+                        pointer-events="none"
+                        aria-hidden="true"
+                    >
+                        {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
+                    </text>
+                    <text
+                        x={cx} y={cy}
+                        text-anchor="middle"
+                        dominant-baseline="middle"
+                        font-size="13"
+                        font-family="var(--dn-font)"
+                        font-weight="500"
+                        fill="#000000"
                         pointer-events="none"
                     >
                         {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
