@@ -449,7 +449,11 @@
         }
         Object.values(structure.dimensions as Record<string, any>).forEach((dim: any) => {
             level1Ids.push(dim.nodeId);
-            level2ByDim.set(dim.nodeId, Object.keys(dim.divisions));
+            // When compressSparseDivisions collapses all divisions into one sharing the dimension's
+            // nodeId, that "division" is not a real level-2 node — exclude it so the dimension
+            // node keeps its level-1 y position instead of being overwritten at level 2.
+            const divIds = Object.keys(dim.divisions as Record<string, any>).filter((id: string) => id !== dim.nodeId);
+            level2ByDim.set(dim.nodeId, divIds);
             Object.entries(dim.divisions as Record<string, any>).forEach(([divId, div]: [string, any]) => {
                 divToDimNodeId.set(divId, dim.nodeId);
                 const leafIds = Object.keys(div.values || {});
@@ -521,6 +525,16 @@
                         positions.set(leafId, { x: Math.max(padX, x), y: currentY });
                     });
                 });
+                // Compressed dimension: leaves stored directly under dimId (no intermediate division)
+                const directLeafs = level3ByDiv.get(dimId) || [];
+                if (directLeafs.length > 0) {
+                    directLeafs.forEach((leafId, leafIdx) => {
+                        const x = directLeafs.length === 1
+                            ? rangeStart + rangeW / 2 - nodeW / 2
+                            : rangeStart + (leafIdx / (directLeafs.length - 1)) * rangeW - nodeW / 2;
+                        positions.set(leafId, { x: Math.max(padX, x), y: currentY });
+                    });
+                }
             });
         }
 
