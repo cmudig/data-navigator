@@ -18,6 +18,10 @@
     let svgEl: SVGSVGElement | undefined = $state();
     let sceneEl: SVGGElement | undefined = $state();
 
+    // ── SVG element pixel dimensions (bound via bind:clientWidth/Height) ──────
+    let svgW = $state(0);
+    let svgH = $state(0);
+
     // ── View transform (in SVG viewBox coordinates) ───────────────────────────
     let tx = $state(0);
     let ty = $state(0);
@@ -112,7 +116,12 @@
     // ── Derived ───────────────────────────────────────────────────────────────
     const vbW = $derived(imageWidth ?? 1200);
     const vbH = $derived(imageHeight ?? 800);
-    const viewBox = $derived(`0 0 ${vbW} ${vbH}`);
+    // Use the SVG element's actual pixel dimensions as the viewBox so the
+    // coordinate system is always 1:1 with CSS pixels. This eliminates the
+    // xMidYMid centering offset that shifts canvas content when the element resizes.
+    const viewBox = $derived(
+        svgW > 0 && svgH > 0 ? `0 0 ${svgW} ${svgH}` : `0 0 ${vbW} ${vbH}`
+    );
     const nodeList = $derived([...nodes.values()]);
 
     // ── Debug: reactive trigger inspection ───────────────────────────────────
@@ -718,11 +727,30 @@
     // ── View controls ─────────────────────────────────────────────────────────
 
     function resetView() {
-        tx = 0;
-        ty = 0;
-        scale = 1;
-        zoomInput = 100;
+        if (svgW > 0 && svgH > 0) {
+            // Fit the image/canvas into the SVG element, centered — what xMidYMid meet
+            // was doing implicitly. Now explicit so the view is stable on element resize.
+            const fitScale = Math.min(svgW / vbW, svgH / vbH);
+            tx = (svgW - vbW * fitScale) / 2;
+            ty = (svgH - vbH * fitScale) / 2;
+            scale = fitScale;
+            zoomInput = Math.round(fitScale * 100);
+        } else {
+            tx = 0;
+            ty = 0;
+            scale = 1;
+            zoomInput = 100;
+        }
     }
+
+    // Initialize the view once the SVG element is first measured.
+    let _viewInitialized = false;
+    $effect(() => {
+        if (svgW > 0 && svgH > 0 && !_viewInitialized) {
+            _viewInitialized = true;
+            untrack(resetView);
+        }
+    });
 
     function applyZoom(percent: number) {
         const newScale = Math.max(10, Math.min(800, percent)) / 100;
@@ -916,6 +944,8 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <svg
     bind:this={svgEl}
+    bind:clientWidth={svgW}
+    bind:clientHeight={svgH}
     {viewBox}
     role="application"
     aria-label="Graph editor canvas. Use arrow keys to cycle nodes, Enter to open properties, Delete to remove selection."
