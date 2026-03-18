@@ -596,50 +596,65 @@
                 const id = `schema_edge_${edgeIdx++}`;
                 newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {} });
             };
-            // Drill-in (parent → child) edges
+            // Drill-in (parent → child) and drill-out (child → parent) edges
             if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
                 level1Ids.forEach(dimId => {
                     const dim = dimNodeIdToSchema.get(dimId);
-                    addEdge(schemaSnap.level0Id!, dimId, dim?.drillInName || 'drill in');
+                    addEdge(schemaSnap.level0Id!, dimId, dim?.drillInName || 'drill in', 'down');
+                    addEdge(dimId, schemaSnap.level0Id!, dim?.drillOutName || 'drill out', 'up');
                 });
             }
             level1Ids.forEach(dimId => {
                 const dim = dimNodeIdToSchema.get(dimId);
                 const drillIn = dim?.drillInName || 'drill in';
-                (level2ByDim.get(dimId) || []).forEach(divId => addEdge(dimId, divId, drillIn));
+                const drillOut = dim?.drillOutName || 'drill out';
+                (level2ByDim.get(dimId) || []).forEach(divId => {
+                    addEdge(dimId, divId, drillIn, 'down');
+                    addEdge(divId, dimId, drillOut, 'up');
+                });
             });
             level3ByDiv.forEach((leafIds, divId) => {
-                const dimNodeId = divToDimNodeId.get(divId);
-                const dim = dimNodeId ? dimNodeIdToSchema.get(dimNodeId) : undefined;
+                const dimId = divToDimNodeId.get(divId);
+                const dim = dimId ? dimNodeIdToSchema.get(dimId) : undefined;
                 const drillIn = dim?.drillInName || 'drill in';
-                leafIds.forEach(leafId => addEdge(divId, leafId, drillIn));
+                const drillOut = dim?.drillOutName || 'drill out';
+                leafIds.forEach(leafId => {
+                    addEdge(divId, leafId, drillIn, 'down');
+                    addEdge(leafId, divId, drillOut, 'up');
+                });
             });
-            // Level-1 sibling edges (between dimension nodes)
+            // Level-1 sibling edges (both directions)
             if (level1Ids.length > 1) {
                 const fwdName = schemaSnap.level1NavForwardName || 'left';
+                const bwdName = schemaSnap.level1NavBackwardName || 'right';
                 for (let i = 0; i < level1Ids.length - 1; i++) {
                     addEdge(level1Ids[i], level1Ids[i + 1], fwdName, 'right');
+                    addEdge(level1Ids[i + 1], level1Ids[i], bwdName, 'left');
                 }
                 if (schemaSnap.level1Extents === 'circular') {
                     addEdge(level1Ids[level1Ids.length - 1], level1Ids[0], fwdName, 'right');
+                    addEdge(level1Ids[0], level1Ids[level1Ids.length - 1], bwdName, 'left');
                 }
             }
-            // Level-2 and level-3 sibling edges
+            // Level-2 and level-3 sibling edges (both directions)
             // Iterate structure.dimensions by column key — this matches schemaSnap.dimensions reliably.
             const dimKeyToSchema = new Map(schemaSnap.dimensions.filter(d => d.included).map(d => [d.key, d]));
             Object.entries(structure.dimensions as Record<string, any>).forEach(([dimKey, dnDim]: [string, any]) => {
                 const dim = dimKeyToSchema.get(dimKey);
                 if (!dim) return;
                 const fwdName = dim.forwardName || 'forward';
+                const bwdName = dim.backwardName || 'backward';
                 const divIds = Object.keys(dnDim.divisions as Record<string, any>);
 
                 // Level-2: siblings between division nodes
                 if (divIds.length > 1) {
                     for (let i = 0; i < divIds.length - 1; i++) {
                         addEdge(divIds[i], divIds[i + 1], fwdName, 'right');
+                        addEdge(divIds[i + 1], divIds[i], bwdName, 'left');
                     }
                     if (dim.extents === 'circular') {
                         addEdge(divIds[divIds.length - 1], divIds[0], fwdName, 'right');
+                        addEdge(divIds[0], divIds[divIds.length - 1], bwdName, 'left');
                     }
                 }
 
@@ -649,9 +664,11 @@
                     if (leafIds.length <= 1) return;
                     for (let i = 0; i < leafIds.length - 1; i++) {
                         addEdge(leafIds[i], leafIds[i + 1], fwdName, 'right');
+                        addEdge(leafIds[i + 1], leafIds[i], bwdName, 'left');
                     }
                     if (dim.extents === 'circular') {
                         addEdge(leafIds[leafIds.length - 1], leafIds[0], fwdName, 'right');
+                        addEdge(leafIds[0], leafIds[leafIds.length - 1], bwdName, 'left');
                     }
                 });
             });
