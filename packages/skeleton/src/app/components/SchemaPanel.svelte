@@ -11,7 +11,7 @@
         { forwardName: 'left',    forwardKey: 'ArrowLeft',  backwardName: 'right',    backwardKey: 'ArrowRight' },
         { forwardName: 'forward', forwardKey: '[',          backwardName: 'backward', backwardKey: ']'          },
     ] as const;
-    const DRILL_UP_KEYS = ['w', 'j', '\\'] as const;
+    const DRILL_OUT_KEYS = ['w', 'j', '\\'] as const;
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
     let uploadedData: Record<string, unknown>[] | null = $state(null);
@@ -127,7 +127,7 @@
                 extents, compressSparseDivisions, sortMethod, subdivisions, divisions: [],
                 forwardName: '', forwardKey: '', backwardName: '', backwardKey: '',
                 drillInName: 'drill in', drillInKey: 'Enter',
-                drillUpName: 'drill up', drillUpKey: 'Backspace',
+                drillOutName: 'drill out', drillOutKey: 'Backspace',
             };
         });
 
@@ -158,12 +158,12 @@
             dim.drillInName = 'drill in';
             dim.drillInKey = 'Enter';
             if (selected.length <= 1) {
-                dim.drillUpName = 'drill up';
-                dim.drillUpKey = 'Backspace';
+                dim.drillOutName = 'drill out';
+                dim.drillOutKey = 'Backspace';
             } else {
                 const idx = dim.navIndex ?? 0;
-                dim.drillUpName = `drill up to ${dim.key}`;
-                dim.drillUpKey = DRILL_UP_KEYS[idx] ?? 'Backspace';
+                dim.drillOutName = `drill out to ${dim.key}`;
+                dim.drillOutKey = DRILL_OUT_KEYS[idx] ?? 'Backspace';
             }
         });
     }
@@ -262,7 +262,7 @@
                 },
                 navigationRules: {
                     sibling_sibling: [dim.forwardName || 'forward', dim.backwardName || 'backward'],
-                    parent_child: [dim.drillInName || 'drill in', dim.drillUpName || 'drill up'],
+                    parent_child: [dim.drillInName || 'drill in', dim.drillOutName || 'drill out'],
                 },
                 operations: {
                     compressSparseDivisions: dim.compressSparseDivisions,
@@ -1014,7 +1014,7 @@
 
                                         <!-- Navigation rules -->
                                         <fieldset class="nav-fieldset">
-                                            <legend>Navigation</legend>
+                                            <legend>Navigation within group</legend>
                                             <div class="nav-rule-row">
                                                 <span class="nav-dir-label">Forward</span>
                                                 <input type="text" class="nav-name-input" value={dim.forwardName}
@@ -1037,7 +1037,7 @@
 
                                         <!-- Drill rules -->
                                         <fieldset class="nav-fieldset">
-                                            <legend>Drill</legend>
+                                            <legend>Navigation into/out of group</legend>
                                             <div class="nav-rule-row">
                                                 <span class="nav-dir-label">In</span>
                                                 <input type="text" class="nav-name-input" value={dim.drillInName}
@@ -1048,13 +1048,13 @@
                                                     oninput={(e) => updateDim(dim.key, 'drillInKey', (e.target as HTMLInputElement).value)} />
                                             </div>
                                             <div class="nav-rule-row">
-                                                <span class="nav-dir-label">Up</span>
-                                                <input type="text" class="nav-name-input" value={dim.drillUpName}
-                                                    aria-label="Drill up name for {dim.key}"
-                                                    oninput={(e) => updateDim(dim.key, 'drillUpName', (e.target as HTMLInputElement).value)} />
-                                                <input type="text" class="nav-key-input" value={dim.drillUpKey}
-                                                    aria-label="Drill up key for {dim.key}"
-                                                    oninput={(e) => updateDim(dim.key, 'drillUpKey', (e.target as HTMLInputElement).value)} />
+                                                <span class="nav-dir-label">Out</span>
+                                                <input type="text" class="nav-name-input" value={dim.drillOutName}
+                                                    aria-label="Drill out name for {dim.key}"
+                                                    oninput={(e) => updateDim(dim.key, 'drillOutName', (e.target as HTMLInputElement).value)} />
+                                                <input type="text" class="nav-key-input" value={dim.drillOutKey}
+                                                    aria-label="Drill out key for {dim.key}"
+                                                    oninput={(e) => updateDim(dim.key, 'drillOutKey', (e.target as HTMLInputElement).value)} />
                                             </div>
                                         </fieldset>
 

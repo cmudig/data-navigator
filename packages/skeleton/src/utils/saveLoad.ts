@@ -172,6 +172,14 @@ export async function loadState(file: File): Promise<string> {
         ariaRole: 'button',
         customClass: ''
     };
+    // Migrate old saves: drillUpName/drillUpKey → drillOutName/drillOutKey
+    if (ss.schemaState?.dimensions) {
+        (ss.schemaState.dimensions as unknown as Record<string, unknown>[]).forEach(dim => {
+            if (!('drillOutName' in dim) && 'drillUpName' in dim) dim.drillOutName = dim.drillUpName;
+            if (!('drillOutKey' in dim) && 'drillUpKey' in dim) dim.drillOutKey = dim.drillUpKey;
+        });
+    }
+
     const nodes = new Map<string, SkeletonNode>(
         ss.nodes.map(([id, n]) => [
             id,

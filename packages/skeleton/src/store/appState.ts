@@ -28,8 +28,8 @@ export interface DimensionSchema {
     // Drill nav (parent/child between levels)
     drillInName: string;
     drillInKey: string;
-    drillUpName: string;
-    drillUpKey: string;
+    drillOutName: string;
+    drillOutKey: string;
 }
 
 export interface SchemaState {
