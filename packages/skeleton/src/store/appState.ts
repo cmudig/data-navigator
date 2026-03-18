@@ -67,6 +67,16 @@ export interface RenderConfig {
     semanticNames: string[]; // user-defined name options for the name dropdown
 }
 
+export interface ToolOptions {
+    showNodeLabels: boolean;
+    showEdgeLabels: boolean;
+    showLevel0Node: boolean;
+    showLevel1Nodes: boolean;
+    showLevel2Nodes: boolean;
+    showEdges: boolean;
+    hiddenEdgeTypes: string[];
+}
+
 export interface AppState {
     currentStep: number; // 0–6
     // Step 0 — Upload
@@ -89,6 +99,8 @@ export interface AppState {
     inputConfig: InputConfig;
     // Step 3 — Render
     renderConfig: RenderConfig;
+    // Tool options (canvas visibility controls)
+    toolOptions: ToolOptions;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -129,6 +141,15 @@ export const DEFAULT_APP_STATE: AppState = {
         positionUnit: 'px',
         showOverlay: false,
         semanticNames: ['data point', 'node']
+    },
+    toolOptions: {
+        showNodeLabels: true,
+        showEdgeLabels: true,
+        showLevel0Node: true,
+        showLevel1Nodes: true,
+        showLevel2Nodes: true,
+        showEdges: true,
+        hiddenEdgeTypes: []
     }
 };
 

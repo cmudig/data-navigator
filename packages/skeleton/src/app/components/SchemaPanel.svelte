@@ -589,13 +589,14 @@
             });
             const addedPairs = new Set<string>();
             let edgeIdx = 0;
-            const addEdge = (srcId: string, tgtId: string, label: string = '') => {
+            const addEdge = (srcId: string, tgtId: string, label: string = '', direction: SkeletonEdge['direction'] = 'down') => {
                 const key = `${srcId}→${tgtId}`;
                 if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
                 addedPairs.add(key);
                 const id = `schema_edge_${edgeIdx++}`;
-                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction: 'down', label, dnProperties: {} });
+                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {} });
             };
+            // Drill-in (parent → child) edges
             if (schemaSnap.level0Enabled && schemaSnap.level0Id) {
                 level1Ids.forEach(dimId => {
                     const dim = dimNodeIdToSchema.get(dimId);
@@ -612,6 +613,47 @@
                 const dim = dimNodeId ? dimNodeIdToSchema.get(dimNodeId) : undefined;
                 const drillIn = dim?.drillInName || 'drill in';
                 leafIds.forEach(leafId => addEdge(divId, leafId, drillIn));
+            });
+            // Level-1 sibling edges (between dimension nodes)
+            if (level1Ids.length > 1) {
+                const fwdName = schemaSnap.level1NavForwardName || 'left';
+                for (let i = 0; i < level1Ids.length - 1; i++) {
+                    addEdge(level1Ids[i], level1Ids[i + 1], fwdName, 'right');
+                }
+                if (schemaSnap.level1Extents === 'circular') {
+                    addEdge(level1Ids[level1Ids.length - 1], level1Ids[0], fwdName, 'right');
+                }
+            }
+            // Level-2 and level-3 sibling edges
+            // Iterate structure.dimensions by column key — this matches schemaSnap.dimensions reliably.
+            const dimKeyToSchema = new Map(schemaSnap.dimensions.filter(d => d.included).map(d => [d.key, d]));
+            Object.entries(structure.dimensions as Record<string, any>).forEach(([dimKey, dnDim]: [string, any]) => {
+                const dim = dimKeyToSchema.get(dimKey);
+                if (!dim) return;
+                const fwdName = dim.forwardName || 'forward';
+                const divIds = Object.keys(dnDim.divisions as Record<string, any>);
+
+                // Level-2: siblings between division nodes
+                if (divIds.length > 1) {
+                    for (let i = 0; i < divIds.length - 1; i++) {
+                        addEdge(divIds[i], divIds[i + 1], fwdName, 'right');
+                    }
+                    if (dim.extents === 'circular') {
+                        addEdge(divIds[divIds.length - 1], divIds[0], fwdName, 'right');
+                    }
+                }
+
+                // Level-3: siblings between leaf/data-row nodes within each division
+                divIds.forEach(divId => {
+                    const leafIds = Object.keys((dnDim.divisions[divId]?.values ?? {}) as Record<string, any>);
+                    if (leafIds.length <= 1) return;
+                    for (let i = 0; i < leafIds.length - 1; i++) {
+                        addEdge(leafIds[i], leafIds[i + 1], fwdName, 'right');
+                    }
+                    if (dim.extents === 'circular') {
+                        addEdge(leafIds[leafIds.length - 1], leafIds[0], fwdName, 'right');
+                    }
+                });
             });
 
             const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id

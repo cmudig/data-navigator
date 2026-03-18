@@ -3,7 +3,7 @@
     import { untrack } from 'svelte';
     import { appState } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
-    import type { RenderConfig } from '../../store/appState';
+    import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
 
     // ── Callback props (Svelte 5 style) ───────────────────────────────────────
     type Props = {
@@ -96,6 +96,9 @@
     let imageWidth = $state<number | null>(initial.imageWidth);
     let imageHeight = $state<number | null>(initial.imageHeight);
     let renderConfig = $state<RenderConfig>(initial.renderConfig);
+    let toolOptions = $state<ToolOptions>(initial.toolOptions);
+    let schemaState = $state<SchemaState>(initial.schemaState);
+    let uploadedData = $state<Record<string, unknown>[] | null>(initial.uploadedData);
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -110,6 +113,9 @@
             imageWidth = s.imageWidth;
             imageHeight = s.imageHeight;
             renderConfig = s.renderConfig;
+            toolOptions = s.toolOptions;
+            schemaState = s.schemaState;
+            uploadedData = s.uploadedData;
         });
     });
 
@@ -123,6 +129,72 @@
         svgW > 0 && svgH > 0 ? `0 0 ${svgW} ${svgH}` : `0 0 ${vbW} ${vbH}`
     );
     const nodeList = $derived([...nodes.values()]);
+
+    // ── Tool options derivations ──────────────────────────────────────────────
+    const isSchemaMode = $derived(
+        uploadedData !== null && schemaState.dimensions.some(d => d.included)
+    );
+
+    // Derive unique edge types from schema navigation rules (when in schema mode)
+    const schemaEdgeTypes = $derived.by((): string[] => {
+        if (!isSchemaMode) return [];
+        const seen = new Set<string>();
+        const types: string[] = [];
+        const add = (s: string) => { if (s && !seen.has(s)) { seen.add(s); types.push(s); } };
+        schemaState.dimensions.filter(d => d.included).forEach(d => {
+            add(d.drillInName);
+            add(d.drillOutName);
+            add(d.forwardName);
+            add(d.backwardName);
+        });
+        add(schemaState.level1NavForwardName);
+        add(schemaState.level1NavBackwardName);
+        return types;
+    });
+
+    // Compute which schema nodes are hidden by level filters
+    const hiddenNodeIds = $derived.by((): Set<string> => {
+        const hidden = new Set<string>();
+        if (!isSchemaMode) return hidden;
+        const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
+        const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
+        const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
+        nodes.forEach((node, id) => {
+            if (node.source !== 'schema') return;
+            if (id === level0Id) {
+                if (!toolOptions.showLevel0Node) hidden.add(id);
+            } else if (level1Ids.has(id)) {
+                if (!toolOptions.showLevel1Nodes) hidden.add(id);
+            } else {
+                if (!toolOptions.showLevel2Nodes) hidden.add(id);
+            }
+        });
+        return hidden;
+    });
+
+    // Compute which edges are hidden
+    const hiddenEdgeIds = $derived.by((): Set<string> => {
+        const hidden = new Set<string>();
+        edges.forEach((edge, id) => {
+            if (!toolOptions.showEdges) { hidden.add(id); return; }
+            if (edge.label && toolOptions.hiddenEdgeTypes.includes(edge.label)) { hidden.add(id); return; }
+            if (hiddenNodeIds.has(edge.sourceId) || hiddenNodeIds.has(edge.targetId)) { hidden.add(id); return; }
+        });
+        return hidden;
+    });
+
+    // ── Tool options helpers ──────────────────────────────────────────────────
+    function setToolOption<K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) {
+        appState.update(s => ({ ...s, toolOptions: { ...s.toolOptions, [key]: value } }));
+    }
+
+    function toggleEdgeType(type: string) {
+        appState.update(s => {
+            const hidden = s.toolOptions.hiddenEdgeTypes;
+            const next = hidden.includes(type) ? hidden.filter(t => t !== type) : [...hidden, type];
+            return { ...s, toolOptions: { ...s.toolOptions, hiddenEdgeTypes: next } };
+        });
+    }
 
     // ── Debug: reactive trigger inspection ───────────────────────────────────
     // Remove these once the loop is identified.
@@ -931,6 +1003,56 @@
     <button class="btn-ghost btn-sm" type="button" onclick={resetView}>
         Reset View
     </button>
+    <div class="tool-options-wrapper">
+        <details class="tool-options-dropdown">
+            <summary class="btn-ghost btn-sm">Tool options</summary>
+            <div class="tool-options-panel">
+                <label class="tool-opt-item">
+                    <input type="checkbox" checked={toolOptions.showNodeLabels}
+                        onchange={() => setToolOption('showNodeLabels', !toolOptions.showNodeLabels)} />
+                    Show node labels
+                </label>
+                <label class="tool-opt-item">
+                    <input type="checkbox" checked={toolOptions.showEdgeLabels}
+                        onchange={() => setToolOption('showEdgeLabels', !toolOptions.showEdgeLabels)} />
+                    Show edge labels
+                </label>
+                {#if isSchemaMode}
+                    <label class="tool-opt-item" class:opt-disabled={!schemaState.level0Enabled}>
+                        <input type="checkbox" checked={toolOptions.showLevel0Node}
+                            disabled={!schemaState.level0Enabled}
+                            onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} />
+                        Show level 0 node
+                    </label>
+                    <label class="tool-opt-item">
+                        <input type="checkbox" checked={toolOptions.showLevel1Nodes}
+                            onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} />
+                        Show level 1 nodes
+                    </label>
+                    <label class="tool-opt-item">
+                        <input type="checkbox" checked={toolOptions.showLevel2Nodes}
+                            onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} />
+                        Show level 2 nodes
+                    </label>
+                {/if}
+                <label class="tool-opt-item">
+                    <input type="checkbox" checked={toolOptions.showEdges}
+                        onchange={() => setToolOption('showEdges', !toolOptions.showEdges)} />
+                    Show edges
+                </label>
+                {#if isSchemaMode && schemaEdgeTypes.length > 0}
+                    {#each schemaEdgeTypes as edgeType (edgeType)}
+                        <label class="tool-opt-item tool-opt-indent">
+                            <input type="checkbox"
+                                checked={!toolOptions.hiddenEdgeTypes.includes(edgeType)}
+                                onchange={() => toggleEdgeType(edgeType)} />
+                            Show "{edgeType}" edges
+                        </label>
+                    {/each}
+                {/if}
+            </div>
+        </details>
+    </div>
     {#if mode === 'addNode'}
         <span class="mode-hint" aria-live="polite">Click canvas to place node — Escape to cancel</span>
     {:else if mode === 'addEdge'}
@@ -999,7 +1121,7 @@
             {#each [...edges.values()] as edge (edge.id)}
                 {@const src = nodes.get(edge.sourceId)}
                 {@const tgt = nodes.get(edge.targetId)}
-                {#if src && tgt}
+                {#if src && tgt && !hiddenEdgeIds.has(edge.id)}
                     {@const sc = nodeCenter(src)}
                     {@const tc = nodeCenter(tgt)}
                     {@const mx = (sc.x + tc.x) / 2}
@@ -1028,7 +1150,7 @@
                             stroke-width={isSel ? 2.5 : 1.5}
                             marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                         />
-                        {#if edge.direction || edge.label}
+                        {#if toolOptions.showEdgeLabels && (edge.direction || edge.label)}
                             <text
                                 x={mx} y={my - 6}
                                 class="edge-label"
@@ -1046,6 +1168,7 @@
         <!-- Layer 3: Nodes -->
         <g class="node-layer">
             {#each nodeList as node (node.id)}
+                {#if !hiddenNodeIds.has(node.id)}
                 {@const isSel = selectedNodeIds.has(node.id)}
                 {@const isHov = hoveredNodeId === node.id && !isSel}
                 {@const isEntry = node.id === entryNodeId}
@@ -1163,6 +1286,7 @@
                     {/if}
 
                     <!-- Label (white halo pass + black text pass for legibility) -->
+                    {#if toolOptions.showNodeLabels}
                     <text
                         x={cx} y={cy}
                         text-anchor="middle"
@@ -1192,6 +1316,7 @@
                     >
                         {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
                     </text>
+                    {/if}
 
                     <!-- Entry marker ★ -->
                     {#if isEntry}
@@ -1222,6 +1347,7 @@
                         {/each}
                     {/if}
                 </g>
+                {/if}
             {/each}
         </g>
 
@@ -1578,5 +1704,72 @@
         text-align: center;
         font-family: var(--dn-font-mono);
         letter-spacing: 0.03em;
+    }
+
+    /* ── Tool options dropdown ── */
+    .tool-options-wrapper {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .tool-options-dropdown > summary {
+        list-style: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .tool-options-dropdown > summary::marker,
+    .tool-options-dropdown > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .tool-options-dropdown > summary::after {
+        content: '▾';
+        font-size: 0.6875rem;
+        opacity: 0.6;
+    }
+
+    .tool-options-dropdown[open] > summary::after {
+        content: '▴';
+    }
+
+    .tool-options-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 100;
+        background: var(--dn-bg);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 0.75);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.25);
+        min-width: 190px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        white-space: nowrap;
+    }
+
+    .tool-opt-item {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.5);
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+        cursor: pointer;
+        padding: 2px 0;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .tool-opt-item.opt-disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .tool-opt-indent {
+        padding-left: calc(var(--dn-space) * 1.25);
     }
 </style>
