@@ -28,7 +28,7 @@
     let scale = $state(1);
 
     // ── Interaction mode ──────────────────────────────────────────────────────
-    type Mode = 'select' | 'addNode' | 'addEdge' | 'lasso' | 'pan';
+    type Mode = 'select' | 'addNode' | 'addEdge' | 'pan';
     let mode = $state<Mode>('select');
 
     // ── Pan state ─────────────────────────────────────────────────────────────
@@ -402,65 +402,65 @@
         const ly = Math.min(lassoRect.y0, lassoRect.y1);
         const lw = Math.abs(lassoRect.x1 - lassoRect.x0);
         const lh = Math.abs(lassoRect.y1 - lassoRect.y0);
-        if (lw > 2 || lh > 2) {
-            if (selectFilter === 'nodes') {
-                const hitNodeIds = nodeList
-                    .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
-                    .map(n => n.id);
-                const hitNodeSet = new Set(hitNodeIds);
-                const hitEdgeIds = [...edges.values()]
-                    .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
-                    .map(e => e.id);
+        if (lw <= 2 && lh <= 2) {
+            // Click without drag on empty canvas → deselect all
+            setSelection([], []);
+            focusedNodeIdx = -1;
+        } else if (selectFilter === 'nodes') {
+            const hitNodeIds = nodeList
+                .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
+                .map(n => n.id);
+            const hitNodeSet = new Set(hitNodeIds);
+            const hitEdgeIds = [...edges.values()]
+                .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
+                .map(e => e.id);
 
-                if (lassoAdditive) {
-                    const newNodeIds = hitNodeIds.filter(id => !selectedNodeIds.has(id));
-                    if (newNodeIds.length > 0) {
-                        // Add new nodes (and their edges) to current selection
-                        const merged = new Set([...selectedNodeIds, ...hitNodeIds]);
-                        const mergedEdges = new Set([...selectedEdgeIds, ...hitEdgeIds]);
-                        setSelection([...merged], [...mergedEdges]);
-                        liveMsg = `Added ${newNodeIds.length} node(s) to selection.`;
-                    } else {
-                        // No new nodes — subtract hit nodes from selection
-                        const remaining = [...selectedNodeIds].filter(id => !hitNodeSet.has(id));
-                        const removedEdgeSet = new Set(hitEdgeIds);
-                        const remainingEdges = [...selectedEdgeIds].filter(id => !removedEdgeSet.has(id));
-                        setSelection(remaining, remainingEdges);
-                        liveMsg = `Removed ${hitNodeIds.length} node(s) from selection.`;
-                    }
+            if (lassoAdditive) {
+                const newNodeIds = hitNodeIds.filter(id => !selectedNodeIds.has(id));
+                if (newNodeIds.length > 0) {
+                    const merged = new Set([...selectedNodeIds, ...hitNodeIds]);
+                    const mergedEdges = new Set([...selectedEdgeIds, ...hitEdgeIds]);
+                    setSelection([...merged], [...mergedEdges]);
+                    liveMsg = `Added ${newNodeIds.length} node(s) to selection.`;
                 } else {
-                    setSelection(hitNodeIds, hitEdgeIds);
-                    liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
+                    const remaining = [...selectedNodeIds].filter(id => !hitNodeSet.has(id));
+                    const removedEdgeSet = new Set(hitEdgeIds);
+                    const remainingEdges = [...selectedEdgeIds].filter(id => !removedEdgeSet.has(id));
+                    setSelection(remaining, remainingEdges);
+                    liveMsg = `Removed ${hitNodeIds.length} node(s) from selection.`;
                 }
             } else {
-                // Edge filter: select edges whose midpoint falls in lasso rect
-                const hitEdgeIds = [...edges.values()]
-                    .filter(e => {
-                        const src = nodes.get(e.sourceId);
-                        const tgt = nodes.get(e.targetId);
-                        if (!src || !tgt) return false;
-                        const mx = (src.x + src.width / 2 + tgt.x + tgt.width / 2) / 2;
-                        const my = (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2;
-                        return mx >= lx && mx <= lx + lw && my >= ly && my <= ly + lh;
-                    })
-                    .map(e => e.id);
-                const hitEdgeSet = new Set(hitEdgeIds);
+                setSelection(hitNodeIds, hitEdgeIds);
+                liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
+            }
+        } else {
+            // Edge filter: select edges whose midpoint falls in lasso rect
+            const hitEdgeIds = [...edges.values()]
+                .filter(e => {
+                    const src = nodes.get(e.sourceId);
+                    const tgt = nodes.get(e.targetId);
+                    if (!src || !tgt) return false;
+                    const mx = (src.x + src.width / 2 + tgt.x + tgt.width / 2) / 2;
+                    const my = (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2;
+                    return mx >= lx && mx <= lx + lw && my >= ly && my <= ly + lh;
+                })
+                .map(e => e.id);
+            const hitEdgeSet = new Set(hitEdgeIds);
 
-                if (lassoAdditive) {
-                    const newEdgeIds = hitEdgeIds.filter(id => !selectedEdgeIds.has(id));
-                    if (newEdgeIds.length > 0) {
-                        const merged = new Set([...selectedEdgeIds, ...hitEdgeIds]);
-                        setSelection([...selectedNodeIds], [...merged]);
-                        liveMsg = `Added ${newEdgeIds.length} edge(s) to selection.`;
-                    } else {
-                        const remaining = [...selectedEdgeIds].filter(id => !hitEdgeSet.has(id));
-                        setSelection([...selectedNodeIds], remaining);
-                        liveMsg = `Removed ${hitEdgeIds.length} edge(s) from selection.`;
-                    }
+            if (lassoAdditive) {
+                const newEdgeIds = hitEdgeIds.filter(id => !selectedEdgeIds.has(id));
+                if (newEdgeIds.length > 0) {
+                    const merged = new Set([...selectedEdgeIds, ...hitEdgeIds]);
+                    setSelection([...selectedNodeIds], [...merged]);
+                    liveMsg = `Added ${newEdgeIds.length} edge(s) to selection.`;
                 } else {
-                    setSelection([], hitEdgeIds);
-                    liveMsg = `Selected ${hitEdgeIds.length} edge(s).`;
+                    const remaining = [...selectedEdgeIds].filter(id => !hitEdgeSet.has(id));
+                    setSelection([...selectedNodeIds], remaining);
+                    liveMsg = `Removed ${hitEdgeIds.length} edge(s) from selection.`;
                 }
+            } else {
+                setSelection([], hitEdgeIds);
+                liveMsg = `Selected ${hitEdgeIds.length} edge(s).`;
             }
         }
         lassoRect = null;
@@ -486,13 +486,11 @@
         } else if (mode === 'addEdge' && edgeSourceId) {
             edgeSourceId = null;
             mode = 'select';
-        } else if (mode === 'lasso') {
+        } else if (mode === 'select') {
+            // Start a potential lasso; deselect fires in commitLasso if no drag occurred
             const pt = mouseToScene(e);
             lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
             lassoAdditive = e.metaKey || e.ctrlKey;
-        } else {
-            setSelection([], []);
-            focusedNodeIdx = -1;
         }
     }
 
@@ -647,19 +645,6 @@
             return;
         }
 
-        // In lasso mode, clicks on nodes select immediately without dragging
-        if (mode === 'lasso') {
-            if (e.shiftKey) {
-                const ids = new Set(selectedNodeIds);
-                if (ids.has(nodeId)) ids.delete(nodeId);
-                else ids.add(nodeId);
-                setSelection([...ids], [...selectedEdgeIds]);
-            } else {
-                setSelection([nodeId], []);
-            }
-            return;
-        }
-
         if (spaceDown || mode === 'pan') return; // space+drag or pan mode pans, don't start node drag
         if (readonly) return; // no dragging in read-only mode
 
@@ -776,7 +761,7 @@
         if (e.touches.length !== 1) return;
         const touch = e.touches[0];
         activeTouchId = touch.identifier;
-        if (mode === 'lasso') {
+        if (mode === 'select') {
             e.preventDefault();
             const pt = clientToScene(touch.clientX, touch.clientY);
             lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
@@ -847,6 +832,12 @@
         zoomInput = Math.round(newScale * 100);
     }
 
+    function activateSelect() {
+        mode = 'select';
+        edgeSourceId = null;
+        lassoRect = null;
+    }
+
     function togglePan() {
         mode = mode === 'pan' ? 'select' : 'pan';
         edgeSourceId = null;
@@ -861,12 +852,6 @@
     function toggleAddEdge() {
         mode = mode === 'addEdge' ? 'select' : 'addEdge';
         if (mode !== 'addEdge') edgeSourceId = null;
-    }
-
-    function toggleLasso() {
-        mode = mode === 'lasso' ? 'select' : 'lasso';
-        edgeSourceId = null;
-        lassoRect = null;
     }
 
     // ── Resize tooltip ────────────────────────────────────────────────────────
@@ -941,10 +926,19 @@
     {#if !readonly}
         <button
             class="btn-ghost btn-sm"
-            class:active={mode === 'lasso'}
+            class:active={mode === 'pan'}
             type="button"
-            aria-pressed={mode === 'lasso'}
-            onclick={toggleLasso}
+            aria-pressed={mode === 'pan'}
+            onclick={togglePan}
+        >
+            Pan
+        </button>
+        <button
+            class="btn-ghost btn-sm"
+            class:active={mode === 'select'}
+            type="button"
+            aria-pressed={mode === 'select'}
+            onclick={activateSelect}
         >
             Select
         </button>
@@ -975,15 +969,6 @@
             onclick={toggleAddEdge}
         >
             + Edge
-        </button>
-        <button
-            class="btn-ghost btn-sm"
-            class:active={mode === 'pan'}
-            type="button"
-            aria-pressed={mode === 'pan'}
-            onclick={togglePan}
-        >
-            Pan
         </button>
         <span class="toolbar-sep" aria-hidden="true"></span>
     {/if}
@@ -1059,8 +1044,6 @@
         <span class="mode-hint" aria-live="polite">
             {edgeSourceId ? 'Click target node — Escape to cancel' : 'Click source node — Escape to cancel'}
         </span>
-    {:else if mode === 'lasso'}
-        <span class="mode-hint" aria-live="polite">Drag to select multiple nodes — Ctrl+A selects all — Escape to clear</span>
     {:else if mode === 'pan'}
         <span class="mode-hint" aria-live="polite">Click and drag to pan the canvas — Escape to exit</span>
     {/if}
@@ -1077,7 +1060,7 @@
     aria-label="Graph editor canvas. Use arrow keys to cycle nodes, Enter to open properties, Delete to remove selection."
     class="graph-canvas"
     class:cursor-crosshair={mode === 'addNode'}
-    class:cursor-lasso={mode === 'lasso'}
+    class:cursor-lasso={!!lassoRect}
     class:cursor-cell={mode === 'addEdge'}
     class:cursor-grab={(spaceDown || mode === 'pan') && !isPanning}
     class:cursor-grabbing={isPanning}
