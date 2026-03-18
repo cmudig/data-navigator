@@ -173,6 +173,21 @@
         return hidden;
     });
 
+    // Compute which edges have a reverse-direction counterpart (for bezier curves)
+    const pairedEdgeIds = $derived.by((): Set<string> => {
+        const paired = new Set<string>();
+        const edgeArr = [...edges.values()];
+        for (const edge of edgeArr) {
+            for (const other of edgeArr) {
+                if (other.id !== edge.id && other.sourceId === edge.targetId && other.targetId === edge.sourceId) {
+                    paired.add(edge.id);
+                    break;
+                }
+            }
+        }
+        return paired;
+    });
+
     // Compute which edges are hidden
     const hiddenEdgeIds = $derived.by((): Set<string> => {
         const hidden = new Set<string>();
@@ -1111,8 +1126,16 @@
                 {#if src && tgt && !hiddenEdgeIds.has(edge.id)}
                     {@const sc = nodeCenter(src)}
                     {@const tc = nodeCenter(tgt)}
+                    {@const dx = tc.x - sc.x}
+                    {@const dy = tc.y - sc.y}
+                    {@const len = Math.sqrt(dx * dx + dy * dy) || 1}
                     {@const mx = (sc.x + tc.x) / 2}
                     {@const my = (sc.y + tc.y) / 2}
+                    {@const isPaired = pairedEdgeIds.has(edge.id)}
+                    {@const cpx = isPaired ? mx + (dy / len) * 30 : mx}
+                    {@const cpy = isPaired ? my + (-dx / len) * 30 : my}
+                    {@const lx = isPaired ? (sc.x + 2 * cpx + tc.x) / 4 : mx}
+                    {@const ly = isPaired ? (sc.y + 2 * cpy + tc.y) / 4 : my}
                     {@const isSel = selectedEdgeIds.has(edge.id)}
                     {@const isEdgeHov = hoveredEdgeId === edge.id && !isSel}
                     <g
@@ -1127,19 +1150,36 @@
                         onmouseleave={() => setHoveredEdge(null)}
                     >
                         <!-- Invisible wide hit target -->
-                        <line
-                            x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                            stroke="transparent" stroke-width="12"
-                        />
-                        <line
-                            x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                            stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
-                            stroke-width={isSel ? 2.5 : 1.5}
-                            marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
-                        />
+                        {#if isPaired}
+                            <path
+                                d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
+                                fill="none" stroke="transparent" stroke-width="12"
+                            />
+                        {:else}
+                            <line
+                                x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
+                                stroke="transparent" stroke-width="12"
+                            />
+                        {/if}
+                        {#if isPaired}
+                            <path
+                                d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
+                                fill="none"
+                                stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
+                                stroke-width={isSel ? 2.5 : 1.5}
+                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
+                            />
+                        {:else}
+                            <line
+                                x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
+                                stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
+                                stroke-width={isSel ? 2.5 : 1.5}
+                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
+                            />
+                        {/if}
                         {#if toolOptions.showEdgeLabels && (edge.direction || edge.label)}
                             <text
-                                x={mx} y={my - 6}
+                                x={lx} y={ly - 6}
                                 class="edge-label"
                                 text-anchor="middle"
                                 fill={isSel ? 'var(--dn-accent)' : '#000000'}
