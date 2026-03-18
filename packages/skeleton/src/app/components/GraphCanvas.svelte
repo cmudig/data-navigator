@@ -74,6 +74,7 @@
 
     // ── Edge draw state ───────────────────────────────────────────────────────
     let edgeSourceId = $state<string | null>(null);
+    let addEdgePairs = $state(true);
     let edgeCursorX = $state(0);
     let edgeCursorY = $state(0);
 
@@ -343,19 +344,16 @@
     // ── Add edge ──────────────────────────────────────────────────────────────
 
     function addEdgeBetween(sourceId: string, targetId: string) {
-        const id = crypto.randomUUID();
-        const edge: SkeletonEdge = {
-            id,
-            sourceId,
-            targetId,
-            direction: 'down',
-            label: '',
-            dnProperties: {},
-        };
-        appState.update(s => ({
-            ...s,
-            edges: new Map(s.edges).set(id, edge),
-        }));
+        appState.update(s => {
+            const newEdges = new Map(s.edges);
+            const fwdId = crypto.randomUUID();
+            newEdges.set(fwdId, { id: fwdId, sourceId, targetId, direction: 'down', label: '', dnProperties: {} });
+            if (addEdgePairs) {
+                const bwdId = crypto.randomUUID();
+                newEdges.set(bwdId, { id: bwdId, sourceId: targetId, targetId: sourceId, direction: 'up', label: '', dnProperties: {} });
+            }
+            return { ...s, edges: newEdges };
+        });
         edgeSourceId = null;
         mode = 'select';
     }
@@ -952,6 +950,7 @@
                 Edges
             </label>
         </span>
+        <span class="toolbar-sep" aria-hidden="true"></span>
         <button
             class="btn-ghost btn-sm"
             class:active={mode === 'addNode'}
@@ -970,6 +969,10 @@
         >
             + Edge
         </button>
+        <label class="toolbar-option">
+            <input type="checkbox" bind:checked={addEdgePairs} />
+            Add pairs
+        </label>
         <span class="toolbar-sep" aria-hidden="true"></span>
     {/if}
     <label class="zoom-label" aria-label="Zoom level">
@@ -988,6 +991,7 @@
     <button class="btn-ghost btn-sm" type="button" onclick={resetView}>
         Reset View
     </button>
+    <span class="toolbar-sep" aria-hidden="true"></span>
     <div class="tool-options-wrapper">
         <details class="tool-options-dropdown">
             <summary class="btn-ghost btn-sm">Tool options</summary>
@@ -1517,6 +1521,19 @@
         background: var(--dn-bg);
         color: var(--dn-text);
         text-align: right;
+    }
+
+    .toolbar-option {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.4);
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .zoom-input:focus {
