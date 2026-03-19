@@ -60,6 +60,12 @@ jobs:
       - name: Copy bokeh-wrapper into docs output
         run: cp -r packages/bokeh-wrapper/docs/.vitepress/dist docs/.vitepress/dist/bokeh-wrapper
 
+      - name: Build skeleton app
+        run: yarn skeleton:build
+
+      - name: Copy skeleton into docs output
+        run: cp -r packages/skeleton/dist docs/.vitepress/dist/skeleton
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

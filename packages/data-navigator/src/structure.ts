@@ -596,7 +596,11 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                         let node = values[valueKeys[index]];
                         let value = node[s];
                         if (value <= i) {
-                            dimension.divisions[divisionId].values[node.id] = node;
+                            const leafId =
+                                typeof options.idKey === 'function'
+                                    ? options.idKey(node)
+                                    : node[options.idKey as string];
+                            dimension.divisions[divisionId].values[leafId] = node;
                             index++;
                         } else {
                             // Node belongs to a later bin — do not advance index so it
@@ -612,11 +616,14 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                 if (lastDivisionId && index < valueKeys.length) {
                     while (index < valueKeys.length) {
                         let node = values[valueKeys[index]];
-                        dimension.divisions[lastDivisionId].values[node.id] = node;
+                        const leafId =
+                            typeof options.idKey === 'function' ? options.idKey(node) : node[options.idKey as string];
+                        dimension.divisions[lastDivisionId].values[leafId] = node;
                         index++;
                     }
                 }
-                delete divisions[s];
+                // divisions[dimension.nodeId] was used for staging, we delete it here
+                delete divisions[dimension.nodeId];
             }
         } else if (typeof dimension.operations?.sortFunction === 'function') {
             // otherwise, we sort the keys of the categorical divisions
@@ -840,6 +847,24 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                 end up creating some kind of double-edge situation. This needs more testing to figure out
                 the correct approach moving forward.
             */
+            // Helpers for bridgedCousins: find the nearest non-empty division index in
+            // either direction, wrapping circularly. Returns null only if every other
+            // division is empty (i.e. there is nowhere to bridge to).
+            const findNextNonEmptyDivIdx = (fromIdx: number): number | null => {
+                for (let step = 1; step < divisionKeys.length; step++) {
+                    const idx = (fromIdx + step) % divisionKeys.length;
+                    if (Object.keys(dimension.divisions[divisionKeys[idx]].values).length > 0) return idx;
+                }
+                return null;
+            };
+            const findPrevNonEmptyDivIdx = (fromIdx: number): number | null => {
+                for (let step = 1; step < divisionKeys.length; step++) {
+                    const idx = (fromIdx - step + divisionKeys.length) % divisionKeys.length;
+                    if (Object.keys(dimension.divisions[divisionKeys[idx]].values).length > 0) return idx;
+                }
+                return null;
+            };
+
             let j = 0;
             divisionKeys.forEach(d => {
                 let division = dimension.divisions[d] as DivisionObject;
@@ -922,30 +947,18 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                                     dimension.navigationRules.sibling_sibling
                                 );
                             } else if (i === valueKeys.length - 1 && extents === 'bridgedCousins') {
-                                if (j !== divisionKeys.length - 1) {
-                                    // we are at the end of values but not divisions, create forwards bridge to the first child of the next division
+                                // Bridge forward to the first child of the nearest non-empty division,
+                                // skipping any empty bins and wrapping circularly if needed.
+                                const nextIdx = findNextNonEmptyDivIdx(j);
+                                if (nextIdx !== null) {
+                                    const nextDivValues = dimension.divisions[divisionKeys[nextIdx]].values;
+                                    const nextDivValueKeys = Object.keys(nextDivValues);
+                                    const targetDatum = nextDivValues[nextDivValueKeys[0]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]]
-                                              )
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        v[id],
-                                        dimension.divisions[divisionKeys[j + 1]].values[valueKeys[0]][targetId],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
-                                } else {
-                                    // we are at the end of values and divisions, create forwards bridge to the first child of the first division
-                                    const targetId =
-                                        typeof options.idKey === 'function'
-                                            ? options.idKey(dimension.divisions[divisionKeys[0]].values[valueKeys[0]])
-                                            : options.idKey;
-                                    createEdge(
-                                        v[id],
-                                        dimension.divisions[divisionKeys[0]].values[valueKeys[0]][targetId],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(v[id], targetDatum[targetId], dimension.navigationRules.sibling_sibling);
                                 }
                             } else if (i === valueKeys.length - 1 && extents === 'bridgedCustom') {
                                 // we are at the end, create forwards bridge to new element
@@ -968,40 +981,18 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
                             }
 
                             if (!i && extents === 'bridgedCousins') {
-                                if (j !== 0) {
-                                    // we are at the start of values (but not divisions) and bridge is set, we need to create backwards bridge to the previous division's last child
+                                // Bridge backward to the last child of the nearest non-empty division,
+                                // skipping any empty bins and wrapping circularly if needed.
+                                const prevIdx = findPrevNonEmptyDivIdx(j);
+                                if (prevIdx !== null) {
+                                    const prevDivValues = dimension.divisions[divisionKeys[prevIdx]].values;
+                                    const prevDivValueKeys = Object.keys(prevDivValues);
+                                    const targetDatum = prevDivValues[prevDivValueKeys[prevDivValueKeys.length - 1]];
                                     const targetId =
                                         typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[j - 1]].values[
-                                                      valueKeys[valueKeys.length - 1]
-                                                  ]
-                                              )
+                                            ? options.idKey(targetDatum)
                                             : options.idKey;
-                                    createEdge(
-                                        dimension.divisions[divisionKeys[j - 1]].values[
-                                            valueKeys[valueKeys.length - 1]
-                                        ][targetId],
-                                        v[id],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
-                                } else {
-                                    // we are at the start of values and divivions and bridge is set, we need to create backwards bridge to the last division's last child
-                                    const targetId =
-                                        typeof options.idKey === 'function'
-                                            ? options.idKey(
-                                                  dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                                      valueKeys[valueKeys.length - 1]
-                                                  ]
-                                              )
-                                            : options.idKey;
-                                    createEdge(
-                                        dimension.divisions[divisionKeys[divisionKeys.length - 1]].values[
-                                            valueKeys[valueKeys.length - 1]
-                                        ][targetId],
-                                        v[id],
-                                        dimension.navigationRules.sibling_sibling
-                                    );
+                                    createEdge(targetDatum[targetId], v[id], dimension.navigationRules.sibling_sibling);
                                 }
                             } else if (!i && extents === 'bridgedCustom') {
                                 // if we started the dimension and bridge is set, we need to create backwards bridge to new element

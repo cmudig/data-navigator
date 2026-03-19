@@ -20,6 +20,8 @@
         "docs:preview": "yarn workspace data-navigator-docs preview",
         "inspector:dev": "yarn workspace @data-navigator/inspector dev",
         "bokeh-wrapper:dev": "yarn workspace @data-navigator/bokeh-wrapper dev",
+        "skeleton:dev": "yarn workspace @data-navigator/skeleton dev",
+        "skeleton:build": "yarn workspace @data-navigator/skeleton build",
         "bokeh-wrapper:build:docs": "yarn workspace @data-navigator/bokeh-wrapper build:docs",
         "prepare": "husky"
     },
