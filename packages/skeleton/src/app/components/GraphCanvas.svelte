@@ -2,7 +2,7 @@
     import { get } from 'svelte/store';
     import { untrack } from 'svelte';
     import { appState } from '../../store/appState';
-    import { logAction } from '../../store/historyStore';
+    import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
     import { defaultRenderProperties } from '../../store/nodeFactory';
@@ -246,6 +246,11 @@
             }
             return { ...s, toolOptions: updated };
         });
+        if (typeof value === 'boolean') {
+            logAction('Updated display options');
+        } else {
+            logActionDebounced('Updated display options');
+        }
     }
 
     function toggleEdgeType(type: string) {
