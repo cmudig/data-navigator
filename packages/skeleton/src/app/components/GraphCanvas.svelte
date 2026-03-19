@@ -173,6 +173,26 @@
         return hidden;
     });
 
+    // Compute backfill color per schema node (level 0/1/2+)
+    const schemaNodeBackfillColor = $derived.by((): Map<string, string> => {
+        const map = new Map<string, string>();
+        if (!isSchemaMode) return map;
+        const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
+        const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
+        const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
+        nodes.forEach((node, id) => {
+            if (node.source !== 'schema') return;
+            if (id === level0Id) {
+                map.set(id, toolOptions.level0BackfillColor);
+            } else if (level1Ids.has(id)) {
+                map.set(id, toolOptions.level1BackfillColor);
+            } else {
+                map.set(id, toolOptions.level2BackfillColor);
+            }
+        });
+        return map;
+    });
+
     // Compute which edges have a reverse-direction counterpart (for bezier curves)
     const pairedEdgeIds = $derived.by((): Set<string> => {
         const paired = new Set<string>();
@@ -1061,6 +1081,7 @@
                 <!-- Nodes -->
                 {#if isSchemaMode}
                     <p class="tool-opt-heading">Nodes</p>
+                    <p class="tool-opt-subtext">Fill is in the properties panel. Backfill color shown here does not appear in the rendered output.</p>
                     <table class="tool-opt-table">
                         <tbody>
                             <tr class:opt-disabled={!schemaState.level0Enabled}>
@@ -1068,17 +1089,31 @@
                                     disabled={!schemaState.level0Enabled}
                                     onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} /></td>
                                 <td>Level 0 node</td>
-                                <td class="tool-opt-note" rowspan="3">Use properties<br>panel for visuals</td>
+                                <td>
+                                    <input type="color" class="tool-opt-color" title="Level 0 backfill color"
+                                        value={toolOptions.level0BackfillColor}
+                                        oninput={(e) => setToolOption('level0BackfillColor', (e.target as HTMLInputElement).value)} />
+                                </td>
                             </tr>
                             <tr>
                                 <td><input type="checkbox" checked={toolOptions.showLevel1Nodes}
                                     onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} /></td>
                                 <td>Level 1 nodes</td>
+                                <td>
+                                    <input type="color" class="tool-opt-color" title="Level 1 backfill color"
+                                        value={toolOptions.level1BackfillColor}
+                                        oninput={(e) => setToolOption('level1BackfillColor', (e.target as HTMLInputElement).value)} />
+                                </td>
                             </tr>
                             <tr>
                                 <td><input type="checkbox" checked={toolOptions.showLevel2Nodes}
                                     onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} /></td>
                                 <td>Level 2 nodes</td>
+                                <td>
+                                    <input type="color" class="tool-opt-color" title="Level 2 backfill color"
+                                        value={toolOptions.level2BackfillColor}
+                                        oninput={(e) => setToolOption('level2BackfillColor', (e.target as HTMLInputElement).value)} />
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -1344,6 +1379,31 @@
                             rx="4"
                             opacity="0.5"
                         />
+                    {/if}
+
+                    <!-- Backfill (schema nodes only, tool-only visual, not exported) -->
+                    {#if schemaNodeBackfillColor.has(node.id)}
+                        {@const bfColor = schemaNodeBackfillColor.get(node.id)!}
+                        {#if node.renderProperties.shape === 'ellipse'}
+                            <ellipse
+                                {cx} {cy}
+                                rx={node.width / 2} ry={node.height / 2}
+                                fill={bfColor}
+                                fill-opacity="0.25"
+                                stroke="none"
+                                pointer-events="none"
+                            />
+                        {:else}
+                            <rect
+                                x={node.x} y={node.y}
+                                width={node.width} height={node.height}
+                                fill={bfColor}
+                                fill-opacity="0.25"
+                                stroke="none"
+                                rx="4"
+                                pointer-events="none"
+                            />
+                        {/if}
                     {/if}
 
                     <!-- Main shape -->
@@ -1858,6 +1918,7 @@
         flex-direction: column;
         gap: 0;
         min-width: 240px;
+        max-width: 250px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         white-space: nowrap;
     }
@@ -1872,6 +1933,15 @@
         padding: 0;
     }
     .tool-opt-heading:first-child { margin-top: 2px; }
+
+    .tool-opt-subtext {
+        font-size: 0.625rem;
+        color: var(--dn-fg-mid, #666);
+        margin: 0 0 4px;
+        padding: 0;
+        line-height: 1.3;
+        white-space: normal;
+    }
 
     .tool-opt-table {
         width: 100%;

@@ -81,6 +81,9 @@ export interface ToolOptions {
     edgeColor: string;
     edgeTypeColors: Record<string, string>;
     hiddenEdgeTypes: string[];
+    level0BackfillColor: string;
+    level1BackfillColor: string;
+    level2BackfillColor: string;
 }
 
 export interface AppState {
@@ -161,7 +164,10 @@ export const DEFAULT_APP_STATE: AppState = {
         showEdges: true,
         edgeColor: '#949494',
         edgeTypeColors: {},
-        hiddenEdgeTypes: []
+        hiddenEdgeTypes: [],
+        level0BackfillColor: '#ffffff',
+        level1BackfillColor: '#ffffff',
+        level2BackfillColor: '#ffffff'
     }
 };
 
