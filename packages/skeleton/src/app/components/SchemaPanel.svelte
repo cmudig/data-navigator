@@ -506,35 +506,24 @@
             });
         });
 
-        // Level 3 — leaf data row nodes, grouped under their parent division
+        // Level 3 — all leaf nodes spread evenly across the full canvas width
         if (hasLeafLevel) {
             currentY += vSpacing;
-            level1Ids.forEach((dimId, dimIdx) => {
+            // Collect all unique leaf IDs in order (across all dimensions)
+            const seenLeafs = new Set<string>();
+            const allLeafs: string[] = [];
+            level1Ids.forEach(dimId => {
                 const divIds = level2ByDim.get(dimId) || [];
-                const rangeW = l1 > 0 ? usableW / l1 : usableW;
-                const rangeStart = padX + dimIdx * rangeW;
-                divIds.forEach((divId, divIdx) => {
-                    const leafIds = level3ByDiv.get(divId) || [];
-                    if (leafIds.length === 0) return;
-                    const subRangeW = divIds.length > 0 ? rangeW / divIds.length : rangeW;
-                    const subRangeStart = rangeStart + divIdx * subRangeW;
-                    leafIds.forEach((leafId, leafIdx) => {
-                        const x = leafIds.length === 1
-                            ? subRangeStart + subRangeW / 2 - nodeW / 2
-                            : subRangeStart + (leafIdx / (leafIds.length - 1)) * subRangeW - nodeW / 2;
-                        positions.set(leafId, { x: Math.max(padX, x), y: currentY });
-                    });
+                [...divIds.flatMap(divId => level3ByDiv.get(divId) ?? []),
+                 ...(level3ByDiv.get(dimId) ?? [])].forEach(leafId => {
+                    if (!seenLeafs.has(leafId)) { seenLeafs.add(leafId); allLeafs.push(leafId); }
                 });
-                // Compressed dimension: leaves stored directly under dimId (no intermediate division)
-                const directLeafs = level3ByDiv.get(dimId) || [];
-                if (directLeafs.length > 0) {
-                    directLeafs.forEach((leafId, leafIdx) => {
-                        const x = directLeafs.length === 1
-                            ? rangeStart + rangeW / 2 - nodeW / 2
-                            : rangeStart + (leafIdx / (directLeafs.length - 1)) * rangeW - nodeW / 2;
-                        positions.set(leafId, { x: Math.max(padX, x), y: currentY });
-                    });
-                }
+            });
+            allLeafs.forEach((leafId, leafIdx) => {
+                const x = allLeafs.length === 1
+                    ? canvasW / 2 - nodeW / 2
+                    : padX + (leafIdx / (allLeafs.length - 1)) * usableW - nodeW / 2;
+                positions.set(leafId, { x: Math.max(padX, x), y: currentY });
             });
         }
 
