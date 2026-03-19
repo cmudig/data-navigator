@@ -38,6 +38,7 @@ interface SerializedState {
     schemaState: AppState['schemaState'];
     inputConfig: AppState['inputConfig'];
     renderConfig: AppState['renderConfig'];
+    toolOptions?: AppState['toolOptions'];
     // future fields go here (all optional so old saves remain loadable)
 }
 
@@ -99,7 +100,8 @@ export function saveState(): void {
         entryNodeId: s.entryNodeId,
         schemaState: s.schemaState,
         inputConfig: s.inputConfig,
-        renderConfig: s.renderConfig
+        renderConfig: s.renderConfig,
+        toolOptions: s.toolOptions
     };
 
     const saveFile: SaveFile = {
@@ -210,7 +212,8 @@ export async function loadState(file: File): Promise<string> {
         hoveredEdgeId: null,
         schemaState: { ...DEFAULT_APP_STATE.schemaState, ...ss.schemaState },
         inputConfig: { ...DEFAULT_APP_STATE.inputConfig, ...ss.inputConfig },
-        renderConfig: { ...DEFAULT_APP_STATE.renderConfig, ...ss.renderConfig }
+        renderConfig: { ...DEFAULT_APP_STATE.renderConfig, ...ss.renderConfig },
+        toolOptions: { ...DEFAULT_APP_STATE.toolOptions, ...ss.toolOptions }
     });
 
     const nodeCt = nodes.size;
