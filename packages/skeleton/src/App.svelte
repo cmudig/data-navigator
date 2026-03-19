@@ -90,6 +90,26 @@
         }
     }
 
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const THEME_KEY = 'dn-skeleton-theme';
+
+    function resolveInitialDark(): boolean {
+        const stored = localStorage.getItem(THEME_KEY);
+        if (stored === 'dark') return true;
+        if (stored === 'light') return false;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    const initialDark = resolveInitialDark();
+    document.documentElement.classList.toggle('dark', initialDark);
+    let isDark = $state(initialDark);
+
+    function toggleTheme() {
+        isDark = !isDark;
+        document.documentElement.classList.toggle('dark', isDark);
+        localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+    }
+
     // ── Help modal ────────────────────────────────────────────────────────────
     let showHelp = $state(false);
     let helpButtonEl: HTMLButtonElement | undefined = $state();
@@ -142,6 +162,28 @@
     <h1 class="app-header-title">Skeleton</h1>
 
     <div class="app-header-actions">
+        <!-- Theme toggle -->
+        <button
+            class="btn-ghost btn-sm theme-toggle"
+            type="button"
+            onclick={toggleTheme}
+            title="Switch to {isDark ? 'light' : 'dark'} mode"
+            aria-label="Switch to {isDark ? 'light' : 'dark'} mode"
+        >
+            {#if isDark}
+                <!-- Moon: currently dark, switch to light -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+            {:else}
+                <!-- Sun: currently light, switch to dark -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+            {/if}
+        </button>
+
         <!-- Help button -->
         <button
             bind:this={helpButtonEl}
@@ -270,6 +312,14 @@
         gap: calc(var(--dn-space) * 1);
         margin-left: auto;
         flex-wrap: wrap;
+    }
+
+    .theme-toggle {
+        padding: calc(var(--dn-space) * 0.5);
+        min-width: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .save-load-status {

@@ -34,17 +34,15 @@
     --dn-panel-width: 320px;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --dn-accent: #6780c0;
-        --dn-accent-hover: #8a9fd4;
-        --dn-accent-soft: rgba(103, 128, 192, 0.15);
-        --dn-bg: #1b1b1f;
-        --dn-surface: #242429;
-        --dn-border: #3c3c43;
-        --dn-text: #f0f0f0;
-        --dn-text-muted: #adbac7;
-    }
+.dark {
+    --dn-accent: #6780c0;
+    --dn-accent-hover: #8a9fd4;
+    --dn-accent-soft: rgba(103, 128, 192, 0.15);
+    --dn-bg: #1b1b1f;
+    --dn-surface: #242429;
+    --dn-border: #3c3c43;
+    --dn-text: #f0f0f0;
+    --dn-text-muted: #adbac7;
 }
 
 /* ── Reset / Base ── */
