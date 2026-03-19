@@ -144,7 +144,7 @@ export const DEFAULT_APP_STATE: AppState = {
     },
     toolOptions: {
         showNodeLabels: true,
-        showEdgeLabels: true,
+        showEdgeLabels: false,
         showLevel0Node: true,
         showLevel1Nodes: true,
         showLevel2Nodes: true,

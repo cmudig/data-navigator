@@ -1096,7 +1096,7 @@
 >
     <defs>
         <marker id="dn-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="var(--dn-text-muted)" />
+            <path d="M0,0 L0,6 L8,3 z" fill="#949494" />
         </marker>
         <marker id="dn-arrow-sel" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="var(--dn-accent)" />
@@ -1165,14 +1165,14 @@
                             <path
                                 d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
                                 fill="none"
-                                stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
+                                stroke={isSel ? 'var(--dn-accent)' : '#949494'}
                                 stroke-width={isSel ? 2.5 : 1.5}
                                 marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                             />
                         {:else}
                             <line
                                 x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                                stroke={isSel ? 'var(--dn-accent)' : 'var(--dn-text-muted)'}
+                                stroke={isSel ? 'var(--dn-accent)' : '#949494'}
                                 stroke-width={isSel ? 2.5 : 1.5}
                                 marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                             />
@@ -1526,7 +1526,7 @@
         gap: calc(var(--dn-space) * 0.4);
         padding: 3px calc(var(--dn-space) * 0.75);
         font-size: 0.75rem;
-        color: var(--dn-text-muted);
+        color: #949494;
         cursor: pointer;
         user-select: none;
         transition: background 0.1s, color 0.1s;
@@ -1548,7 +1548,7 @@
         align-items: center;
         gap: 2px;
         font-size: 0.75rem;
-        color: var(--dn-text-muted);
+        color: #949494;
         flex-shrink: 0;
     }
 
@@ -1568,7 +1568,7 @@
         align-items: center;
         gap: calc(var(--dn-space) * 0.4);
         font-size: 0.75rem;
-        color: var(--dn-text-muted);
+        color: #949494;
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
@@ -1683,7 +1683,7 @@
     .rtip-label {
         font-size: 0.6875rem;
         font-weight: 700;
-        color: var(--dn-text-muted);
+        color: #949494;
         width: 10px;
         font-family: var(--dn-font-mono);
         text-transform: uppercase;
@@ -1725,7 +1725,7 @@
         justify-content: center;
         cursor: pointer;
         font-size: 0.9375rem;
-        color: var(--dn-text-muted);
+        color: #949494;
         padding: 0;
         line-height: 1;
         font-family: var(--dn-font-mono);
@@ -1740,7 +1740,7 @@
 
     .rtip-unit {
         font-size: 0.625rem;
-        color: var(--dn-text-muted);
+        color: #949494;
         text-align: center;
         font-family: var(--dn-font-mono);
         letter-spacing: 0.03em;
