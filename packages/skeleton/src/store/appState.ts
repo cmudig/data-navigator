@@ -69,11 +69,17 @@ export interface RenderConfig {
 
 export interface ToolOptions {
     showNodeLabels: boolean;
+    nodeLabelColor: string;
+    nodeLabelOutlineColor: string;
     showEdgeLabels: boolean;
+    edgeLabelColor: string;
+    edgeLabelOutlineColor: string;
     showLevel0Node: boolean;
     showLevel1Nodes: boolean;
     showLevel2Nodes: boolean;
     showEdges: boolean;
+    edgeColor: string;
+    edgeTypeColors: Record<string, string>;
     hiddenEdgeTypes: string[];
 }
 
@@ -144,11 +150,17 @@ export const DEFAULT_APP_STATE: AppState = {
     },
     toolOptions: {
         showNodeLabels: true,
+        nodeLabelColor: '#000000',
+        nodeLabelOutlineColor: '#ffffff',
         showEdgeLabels: false,
+        edgeLabelColor: '#000000',
+        edgeLabelOutlineColor: '#ffffff',
         showLevel0Node: true,
         showLevel1Nodes: true,
         showLevel2Nodes: true,
         showEdges: true,
+        edgeColor: '#949494',
+        edgeTypeColors: {},
         hiddenEdgeTypes: []
     }
 };

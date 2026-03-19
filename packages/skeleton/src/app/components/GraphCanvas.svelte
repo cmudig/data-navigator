@@ -212,6 +212,16 @@
         });
     }
 
+    function setEdgeTypeColor(type: string, color: string) {
+        appState.update(s => ({
+            ...s,
+            toolOptions: {
+                ...s.toolOptions,
+                edgeTypeColors: { ...s.toolOptions.edgeTypeColors, [type]: color }
+            }
+        }));
+    }
+
     // ── Debug: reactive trigger inspection ───────────────────────────────────
     // Remove these once the loop is identified.
 
@@ -1011,49 +1021,103 @@
         <details class="tool-options-dropdown">
             <summary class="btn-ghost btn-sm">Tool options</summary>
             <div class="tool-options-panel">
-                <label class="tool-opt-item">
-                    <input type="checkbox" checked={toolOptions.showNodeLabels}
-                        onchange={() => setToolOption('showNodeLabels', !toolOptions.showNodeLabels)} />
-                    Show node labels
-                </label>
-                <label class="tool-opt-item">
-                    <input type="checkbox" checked={toolOptions.showEdgeLabels}
-                        onchange={() => setToolOption('showEdgeLabels', !toolOptions.showEdgeLabels)} />
-                    Show edge labels
-                </label>
+                <!-- Labels -->
+                <p class="tool-opt-heading">Labels</p>
+                <table class="tool-opt-table">
+                    <tbody>
+                        <tr>
+                            <td><input type="checkbox" checked={toolOptions.showNodeLabels}
+                                onchange={() => setToolOption('showNodeLabels', !toolOptions.showNodeLabels)} /></td>
+                            <td>Node labels</td>
+                            <td>
+                                <div class="color-pair">
+                                    <input type="color" class="tool-opt-color" title="Text color"
+                                        value={toolOptions.nodeLabelColor}
+                                        oninput={(e) => setToolOption('nodeLabelColor', (e.target as HTMLInputElement).value)} />
+                                    <input type="color" class="tool-opt-color" title="Outline color"
+                                        value={toolOptions.nodeLabelOutlineColor}
+                                        oninput={(e) => setToolOption('nodeLabelOutlineColor', (e.target as HTMLInputElement).value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" checked={toolOptions.showEdgeLabels}
+                                onchange={() => setToolOption('showEdgeLabels', !toolOptions.showEdgeLabels)} /></td>
+                            <td>Edge labels</td>
+                            <td>
+                                <div class="color-pair">
+                                    <input type="color" class="tool-opt-color" title="Text color"
+                                        value={toolOptions.edgeLabelColor}
+                                        oninput={(e) => setToolOption('edgeLabelColor', (e.target as HTMLInputElement).value)} />
+                                    <input type="color" class="tool-opt-color" title="Outline color"
+                                        value={toolOptions.edgeLabelOutlineColor}
+                                        oninput={(e) => setToolOption('edgeLabelOutlineColor', (e.target as HTMLInputElement).value)} />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Nodes -->
                 {#if isSchemaMode}
-                    <label class="tool-opt-item" class:opt-disabled={!schemaState.level0Enabled}>
-                        <input type="checkbox" checked={toolOptions.showLevel0Node}
-                            disabled={!schemaState.level0Enabled}
-                            onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} />
-                        Show level 0 node
-                    </label>
-                    <label class="tool-opt-item">
-                        <input type="checkbox" checked={toolOptions.showLevel1Nodes}
-                            onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} />
-                        Show level 1 nodes
-                    </label>
-                    <label class="tool-opt-item">
-                        <input type="checkbox" checked={toolOptions.showLevel2Nodes}
-                            onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} />
-                        Show level 2 nodes
-                    </label>
+                    <p class="tool-opt-heading">Nodes</p>
+                    <table class="tool-opt-table">
+                        <tbody>
+                            <tr class:opt-disabled={!schemaState.level0Enabled}>
+                                <td><input type="checkbox" checked={toolOptions.showLevel0Node}
+                                    disabled={!schemaState.level0Enabled}
+                                    onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} /></td>
+                                <td>Level 0 node</td>
+                                <td class="tool-opt-note" rowspan="3">Use properties<br>panel for visuals</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox" checked={toolOptions.showLevel1Nodes}
+                                    onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} /></td>
+                                <td>Level 1 nodes</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox" checked={toolOptions.showLevel2Nodes}
+                                    onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} /></td>
+                                <td>Level 2 nodes</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 {/if}
-                <label class="tool-opt-item">
-                    <input type="checkbox" checked={toolOptions.showEdges}
-                        onchange={() => setToolOption('showEdges', !toolOptions.showEdges)} />
-                    Show edges
-                </label>
-                {#if isSchemaMode && schemaEdgeTypes.length > 0}
-                    {#each schemaEdgeTypes as edgeType (edgeType)}
-                        <label class="tool-opt-item tool-opt-indent">
-                            <input type="checkbox"
-                                checked={!toolOptions.hiddenEdgeTypes.includes(edgeType)}
-                                onchange={() => toggleEdgeType(edgeType)} />
-                            Show "{edgeType}" edges
-                        </label>
-                    {/each}
-                {/if}
+
+                <!-- Edges -->
+                <p class="tool-opt-heading">Edges</p>
+                <table class="tool-opt-table">
+                    <tbody>
+                        <tr>
+                            <td><input type="checkbox" checked={toolOptions.showEdges}
+                                onchange={() => setToolOption('showEdges', !toolOptions.showEdges)} /></td>
+                            <td>All edges</td>
+                            <td>
+                                <input type="color" class="tool-opt-color" title="Edge color"
+                                    value={toolOptions.edgeColor}
+                                    oninput={(e) => setToolOption('edgeColor', (e.target as HTMLInputElement).value)} />
+                            </td>
+                        </tr>
+                        {#if isSchemaMode && schemaEdgeTypes.length > 0}
+                            {#each schemaEdgeTypes as edgeType (edgeType)}
+                                <tr>
+                                    <td class="tool-opt-indent-cell">
+                                        <input type="checkbox"
+                                            checked={!toolOptions.hiddenEdgeTypes.includes(edgeType)}
+                                            onchange={() => toggleEdgeType(edgeType)} />
+                                    </td>
+                                    <td>"{edgeType}"</td>
+                                    <td>
+                                        <input type="color" class="tool-opt-color"
+                                            title="Color for {edgeType} edges"
+                                            value={toolOptions.edgeTypeColors[edgeType] ?? toolOptions.edgeColor}
+                                            oninput={(e) => setEdgeTypeColor(edgeType, (e.target as HTMLInputElement).value)} />
+                                    </td>
+                                </tr>
+                            {/each}
+                        {/if}
+                    </tbody>
+                </table>
             </div>
         </details>
     </div>
@@ -1096,7 +1160,7 @@
 >
     <defs>
         <marker id="dn-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#949494" />
+            <path d="M0,0 L0,6 L8,3 z" fill="currentColor" />
         </marker>
         <marker id="dn-arrow-sel" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="var(--dn-accent)" />
@@ -1138,6 +1202,7 @@
                     {@const ly = isPaired ? (sc.y + 2 * cpy + tc.y) / 4 : my}
                     {@const isSel = selectedEdgeIds.has(edge.id)}
                     {@const isEdgeHov = hoveredEdgeId === edge.id && !isSel}
+                    {@const edgeCol = isSel ? 'var(--dn-accent)' : (toolOptions.edgeTypeColors[edge.label ?? ''] ?? toolOptions.edgeColor)}
                     <g
                         class="edge"
                         class:selected={isSel}
@@ -1165,14 +1230,16 @@
                             <path
                                 d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
                                 fill="none"
-                                stroke={isSel ? 'var(--dn-accent)' : '#949494'}
+                                color={edgeCol}
+                                stroke={edgeCol}
                                 stroke-width={isSel ? 2.5 : 1.5}
                                 marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                             />
                         {:else}
                             <line
                                 x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                                stroke={isSel ? 'var(--dn-accent)' : '#949494'}
+                                color={edgeCol}
+                                stroke={edgeCol}
                                 stroke-width={isSel ? 2.5 : 1.5}
                                 marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                             />
@@ -1182,7 +1249,10 @@
                                 x={lx} y={ly - 6}
                                 class="edge-label"
                                 text-anchor="middle"
-                                fill={isSel ? 'var(--dn-accent)' : '#000000'}
+                                fill={isSel ? 'var(--dn-accent)' : toolOptions.edgeLabelColor}
+                                stroke={toolOptions.edgeLabelOutlineColor}
+                                stroke-width="2"
+                                paint-order="stroke"
                                 font-size="11"
                                 font-family="var(--dn-font)"
                             >{edge.label || edge.direction}</text>
@@ -1322,7 +1392,7 @@
                         font-family="var(--dn-font)"
                         font-weight="700"
                         fill="none"
-                        stroke="white"
+                        stroke={toolOptions.nodeLabelOutlineColor}
                         stroke-width="3"
                         stroke-linejoin="round"
                         paint-order="stroke"
@@ -1338,7 +1408,7 @@
                         font-size="12"
                         font-family="var(--dn-font)"
                         font-weight="700"
-                        fill="#000000"
+                        fill={toolOptions.nodeLabelColor}
                         pointer-events="none"
                     >
                         {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
@@ -1786,30 +1856,64 @@
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 0.75);
         display: flex;
         flex-direction: column;
-        gap: calc(var(--dn-space) * 0.25);
-        min-width: 190px;
+        gap: 0;
+        min-width: 240px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         white-space: nowrap;
     }
 
-    .tool-opt-item {
-        display: flex;
-        align-items: center;
-        gap: calc(var(--dn-space) * 0.5);
+    .tool-opt-heading {
+        font-weight: 700;
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dn-text-muted);
+        margin: calc(var(--dn-space) * 0.5) 0 2px;
+        padding: 0;
+    }
+    .tool-opt-heading:first-child { margin-top: 2px; }
+
+    .tool-opt-table {
+        width: 100%;
+        border-collapse: collapse;
         font-size: 0.8125rem;
         color: var(--dn-text);
+    }
+
+    .tool-opt-table td {
+        padding: 2px 4px;
+        vertical-align: middle;
+    }
+    .tool-opt-table td:first-child { padding-left: 0; width: 1px; }
+    .tool-opt-table td:last-child { text-align: right; }
+
+    .tool-opt-table tr.opt-disabled { opacity: 0.45; }
+    .tool-opt-table tr.opt-disabled input { cursor: not-allowed; }
+
+    .tool-opt-indent-cell { padding-left: calc(var(--dn-space) * 1.25) !important; }
+
+    .tool-opt-note {
+        font-size: 0.7rem;
+        color: var(--dn-text-muted);
+        font-style: italic;
+        text-align: right;
+        line-height: 1.3;
+        vertical-align: middle;
+    }
+
+    .color-pair {
+        display: flex;
+        gap: 3px;
+        justify-content: flex-end;
+    }
+
+    .tool-opt-color {
+        width: 22px;
+        height: 18px;
+        padding: 1px;
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
         cursor: pointer;
-        padding: 2px 0;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-
-    .tool-opt-item.opt-disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
-
-    .tool-opt-indent {
-        padding-left: calc(var(--dn-space) * 1.25);
+        background: none;
     }
 </style>
