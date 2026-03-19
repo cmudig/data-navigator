@@ -330,12 +330,16 @@
     }
 
     .history-item:hover {
-        background: var(--dn-hover, #f5f5f5);
+        background: transparent;
+        outline: 2px dashed var(--dn-text, currentColor);
+        outline-offset: -2px;
     }
 
     .history-item.history-current {
-        background: var(--dn-accent-subtle, #eff6ff);
-        font-weight: 600;
+        background: transparent;
+        font-weight: 700;
+        outline: 3px solid var(--dn-text, currentColor);
+        outline-offset: -3px;
     }
 
     .history-label {
