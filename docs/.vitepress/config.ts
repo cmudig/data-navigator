@@ -109,6 +109,7 @@ export default defineConfig({
             {
                 text: 'Resources',
                 items: [
+                    { text: 'Skeleton (App)', link: 'https://dig.cmu.edu/data-navigator/skeleton/' },
                     { text: 'Inspector', link: 'https://dig.cmu.edu/data-navigator/inspector/' },
                     { text: 'Bokeh Wrapper', link: 'https://dig.cmu.edu/data-navigator/bokeh-wrapper/' },
                     { text: 'Paper', link: 'https://www.frank.computer/data-navigator/' },
