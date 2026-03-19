@@ -17,6 +17,7 @@
     import Step4_Debug from './app/steps/Step4_Debug.svelte';
     import Step5_Accessibility from './app/steps/Step5_Accessibility.svelte';
     import Step6_Export from './app/steps/Step6_Export.svelte';
+    import HelpModal from './app/components/HelpModal.svelte';
 
     const stepComponents = [
         Step0_Upload,
@@ -89,6 +90,10 @@
         }
     }
 
+    // ── Help modal ────────────────────────────────────────────────────────────
+    let showHelp = $state(false);
+    let helpButtonEl: HTMLButtonElement | undefined = $state();
+
     // ── Save / Load ───────────────────────────────────────────────────────────
     let loadFileInput: HTMLInputElement;
     let saveLoadStatus = $state('');
@@ -137,6 +142,15 @@
     <h1 class="app-header-title">Skeleton</h1>
 
     <div class="app-header-actions">
+        <!-- Help button -->
+        <button
+            bind:this={helpButtonEl}
+            class="btn-ghost btn-sm"
+            type="button"
+            onclick={() => { showHelp = true; }}
+            title="Show help and documentation"
+        >Help</button>
+
         <!-- History dropdown -->
         <details class="history-dropdown" bind:open={historyOpen}>
             <summary class="btn-ghost btn-sm" title="View and navigate action history">
@@ -234,6 +248,10 @@
         {/if}
     </div>
 </main>
+
+{#if showHelp}
+    <HelpModal onclose={() => { showHelp = false; helpButtonEl?.focus(); }} />
+{/if}
 
 {#if showEntryGate}
     <EntryNodeModal
