@@ -1389,7 +1389,7 @@
                                 {cx} {cy}
                                 rx={node.width / 2} ry={node.height / 2}
                                 fill={bfColor}
-                                fill-opacity="0.25"
+                                fill-opacity="0.4"
                                 stroke="none"
                                 pointer-events="none"
                             />
@@ -1398,7 +1398,7 @@
                                 x={node.x} y={node.y}
                                 width={node.width} height={node.height}
                                 fill={bfColor}
-                                fill-opacity="0.25"
+                                fill-opacity="0.4"
                                 stroke="none"
                                 rx="4"
                                 pointer-events="none"
