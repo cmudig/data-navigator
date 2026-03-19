@@ -4,6 +4,8 @@
     import { get } from 'svelte/store';
     import { appState } from './store/appState';
     import { saveState, loadState } from './utils/saveLoad';
+    import { historyStore, undo, redo, jumpTo, resetHistory, logAction } from './store/historyStore';
+    import type { HistoryEntry } from './store/historyStore';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
@@ -63,6 +65,30 @@
     const isFullWidth = $derived(fullWidthSteps.has(currentStep));
     const showSchemaPanel = $derived(currentStep === 1 && hasUploadedData);
 
+    // ── History ───────────────────────────────────────────────────────────────
+    let historyEntries = $state<HistoryEntry[]>([]);
+    let historyPointer = $state(-1);
+    let historyOpen = $state(false);
+
+    historyStore.subscribe(h => {
+        historyEntries = h.entries;
+        historyPointer = h.pointer;
+    });
+
+    function formatTime(ts: number): string {
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+        const t = e.target as HTMLElement;
+        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            e.shiftKey ? redo() : undo();
+        }
+    }
+
     // ── Save / Load ───────────────────────────────────────────────────────────
     let loadFileInput: HTMLInputElement;
     let saveLoadStatus = $state('');
@@ -86,12 +112,16 @@
     async function handleLoadFile(file: File) {
         try {
             const summary = await loadState(file);
+            resetHistory();
+            logAction('Loaded session');
             showStatus(summary);
         } catch (e) {
             showStatus(`Load failed: ${(e as Error).message}`);
         }
     }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <!-- Skip to main content -->
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -107,6 +137,33 @@
     <h1 class="app-header-title">Skeleton</h1>
 
     <div class="app-header-actions">
+        <!-- History dropdown -->
+        <details class="history-dropdown" bind:open={historyOpen}>
+            <summary class="btn-ghost btn-sm" title="View and navigate action history">
+                History{#if historyEntries.length > 0}&nbsp;({historyEntries.length}){/if}
+            </summary>
+            <div class="history-panel" role="listbox" aria-label="Action history">
+                {#if historyEntries.length === 0}
+                    <p class="history-empty">No actions logged yet.</p>
+                {:else}
+                    {#each [...historyEntries].reverse() as entry, ri}
+                        {@const i = historyEntries.length - 1 - ri}
+                        <button
+                            class="history-item"
+                            class:history-current={i === historyPointer}
+                            type="button"
+                            role="option"
+                            aria-selected={i === historyPointer}
+                            onclick={() => { jumpTo(i); historyOpen = false; }}
+                        >
+                            <span class="history-label">{entry.label}</span>
+                            <span class="history-time">{formatTime(entry.timestamp)}</span>
+                        </button>
+                    {/each}
+                {/if}
+            </div>
+        </details>
+
         <!-- Hidden file input for loading a session ZIP -->
         <input
             bind:this={loadFileInput}
@@ -201,6 +258,80 @@
         font-size: 0.8125rem;
         color: var(--dn-text-muted);
         white-space: nowrap;
+    }
+
+    /* ── History dropdown ───────────────────────────────────────────────────── */
+    .history-dropdown {
+        position: relative;
+    }
+
+    .history-dropdown summary {
+        list-style: none;
+        cursor: pointer;
+    }
+
+    .history-dropdown summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .history-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 200;
+        min-width: 240px;
+        max-height: 280px;
+        overflow-y: auto;
+        background: var(--dn-surface, #fff);
+        border: 1px solid var(--dn-border, #e2e2e2);
+        border-radius: var(--dn-radius, 6px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        padding: calc(var(--dn-space) * 0.5) 0;
+    }
+
+    .history-empty {
+        margin: 0;
+        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+    }
+
+    .history-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
+        border: none;
+        background: transparent;
+        text-align: left;
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+        cursor: pointer;
+        gap: calc(var(--dn-space) * 1);
+    }
+
+    .history-item:hover {
+        background: var(--dn-hover, #f5f5f5);
+    }
+
+    .history-item.history-current {
+        background: var(--dn-accent-subtle, #eff6ff);
+        font-weight: 600;
+    }
+
+    .history-label {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .history-time {
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     :global(body) {

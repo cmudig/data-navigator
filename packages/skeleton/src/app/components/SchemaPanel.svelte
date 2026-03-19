@@ -3,6 +3,7 @@
     import dataNavigator from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
     import { appState, type DimensionSchema, type DivisionEntry, type SchemaState } from '../../store/appState';
+    import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
@@ -208,7 +209,14 @@
 
             return { ...s, schemaState: { ...s.schemaState, dimensions: dims, childmostNavigation } };
         });
+        logAction(`Toggled dimension: ${key}`);
     }
+
+    // Text fields in DimensionSchema that are edited continuously (debounce logging).
+    const DIM_TEXT_FIELDS: (keyof DimensionSchema)[] = [
+        'forwardName', 'forwardKey', 'backwardName', 'backwardKey',
+        'drillInName', 'drillInKey', 'drillOutName', 'drillOutKey',
+    ];
 
     function updateDim<K extends keyof DimensionSchema>(key: string, field: K, value: DimensionSchema[K]) {
         appState.update(s => {
@@ -218,6 +226,11 @@
             });
             return { ...s, schemaState: { ...s.schemaState, dimensions: dims } };
         });
+        if (DIM_TEXT_FIELDS.includes(field as keyof DimensionSchema)) {
+            logActionDebounced(`Updated dimension: ${key}`);
+        } else {
+            logAction(`Updated dimension: ${key}`);
+        }
     }
 
     function updateDivisionId(dimKey: string, divIndex: number, newId: string) {
@@ -232,10 +245,23 @@
                 })
             }
         }));
+        logActionDebounced('Updated division ID');
     }
+
+    // Text fields in SchemaState that are edited continuously (debounce logging).
+    const SCHEMA_TEXT_FIELDS: (keyof SchemaState)[] = [
+        'level0Id',
+        'level1NavForwardName', 'level1NavForwardKey',
+        'level1NavBackwardName', 'level1NavBackwardKey',
+    ];
 
     function setSchemaField<K extends keyof SchemaState>(field: K, value: SchemaState[K]) {
         appState.update(s => ({ ...s, schemaState: { ...s.schemaState, [field]: value } }));
+        if (SCHEMA_TEXT_FIELDS.includes(field as keyof SchemaState)) {
+            logActionDebounced('Updated schema setting');
+        } else {
+            logAction('Updated schema setting');
+        }
     }
 
     // ─── DN structure building ────────────────────────────────────────────────

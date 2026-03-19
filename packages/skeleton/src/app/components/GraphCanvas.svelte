@@ -2,6 +2,7 @@
     import { get } from 'svelte/store';
     import { untrack } from 'svelte';
     import { appState } from '../../store/appState';
+    import { logAction } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
 
@@ -382,6 +383,7 @@
             nodes: new Map(s.nodes).set(id, node),
             entryNodeId: isFirst ? id : s.entryNodeId,
         }));
+        logAction('Added node');
         setSelection([id], []);
         mode = 'select';
     }
@@ -399,6 +401,7 @@
             }
             return { ...s, edges: newEdges };
         });
+        logAction(addEdgePairs ? 'Added edge pair' : 'Added edge');
         edgeSourceId = null;
         mode = 'select';
     }
@@ -432,6 +435,7 @@
                 entryNodeId: newEntryId,
             };
         });
+        logAction(`Deleted ${nodeIds.length} node(s) and ${allEdgeIds.size} edge(s)`);
         liveMsg = `Deleted ${nodeIds.length} node(s) and ${allEdgeIds.size} edge(s).`;
         selectNodes?.([]);
         selectEdges?.([]);
@@ -627,6 +631,7 @@
             if (resize.moved) {
                 const node = nodes.get(resize.nodeId);
                 if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
+                logAction('Resized node');
             }
             resize = null;
             return;
@@ -651,6 +656,7 @@
             } else {
                 const node = nodes.get(drag.nodeId);
                 if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
+                logAction('Moved node');
             }
             drag = null;
         }
@@ -661,11 +667,13 @@
         if (resize?.moved) {
             const node = nodes.get(resize.nodeId);
             if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
+            logAction('Resized node');
         }
         resize = null;
         if (drag?.moved) {
             const node = nodes.get(drag.nodeId);
             if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
+            logAction('Moved node');
         }
         drag = null;
         lassoRect = null;
