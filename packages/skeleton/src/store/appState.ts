@@ -81,9 +81,13 @@ export interface ToolOptions {
     edgeColor: string;
     edgeTypeColors: Record<string, string>;
     hiddenEdgeTypes: string[];
+    showAllNodes: boolean;
+    nodeBackfillColor: string;
     level0BackfillColor: string;
     level1BackfillColor: string;
     level2BackfillColor: string;
+    showLevel3Nodes: boolean;
+    level3BackfillColor: string;
 }
 
 export interface AppState {
@@ -165,9 +169,13 @@ export const DEFAULT_APP_STATE: AppState = {
         edgeColor: '#949494',
         edgeTypeColors: {},
         hiddenEdgeTypes: [],
+        showAllNodes: true,
+        nodeBackfillColor: '#ffffff',
         level0BackfillColor: '#ffffff',
         level1BackfillColor: '#ffffff',
-        level2BackfillColor: '#ffffff'
+        level2BackfillColor: '#ffffff',
+        showLevel3Nodes: true,
+        level3BackfillColor: '#ffffff'
     }
 };
 

@@ -5,6 +5,7 @@
     import { logAction } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
+    import { defaultRenderProperties } from '../../store/nodeFactory';
 
     // ── Callback props (Svelte 5 style) ───────────────────────────────────────
     type Props = {
@@ -157,38 +158,48 @@
     // Compute which schema nodes are hidden by level filters
     const hiddenNodeIds = $derived.by((): Set<string> => {
         const hidden = new Set<string>();
-        if (!isSchemaMode) return hidden;
         const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
         const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
         const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
+        const level2Ids = new Set(schemaState.dimensions.flatMap(d => d.divisions.map(div => div.id)));
         nodes.forEach((node, id) => {
+            if (!toolOptions.showAllNodes) { hidden.add(id); return; }
             if (node.source !== 'schema') return;
+            if (!isSchemaMode) return;
             if (id === level0Id) {
                 if (!toolOptions.showLevel0Node) hidden.add(id);
             } else if (level1Ids.has(id)) {
                 if (!toolOptions.showLevel1Nodes) hidden.add(id);
-            } else {
+            } else if (level2Ids.has(id)) {
                 if (!toolOptions.showLevel2Nodes) hidden.add(id);
+            } else {
+                if (!toolOptions.showLevel3Nodes) hidden.add(id);
             }
         });
         return hidden;
     });
 
-    // Compute backfill color per schema node (level 0/1/2+)
-    const schemaNodeBackfillColor = $derived.by((): Map<string, string> => {
+    // Compute backfill color per node (manual nodes use nodeBackfillColor; schema nodes by level)
+    const nodeBackfillColorMap = $derived.by((): Map<string, string> => {
         const map = new Map<string, string>();
-        if (!isSchemaMode) return map;
         const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
         const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
         const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
+        const level2Ids = new Set(schemaState.dimensions.flatMap(d => d.divisions.map(div => div.id)));
         nodes.forEach((node, id) => {
-            if (node.source !== 'schema') return;
+            if (node.source !== 'schema') {
+                map.set(id, toolOptions.nodeBackfillColor);
+                return;
+            }
+            if (!isSchemaMode) return;
             if (id === level0Id) {
                 map.set(id, toolOptions.level0BackfillColor);
             } else if (level1Ids.has(id)) {
                 map.set(id, toolOptions.level1BackfillColor);
-            } else {
+            } else if (level2Ids.has(id)) {
                 map.set(id, toolOptions.level2BackfillColor);
+            } else {
+                map.set(id, toolOptions.level3BackfillColor);
             }
         });
         return map;
@@ -222,7 +233,19 @@
 
     // ── Tool options helpers ──────────────────────────────────────────────────
     function setToolOption<K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) {
-        appState.update(s => ({ ...s, toolOptions: { ...s.toolOptions, [key]: value } }));
+        appState.update(s => {
+            const updated: ToolOptions = { ...s.toolOptions, [key]: value };
+            // When changing the master node backfill, cascade to any level that hasn't diverged
+            if (key === 'nodeBackfillColor') {
+                const prev = s.toolOptions.nodeBackfillColor;
+                const next = value as string;
+                const levelKeys = ['level0BackfillColor', 'level1BackfillColor', 'level2BackfillColor', 'level3BackfillColor'] as const;
+                for (const lk of levelKeys) {
+                    if (s.toolOptions[lk] === prev) updated[lk] = next;
+                }
+            }
+            return { ...s, toolOptions: updated };
+        });
     }
 
     function toggleEdgeType(type: string) {
@@ -366,17 +389,7 @@
             source: 'manual',
             semantics: { label: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false },
             data: {},
-            renderProperties: {
-                shape: 'rect',
-                fillEnabled: false,
-                fill: '#f6f6f7',
-                opacity: 1,
-                strokeWidth: 2,
-                strokeColor: '#000000',
-                strokeDash: 'solid',
-                ariaRole: 'button',
-                customClass: '',
-            },
+            renderProperties: defaultRenderProperties(),
         };
         appState.update(s => ({
             ...s,
@@ -1087,13 +1100,23 @@
                 </table>
 
                 <!-- Nodes -->
-                {#if isSchemaMode}
-                    <p class="tool-opt-heading">Nodes</p>
-                    <p class="tool-opt-subtext">Fill is in the properties panel. Backfill color shown here does not appear in the rendered output.</p>
-                    <table class="tool-opt-table">
-                        <tbody>
+                <p class="tool-opt-heading">Nodes</p>
+                <p class="tool-opt-subtext">Fill is in the properties panel. Backfill color shown here does not appear in the rendered output.</p>
+                <table class="tool-opt-table">
+                    <tbody>
+                        <tr>
+                            <td><input type="checkbox" checked={toolOptions.showAllNodes}
+                                onchange={() => setToolOption('showAllNodes', !toolOptions.showAllNodes)} /></td>
+                            <td>All nodes</td>
+                            <td>
+                                <input type="color" class="tool-opt-color" title="Node backfill color"
+                                    value={toolOptions.nodeBackfillColor}
+                                    oninput={(e) => setToolOption('nodeBackfillColor', (e.target as HTMLInputElement).value)} />
+                            </td>
+                        </tr>
+                        {#if isSchemaMode}
                             <tr class:opt-disabled={!schemaState.level0Enabled}>
-                                <td><input type="checkbox" checked={toolOptions.showLevel0Node}
+                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel0Node}
                                     disabled={!schemaState.level0Enabled}
                                     onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} /></td>
                                 <td>Level 0 node</td>
@@ -1104,7 +1127,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><input type="checkbox" checked={toolOptions.showLevel1Nodes}
+                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel1Nodes}
                                     onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} /></td>
                                 <td>Level 1 nodes</td>
                                 <td>
@@ -1114,7 +1137,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><input type="checkbox" checked={toolOptions.showLevel2Nodes}
+                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel2Nodes}
                                     onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} /></td>
                                 <td>Level 2 nodes</td>
                                 <td>
@@ -1123,9 +1146,19 @@
                                         oninput={(e) => setToolOption('level2BackfillColor', (e.target as HTMLInputElement).value)} />
                                 </td>
                             </tr>
-                        </tbody>
-                    </table>
-                {/if}
+                            <tr>
+                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel3Nodes}
+                                    onchange={() => setToolOption('showLevel3Nodes', !toolOptions.showLevel3Nodes)} /></td>
+                                <td>Level 3 nodes</td>
+                                <td>
+                                    <input type="color" class="tool-opt-color" title="Level 3 backfill color"
+                                        value={toolOptions.level3BackfillColor}
+                                        oninput={(e) => setToolOption('level3BackfillColor', (e.target as HTMLInputElement).value)} />
+                                </td>
+                            </tr>
+                        {/if}
+                    </tbody>
+                </table>
 
                 <!-- Edges -->
                 <p class="tool-opt-heading">Edges</p>
@@ -1389,9 +1422,9 @@
                         />
                     {/if}
 
-                    <!-- Backfill (schema nodes only, tool-only visual, not exported) -->
-                    {#if schemaNodeBackfillColor.has(node.id)}
-                        {@const bfColor = schemaNodeBackfillColor.get(node.id)!}
+                    <!-- Backfill (tool-only visual, not exported) -->
+                    {#if nodeBackfillColorMap.has(node.id)}
+                        {@const bfColor = nodeBackfillColorMap.get(node.id)!}
                         {#if node.renderProperties.shape === 'ellipse'}
                             <ellipse
                                 {cx} {cy}

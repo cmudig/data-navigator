@@ -5,6 +5,7 @@
     import { appState, type DimensionSchema, type DivisionEntry, type SchemaState } from '../../store/appState';
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
+    import { defaultRenderProperties } from '../../store/nodeFactory';
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
     const NAV_SLOTS = [
@@ -609,7 +610,7 @@
                     source: 'schema',
                     semantics: { label: nodeId, name: 'node', includeParentName: false, includeIndex: false },
                     data: dnNode?.data ?? {},
-                    renderProperties: { shape: 'rect', fillEnabled: false, fill: '#f6f6f7', opacity: 1, strokeWidth: 2, strokeColor: '#000000', strokeDash: 'solid', ariaRole: 'button', customClass: '' },
+                    renderProperties: defaultRenderProperties(),
                 } as SkeletonNode);
             });
 
