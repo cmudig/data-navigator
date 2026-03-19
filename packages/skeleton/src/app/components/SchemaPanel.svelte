@@ -419,7 +419,7 @@
     function initCanvasNodesFromSchema(structure: any, schemaSnap: SchemaState) {
         const canvasW = imageWidth ?? 1200;
         const canvasH = imageHeight ?? 800;
-        const nodeW = 140, nodeH = 52;
+        const nodeW = 110, nodeH = 52;
         const padX = 80, padY = 80;
         const usableW = canvasW - padX * 2;
 
@@ -483,12 +483,15 @@
         }
 
         // Level 1 — dimensions, evenly spaced
+        // Formula: left edge of first node at padX, right edge of last node at canvasW-padX.
+        // spreadW = usableW - nodeW gives equal padX margins on both sides.
         const l1 = level1Ids.length;
+        const spreadW = usableW - nodeW;
         level1Ids.forEach((id, i) => {
             const x = l1 === 1
                 ? canvasW / 2 - nodeW / 2
-                : padX + (i / (l1 - 1)) * usableW - nodeW / 2;
-            positions.set(id, { x: Math.max(padX, x), y: currentY });
+                : padX + (i / (l1 - 1)) * spreadW;
+            positions.set(id, { x, y: currentY });
         });
         currentY += vSpacing;
 
@@ -498,11 +501,12 @@
             if (divIds.length === 0) return;
             const rangeW = l1 > 0 ? usableW / l1 : usableW;
             const rangeStart = padX + dimIdx * rangeW;
+            const rangeSpread = rangeW - nodeW;
             divIds.forEach((divId, divIdx) => {
                 const x = divIds.length === 1
-                    ? (positions.get(dimId)?.x ?? rangeStart + rangeW / 2 - nodeW / 2)
-                    : rangeStart + (divIdx / (divIds.length - 1)) * rangeW - nodeW / 2;
-                positions.set(divId, { x: Math.max(padX, x), y: currentY });
+                    ? (positions.get(dimId)?.x ?? rangeStart + (rangeW - nodeW) / 2)
+                    : rangeStart + (divIdx / (divIds.length - 1)) * rangeSpread;
+                positions.set(divId, { x, y: currentY });
             });
         });
 
@@ -522,8 +526,8 @@
             allLeafs.forEach((leafId, leafIdx) => {
                 const x = allLeafs.length === 1
                     ? canvasW / 2 - nodeW / 2
-                    : padX + (leafIdx / (allLeafs.length - 1)) * usableW - nodeW / 2;
-                positions.set(leafId, { x: Math.max(padX, x), y: currentY });
+                    : padX + (leafIdx / (allLeafs.length - 1)) * spreadW;
+                positions.set(leafId, { x, y: currentY });
             });
         }
 

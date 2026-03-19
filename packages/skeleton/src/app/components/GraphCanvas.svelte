@@ -1318,9 +1318,9 @@
                         x={cx} y={cy}
                         text-anchor="middle"
                         dominant-baseline="middle"
-                        font-size="13"
+                        font-size="12"
                         font-family="var(--dn-font)"
-                        font-weight="500"
+                        font-weight="700"
                         fill="none"
                         stroke="white"
                         stroke-width="3"
@@ -1335,9 +1335,9 @@
                         x={cx} y={cy}
                         text-anchor="middle"
                         dominant-baseline="middle"
-                        font-size="13"
+                        font-size="12"
                         font-family="var(--dn-font)"
-                        font-weight="500"
+                        font-weight="700"
                         fill="#000000"
                         pointer-events="none"
                     >
