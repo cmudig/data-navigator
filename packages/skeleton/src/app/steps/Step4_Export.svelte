@@ -2,7 +2,7 @@
 </script>
 
 <div class="step-placeholder">
-    <h2 id="step-heading-6" tabindex="-1">Export</h2>
+    <h2 id="step-heading-4" tabindex="-1">Export</h2>
     <blockquote>
         <p>Under construction.</p>
     </blockquote>

@@ -91,14 +91,14 @@ export interface ToolOptions {
 }
 
 export interface AppState {
-    currentStep: number; // 0–6
+    currentStep: number; // 0–4
     // Step 0 — Upload
     imageDataUrl: string | null;
     imageWidth: number | null;
     imageHeight: number | null;
     uploadedData: Record<string, unknown>[] | null;
     uploadedDataRaw: UploadedDataRaw | null;
-    // Step 1 — Structure
+    // Step 2 — Editor
     nodes: Map<string, SkeletonNode>;
     edges: Map<string, SkeletonEdge>;
     selectedNodeIds: Set<string>;
@@ -106,11 +106,10 @@ export interface AppState {
     entryNodeId: string | null;
     hoveredNodeId: string | null; // linked hover between schema and canvas
     hoveredEdgeId: string | null;
-    // Step 1 — Schema (data-driven structure)
+    // Step 2 — Editor schema (data-driven graph)
     schemaState: SchemaState;
-    // Step 2 — Input
+    // Archived (Input / Render steps) — retained for save-file compatibility
     inputConfig: InputConfig;
-    // Step 3 — Render
     renderConfig: RenderConfig;
     // Tool options (canvas visibility controls)
     toolOptions: ToolOptions;

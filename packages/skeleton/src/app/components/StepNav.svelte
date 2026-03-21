@@ -7,13 +7,11 @@
     const { beforeNavigate }: Props = $props();
 
     const steps = [
-        { label: 'Upload',        index: 0 },
-        { label: 'Structure',     index: 1 },
-        { label: 'Input',         index: 2 },
-        { label: 'Render',        index: 3 },
-        { label: 'Debug',         index: 4 },
-        { label: 'Accessibility', index: 5 },
-        { label: 'Export',        index: 6 },
+        { label: 'Upload',    index: 0 },
+        { label: 'Data Prep', index: 1 },
+        { label: 'Editor',    index: 2 },
+        { label: 'Testing',   index: 3 },
+        { label: 'Export',    index: 4 },
     ];
 
     let currentStep = $state(0);

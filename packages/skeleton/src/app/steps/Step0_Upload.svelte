@@ -224,7 +224,7 @@
     }
 
     // ─── Continue ─────────────────────────────────────────────────────────────
-    function continueToStructure() {
+    function continueToDataPrep() {
         appState.update(s => ({ ...s, currentStep: 1 }));
     }
 
@@ -422,8 +422,8 @@
 
     <!-- ── Actions row ─────────────────────────────────────────────────────── -->
     <div class="step-actions">
-        <button class="btn-primary" type="button" onclick={continueToStructure}>
-            Continue to Structure →
+        <button class="btn-primary" type="button" onclick={continueToDataPrep}>
+            Continue to Data Prep →
         </button>
     </div>
 </div>

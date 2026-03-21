@@ -5,14 +5,14 @@
     let selectedNodeIds = $state<string[]>([]);
     let selectedEdgeIds = $state<string[]>([]);
 
-    function continueToInput() {
-        appState.update(s => ({ ...s, currentStep: 2 }));
+    function continueToTesting() {
+        appState.update(s => ({ ...s, currentStep: 3 }));
     }
 </script>
 
-<div class="structure-step">
+<div class="editor-step">
     <div class="step-header">
-        <h2 id="step-heading-1" tabindex="-1">Structure</h2>
+        <h2 id="step-heading-2" tabindex="-1">Editor</h2>
         <p class="step-desc">
             Draw nodes and edges to define the navigation graph.
             Nodes represent elements users can navigate to; edges define movement between them.
@@ -25,14 +25,14 @@
     />
 
     <div class="step-actions">
-        <button class="btn-primary" type="button" onclick={continueToInput}>
-            Continue to Input →
+        <button class="btn-primary" type="button" onclick={continueToTesting}>
+            Continue to Testing →
         </button>
     </div>
 </div>
 
 <style>
-    .structure-step {
+    .editor-step {
         display: flex;
         flex-direction: column;
         height: 100%;
