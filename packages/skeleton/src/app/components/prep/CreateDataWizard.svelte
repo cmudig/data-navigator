@@ -126,10 +126,10 @@
                     invalidatedQuestions: [],
                 },
                 labelConfig: {
-                    level0: { template: '', name: 'root', includeIndex: false, includeParentName: false },
+                    level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
                     perDimension: {},
                     perDivision: {},
-                    leaves: { template: '', name: 'data point', includeIndex: false, includeParentName: false },
+                    leaves: { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false },
                 },
             };
             return {

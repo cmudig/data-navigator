@@ -167,7 +167,7 @@
     function defaultValue(inputType: string): unknown {
         if (inputType === 'multiselect' || inputType === 'drag-order') return [];
         if (inputType === 'label-builder') {
-            const tmpl: LabelTemplate = { template: '', name: 'data point', includeIndex: false, includeParentName: false };
+            const tmpl: LabelTemplate = { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false };
             return tmpl;
         }
         return '';

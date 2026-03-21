@@ -123,6 +123,7 @@ export interface LabelTemplate {
     name: string; // noun: "data point", "bar", etc.
     includeIndex: boolean; // append "X of Y"
     includeParentName: boolean; // append "in [parent]"
+    omitKeyNames: boolean; // suppress {key:"..."} tokens in output; corresponds to DN's omitKeyNames
 }
 
 export interface LabelConfig {

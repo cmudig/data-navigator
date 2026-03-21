@@ -16,12 +16,21 @@
     const preview = $derived(buildPreview(value, sampleData));
 
     function buildPreview(tmpl: LabelTemplate, data: Record<string, unknown>): string {
-        let resolved = tmpl.template
-            .replace(/\{key:"([^"]+)"\}/g, (_: string, key: string) => key)
-            .replace(/\{value:"([^"]+)"\}/g, (_: string, key: string) => {
-                const val = data[key];
-                return val !== undefined ? String(val) : `[${key}]`;
-            });
+        let resolved = tmpl.template;
+
+        if (tmpl.omitKeyNames) {
+            // Strip "{key:"..."}:" patterns (with following colon + optional space),
+            // then strip any remaining bare {key:"..."} tokens.
+            resolved = resolved.replace(/\{key:"[^"]+"\}:\s*/g, '');
+            resolved = resolved.replace(/\{key:"[^"]+"\}/g, '');
+        } else {
+            resolved = resolved.replace(/\{key:"([^"]+)"\}/g, (_: string, key: string) => key);
+        }
+
+        resolved = resolved.replace(/\{value:"([^"]+)"\}/g, (_: string, key: string) => {
+            const val = data[key];
+            return val !== undefined ? String(val) : `[${key}]`;
+        });
 
         const name = tmpl.name || 'data point';
         const cap = name.charAt(0).toUpperCase() + name.slice(1);
@@ -42,7 +51,13 @@
     };
 
     // ── Mutations ────────────────────────────────────────────────────────────
-    function appendToken(token: string) {
+
+    // Click a field pill: inserts " {key:"field"}: {value:"field"}, " normally,
+    // or just " {value:"field"}, " when omitKeyNames is on.
+    function appendField(fieldName: string) {
+        const token = value.omitKeyNames
+            ? ` {value:"${fieldName}"}, `
+            : ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
         onchange({ ...value, template: value.template + token });
     }
 
@@ -65,6 +80,10 @@
     function handleIncludeParentName(e: Event) {
         onchange({ ...value, includeParentName: (e.target as HTMLInputElement).checked });
     }
+
+    function handleOmitKeyNames(e: Event) {
+        onchange({ ...value, omitKeyNames: (e.target as HTMLInputElement).checked });
+    }
 </script>
 
 <div class="label-builder">
@@ -72,29 +91,27 @@
         Building label for: <strong>{NODE_TYPE_LABELS[nodeType] ?? nodeType}</strong>
     </p>
     <p class="lb-instruction">
-        Click a field name to add it to your label. You can add the field's name (as text),
-        or its actual value from your data.
+        Click a field pill to add it to your label.
+        {#if value.omitKeyNames}
+            Each click adds the field's value only (e.g., <code>42</code>).
+        {:else}
+            Each click adds the field name and value together (e.g., <code>Score: 42</code>).
+        {/if}
+        You can also type directly in the template box below.
     </p>
 
     {#if fields.length > 0}
-        <div class="lb-chips-area" aria-label="Available fields">
+        <div class="lb-pills-area" aria-label="Available fields — click to add to label">
             {#each fields as field (field)}
-                <div class="lb-chip-pair">
-                    <button
-                        class="lb-chip lb-chip-key"
-                        onclick={() => appendToken(`{key:"${field}"}`)}
-                        aria-label={`Add field name "${field}" to label`}
-                    >
-                        name: {field}
-                    </button>
-                    <button
-                        class="lb-chip lb-chip-value"
-                        onclick={() => appendToken(`{value:"${field}"}`)}
-                        aria-label={`Add value of "${field}" to label`}
-                    >
-                        value: {field}
-                    </button>
-                </div>
+                <button
+                    class="lb-pill"
+                    onclick={() => appendField(field)}
+                    aria-label={value.omitKeyNames
+                        ? `Add value of "${field}" to label`
+                        : `Add "${field}" name and value to label`}
+                >
+                    {field}
+                </button>
             {/each}
         </div>
     {/if}
@@ -152,6 +169,16 @@
             Include the name of the group?
             <span class="lb-checkbox-example">(e.g., in North region)</span>
         </label>
+
+        <label class="lb-checkbox-label lb-omit-toggle">
+            <input
+                type="checkbox"
+                checked={value.omitKeyNames}
+                onchange={handleOmitKeyNames}
+            />
+            Hide field names
+            <span class="lb-checkbox-example">(show values only — e.g., "42" instead of "Score: 42")</span>
+        </label>
     </div>
 
     <!-- Preview is last so it can stick to the bottom of the scroll container -->
@@ -181,54 +208,34 @@
         line-height: 1.5;
     }
 
-    /* ── Field chips ── */
+    /* ── Field pills (one per field, inserts name+value or value-only) ── */
 
-    .lb-chips-area {
+    .lb-pills-area {
         display: flex;
         flex-wrap: wrap;
         gap: calc(var(--dn-space) * 0.5);
     }
 
-    .lb-chip-pair {
-        display: flex;
-        gap: 2px;
-    }
-
-    .lb-chip {
+    .lb-pill {
         display: inline-flex;
         align-items: center;
-        padding: 3px 10px;
+        padding: 4px 14px;
         border-radius: 20px;
         font-size: 0.8125rem;
         font-family: var(--dn-font-mono);
         cursor: pointer;
-        border: 1px solid transparent;
+        background: var(--dn-accent-soft);
+        color: var(--dn-accent);
+        border: 1px solid var(--dn-accent-light);
         min-height: 0;
         min-width: 0;
         transition: background 0.1s, border-color 0.1s, color 0.1s;
     }
 
-    .lb-chip-key {
-        background: var(--dn-surface);
-        color: var(--dn-text);
-        border-color: var(--dn-border);
-    }
-
-    .lb-chip-key:hover {
-        background: var(--dn-accent-soft);
-        border-color: var(--dn-accent);
-        color: var(--dn-accent);
-    }
-
-    .lb-chip-value {
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border-color: var(--dn-accent-light);
-    }
-
-    .lb-chip-value:hover {
+    .lb-pill:hover {
         background: var(--dn-accent);
         color: #fff;
+        border-color: var(--dn-accent);
     }
 
     /* ── Template row ── */
@@ -365,5 +372,22 @@
     .lb-checkbox-example {
         color: var(--dn-text-muted);
         font-size: 0.8125rem;
+    }
+
+    /* "Hide field names" sits below a divider to signal it affects chip behavior */
+    .lb-omit-toggle {
+        padding-top: calc(var(--dn-space) * 0.75);
+        border-top: 1px solid var(--dn-border);
+        margin-top: calc(var(--dn-space) * 0.25);
+    }
+
+    /* Inline code style for the instruction examples */
+    .lb-instruction code {
+        font-family: var(--dn-font-mono);
+        font-size: 0.8125rem;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        padding: 1px 5px;
     }
 </style>

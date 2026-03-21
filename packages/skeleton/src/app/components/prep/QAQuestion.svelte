@@ -66,7 +66,7 @@
 
     // ── Label builder helpers ─────────────────────────────────────────────────
     const DEFAULT_LABEL_TEMPLATE: LabelTemplate = {
-        template: '', name: 'data point', includeIndex: false, includeParentName: false,
+        template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false,
     };
 
     const labelValue = $derived(
