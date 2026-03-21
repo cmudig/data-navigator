@@ -48,8 +48,19 @@
     });
 
     function beforeStepNavigate(targetStep: number): boolean {
+        const s = get(appState);
+        if (targetStep === 2 && s.currentStep === 1) {
+            if (!s.prepState?.hasRun) {
+                const confirmed = window.confirm(
+                    "You haven't finished prepping your data yet.\n\n" +
+                    "The Editor will try to auto-build a structure, but labels and descriptions " +
+                    "won't be set up. You can always come back to Prep later.\n\n" +
+                    "Continue anyway?"
+                );
+                if (!confirmed) return false;
+            }
+        }
         if (targetStep === 3) {
-            const s = get(appState);
             if (!s.entryNodeId) {
                 showEntryGate = true;
                 return false;

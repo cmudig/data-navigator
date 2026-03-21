@@ -82,13 +82,17 @@
         imageHeight = s.imageHeight;
         if (s.uploadedData && !initialized) {
             initialized = true;
-            const inferred = buildInitialSchema(s.uploadedData);
-            // Use queueMicrotask to avoid synchronous re-entrancy: calling appState.update
-            // synchronously here would re-enter this subscribe callback with the NEW state
-            // while the outer callback is still running with the OLD state. When the outer
-            // callback resumes it would see _lastSchemaRef pointing to the NEW schemaState
-            // and incorrectly overwrite schema back to the old (empty) value.
-            queueMicrotask(() => appState.update(st => ({ ...st, schemaState: inferred })));
+            // If Prep has already configured the schema, skip auto-inference.
+            // The schemaState is already populated from Prep. SchemaPanel just reads it.
+            if (!s.prepState?.hasRun) {
+                const inferred = buildInitialSchema(s.uploadedData);
+                // Use queueMicrotask to avoid synchronous re-entrancy: calling appState.update
+                // synchronously here would re-enter this subscribe callback with the NEW state
+                // while the outer callback is still running with the OLD state. When the outer
+                // callback resumes it would see _lastSchemaRef pointing to the NEW schemaState
+                // and incorrectly overwrite schema back to the old (empty) value.
+                queueMicrotask(() => appState.update(st => ({ ...st, schemaState: inferred })));
+            }
         }
         if (!s.uploadedData) initialized = false;
     });

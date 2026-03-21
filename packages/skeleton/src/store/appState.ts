@@ -90,6 +90,72 @@ export interface ToolOptions {
     level3BackfillColor: string;
 }
 
+export interface VariableMeta {
+    key: string;
+    type: 'numerical' | 'categorical';
+    isId: boolean; // true if this is the unique ID column
+    isDimension: boolean; // true once "Create dimension" is confirmed via Q/A
+    removed: boolean; // true if user clicked "remove variable"
+}
+
+export interface FormulaToken {
+    kind:
+        | 'field_row'
+        | 'field_sum'
+        | 'field_mean'
+        | 'count_all'
+        | 'count_cat'
+        | 'literal_num'
+        | 'literal_str'
+        | 'op'
+        | 'if_cond';
+    value: string; // field name, operator symbol, or literal value
+    catValue?: string; // only for 'count_cat': the specific CAT value being counted
+}
+
+export interface ComputedVariable {
+    key: string; // new column name
+    tokens: FormulaToken[]; // formula as flat token array (evaluate left-to-right; if_cond splits into condition/then/else)
+}
+
+export interface LabelTemplate {
+    template: string; // {key:"fieldName"} / {value:"fieldName"} syntax (same as PropertiesPanel)
+    name: string; // noun: "data point", "bar", etc.
+    includeIndex: boolean; // append "X of Y"
+    includeParentName: boolean; // append "in [parent]"
+}
+
+export interface LabelConfig {
+    level0: LabelTemplate;
+    perDimension: Record<string, LabelTemplate>; // key = dimension column name, for level1 labels
+    perDivision: Record<string, LabelTemplate>; // key = dimension column name, for level2 labels
+    leaves: LabelTemplate;
+}
+
+export type QAChapterId = 'top-level-access' | 'dimensions' | 'navigation' | 'leaf-node-patterns';
+
+export interface QAChapterState {
+    id: QAChapterId;
+    completed: boolean;
+    answers: Record<string, unknown>; // questionId → answer value
+    invalidated: boolean; // true if a parent answer changed and this chapter needs re-validation
+}
+
+export interface QAProgress {
+    currentChapterId: QAChapterId;
+    currentQuestionId: string;
+    chapters: QAChapterState[];
+    invalidatedQuestions: string[]; // ids of downstream Q's that need re-answering (shown with ❌)
+}
+
+export interface PrepState {
+    hasRun: boolean; // true once user has answered at least Chapter 1 fully
+    variables: VariableMeta[];
+    customVariables: ComputedVariable[];
+    qaProgress: QAProgress;
+    labelConfig: LabelConfig;
+}
+
 export interface AppState {
     currentStep: number; // 0–4
     // Step 0 — Upload
@@ -113,6 +179,8 @@ export interface AppState {
     renderConfig: RenderConfig;
     // Tool options (canvas visibility controls)
     toolOptions: ToolOptions;
+    // Step 1 — Prep
+    prepState: PrepState | null; // null = prep hasn't been started
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -175,7 +243,8 @@ export const DEFAULT_APP_STATE: AppState = {
         level2BackfillColor: '#ffffff',
         showLevel3Nodes: true,
         level3BackfillColor: '#ffffff'
-    }
+    },
+    prepState: null
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });
