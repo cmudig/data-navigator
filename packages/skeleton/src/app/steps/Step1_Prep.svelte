@@ -2,7 +2,7 @@
 </script>
 
 <div class="step-placeholder">
-    <h2 id="step-heading-1" tabindex="-1">Data Prep</h2>
+    <h2 id="step-heading-1" tabindex="-1">Prep</h2>
     <blockquote>
         <p>Under construction.</p>
     </blockquote>

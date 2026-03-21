@@ -11,7 +11,7 @@
     import SchemaPanel from './app/components/SchemaPanel.svelte';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
-    import Step1_DataPrep from './app/steps/Step1_DataPrep.svelte';
+    import Step1_Prep from './app/steps/Step1_Prep.svelte';
     import Step2_Editor from './app/steps/Step2_Editor.svelte';
     import Step3_Testing from './app/steps/Step3_Testing.svelte';
     import Step4_Export from './app/steps/Step4_Export.svelte';
@@ -19,7 +19,7 @@
 
     const stepComponents = [
         Step0_Upload,
-        Step1_DataPrep,
+        Step1_Prep,
         Step2_Editor,
         Step3_Testing,
         Step4_Export,

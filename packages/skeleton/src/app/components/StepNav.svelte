@@ -8,7 +8,7 @@
 
     const steps = [
         { label: 'Upload',    index: 0 },
-        { label: 'Data Prep', index: 1 },
+        { label: 'Prep', index: 1 },
         { label: 'Editor',    index: 2 },
         { label: 'Testing',   index: 3 },
         { label: 'Export',    index: 4 },
