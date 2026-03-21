@@ -15,7 +15,6 @@
     // ─── Derived helpers ─────────────────────────────────────────────────────
     const activeVars = $derived(prep?.variables.filter(v => !v.removed) ?? []);
     const numVars = $derived(activeVars.filter(v => v.type === 'numerical'));
-    const catVars = $derived(activeVars.filter(v => v.type === 'categorical'));
     const hasId = $derived(activeVars.some(v => v.isId));
 
     // Working dataset: uploaded or custom
@@ -45,13 +44,8 @@
     // Step C
     let tokens = $state<FormulaToken[]>([]);
 
-    // For count_cat: which CAT field is selected for sub-picker
-    let countCatField = $state('');
-    let countCatValue = $state('');
-
-    // Literal inputs
+    // Literal number input
     let literalNum = $state('');
-    let literalStr = $state('');
 
     // If-cond sub-editor
     let ifField = $state('');
@@ -155,25 +149,11 @@
         addToken({ kind: 'count_all', value: 'count_all' });
     }
 
-    function addCountCat() {
-        if (!countCatField || !countCatValue) return;
-        addToken({ kind: 'count_cat', value: countCatField, catValue: countCatValue });
-        countCatField = '';
-        countCatValue = '';
-    }
-
     function addLiteralNum() {
         const n = String(literalNum).trim();
         if (!n || isNaN(Number(n))) return;
         addToken({ kind: 'literal_num', value: n });
         literalNum = '';
-    }
-
-    function addLiteralStr() {
-        const s = literalStr.trim();
-        if (!s) return;
-        addToken({ kind: 'literal_str', value: s });
-        literalStr = '';
     }
 
     function addIfCond() {
@@ -190,15 +170,6 @@
         ifElseField = '';
     }
 
-    // ─── Unique cat values for count_cat sub-picker ───────────────────────────
-    const countCatFieldUniqueValues = $derived(
-        countCatField
-            ? [...new Set(workingData.map(row => String(row[countCatField] ?? '')))]
-                .filter(v => v !== '')
-                .sort()
-            : []
-    );
-
     // ─── Token label helper ───────────────────────────────────────────────────
     function tokenLabel(t: FormulaToken): string {
         switch (t.kind) {
@@ -206,9 +177,7 @@
             case 'field_sum':   return `sum(${t.value})`;
             case 'field_mean':  return `mean(${t.value})`;
             case 'count_all':   return `count(all rows)`;
-            case 'count_cat':   return `count(${t.value} = "${t.catValue}")`;
             case 'literal_num': return t.value;
-            case 'literal_str': return `"${t.value}"`;
             case 'op':          return t.value;
             case 'if_cond':     return `if(${t.value})`;
             default:            return t.value;
@@ -244,16 +213,8 @@
                 case 'count_all':
                     values.push(allRows.length);
                     break;
-                case 'count_cat': {
-                    const count = allRows.filter(r => String(r[token.value]) === token.catValue).length;
-                    values.push(count);
-                    break;
-                }
                 case 'literal_num':
                     values.push(Number(token.value));
-                    break;
-                case 'literal_str':
-                    values.push(token.value);
                     break;
                 case 'op':
                     ops.push(token.value);
@@ -541,41 +502,6 @@
                             </section>
                         {/if}
 
-                        <!-- Count by category -->
-                        {#if catVars.length > 0}
-                            <section class="block-section" aria-labelledby="block-count-cat-label">
-                                <h4 class="block-section-label" id="block-count-cat-label">Count where field equals value</h4>
-                                <div class="inline-picker">
-                                    <label class="picker-label" for="count-cat-field">Column</label>
-                                    <select id="count-cat-field" class="picker-select" bind:value={countCatField}>
-                                        <option value="">— pick a column —</option>
-                                        {#each catVars as v}
-                                            <option value={v.key}>{v.key}</option>
-                                        {/each}
-                                    </select>
-
-                                    {#if countCatField && countCatFieldUniqueValues.length > 0}
-                                        <label class="picker-label" for="count-cat-value">Value</label>
-                                        <select id="count-cat-value" class="picker-select" bind:value={countCatValue}>
-                                            <option value="">— pick a value —</option>
-                                            {#each countCatFieldUniqueValues as val}
-                                                <option value={val}>{val}</option>
-                                            {/each}
-                                        </select>
-                                    {/if}
-
-                                    <button
-                                        class="chip chip-agg"
-                                        onclick={addCountCat}
-                                        disabled={!countCatField || !countCatValue}
-                                        aria-label="Add count where {countCatField} equals {countCatValue}"
-                                    >
-                                        + add count
-                                    </button>
-                                </div>
-                            </section>
-                        {/if}
-
                         <!-- Math operators -->
                         <section class="block-section" aria-labelledby="block-ops-label">
                             <h4 class="block-section-label" id="block-ops-label">Math operators</h4>
@@ -652,44 +578,25 @@
                             </div>
                         </section>
 
-                        <!-- Literal values -->
+                        <!-- Literal number -->
                         <section class="block-section" aria-labelledby="block-literal-label">
-                            <h4 class="block-section-label" id="block-literal-label">Literal values</h4>
-                            <div class="literal-group">
-                                <div class="literal-row">
-                                    <label class="picker-label" for="literal-num">Number</label>
-                                    <input
-                                        id="literal-num"
-                                        type="number"
-                                        class="picker-input"
-                                        placeholder="e.g. 100"
-                                        bind:value={literalNum}
-                                        onkeydown={(e) => { if (e.key === 'Enter') addLiteralNum(); }}
-                                    />
-                                    <button
-                                        class="chip chip-literal"
-                                        onclick={addLiteralNum}
-                                        disabled={!literalNum || isNaN(Number(literalNum))}
-                                        aria-label="Add number {literalNum}"
-                                    >+ add</button>
-                                </div>
-                                <div class="literal-row">
-                                    <label class="picker-label" for="literal-str">Text</label>
-                                    <input
-                                        id="literal-str"
-                                        type="text"
-                                        class="picker-input"
-                                        placeholder='e.g. "unknown"'
-                                        bind:value={literalStr}
-                                        onkeydown={(e) => { if (e.key === 'Enter') addLiteralStr(); }}
-                                    />
-                                    <button
-                                        class="chip chip-literal"
-                                        onclick={addLiteralStr}
-                                        disabled={!literalStr}
-                                        aria-label="Add text value {literalStr}"
-                                    >+ add</button>
-                                </div>
+                            <h4 class="block-section-label" id="block-literal-label">Literal number</h4>
+                            <div class="inline-picker">
+                                <label class="picker-label" for="literal-num">Number</label>
+                                <input
+                                    id="literal-num"
+                                    type="number"
+                                    class="picker-input"
+                                    placeholder="e.g. 100"
+                                    bind:value={literalNum}
+                                    onkeydown={(e) => { if (e.key === 'Enter') addLiteralNum(); }}
+                                />
+                                <button
+                                    class="chip chip-literal"
+                                    onclick={addLiteralNum}
+                                    disabled={!literalNum || isNaN(Number(literalNum))}
+                                    aria-label="Add number {literalNum}"
+                                >+ add</button>
                             </div>
                         </section>
 
