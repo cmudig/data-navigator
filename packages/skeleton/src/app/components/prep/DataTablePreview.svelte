@@ -1,16 +1,22 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { appState, type PrepState } from '../../../store/appState';
+    import CreateDataWizard from './CreateDataWizard.svelte';
+    import ComputedVariableModal from './ComputedVariableModal.svelte';
 
     // ─── Store mirrors ────────────────────────────────────────────────────────
     let data = $state<Record<string, unknown>[] | null>(null);
     let prep = $state<PrepState | null>(null);
 
     const unsub = appState.subscribe(s => {
-        data = s.uploadedData;
+        data = s.uploadedData ?? s.prepState?.customData ?? null;
         prep = s.prepState;
     });
     onDestroy(unsub);
+
+    // ─── Modal state ──────────────────────────────────────────────────────────
+    let showCreateDataWizard = $state(false);
+    let showComputedVariableModal = $state(false);
 
     // ─── Derived ──────────────────────────────────────────────────────────────
     // Active (non-removed) column keys, falling back to raw data keys if prep not initialized
@@ -37,13 +43,12 @@
         );
     }
 
-    // Stubs for future tasks
     function openCreateDataWizard() {
-        // TODO Task 6: open CreateDataWizard
+        showCreateDataWizard = true;
     }
 
     function openComputedVariableModal() {
-        // TODO Task 7: open ComputedVariableModal
+        showComputedVariableModal = true;
     }
 </script>
 
@@ -132,6 +137,14 @@
         </div>
     {/if}
 </div>
+
+{#if showCreateDataWizard}
+    <CreateDataWizard onclose={() => { showCreateDataWizard = false; }} />
+{/if}
+
+{#if showComputedVariableModal}
+    <ComputedVariableModal onclose={() => { showComputedVariableModal = false; }} />
+{/if}
 
 <style>
     .data-table-preview {

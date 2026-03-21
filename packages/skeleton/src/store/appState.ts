@@ -152,6 +152,7 @@ export interface PrepState {
     hasRun: boolean; // true once user has answered at least Chapter 1 fully
     variables: VariableMeta[];
     customVariables: ComputedVariable[];
+    customData: Record<string, unknown>[] | null; // rows created via CreateDataWizard
     qaProgress: QAProgress;
     labelConfig: LabelConfig;
 }

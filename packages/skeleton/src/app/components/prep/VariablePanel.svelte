@@ -6,6 +6,7 @@
         type VariableMeta,
         type QAChapterId,
     } from '../../../store/appState';
+    import ComputedVariableModal from './ComputedVariableModal.svelte';
 
     // ─── Store mirrors ────────────────────────────────────────────────────────
     let data = $state<Record<string, unknown>[] | null>(null);
@@ -30,6 +31,7 @@
                 hasRun: false,
                 variables: vars,
                 customVariables: [],
+                customData: null,
                 qaProgress: {
                     currentChapterId: 'top-level-access',
                     currentQuestionId: '',
@@ -148,9 +150,11 @@
         });
     }
 
-    // Stub: ComputedVariableModal (Task 6) — opens when "+ add variable" is clicked
+    // ─── Modal state ──────────────────────────────────────────────────────────
+    let showComputedVariableModal = $state(false);
+
     function openComputedVariableModal() {
-        // TODO Task 6: open ComputedVariableModal
+        showComputedVariableModal = true;
     }
 </script>
 
@@ -240,6 +244,10 @@
         {/if}
     {/if}
 </div>
+
+{#if showComputedVariableModal}
+    <ComputedVariableModal onclose={() => { showComputedVariableModal = false; }} />
+{/if}
 
 <style>
     .var-panel {
