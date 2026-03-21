@@ -50,15 +50,36 @@
         level3: 'individual data point',
     };
 
+    // ── Selected fields (derived from template) ───────────────────────────────
+    const selectedFields = $derived(
+        new Set([...value.template.matchAll(/\{value:"([^"]+)"\}/g)].map(m => m[1]))
+    );
+
     // ── Mutations ────────────────────────────────────────────────────────────
 
-    // Click a field pill: inserts " {key:"field"}: {value:"field"}, " normally,
-    // or just " {value:"field"}, " when omitKeyNames is on.
-    function appendField(fieldName: string) {
-        const token = value.omitKeyNames
-            ? ` {value:"${fieldName}"}, `
-            : ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
-        onchange({ ...value, template: value.template + token });
+    function removeField(fieldName: string): string {
+        let t = value.template;
+        // Try exact token removal first (both forms)
+        const withKey = ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
+        const valueOnly = ` {value:"${fieldName}"}, `;
+        if (t.includes(withKey)) return t.replace(withKey, '');
+        if (t.includes(valueOnly)) return t.replace(valueOnly, '');
+        // Fallback: strip any remaining {key:"field"} and {value:"field"} tokens
+        t = t.replace(new RegExp(`\\{key:"${fieldName}"\\}:\\s*`, 'g'), '');
+        t = t.replace(new RegExp(`\\{value:"${fieldName}"\\}`, 'g'), '');
+        return t;
+    }
+
+    // Click a field pill: toggles the field in/out of the template.
+    function toggleField(fieldName: string) {
+        if (selectedFields.has(fieldName)) {
+            onchange({ ...value, template: removeField(fieldName) });
+        } else {
+            const token = value.omitKeyNames
+                ? ` {value:"${fieldName}"}, `
+                : ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
+            onchange({ ...value, template: value.template + token });
+        }
     }
 
     function clearTemplate() {
@@ -103,14 +124,19 @@
     {#if fields.length > 0}
         <div class="lb-pills-area" aria-label="Available fields — click to add to label">
             {#each fields as field (field)}
+                {@const selected = selectedFields.has(field)}
                 <button
                     class="lb-pill"
-                    onclick={() => appendField(field)}
-                    aria-label={value.omitKeyNames
-                        ? `Add value of "${field}" to label`
-                        : `Add "${field}" name and value to label`}
+                    class:lb-pill-selected={selected}
+                    onclick={() => toggleField(field)}
+                    aria-pressed={selected}
+                    aria-label={selected
+                        ? `Remove "${field}" from label`
+                        : value.omitKeyNames
+                            ? `Add value of "${field}" to label`
+                            : `Add "${field}" name and value to label`}
                 >
-                    {field}
+                    {#if selected}<span class="lb-pill-check" aria-hidden="true">✓</span>{/if}{field}
                 </button>
             {/each}
         </div>
@@ -182,8 +208,8 @@
     </div>
 
     <!-- Preview is last so it can stick to the bottom of the scroll container -->
-    <div class="lb-preview-box" aria-live="polite" aria-label="Label preview">
-        <span class="lb-preview-label">Preview</span>
+    <div class="lb-preview-box" aria-live="polite">
+        <span class="lb-preview-label">label preview:</span>
         <span class="lb-preview-text">{preview}</span>
     </div>
 </div>
@@ -236,6 +262,22 @@
         background: var(--dn-accent);
         color: #fff;
         border-color: var(--dn-accent);
+    }
+
+    .lb-pill-selected {
+        background: var(--dn-accent);
+        color: #fff;
+        border-color: var(--dn-accent);
+    }
+
+    .lb-pill-selected:hover {
+        background: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
+        border-color: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
+    }
+
+    .lb-pill-check {
+        margin-right: 5px;
+        font-size: 0.75rem;
     }
 
     /* ── Template row ── */
@@ -293,15 +335,16 @@
         position: sticky;
         bottom: 0;
         z-index: 1;
-        padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 1.5);
+        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 1.25);
         border-radius: var(--dn-radius);
         /* Light green — kept in dark mode too so text is always readable */
         background: #f0fdf4;
         border: 1px solid #86efac;
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.12);
         display: flex;
-        flex-direction: column;
-        gap: calc(var(--dn-space) * 0.25);
+        flex-direction: row;
+        align-items: baseline;
+        gap: calc(var(--dn-space) * 0.75);
     }
 
     /* Dark mode: keep the box light so dark text stays readable */

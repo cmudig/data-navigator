@@ -87,12 +87,12 @@
         },
         {
             id: 'leaf-node-patterns',
-            label: 'Individual data points',
+            label: 'Labels & announcements',
             getQuestions: (prep, _schema, _data) => [
                 {
                     id: 'ch4-placeholder',
                     question: 'Chapter 4 questions are coming in the next session.',
-                    hint: 'This chapter helps you create a reusable template — a pattern — for how individual data points are announced. You set it up once, and it automatically applies to every data point in your visualization. The preview below shows what it will sound like for one example row.',
+                    hint: 'This chapter helps you create reusable label templates — patterns for what a screen reader announces at each level. You\'ll write one template for individual data points (applied to every row automatically), and one per browsing group level. The preview shows what each template sounds like using one example.',
                     inputType: 'label-builder',
                     nodeType: 'level3',
                     getFields: (p: PrepState) => p.variables.filter(v => !v.removed).map(v => v.key),
