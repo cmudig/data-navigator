@@ -4,6 +4,7 @@
         appState,
         type PrepState,
         type SchemaState,
+        type DimensionSchema,
         type LabelTemplate,
         type QAChapterId,
     } from '../../../store/appState';
@@ -34,6 +35,8 @@
         nodeType?: 'level0' | 'level1' | 'level2' | 'level3';
         getFields?: (prep: PrepState) => string[];
         getSampleData?: (data: Row[] | null, prep: PrepState) => Row;
+        defaultValue?: unknown; // overrides generic defaultValue() when no saved answer exists
+        maxSelect?: number; // multiselect only — limits selection count
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -43,64 +46,539 @@
         getQuestions: (prep: PrepState, schema: SchemaState, data: Row[] | null) => QAQuestionDef[];
     }
 
-    // ── Chapter definitions (stubs — content replaced in Session 5, Tasks 11–14) ──
-    // Each chapter has one placeholder question. Full question scripts come next session.
+    // ── Nav slot constants (mirrors SchemaPanel.NAV_SLOTS / DRILL_OUT_KEYS) ─────
+    const NAV_SLOTS_QA = [
+        { forwardName: 'up',      forwardKey: 'ArrowUp',    backwardName: 'down',     backwardKey: 'ArrowDown'  },
+        { forwardName: 'left',    forwardKey: 'ArrowLeft',  backwardName: 'right',    backwardKey: 'ArrowRight' },
+        { forwardName: 'forward', forwardKey: '[',          backwardName: 'backward', backwardKey: ']'          },
+    ] as const;
+    const DRILL_OUT_KEYS_QA = ['w', 'j', '\\'] as const;
+
+    function makeValidId(s: string): string {
+        return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
+    }
+
+    // ── Chapter definitions (Tasks 11–14) ────────────────────────────────────
     const CHAPTERS: QAChapterDef[] = [
+
+        // ── Chapter 1: Top-level access (Task 11) ────────────────────────────
         {
             id: 'top-level-access',
             label: 'Top-level access',
-            getQuestions: (_prep, _schema, _data) => [
-                {
-                    id: 'ch1-placeholder',
-                    question: 'Chapter 1 questions are coming in the next session.',
-                    hint: 'This chapter will ask about how users first arrive at your data — whether there\'s a single entry point, what it\'s called, and what a screen reader should say.',
-                    inputType: 'text',
-                    onAnswer: (_value, _prep, _schema, _data) => ({}),
-                },
-            ],
+            getQuestions: (prep, _schema, _data): QAQuestionDef[] => {
+                const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+                const questions: QAQuestionDef[] = [
+                    {
+                        id: 'dataset-description',
+                        question: 'What does this dataset represent, in plain English?',
+                        hint: 'Example: "Monthly sales figures for each product and region." This helps screen readers introduce the data.',
+                        inputType: 'text',
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: {
+                                    ...p.labelConfig,
+                                    level0: { ...p.labelConfig.level0, template: value as string },
+                                },
+                            }),
+                        }),
+                    },
+                    {
+                        id: 'root-node',
+                        question: 'Does your visualization have a single starting point that everything else branches from?',
+                        hint: 'Think of it like a home page — a place where navigation begins before drilling into any specific group.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.' },
+                            { value: 'no', label: 'No — let users start at the first group directly', description: 'Navigation begins at the first browsing group without a parent node.' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
+                        }),
+                    },
+                ];
+                // Q1.3 and Q1.4 appear only when Q1.2 = 'yes'
+                if (ch1Ans['root-node'] === 'yes') {
+                    questions.push({
+                        id: 'root-label',
+                        question: 'What should we call this starting point?',
+                        hint: 'Keep it short and descriptive. Example: "Sales Overview", "Chart Start", or "All Products".',
+                        inputType: 'text',
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({ ...sch, level0Id: makeValidId(value as string) || 'root' }),
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: {
+                                    ...p.labelConfig,
+                                    level0: { ...p.labelConfig.level0, name: value as string },
+                                },
+                            }),
+                        }),
+                    });
+                    questions.push({
+                        id: 'root-semantic-label',
+                        question: 'What should a screen reader say when a user arrives at this starting point?',
+                        hint: 'Example: "You are at the chart overview. Press Enter to begin exploring." Try to orient the user clearly.',
+                        inputType: 'textarea',
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: {
+                                    ...p.labelConfig,
+                                    level0: { ...p.labelConfig.level0, template: value as string },
+                                },
+                            }),
+                        }),
+                    });
+                }
+                return questions;
+            },
         },
+
+        // ── Chapter 2: Dimensions (Task 12) ──────────────────────────────────
         {
             id: 'dimensions',
             label: 'Browsing groups',
-            getQuestions: (_prep, _schema, _data) => [
-                {
-                    id: 'ch2-placeholder',
-                    question: 'Chapter 2 questions are coming in the next session.',
-                    hint: 'This chapter will ask which columns should become navigable browsing groups, their type, sort order, and layering.',
-                    inputType: 'text',
-                    onAnswer: (_value, _prep, _schema, _data) => ({}),
-                },
-            ],
+            getQuestions: (prep, schema, data): QAQuestionDef[] => {
+                const includedDims = schema.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+
+                const questions: QAQuestionDef[] = [
+                    {
+                        id: 'choose-dimensions',
+                        question: 'Which columns in your data should users be able to browse through?',
+                        hint: 'These become the main groups in your navigation — like chapters in a book. Pick up to 3. Examples: "Category", "Year", "Region". Skip columns that are only used for IDs, labels, or raw signal values.',
+                        inputType: 'multiselect',
+                        maxSelect: 3,
+                        getDynamicOptions: (p, _s, d) => p.variables
+                            .filter(v => !v.removed)
+                            .map(v => {
+                                const vals = (d ?? []).map(row => row[v.key]).filter(x => x != null);
+                                const unique = [...new Set(vals.map(x => String(x)))];
+                                const desc = v.type === 'numerical'
+                                    ? (() => {
+                                        const nums = vals.map(x => Number(x)).filter(x => !isNaN(x));
+                                        return nums.length > 0
+                                            ? `NUM — range: ${Math.min(...nums)}–${Math.max(...nums)}`
+                                            : 'NUM';
+                                    })()
+                                    : `CAT — ${unique.length} unique value${unique.length !== 1 ? 's' : ''}`;
+                                return { value: v.key, label: v.key, description: desc };
+                            }),
+                        onAnswer: (value, prepAtCall, _s, _d) => {
+                            const selected = Array.isArray(value) ? (value as string[]) : [];
+                            return {
+                                prepPatch: (p) => ({
+                                    ...p,
+                                    variables: p.variables.map(v => ({
+                                        ...v,
+                                        isDimension: selected.includes(v.key),
+                                    })),
+                                }),
+                                schemaPatch: (sch) => {
+                                    const existing = sch.dimensions;
+                                    const newDims: DimensionSchema[] = selected.map((key, idx) => {
+                                        const prev = existing.find(d => d.key === key);
+                                        const varMeta = prepAtCall.variables.find(v => v.key === key);
+                                        const type = varMeta?.type ?? prev?.type ?? 'categorical';
+                                        if (prev) return { ...prev, included: true, navIndex: idx, type };
+                                        return {
+                                            key, type, included: true, navIndex: idx,
+                                            extents: (type === 'categorical' ? 'circular' : 'bridgedCousins') as DimensionSchema['extents'],
+                                            compressSparseDivisions: false,
+                                            sortMethod: (type === 'numerical' ? 'ascending' : 'none') as DimensionSchema['sortMethod'],
+                                            subdivisions: 4, divisions: [],
+                                            forwardName: '', forwardKey: '',
+                                            backwardName: '', backwardKey: '',
+                                            drillInName: 'drill in', drillInKey: 'Enter',
+                                            drillOutName: 'drill out', drillOutKey: 'Backspace',
+                                        };
+                                    });
+                                    const unselected = existing
+                                        .filter(d => !selected.includes(d.key))
+                                        .map(d => ({ ...d, included: false, navIndex: null }));
+                                    return { ...sch, dimensions: [...newDims, ...unselected] };
+                                },
+                            };
+                        },
+                    },
+                ];
+
+                // Per-dimension questions (Q2.2, Q2.3, Q2.4)
+                for (const dim of includedDims) {
+                    // Q2.2 — Confirm type
+                    questions.push({
+                        id: `dim-type-${dim.key}`,
+                        question: `We think "${dim.key}" contains ${dim.type === 'categorical' ? 'categorical' : 'numerical'} values. Does that sound right?`,
+                        hint: dim.type === 'categorical'
+                            ? 'Categorical means the values are labels or names — like "North", "South", "East".'
+                            : 'Numerical means the values are numbers — like prices, counts, or measurements.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes, that\'s right' },
+                            { value: 'no-cat', label: 'No — these are categories (names or labels)' },
+                            { value: 'no-num', label: 'No — these are numbers' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => {
+                            const newType: 'numerical' | 'categorical' =
+                                value === 'no-num' ? 'numerical' :
+                                value === 'no-cat' ? 'categorical' :
+                                dim.type;
+                            return {
+                                prepPatch: (p) => ({
+                                    ...p,
+                                    variables: p.variables.map(v =>
+                                        v.key === dim.key ? { ...v, type: newType } : v
+                                    ),
+                                }),
+                                schemaPatch: (sch) => ({
+                                    ...sch,
+                                    dimensions: sch.dimensions.map(d =>
+                                        d.key === dim.key ? {
+                                            ...d, type: newType,
+                                            sortMethod: (newType === 'numerical' ? 'ascending' : 'none') as DimensionSchema['sortMethod'],
+                                            extents: (newType === 'categorical' ? 'circular' : 'bridgedCousins') as DimensionSchema['extents'],
+                                        } : d
+                                    ),
+                                }),
+                            };
+                        },
+                    });
+
+                    // Q2.3 — Subdivisions (numerical only)
+                    if (dim.type === 'numerical') {
+                        questions.push({
+                            id: `dim-subdivisions-${dim.key}`,
+                            question: `For "${dim.key}", how many buckets should we split the number range into?`,
+                            hint: 'For example, if values range from 0–100 and you pick 4 buckets, users navigate through 4 ranges: 0–25, 25–50, 50–75, 75–100. Fewer buckets = easier to navigate; more = more precision. 4 is a good starting point.',
+                            inputType: 'dropdown',
+                            options: [
+                                { value: '2', label: '2 buckets' },
+                                { value: '3', label: '3 buckets' },
+                                { value: '4', label: '4 buckets (recommended)' },
+                                { value: '5', label: '5 buckets' },
+                                { value: '6', label: '6 buckets' },
+                                { value: '8', label: '8 buckets' },
+                                { value: '10', label: '10 buckets' },
+                                { value: '12', label: '12 buckets' },
+                            ],
+                            defaultValue: '4',
+                            onAnswer: (value, _p, _s, _d) => ({
+                                schemaPatch: (sch) => ({
+                                    ...sch,
+                                    dimensions: sch.dimensions.map(d =>
+                                        d.key === dim.key ? { ...d, subdivisions: Number(value) } : d
+                                    ),
+                                }),
+                            }),
+                        });
+                    }
+
+                    // Q2.4 — Sort order
+                    questions.push({
+                        id: `dim-sort-${dim.key}`,
+                        question: `In what order should "${dim.key}" groups appear?`,
+                        inputType: 'radio',
+                        options: dim.type === 'categorical'
+                            ? [
+                                { value: 'none', label: 'Original order (as they appear in the data)' },
+                                { value: 'ascending', label: 'Alphabetical (A → Z)' },
+                                { value: 'descending', label: 'Reverse alphabetical (Z → A)' },
+                            ]
+                            : [
+                                { value: 'ascending', label: 'Lowest to highest' },
+                                { value: 'descending', label: 'Highest to lowest' },
+                            ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({
+                                ...sch,
+                                dimensions: sch.dimensions.map(d =>
+                                    d.key === dim.key
+                                        ? { ...d, sortMethod: value as DimensionSchema['sortMethod'] }
+                                        : d
+                                ),
+                            }),
+                        }),
+                    });
+                }
+
+                // Q2.5 — Dimension order (only if 2+ dimensions selected)
+                if (includedDims.length >= 2) {
+                    questions.push({
+                        id: 'dim-order',
+                        question: 'In what order should your browsing groups be layered? Use the up/down buttons to reorder.',
+                        hint: 'The first group is the outermost layer — users navigate into it first. Later groups are nested deeper inside.',
+                        inputType: 'drag-order',
+                        options: includedDims.map(d => ({ value: d.key, label: d.key })),
+                        defaultValue: includedDims.map(d => d.key),
+                        onAnswer: (value, _p, _s, _d) => {
+                            const newOrder = Array.isArray(value) ? (value as string[]) : [];
+                            return {
+                                schemaPatch: (sch) => ({
+                                    ...sch,
+                                    dimensions: sch.dimensions.map(d => {
+                                        const newIdx = newOrder.indexOf(d.key);
+                                        return newIdx === -1 ? d : { ...d, navIndex: newIdx };
+                                    }),
+                                }),
+                            };
+                        },
+                    });
+                }
+
+                return questions;
+            },
         },
+
+        // ── Chapter 3: Navigation (Task 13) ──────────────────────────────────
         {
             id: 'navigation',
             label: 'Navigation',
-            getQuestions: (_prep, _schema, _data) => [
-                {
-                    id: 'ch3-placeholder',
-                    question: 'Chapter 3 questions are coming in the next session.',
-                    hint: 'This chapter will ask which keyboard layout to use and what happens when users reach the ends of groups.',
-                    inputType: 'text',
-                    onAnswer: (_value, _prep, _schema, _data) => ({}),
-                },
-            ],
+            getQuestions: (prep, schema, _data): QAQuestionDef[] => {
+                const dims = schema.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+
+                // Slot assignment per preset: index = dim position (by navIndex), value = which NAV_SLOTS_QA entry to use
+                const SLOT_ORDER: Record<string, number[]> = {
+                    updown:    [0, 1, 2],
+                    leftright: [1, 0, 2],
+                    brackets:  [2, 0, 1],
+                };
+
+                const questions: QAQuestionDef[] = [
+                    {
+                        id: 'nav-preset',
+                        question: 'How should keyboard users move between groups in your data? Pick the key layout that fits your visualization.',
+                        hint: "There's no wrong answer — these are just defaults that users can customize later.",
+                        inputType: 'radio',
+                        options: [
+                            { value: 'updown',    label: 'Up/Down arrows (+ W to go back up)',       description: 'Press ↑/↓ to move between groups. Press Enter to go inside a group. Press W to return to the parent level.' },
+                            { value: 'leftright', label: 'Left/Right arrows (+ J to go back up)',    description: 'Press ←/→ to move between groups. Press Enter to go inside a group. Press J to return to the parent level.' },
+                            { value: 'brackets',  label: '[ and ] brackets (+ \\ to go back up)',   description: 'Press [ or ] to move between groups. Press Enter to go inside a group. Press \\ to return to the parent level.' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => {
+                            const preset = value as string;
+                            return {
+                                schemaPatch: (sch) => {
+                                    const sortedDims = sch.dimensions
+                                        .filter(d => d.included)
+                                        .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+                                    const slotOrder = SLOT_ORDER[preset] ?? [0, 1, 2];
+                                    const updatedDims = sch.dimensions.map(d => {
+                                        if (!d.included) return d;
+                                        const dimIdx = sortedDims.findIndex(sd => sd.key === d.key);
+                                        if (dimIdx < 0) return d;
+                                        const slotIdx = slotOrder[dimIdx] ?? dimIdx;
+                                        const slot = NAV_SLOTS_QA[slotIdx] ?? NAV_SLOTS_QA[0];
+                                        const drillOutKey = sortedDims.length > 1
+                                            ? (DRILL_OUT_KEYS_QA[d.navIndex ?? 0] ?? 'Backspace')
+                                            : 'Backspace';
+                                        return {
+                                            ...d,
+                                            forwardName: slot.forwardName,
+                                            forwardKey: slot.forwardKey,
+                                            backwardName: slot.backwardName,
+                                            backwardKey: slot.backwardKey,
+                                            drillInName: 'drill in',
+                                            drillInKey: 'Enter',
+                                            drillOutName: sortedDims.length > 1 ? `drill out to ${d.key}` : 'drill out',
+                                            drillOutKey,
+                                        };
+                                    });
+                                    const firstSlotIdx = slotOrder[0] ?? 1;
+                                    const firstSlot = NAV_SLOTS_QA[firstSlotIdx] ?? NAV_SLOTS_QA[1];
+                                    return {
+                                        ...sch,
+                                        dimensions: updatedDims,
+                                        level1NavForwardName: firstSlot.forwardName,
+                                        level1NavForwardKey: firstSlot.forwardKey,
+                                        level1NavBackwardName: firstSlot.backwardName,
+                                        level1NavBackwardKey: firstSlot.backwardKey,
+                                    };
+                                },
+                            };
+                        },
+                    },
+                ];
+
+                // Q3.2 — Per-dimension extent behavior
+                for (const dim of dims) {
+                    questions.push({
+                        id: `dim-extents-${dim.key}`,
+                        question: `When a user reaches the last group in "${dim.key}", what should happen?`,
+                        hint: 'Think about what feels natural for your data. If groups represent a continuous cycle (like months of the year), looping makes sense. If they represent distinct categories with clear endpoints, stopping there is cleaner.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'circular',       label: 'Loop back to the beginning',       description: 'After the last group, navigation wraps around to the first group. Good for cyclical data (months, days of week).' },
+                            { value: 'terminal',       label: 'Stop at the last group',            description: 'Navigation stops at the final group. Good for ordered data with a clear start and end.' },
+                            ...(dim.type === 'numerical' ? [{ value: 'bridgedCousins', label: 'Skip empty groups (numerical only)', description: 'If some buckets have no data, navigation skips over them to the next group that has data. Only available for number ranges.' }] : []),
+                        ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({
+                                ...sch,
+                                dimensions: sch.dimensions.map(d =>
+                                    d.key === dim.key
+                                        ? { ...d, extents: value as DimensionSchema['extents'] }
+                                        : d
+                                ),
+                            }),
+                        }),
+                    });
+                }
+
+                // Q3.3 — Top-level extent (only if no root/level0 node)
+                if (!schema.level0Enabled) {
+                    questions.push({
+                        id: 'top-level-extents',
+                        question: 'When a user reaches the last browsing group at the top level, what should happen?',
+                        hint: "The 'top level' is where your main groups live — e.g., 'Category A', 'Category B', 'Category C'. This decides what happens after the last one.",
+                        inputType: 'radio',
+                        options: [
+                            { value: 'circular', label: 'Loop back to the first group' },
+                            { value: 'terminal', label: 'Stop at the last group' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({
+                                ...sch,
+                                level1Extents: value as SchemaState['level1Extents'],
+                            }),
+                        }),
+                    });
+                }
+
+                // Q3.4 — Cross-group nav at data level (only if 2+ dimensions)
+                if (dims.length >= 2) {
+                    questions.push({
+                        id: 'cross-group-nav',
+                        question: 'When a user is looking at an individual data point, can they jump directly to the same position in a neighboring group?',
+                        hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when groups have matching items in the same position.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'across', label: 'Yes — let them jump across groups',      description: 'Best when groups have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
+                            { value: 'within', label: 'No — keep them within their current group', description: 'Best when groups are independent (e.g., different categories with different numbers of items).' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({
+                                ...sch,
+                                childmostNavigation: value as SchemaState['childmostNavigation'],
+                            }),
+                        }),
+                    });
+                }
+
+                return questions;
+            },
         },
+
+        // ── Chapter 4: Labels & announcements (Task 14) ──────────────────────
         {
             id: 'leaf-node-patterns',
             label: 'Labels & announcements',
-            getQuestions: (prep, _schema, _data) => [
-                {
-                    id: 'ch4-placeholder',
-                    question: 'Chapter 4 questions are coming in the next session.',
-                    hint: 'This chapter helps you create reusable label templates — patterns for what a screen reader announces at each level. You\'ll write one template for individual data points (applied to every row automatically), and one per browsing group level. The preview shows what each template sounds like using one example.',
-                    inputType: 'label-builder',
-                    nodeType: 'level3',
-                    getFields: (p: PrepState) => p.variables.filter(v => !v.removed).map(v => v.key),
-                    getSampleData: (data: Row[] | null, _p: PrepState) => data?.[0] ?? {},
-                    onAnswer: (_value, _prep, _schema, _data) => ({}),
-                },
-            ],
+            getQuestions: (prep, schema, data): QAQuestionDef[] => {
+                const dims = schema.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+
+                const questions: QAQuestionDef[] = [
+                    // Q4.1 — Leaf label template
+                    {
+                        id: 'leaf-label',
+                        question: "Let's set up a template for how individual data points are announced. When a user navigates to one, what should a screen reader say?",
+                        hint: "Use the field buttons below to build your template. The placeholders like {value:\"score\"} are automatically replaced with real data from each row. You're setting this up once — it will apply to every data point in your visualization. The preview shows what it will sound like for one example row.",
+                        inputType: 'label-builder',
+                        nodeType: 'level3',
+                        getFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
+                        getSampleData: (d, _p) => d?.[0] ?? {},
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: { ...p.labelConfig, leaves: value as LabelTemplate },
+                            }),
+                        }),
+                    },
+                ];
+
+                // Q4.2 — Group header label (per dimension)
+                for (const dim of dims) {
+                    const firstUniqueVal = (() => {
+                        const vals = (data ?? []).map(row => row[dim.key]);
+                        const unique = [...new Set(vals.map(x => String(x)))];
+                        return unique[0] ?? '(example)';
+                    })();
+                    const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
+                    const suggestedTemplate = `{key:"${dim.key}"}: {value:"${dim.key}"}`;
+
+                    questions.push({
+                        id: `dim-label-${dim.key}`,
+                        question: `Now let's set up a template for "${dim.key}" group headers — what a screen reader says when a user arrives at this type of group.`,
+                        hint: `You're writing one template that applies to every group in this browsing layer. The {value:"${dim.key}"} placeholder is replaced with the actual group value for each group. Example: "${dim.key}: Electronics" or "${dim.key}: 2020".`,
+                        inputType: 'label-builder',
+                        nodeType: 'level1',
+                        getFields: (_p) => [dim.key, 'count'],
+                        getSampleData: (_d, _p) => ({ [dim.key]: firstUniqueVal, count: countForFirst }),
+                        defaultValue: {
+                            template: suggestedTemplate, name: dim.key.toLowerCase(),
+                            includeIndex: false, includeParentName: false, omitKeyNames: false,
+                        } as LabelTemplate,
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: {
+                                    ...p.labelConfig,
+                                    perDimension: { ...p.labelConfig.perDimension, [dim.key]: value as LabelTemplate },
+                                },
+                            }),
+                        }),
+                    });
+
+                    // Q4.3 — Sub-group label (numerical dims with subdivisions > 1 only)
+                    if (dim.type === 'numerical' && dim.subdivisions > 1) {
+                        const numVals = (data ?? [])
+                            .map(row => Number(row[dim.key]))
+                            .filter(n => !isNaN(n))
+                            .sort((a, b) => a - b);
+                        let exampleRange = '(example range)';
+                        let exampleCount = 0;
+                        if (numVals.length > 0) {
+                            const min = numVals[0];
+                            const max = numVals[numVals.length - 1];
+                            const bucket = (max - min) / dim.subdivisions;
+                            const bMin = min;
+                            const bMax = Math.round((min + bucket) * 100) / 100;
+                            exampleRange = `${Math.round(bMin * 100) / 100}–${bMax}`;
+                            exampleCount = numVals.filter(n => n >= bMin && n < bMin + bucket).length;
+                        }
+                        questions.push({
+                            id: `div-label-${dim.key}`,
+                            question: `For "${dim.key}" sub-groups, what should a screen reader say when a user arrives at a specific range or subset?`,
+                            hint: `This template applies to each sub-group (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket.`,
+                            inputType: 'label-builder',
+                            nodeType: 'level2',
+                            getFields: (_p) => ['range', 'count'],
+                            getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
+                            defaultValue: {
+                                template: '{value:"range"}', name: 'range',
+                                includeIndex: false, includeParentName: false, omitKeyNames: false,
+                            } as LabelTemplate,
+                            onAnswer: (value, _p, _s, _d) => ({
+                                prepPatch: (p) => ({
+                                    ...p,
+                                    labelConfig: {
+                                        ...p.labelConfig,
+                                        perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
+                                    },
+                                }),
+                            }),
+                        });
+                    }
+                }
+
+                return questions;
+            },
         },
+
     ];
 
     // ── Store mirrors ─────────────────────────────────────────────────────────
@@ -173,12 +651,19 @@
         return '';
     }
 
-    // Preload saved answer whenever the active question changes
+    // Preload saved answer whenever the active question changes.
+    // Falls back to question-specific defaultValue, then generic defaultValue().
     $effect(() => {
         if (!currentQuestion || !prep) return;
         const chapter = prep.qaProgress.chapters.find(c => c.id === chapterId);
         const saved = chapter?.answers[currentQuestion.id];
-        pendingValue = saved !== undefined ? saved : defaultValue(currentQuestion.inputType);
+        if (saved !== undefined) {
+            pendingValue = saved;
+        } else if (currentQuestion.defaultValue !== undefined) {
+            pendingValue = currentQuestion.defaultValue;
+        } else {
+            pendingValue = defaultValue(currentQuestion.inputType);
+        }
     });
 
     // ── Navigation ────────────────────────────────────────────────────────────
@@ -189,15 +674,14 @@
         const snapshotQId = currentQuestion.id;
         const snapshotChId = chapterId;
         const snapshotChIdx = chapterIndex;
-        const snapshotQIdx = currentQuestionIndex;
-        const snapshotTotalQs = currentQuestions.length;
-        // Capture question list at this moment for next-id lookup
-        const snapshotQuestions = currentQuestions;
+        // Snapshot the chapter def so we can re-evaluate questions inside appState.update
+        const snapshotChapterDef = currentChapterDef;
 
         appState.update(s => {
             if (!s.prepState) return s;
             let p: PrepState = s.prepState;
             let sch: SchemaState = s.schemaState;
+            const d = s.uploadedData ?? s.prepState?.customData ?? null;
 
             // Apply patches from onAnswer
             if (update.schemaPatch) sch = update.schemaPatch(sch);
@@ -216,11 +700,17 @@
                 },
             };
 
-            if (snapshotQIdx < snapshotTotalQs - 1) {
-                // Next question in same chapter
-                p = { ...p, qaProgress: { ...p.qaProgress, currentQuestionId: snapshotQuestions[snapshotQIdx + 1].id } };
+            // Re-evaluate the chapter's question list with updated state.
+            // This handles conditional questions (e.g. Q1.3/Q1.4 appear only after Q1.2='yes',
+            // and per-dim Q2.3 appears only for numerical dims).
+            const updatedQs = snapshotChapterDef.getQuestions(p, sch, d);
+            const idxInUpdated = updatedQs.findIndex(q => q.id === snapshotQId);
+
+            if (idxInUpdated >= 0 && idxInUpdated < updatedQs.length - 1) {
+                // More questions in this chapter after re-evaluation — advance to next
+                p = { ...p, qaProgress: { ...p.qaProgress, currentQuestionId: updatedQs[idxInUpdated + 1].id } };
             } else {
-                // Last question in chapter — mark chapter complete
+                // Last visible question in chapter — mark chapter complete
                 p = {
                     ...p,
                     qaProgress: {
@@ -236,7 +726,7 @@
                 // Advance to next chapter if not at the end
                 if (snapshotChIdx < CHAPTERS.length - 1) {
                     const nextChapter = CHAPTERS[snapshotChIdx + 1];
-                    const nextQs = nextChapter.getQuestions(p, sch, data);
+                    const nextQs = nextChapter.getQuestions(p, sch, d);
                     p = {
                         ...p,
                         qaProgress: {
@@ -357,6 +847,7 @@
                 fields={resolvedFields}
                 sampleData={resolvedSampleData}
                 nodeType={currentQuestion.nodeType ?? 'level3'}
+                maxSelect={currentQuestion.maxSelect}
             />
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>

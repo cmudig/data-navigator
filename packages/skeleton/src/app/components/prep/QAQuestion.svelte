@@ -20,6 +20,8 @@
         fields?: string[];
         sampleData?: Record<string, unknown>;
         nodeType?: 'level0' | 'level1' | 'level2' | 'level3';
+        // multiselect limit
+        maxSelect?: number;
     }
 
     let {
@@ -32,6 +34,7 @@
         fields = [],
         sampleData = {},
         nodeType = 'level3',
+        maxSelect,
     }: Props = $props();
 
     // ── Multiselect helpers ───────────────────────────────────────────────────
@@ -39,8 +42,15 @@
         return Array.isArray(value) && (value as string[]).includes(optValue);
     }
 
+    let multiselectWarning = $state('');
+
     function toggleMultiselect(optValue: string) {
         const current = Array.isArray(value) ? (value as string[]) : [];
+        if (!isChecked(optValue) && maxSelect !== undefined && current.length >= maxSelect) {
+            multiselectWarning = `We recommend using at most ${maxSelect} browsing groups for accessibility reasons. You can enable more later in advanced settings.`;
+            return;
+        }
+        multiselectWarning = '';
         const next = isChecked(optValue)
             ? current.filter(v => v !== optValue)
             : [...current, optValue];
@@ -171,6 +181,9 @@
                     </label>
                 {/each}
             </fieldset>
+            {#if multiselectWarning}
+                <p class="qa-multiselect-warning" role="alert">{multiselectWarning}</p>
+            {/if}
 
         {:else if inputType === 'label-builder'}
             <LabelBuilder
@@ -326,6 +339,24 @@
         font-size: 0.8125rem;
         color: var(--dn-text-muted);
         line-height: 1.45;
+    }
+
+    /* ── Multiselect warning ── */
+
+    .qa-multiselect-warning {
+        margin: 0;
+        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
+        border: 1px solid #fca5a5;
+        border-radius: var(--dn-radius);
+        background: #fef2f2;
+        color: #b91c1c;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+    }
+    .dark .qa-multiselect-warning {
+        background: rgba(239, 68, 68, 0.08);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
     }
 
     /* ── Drag-order list ── */
