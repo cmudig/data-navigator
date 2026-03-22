@@ -9,6 +9,7 @@
         type QAChapterId,
     } from '../../../store/appState';
     import QAQuestion from './QAQuestion.svelte';
+    import { computeDimensionSuggestion } from './dimensionSuggestions';
 
     // ── Types (used by Tasks 11–14 to define chapter content) ─────────────────
     type Row = Record<string, unknown>;
@@ -18,6 +19,7 @@
         label: string;
         description?: string;
         disabled?: boolean;
+        suggested?: boolean; // highlights the option as a chart-type-aware recommendation
     }
 
     interface StoreUpdate {
@@ -37,6 +39,8 @@
         getSampleData?: (data: Row[] | null, prep: PrepState) => Row;
         defaultValue?: unknown; // overrides generic defaultValue() when no saved answer exists
         maxSelect?: number; // multiselect only — limits selection count
+        expandableInfo?: { buttonLabel: string; content: string };
+        suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -73,6 +77,7 @@
         'network':       'Network or relationship diagram',
         'map':           'Map or geographic chart',
     };
+
 
     // ── Helper: append "Contains interactive elements." to root announcement ──
     // Called inside prepPatch closures for any question that marks elements interactive.
@@ -124,7 +129,45 @@
                     },
                 ];
 
-                // Q1.2–Q1.6 only appear when Q1.1 = 'yes'
+                // Q1.4 — Chart type dropdown (always shown; hint adapts to root-node choice)
+                questions.push({
+                    id: 'chart-type',
+                    question: 'What type of chart or visualization is this?',
+                    hint: ch1Ans['root-node'] === 'yes'
+                        ? 'This is announced in the opening description so screen reader users know what kind of chart they are exploring.'
+                        : 'This helps us suggest some options later.',
+                    inputType: 'dropdown',
+                    options: [
+                        { value: 'bar',           label: 'Bar chart' },
+                        { value: 'stacked-bar',   label: 'Stacked bar chart' },
+                        { value: 'clustered-bar', label: 'Clustered bar chart' },
+                        { value: 'line',          label: 'Line chart' },
+                        { value: 'area',          label: 'Area chart' },
+                        { value: 'scatter',       label: 'Scatter plot' },
+                        { value: 'pie',           label: 'Pie chart' },
+                        { value: 'donut',         label: 'Donut chart' },
+                        { value: 'heatmap',       label: 'Heatmap' },
+                        { value: 'treemap',       label: 'Treemap' },
+                        { value: 'network',       label: 'Network or relationship diagram' },
+                        { value: 'map',           label: 'Map or geographic chart' },
+                        { value: 'custom',        label: 'Custom...' },
+                    ],
+                    onAnswer: (_value, _p, _s, _d) => ({}),
+                });
+
+                // Q1.4b — Custom chart type (only when Q1.4 = 'custom')
+                if (ch1Ans['chart-type'] === 'custom') {
+                    questions.push({
+                        id: 'chart-type-custom',
+                        question: 'What would you call this type of visualization?',
+                        hint: 'Describe it in plain terms — users will hear this. Example: "bubble chart", "timeline", "network diagram".',
+                        inputType: 'text',
+                        defaultValue: 'chart',
+                        onAnswer: (_value, _p, _s, _d) => ({}),
+                    });
+                }
+
+                // Q1.2–Q1.3, Q1.5–Q1.6 only appear when Q1.1 = 'yes'
                 if (ch1Ans['root-node'] === 'yes') {
 
                     // Q1.2 — Dataset description (alt text for the root node)
@@ -154,42 +197,6 @@
                             }),
                         }),
                     });
-
-                    // Q1.4 — Chart type dropdown
-                    questions.push({
-                        id: 'chart-type',
-                        question: 'What type of chart or visualization is this?',
-                        hint: 'This is announced in the opening description so screen reader users know what kind of chart they are exploring.',
-                        inputType: 'dropdown',
-                        options: [
-                            { value: 'bar',           label: 'Bar chart' },
-                            { value: 'stacked-bar',   label: 'Stacked bar chart' },
-                            { value: 'clustered-bar', label: 'Clustered bar chart' },
-                            { value: 'line',          label: 'Line chart' },
-                            { value: 'area',          label: 'Area chart' },
-                            { value: 'scatter',       label: 'Scatter plot' },
-                            { value: 'pie',           label: 'Pie chart' },
-                            { value: 'donut',         label: 'Donut chart' },
-                            { value: 'heatmap',       label: 'Heatmap' },
-                            { value: 'treemap',       label: 'Treemap' },
-                            { value: 'network',       label: 'Network or relationship diagram' },
-                            { value: 'map',           label: 'Map or geographic chart' },
-                            { value: 'custom',        label: 'Custom...' },
-                        ],
-                        onAnswer: (_value, _p, _s, _d) => ({}),
-                    });
-
-                    // Q1.4b — Custom chart type (only when Q1.4 = 'custom')
-                    if (ch1Ans['chart-type'] === 'custom') {
-                        questions.push({
-                            id: 'chart-type-custom',
-                            question: 'What would you call this type of visualization?',
-                            hint: 'Describe it in plain terms — users will hear this. Example: "bubble chart", "timeline", "network diagram".',
-                            inputType: 'text',
-                            defaultValue: 'chart',
-                            onAnswer: (_value, _p, _s, _d) => ({}),
-                        });
-                    }
 
                     // Q1.5 — Interactive elements checkbox
                     questions.push({
@@ -250,33 +257,58 @@
                     .filter(d => d.included)
                     .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
+                const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+                const chartTypeForHint = (ch1Ans['chart-type'] as string | undefined) ?? '';
+                const chartLabelForHint = chartTypeForHint ? (CHART_TYPE_LABELS[chartTypeForHint] ?? '') : '';
+                const chooseDimHint = chartLabelForHint
+                    ? `These become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}.`
+                    : 'These become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values.';
+
                 const questions: QAQuestionDef[] = [
                     {
                         id: 'choose-dimensions',
-                        question: 'Which columns in your data should users be able to browse through?',
-                        hint: 'These become the main groups in your navigation — like chapters in a book. Pick up to 3. Examples: "Category", "Year", "Region". Skip columns that are only used for IDs, labels, or raw signal values.',
+                        question: 'Which variables in your data should be used to structure how users navigate and browse dimensions in your chart?',
+                        hint: chooseDimHint,
                         inputType: 'multiselect',
                         maxSelect: 3,
-                        getDynamicOptions: (p, _s, d) => p.variables
-                            .filter(v => !v.removed)
-                            .map(v => {
-                                const vals = (d ?? []).map(row => row[v.key]).filter(x => x != null);
-                                const unique = [...new Set(vals.map(x => String(x)))];
-                                const desc = v.type === 'numerical'
-                                    ? (() => {
-                                        const nums = vals.map(x => Number(x)).filter(x => !isNaN(x));
-                                        return nums.length > 0
-                                            ? `NUM — range: ${Math.min(...nums)}–${Math.max(...nums)}`
-                                            : 'NUM';
-                                    })()
-                                    : `CAT — ${unique.length} unique value${unique.length !== 1 ? 's' : ''}`;
-                                return { value: v.key, label: v.key, description: desc };
-                            }),
+                        expandableInfo: {
+                            buttonLabel: 'What are dimensions?',
+                            content: 'This step helps us to create what we call "dimensions," which are like paths, through the data. The best dimensions to choose are typically the ones that are used to create the chart\'s visual structure. And don\'t worry if all of your data is useful to your end user, we can make sure they can read any of it later when we create labels. But choose the dimensions here that determine how they should get around and what is most important.',
+                        },
+                        getDynamicOptions: (p, _s, d) => {
+                            // Compute per-variable suggestions based on chart type answer
+                            const ch1Ans = p.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+                            const chartType = (ch1Ans['chart-type'] as string | undefined) ?? '';
+                            const suggestions = chartType ? computeDimensionSuggestion(chartType, p.variables, d) : null;
+
+                            return p.variables
+                                .filter(v => !v.removed)
+                                .map(v => {
+                                    const vals = (d ?? []).map(row => row[v.key]).filter(x => x != null);
+                                    const unique = [...new Set(vals.map(x => String(x)))];
+                                    const baseDesc = v.type === 'numerical'
+                                        ? (() => {
+                                            const nums = vals.map(x => Number(x)).filter(x => !isNaN(x));
+                                            return nums.length > 0
+                                                ? `NUM — range: ${Math.min(...nums)}–${Math.max(...nums)}`
+                                                : 'NUM';
+                                        })()
+                                        : `CAT — ${unique.length} unique value${unique.length !== 1 ? 's' : ''}`;
+                                    const s = suggestions?.[v.key];
+                                    return {
+                                        value: v.key,
+                                        label: v.key,
+                                        description: s ? `${baseDesc} · ${s.note}` : baseDesc,
+                                        suggested: s?.primary ?? false,
+                                    };
+                                });
+                        },
                         onAnswer: (value, prepAtCall, _s, _d) => {
                             const selected = Array.isArray(value) ? (value as string[]) : [];
                             return {
                                 prepPatch: (p) => ({
                                     ...p,
+                                    hasRun: true, // user has now configured dimensions — lock in their schema choices
                                     variables: p.variables.map(v => ({
                                         ...v,
                                         isDimension: selected.includes(v.key),
@@ -292,7 +324,7 @@
                                         return {
                                             key, type, included: true, navIndex: idx,
                                             extents: (type === 'categorical' ? 'circular' : 'bridgedCousins') as DimensionSchema['extents'],
-                                            compressSparseDivisions: false,
+                                            compressSparseDivisions: true,
                                             sortMethod: (type === 'numerical' ? 'ascending' : 'none') as DimensionSchema['sortMethod'],
                                             subdivisions: 4, divisions: [],
                                             forwardName: '', forwardKey: '',
@@ -869,8 +901,8 @@
                         ),
                     },
                 };
-                // Set hasRun when Chapter 1 is completed
-                if (snapshotChId === 'top-level-access') p = { ...p, hasRun: true };
+                // hasRun is set when choose-dimensions (Chapter 2) is answered —
+                // not here — so SchemaPanel can still auto-build until dimensions are configured.
 
                 // Advance to next chapter if not at the end
                 if (snapshotChIdx < CHAPTERS.length - 1) {
@@ -997,6 +1029,8 @@
                 sampleData={resolvedSampleData}
                 nodeType={currentQuestion.nodeType ?? 'level3'}
                 maxSelect={currentQuestion.maxSelect}
+                expandableInfo={currentQuestion.expandableInfo}
+                suggestionBox={currentQuestion.suggestionBox}
             />
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>

@@ -7,6 +7,7 @@
         type QAChapterId,
     } from '../../../store/appState';
     import ComputedVariableModal from './ComputedVariableModal.svelte';
+    import { computeDimensionSuggestion } from './dimensionSuggestions';
 
     // ─── Store mirrors ────────────────────────────────────────────────────────
     let data = $state<Record<string, unknown>[] | null>(null);
@@ -21,6 +22,21 @@
     // ─── Derived lists ────────────────────────────────────────────────────────
     const activeVars = $derived(prep?.variables.filter(v => !v.removed) ?? []);
     const removedVars = $derived(prep?.variables.filter(v => v.removed) ?? []);
+
+    // ─── Suggested variables (shown when user is on the choose-dimensions question) ──
+    const suggestedKeys = $derived.by((): Set<string> => {
+        if (!prep) return new Set();
+        const qa = prep.qaProgress;
+        if (qa.currentChapterId !== 'dimensions' || qa.currentQuestionId !== 'choose-dimensions') return new Set();
+        const ch1Ans = qa.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+        const chartType = (ch1Ans['chart-type'] as string | undefined) ?? '';
+        if (!chartType) return new Set();
+        const suggestions = computeDimensionSuggestion(chartType, prep.variables, data);
+        if (!suggestions) return new Set();
+        return new Set(
+            Object.entries(suggestions).filter(([, s]) => s.primary).map(([key]) => key)
+        );
+    });
 
     // ─── Initialization ───────────────────────────────────────────────────────
     // When uploadedData arrives and no prepState exists yet, create initial state.
@@ -184,6 +200,9 @@
                     <span class="var-name">"{v.key}"</span>
                     {#if v.isId}
                         <span class="var-id-badge" aria-label="Unique identifier column">ID</span>
+                    {/if}
+                    {#if suggestedKeys.has(v.key)}
+                        <span class="var-suggested-badge" aria-label="{v.key} is suggested for this chart type">★ Suggested</span>
                     {/if}
                     <div class="var-actions">
                         <button
@@ -385,6 +404,23 @@
         color: var(--dn-accent);
         border: 1px solid var(--dn-accent-light);
         flex-shrink: 0;
+    }
+
+    /* ── Suggested badge (shown during choose-dimensions question) ── */
+
+    .var-suggested-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        color: var(--dn-accent);
+        background: var(--dn-accent-soft);
+        border: 1px solid var(--dn-accent-light);
+        letter-spacing: 0.01em;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     /* ── Actions inline group ── */

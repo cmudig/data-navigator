@@ -7,6 +7,7 @@
         label: string;
         description?: string;
         disabled?: boolean;
+        suggested?: boolean;
     }
 
     interface Props {
@@ -22,6 +23,10 @@
         nodeType?: 'level0' | 'level1' | 'level2' | 'level3';
         // multiselect limit
         maxSelect?: number;
+        // expandable info panel (e.g. "What are dimensions?")
+        expandableInfo?: { buttonLabel: string; content: string };
+        // smart suggestion box
+        suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
     }
 
     let {
@@ -35,7 +40,11 @@
         sampleData = {},
         nodeType = 'level3',
         maxSelect,
+        expandableInfo,
+        suggestionBox,
     }: Props = $props();
+
+    let expandInfo = $state(false);
 
     // ── Multiselect helpers ───────────────────────────────────────────────────
     function isChecked(optValue: string): boolean {
@@ -91,6 +100,27 @@
 
     {#if hint}
         <p class="qa-hint">{hint}</p>
+    {/if}
+
+    {#if expandableInfo}
+        <button
+            class="qa-expand-btn"
+            onclick={() => (expandInfo = !expandInfo)}
+            aria-expanded={expandInfo}
+        >{expandableInfo.buttonLabel}</button>
+        {#if expandInfo}
+            <p class="qa-expand-content">{expandableInfo.content}</p>
+        {/if}
+    {/if}
+
+    {#if suggestionBox}
+        <div class="qa-suggestion-box" role="note">
+            <p class="qa-suggestion-msg">{suggestionBox.message}</p>
+            <button
+                class="qa-suggestion-apply"
+                onclick={() => onchange(suggestionBox!.applyValue)}
+            >{suggestionBox.applyLabel}</button>
+        </div>
     {/if}
 
     <div class="qa-input-area" aria-label="Answer input">
@@ -165,6 +195,7 @@
                         class="qa-checkbox-label"
                         class:qa-option-checked={isChecked(opt.value)}
                         class:qa-option-disabled={opt.disabled}
+                        class:qa-option-suggested={opt.suggested && !isChecked(opt.value)}
                     >
                         <input
                             type="checkbox"
@@ -173,7 +204,12 @@
                             onchange={() => { if (!opt.disabled) toggleMultiselect(opt.value); }}
                         />
                         <span class="qa-option-content">
-                            <span class="qa-option-label">{opt.label}</span>
+                            <span class="qa-option-label-row">
+                                <span class="qa-option-label">{opt.label}</span>
+                                {#if opt.suggested}
+                                    <span class="qa-suggested-badge">★ Suggested</span>
+                                {/if}
+                            </span>
                             {#if opt.description}
                                 <span class="qa-option-desc">{opt.description}</span>
                             {/if}
@@ -323,16 +359,41 @@
         cursor: not-allowed;
     }
 
+    .qa-option-suggested {
+        border-color: var(--dn-accent);
+    }
+
     .qa-option-content {
         display: flex;
         flex-direction: column;
         gap: 3px;
     }
 
+    .qa-option-label-row {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.5);
+    }
+
     .qa-option-label {
         font-size: 0.9375rem;
         font-weight: 500;
         color: var(--dn-text);
+    }
+
+    .qa-suggested-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        color: var(--dn-accent);
+        background: var(--dn-accent-soft);
+        border: 1px solid var(--dn-accent-light);
+        letter-spacing: 0.01em;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .qa-option-desc {
@@ -357,6 +418,71 @@
         background: rgba(239, 68, 68, 0.08);
         border-color: rgba(239, 68, 68, 0.3);
         color: #fca5a5;
+    }
+
+    /* ── Expandable info ── */
+
+    .qa-expand-btn {
+        align-self: flex-start;
+        background: none;
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        padding: calc(var(--dn-space) * 0.375) calc(var(--dn-space) * 0.75);
+        font-size: 0.8125rem;
+        color: var(--dn-accent);
+        cursor: pointer;
+        font-family: var(--dn-font);
+    }
+
+    .qa-expand-btn:hover {
+        background: var(--dn-accent-soft);
+        border-color: var(--dn-accent);
+    }
+
+    .qa-expand-content {
+        margin: 0;
+        padding: calc(var(--dn-space) * 0.875) calc(var(--dn-space) * 1);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        background: var(--dn-surface);
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+        line-height: 1.55;
+    }
+
+    /* ── Suggestion box ── */
+
+    .qa-suggestion-box {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.75);
+        padding: calc(var(--dn-space) * 0.875) calc(var(--dn-space) * 1);
+        border: 1px solid var(--dn-accent);
+        border-radius: var(--dn-radius);
+        background: var(--dn-accent-soft);
+    }
+
+    .qa-suggestion-msg {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+        line-height: 1.5;
+    }
+
+    .qa-suggestion-apply {
+        align-self: flex-start;
+        background: var(--dn-accent);
+        border: none;
+        border-radius: var(--dn-radius);
+        padding: calc(var(--dn-space) * 0.375) calc(var(--dn-space) * 0.875);
+        font-size: 0.8125rem;
+        font-family: var(--dn-font);
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .qa-suggestion-apply:hover {
+        opacity: 0.88;
     }
 
     /* ── Drag-order list ── */
