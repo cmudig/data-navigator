@@ -1053,8 +1053,8 @@
                 aria-label="{ch.label}{status === 'complete' ? ' — complete' : status === 'invalidated' ? ' — needs review' : status === 'active' ? ' — current' : ''}"
                 aria-current={ch.id === chapterId ? 'step' : undefined}
             >
-                <span class="qa-seg-icon" aria-hidden="true">
-                    {#if status === 'complete'}&#x2713;{:else if status === 'invalidated'}&#x2717;{:else if status === 'active'}&bull;{:else}&circ;{/if}
+                <span class="qa-seg-icon" aria-label={status === 'complete' ? 'completed' : status === 'upcoming' ? 'incomplete' : undefined} aria-hidden={status === 'complete' || status === 'upcoming' ? undefined : true}>
+                    {#if status === 'complete'}&#x2713;{:else if status === 'invalidated'}&#x2717;{:else if status === 'active'}&bull;{:else}&#x274C;{/if}
                 </span>
                 <span class="qa-seg-label">{ch.label}</span>
             </button>
