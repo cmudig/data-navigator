@@ -20,6 +20,7 @@
         description?: string;
         disabled?: boolean;
         suggested?: boolean; // highlights the option as a chart-type-aware recommendation
+        notice?: { type: 'suggest' | 'warn'; message: string };
     }
 
     interface StoreUpdate {
@@ -271,10 +272,10 @@
                     {
                         id: 'root-node',
                         question: 'Does your visualization have a single starting point that everything else branches from?',
-                        hint: 'Think of it like a home page — a place where navigation begins before drilling into any specific dimension.',
+                        hint: 'This could be the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
                         inputType: 'radio',
                         options: [
-                            { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.' },
+                            { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
                             { value: 'no',  label: 'No — let users start at the first group directly', description: 'Navigation begins at the first dimension without a parent node. Recommended if you already have a high-level description elsewhere.' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
@@ -696,7 +697,7 @@
                 ];
 
                 const NAV_PRESET_OPTIONS_HIGH: QAOption[] = [
-                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
+                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press Escape to exit the chart', notice: { type: 'suggest', message: '★ Suggested' } },
                     { value: 'leftright', label: 'Left/Right arrows (←/→ + J to drill out)', description: 'Press ←/→ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
                     { value: 'brackets',  label: '[ and ] brackets (\\ to drill out)',        description: 'Press [ or ] to move through items. Press Enter to drill in. Press Escape to exit the chart.' },
                 ];
@@ -732,7 +733,7 @@
                         hint: "This decides what happens after a user reaches the last dimension.",
                         inputType: 'radio',
                         options: [
-                            { value: 'circular', label: 'Loop back to the first dimension' },
+                            { value: 'circular', label: 'Loop back to the first dimension', notice: { type: 'suggest' as const, message: '★ Suggested' } },
                             { value: 'terminal', label: 'Stop at the last dimension' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
@@ -762,9 +763,9 @@
                             const taken = getTakenPresets(sch.dimensions, dim.key);
                             return NAV_PRESET_OPTIONS.map(opt => ({
                                 ...opt,
-                                description: taken[opt.value]
-                                    ? `(Already chosen by "${taken[opt.value]}") ${opt.description ?? ''}`
-                                    : opt.description,
+                                notice: taken[opt.value]
+                                    ? { type: 'warn' as const, message: `❌ Already chosen by "${taken[opt.value]}"` }
+                                    : undefined,
                             }));
                         },
                         onAnswer: (value, _p, _s, _d) => {
@@ -871,9 +872,9 @@
                         hint: 'Think about what feels natural for your data. If items represent a continuous cycle, looping makes sense. If they have a clear endpoint, stopping there is cleaner.',
                         inputType: 'radio',
                         options: [
-                            { value: 'circular', label: 'Loop back to the beginning',    description: 'After the last item, navigation wraps around to the first.' },
+                            { value: 'circular', label: 'Loop back to the beginning',    description: 'After the last item, navigation wraps around to the first.', notice: dim.type === 'categorical' ? { type: 'suggest' as const, message: '★ Suggested' } : undefined },
                             { value: 'terminal', label: 'Stop at the last item',          description: 'Navigation stops at the final item.' },
-                            ...(dim.type === 'numerical' ? [{ value: 'bridgedCousins', label: 'Skip empty groups', description: 'If some buckets have no data, navigation skips over them to the next one that has data. Only available for number ranges.' }] : []),
+                            ...(dim.type === 'numerical' ? [{ value: 'bridgedCousins', label: 'Skip empty groups', description: 'If some buckets have no data, navigation skips over them to the next one that has data. Only available for number ranges.', notice: { type: 'suggest' as const, message: '★ Suggested' } }] : []),
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({
@@ -898,13 +899,13 @@
                                     value: 'circular',
                                     label: 'Loop back to the first division',
                                     description: 'After the last division, navigation wraps to the first.',
-                                    suggested: savedDataExtent === 'circular' || savedDataExtent === 'bridgedCousins',
+                                    notice: (savedDataExtent === 'circular' || savedDataExtent === 'bridgedCousins') ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
                                 },
                                 {
                                     value: 'terminal',
                                     label: 'Stop at the last division',
                                     description: 'Navigation stops at the final division.',
-                                    suggested: savedDataExtent === 'terminal',
+                                    notice: savedDataExtent === 'terminal' ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
                                 },
                             ],
                             onAnswer: (value, _p, _s, _d) => ({
@@ -933,9 +934,9 @@
                             const taken = getTakenPresets(sch.dimensions, replaceDimKey);
                             return NAV_PRESET_OPTIONS.map(opt => ({
                                 ...opt,
-                                description: taken[opt.value]
-                                    ? `(Already chosen by "${taken[opt.value]}") ${opt.description ?? ''}`
-                                    : opt.description,
+                                notice: taken[opt.value]
+                                    ? { type: 'warn' as const, message: `❌ Already chosen by "${taken[opt.value]}"` }
+                                    : undefined,
                             }));
                         },
                         onAnswer: (value, _p, _s, _d) => {
@@ -980,10 +981,26 @@
                         question: 'When a user is looking at an individual data point, can they jump directly to the same position in a neighboring dimension?',
                         hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when dimensions have matching items in the same position.',
                         inputType: 'radio',
-                        options: [
-                            { value: 'within', label: 'No — keep them within their current group', description: 'Best when dimensions are independent (e.g., mixing categorical and numerical dimensions, having different categories with different numbers of items, etc.).' },
-                            { value: 'across', label: 'Yes — let them jump across dimensions', description: 'Best when dimensions have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
-                        ],
+                        getDynamicOptions: (p, _s, _d) => {
+                            const chartType = p.qaProgress.chapters
+                                .find(c => c.id === 'top-level-access')?.answers?.['chart-type'] as string | undefined;
+                            const acrossTypes = new Set(['line', 'area', 'stacked-bar', 'clustered-bar']);
+                            const suggestAcross = chartType ? acrossTypes.has(chartType) : false;
+                            return [
+                                {
+                                    value: 'within',
+                                    label: 'No — keep them within their current dimension',
+                                    description: 'Best when dimensions are independent (e.g., mixing categorical and numerical dimensions, having different categories with different numbers of items, etc.).',
+                                    notice: !suggestAcross ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
+                                },
+                                {
+                                    value: 'across',
+                                    label: 'Yes — let them jump across dimensions',
+                                    description: 'Best when dimensions have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).',
+                                    notice: suggestAcross ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
+                                },
+                            ];
+                        },
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({
                                 ...sch,
@@ -1255,6 +1272,16 @@
             pendingValue = saved;
         } else if (q?.defaultValue !== undefined) {
             pendingValue = q.defaultValue;
+        } else if (q?.inputType === 'radio') {
+            // Auto-select: prefer first suggested/noticed option, then first non-disabled option.
+            // Use untrack for schema/data so their changes don't re-trigger this effect.
+            const opts = untrack(() => {
+                if (q.getDynamicOptions && schema && prep) return q.getDynamicOptions(prep, schema, data);
+                return q.options ?? [];
+            });
+            const suggested = opts.find(o => !o.disabled && (o.notice?.type === 'suggest' || o.suggested));
+            const first = opts.find(o => !o.disabled);
+            pendingValue = (suggested ?? first)?.value ?? '';
         } else {
             pendingValue = defaultValue(q?.inputType ?? 'text');
         }

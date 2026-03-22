@@ -8,6 +8,7 @@
         description?: string;
         disabled?: boolean;
         suggested?: boolean;
+        notice?: { type: 'suggest' | 'warn'; message: string };
     }
 
     interface ParentDimension {
@@ -195,7 +196,7 @@
                         class="qa-radio-label"
                         class:qa-option-checked={value === opt.value}
                         class:qa-option-disabled={opt.disabled}
-                        class:qa-option-suggested={opt.suggested && value !== opt.value}
+                        class:qa-option-suggested={(opt.suggested || opt.notice?.type === 'suggest') && value !== opt.value}
                     >
                         <input
                             type="radio"
@@ -206,7 +207,12 @@
                             onchange={() => { if (!opt.disabled) onchange(opt.value); }}
                         />
                         <span class="qa-option-content">
-                            <span class="qa-option-label">{opt.label}</span>
+                            <span class="qa-option-label-row">
+                                <span class="qa-option-label">{opt.label}</span>
+                                {#if opt.notice}
+                                    <span class="qa-notice-badge qa-notice-badge--{opt.notice.type}">{opt.notice.message}</span>
+                                {/if}
+                            </span>
                             {#if opt.description}
                                 <span class="qa-option-desc">{opt.description}</span>
                             {/if}
@@ -425,6 +431,35 @@
         letter-spacing: 0.01em;
         flex-shrink: 0;
         white-space: nowrap;
+    }
+
+    .qa-notice-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .qa-notice-badge--suggest {
+        color: var(--dn-accent);
+        background: var(--dn-accent-soft);
+        border: 1px solid var(--dn-accent-light);
+    }
+
+    .qa-notice-badge--warn {
+        color: #b91c1c;
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+    }
+    .dark .qa-notice-badge--warn {
+        color: #fca5a5;
+        background: rgba(239, 68, 68, 0.08);
+        border-color: rgba(239, 68, 68, 0.3);
     }
 
     .qa-option-desc {
