@@ -58,6 +58,45 @@
         return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
     }
 
+    // ── Chart type label map (used in Chapter 1 root-announcement composition) ─
+    const CHART_TYPE_LABELS: Readonly<Record<string, string>> = {
+        'bar':           'Bar chart',
+        'stacked-bar':   'Stacked bar chart',
+        'clustered-bar': 'Clustered bar chart',
+        'line':          'Line chart',
+        'area':          'Area chart',
+        'scatter':       'Scatter plot',
+        'pie':           'Pie chart',
+        'donut':         'Donut chart',
+        'heatmap':       'Heatmap',
+        'treemap':       'Treemap',
+        'network':       'Network or relationship diagram',
+        'map':           'Map or geographic chart',
+    };
+
+    // ── Helper: append "Contains interactive elements." to root announcement ──
+    // Called inside prepPatch closures for any question that marks elements interactive.
+    // Only modifies state if level0 is enabled and the string isn't already there.
+    function appendInteractiveToRoot(p: PrepState, schAtCall: SchemaState): PrepState {
+        if (!schAtCall.level0Enabled) return p;
+        const rootCh = p.qaProgress.chapters.find(c => c.id === 'top-level-access');
+        const current = ((rootCh?.answers?.['root-announcement']) as string | undefined) ?? '';
+        if (current.toLowerCase().includes('interactive')) return p;
+        const updated = (current.trim() ? current.trimEnd() + ' ' : '') + 'Contains interactive elements.';
+        return {
+            ...p,
+            labelConfig: { ...p.labelConfig, level0: { ...p.labelConfig.level0, template: updated } },
+            qaProgress: {
+                ...p.qaProgress,
+                chapters: p.qaProgress.chapters.map(ch =>
+                    ch.id === 'top-level-access'
+                        ? { ...ch, answers: { ...ch.answers, 'root-announcement': updated } }
+                        : ch
+                ),
+            },
+        };
+    }
+
     // ── Chapter definitions (Tasks 11–14) ────────────────────────────────────
     const CHAPTERS: QAChapterDef[] = [
 
@@ -67,22 +106,9 @@
             label: 'Top-level access',
             getQuestions: (prep, _schema, _data): QAQuestionDef[] => {
                 const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+
+                // Q1.1 — Root node: the first question asked
                 const questions: QAQuestionDef[] = [
-                    {
-                        id: 'dataset-description',
-                        question: 'What does this dataset represent, in plain English?',
-                        hint: 'Example: "Monthly sales figures for each product and region." This helps screen readers introduce the data.',
-                        inputType: 'text',
-                        onAnswer: (value, _p, _s, _d) => ({
-                            prepPatch: (p) => ({
-                                ...p,
-                                labelConfig: {
-                                    ...p.labelConfig,
-                                    level0: { ...p.labelConfig.level0, template: value as string },
-                                },
-                            }),
-                        }),
-                    },
                     {
                         id: 'root-node',
                         question: 'Does your visualization have a single starting point that everything else branches from?',
@@ -90,36 +116,115 @@
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.' },
-                            { value: 'no', label: 'No — let users start at the first group directly', description: 'Navigation begins at the first browsing group without a parent node.' },
+                            { value: 'no',  label: 'No — let users start at the first group directly', description: 'Navigation begins at the first browsing group without a parent node. Recommended if you already have a high-level description elsewhere.' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
                         }),
                     },
                 ];
-                // Q1.3 and Q1.4 appear only when Q1.2 = 'yes'
+
+                // Q1.2–Q1.6 only appear when Q1.1 = 'yes'
                 if (ch1Ans['root-node'] === 'yes') {
+
+                    // Q1.2 — Dataset description (alt text for the root node)
+                    questions.push({
+                        id: 'dataset-description',
+                        question: 'What does this chart or dataset represent, in plain English?',
+                        hint: 'Example: "Monthly sales figures for each product and region." This becomes the opening description that screen readers use to introduce the data.',
+                        inputType: 'text',
+                        onAnswer: (_value, _p, _s, _d) => ({}),
+                    });
+
+                    // Q1.3 — Root label (optional rename; internal only)
                     questions.push({
                         id: 'root-label',
-                        question: 'What should we call this starting point?',
-                        hint: 'Keep it short and descriptive. Example: "Sales Overview", "Chart Start", or "All Products".',
+                        question: 'We call this starting point the "root" node. Do you want to give it another name?',
+                        hint: 'This name is only used for building the structure — it is not something that end users will encounter. You can leave it as "root" if you\'d like.',
                         inputType: 'text',
+                        defaultValue: 'root',
                         onAnswer: (value, _p, _s, _d) => ({
-                            schemaPatch: (sch) => ({ ...sch, level0Id: makeValidId(value as string) || 'root' }),
+                            schemaPatch: (sch) => ({ ...sch, level0Id: makeValidId((value as string) || 'root') }),
                             prepPatch: (p) => ({
                                 ...p,
                                 labelConfig: {
                                     ...p.labelConfig,
-                                    level0: { ...p.labelConfig.level0, name: value as string },
+                                    level0: { ...p.labelConfig.level0, name: (value as string) || 'root' },
                                 },
                             }),
                         }),
                     });
+
+                    // Q1.4 — Chart type dropdown
                     questions.push({
-                        id: 'root-semantic-label',
-                        question: 'What should a screen reader say when a user arrives at this starting point?',
-                        hint: 'Example: "You are at the chart overview. Press Enter to begin exploring." Try to orient the user clearly.',
+                        id: 'chart-type',
+                        question: 'What type of chart or visualization is this?',
+                        hint: 'This is announced in the opening description so screen reader users know what kind of chart they are exploring.',
+                        inputType: 'dropdown',
+                        options: [
+                            { value: 'bar',           label: 'Bar chart' },
+                            { value: 'stacked-bar',   label: 'Stacked bar chart' },
+                            { value: 'clustered-bar', label: 'Clustered bar chart' },
+                            { value: 'line',          label: 'Line chart' },
+                            { value: 'area',          label: 'Area chart' },
+                            { value: 'scatter',       label: 'Scatter plot' },
+                            { value: 'pie',           label: 'Pie chart' },
+                            { value: 'donut',         label: 'Donut chart' },
+                            { value: 'heatmap',       label: 'Heatmap' },
+                            { value: 'treemap',       label: 'Treemap' },
+                            { value: 'network',       label: 'Network or relationship diagram' },
+                            { value: 'map',           label: 'Map or geographic chart' },
+                            { value: 'custom',        label: 'Custom...' },
+                        ],
+                        onAnswer: (_value, _p, _s, _d) => ({}),
+                    });
+
+                    // Q1.4b — Custom chart type (only when Q1.4 = 'custom')
+                    if (ch1Ans['chart-type'] === 'custom') {
+                        questions.push({
+                            id: 'chart-type-custom',
+                            question: 'What would you call this type of visualization?',
+                            hint: 'Describe it in plain terms — users will hear this. Example: "bubble chart", "timeline", "network diagram".',
+                            inputType: 'text',
+                            defaultValue: 'chart',
+                            onAnswer: (_value, _p, _s, _d) => ({}),
+                        });
+                    }
+
+                    // Q1.5 — Interactive elements checkbox
+                    questions.push({
+                        id: 'interactive-elements',
+                        question: 'Does this visualization contain interactive elements that users can select, click, or otherwise interact with?',
+                        hint: 'This will be mentioned in the opening description so screen reader users know what to expect before they start exploring.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes — users can interact with elements in this chart' },
+                            { value: 'no',  label: 'No — this is a display-only visualization' },
+                        ],
+                        onAnswer: (_value, _p, _s, _d) => ({}),
+                    });
+
+                    // Q1.6 — Root announcement (pre-composed, user-editable)
+                    // Build the suggested text from answers accumulated so far in this chapter.
+                    const desc         = ((ch1Ans['dataset-description'] as string | undefined) ?? '').trim();
+                    const chartTypeVal = (ch1Ans['chart-type'] as string | undefined) ?? '';
+                    const customChart  = ((ch1Ans['chart-type-custom'] as string | undefined) ?? 'chart').trim() || 'chart';
+                    const resolvedChart = chartTypeVal === 'custom'
+                        ? customChart
+                        : (CHART_TYPE_LABELS[chartTypeVal] ?? '');
+                    const isInteractive = ch1Ans['interactive-elements'] === 'yes';
+                    const parts: string[] = [];
+                    if (desc)           parts.push(desc.endsWith('.')           ? desc           : desc + '.');
+                    if (resolvedChart)  parts.push(resolvedChart.endsWith('.')  ? resolvedChart  : resolvedChart + '.');
+                    if (isInteractive)  parts.push('This chart contains interactive elements.');
+                    const suggestedAnnouncement = parts.join(' ');
+
+                    questions.push({
+                        id: 'root-announcement',
+                        question: 'This is what your starting point will announce to users. Feel free to edit it:',
+                        hint: 'Screen readers will read this text when users arrive at the entry point of your visualization.',
                         inputType: 'textarea',
+                        defaultValue: suggestedAnnouncement,
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => ({
                                 ...p,
@@ -131,6 +236,7 @@
                         }),
                     });
                 }
+
                 return questions;
             },
         },
@@ -481,6 +587,11 @@
                     .filter(d => d.included)
                     .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
+                const INTERACTIVE_OPTIONS: QAOption[] = [
+                    { value: 'yes', label: 'Yes — users can interact with these elements' },
+                    { value: 'no',  label: 'No — these are display only' },
+                ];
+
                 const questions: QAQuestionDef[] = [
                     // Q4.1 — Leaf label template
                     {
@@ -498,9 +609,20 @@
                             }),
                         }),
                     },
+                    // Q4.1b — Are individual data points interactive?
+                    {
+                        id: 'leaf-interactive',
+                        question: 'Are individual data points interactive? For example, can users select, click, or otherwise interact with them?',
+                        hint: 'If yes, these elements will be given an interactive role (like a button) so screen readers announce them as actionable. Screen readers will say "button" after the label — this comes from the role, not from the label text itself.',
+                        inputType: 'radio',
+                        options: INTERACTIVE_OPTIONS,
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
+                        }),
+                    },
                 ];
 
-                // Q4.2 — Group header label (per dimension)
+                // Q4.2 — Group header label + interactive (per dimension)
                 for (const dim of dims) {
                     const firstUniqueVal = (() => {
                         const vals = (data ?? []).map(row => row[dim.key]);
@@ -510,6 +632,7 @@
                     const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
                     const suggestedTemplate = `{key:"${dim.key}"}: {value:"${dim.key}"}`;
 
+                    // Q4.2a — Group header label
                     questions.push({
                         id: `dim-label-${dim.key}`,
                         question: `Now let's set up a template for "${dim.key}" group headers — what a screen reader says when a user arrives at this type of group.`,
@@ -533,6 +656,18 @@
                         }),
                     });
 
+                    // Q4.2b — Are group-header nodes interactive?
+                    questions.push({
+                        id: `dim-interactive-${dim.key}`,
+                        question: `Are "${dim.key}" group elements interactive? For example, can users select or click on them?`,
+                        hint: 'If yes, screen readers will announce "button" after the label for these groups. This comes from the element\'s role — not the label text.',
+                        inputType: 'radio',
+                        options: INTERACTIVE_OPTIONS,
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
+                        }),
+                    });
+
                     // Q4.3 — Sub-group label (numerical dims with subdivisions > 1 only)
                     if (dim.type === 'numerical' && dim.subdivisions > 1) {
                         const numVals = (data ?? [])
@@ -550,6 +685,8 @@
                             exampleRange = `${Math.round(bMin * 100) / 100}–${bMax}`;
                             exampleCount = numVals.filter(n => n >= bMin && n < bMin + bucket).length;
                         }
+
+                        // Q4.3a — Sub-group label
                         questions.push({
                             id: `div-label-${dim.key}`,
                             question: `For "${dim.key}" sub-groups, what should a screen reader say when a user arrives at a specific range or subset?`,
@@ -570,6 +707,18 @@
                                         perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
                                     },
                                 }),
+                            }),
+                        });
+
+                        // Q4.3b — Are sub-group nodes interactive?
+                        questions.push({
+                            id: `div-interactive-${dim.key}`,
+                            question: `Are "${dim.key}" sub-group elements interactive? For example, can users select or click on them?`,
+                            hint: 'If yes, screen readers will announce "button" after the label for these sub-groups. This comes from the element\'s role — not the label text.',
+                            inputType: 'radio',
+                            options: INTERACTIVE_OPTIONS,
+                            onAnswer: (value, _p, _s, _d) => ({
+                                prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
                             }),
                         });
                     }
