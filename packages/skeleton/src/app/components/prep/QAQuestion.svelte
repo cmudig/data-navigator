@@ -37,6 +37,10 @@
         dimensionName?: string;
         parentDimensions?: ParentDimension[];
         suggestedFields?: SuggestedField[];
+        // aggregate label-builder extras (level1 and level2 only)
+        aggregateFields?: string[];
+        suggestedAggField?: string;
+        dimensionCount?: number;
         // multiselect limit
         maxSelect?: number;
         // expandable info panel (e.g. "What are dimensions?")
@@ -58,6 +62,9 @@
         dimensionName = undefined,
         parentDimensions = [],
         suggestedFields = [],
+        aggregateFields = [],
+        suggestedAggField = undefined,
+        dimensionCount = 1,
         maxSelect,
         expandableInfo,
         suggestionBox,
@@ -264,6 +271,9 @@
                 {dimensionName}
                 {parentDimensions}
                 {suggestedFields}
+                {aggregateFields}
+                {suggestedAggField}
+                {dimensionCount}
                 onchange={(v) => onchange(v)}
             />
 

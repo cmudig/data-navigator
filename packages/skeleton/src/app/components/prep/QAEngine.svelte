@@ -59,6 +59,10 @@
         dimensionName?: string;
         parentDimensions?: ParentDimension[];
         suggestedFields?: SuggestedField[];
+        // aggregate label-builder extras (level1 and level2 only)
+        getAggregateFields?: (prep: PrepState, data: Row[] | null) => string[];
+        suggestedAggField?: string;
+        dimensionCount?: number;
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -1042,19 +1046,21 @@
                     // Q4.A — Dimension group header label
                     questions.push({
                         id: `dim-label-${dim.key}`,
-                        question: `Let's set up a label for "${dim.key}" group headers — what a screen reader says when a user arrives at this dimension.`,
-                        hint: `You're writing one template that applies to every group in this browsing layer. The {value:"${dim.key}"} placeholder is replaced with the actual group value for each group. Example: "${dim.key}: Electronics" or "${dim.key}: 2020".`,
+                        question: `Let's set up a label for "${dim.key}" — what a screen reader says when a user arrives at this dimension.`,
+                        hint: `The {value:"${dim.key}"} placeholder is replaced with the actual group value for each group. Example: "${dim.key}: Electronics" or "${dim.key}: 2020".`,
                         inputType: 'label-builder',
                         nodeType: 'level1',
                         getFields: (_p) => [dim.key, 'count'],
                         getSampleData: (_d, _p) => ({ [dim.key]: firstUniqueVal, count: countForFirst }),
                         defaultValue: {
                             template: `{key:"${dim.key}"}: {value:"${dim.key}"}`,
-                            name: dim.key.toLowerCase(),
+                            name: 'group',
                             includeIndex: false, includeParentName: false, omitKeyNames: false,
                             includeDimensionName: false, includeParentNames: [],
                         } as LabelTemplate,
                         suggestedFields: [{ key: dim.key }],
+                        getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                        dimensionCount: dims.length,
                         expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => ({
@@ -1105,6 +1111,8 @@
                         } as LabelTemplate,
                         dimensionName: dim.key,
                         suggestedFields: [{ key: 'range' }],
+                        getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                        suggestedAggField: dim.key,
                         expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => ({
@@ -1245,6 +1253,11 @@
     const resolvedSampleData = $derived.by((): Row => {
         if (!currentQuestion?.getSampleData || !prep) return {};
         return currentQuestion.getSampleData(data, prep);
+    });
+
+    const resolvedAggregateFields = $derived.by((): string[] => {
+        if (!currentQuestion?.getAggregateFields || !prep) return [];
+        return currentQuestion.getAggregateFields(prep, data);
     });
 
     // ── Pending answer (local; committed to store on Next) ────────────────────
@@ -1480,6 +1493,9 @@
                 dimensionName={currentQuestion.dimensionName}
                 parentDimensions={currentQuestion.parentDimensions}
                 suggestedFields={currentQuestion.suggestedFields}
+                aggregateFields={resolvedAggregateFields}
+                suggestedAggField={currentQuestion.suggestedAggField}
+                dimensionCount={currentQuestion.dimensionCount}
             />
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>

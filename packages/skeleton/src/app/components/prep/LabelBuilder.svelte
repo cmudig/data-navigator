@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import type { LabelTemplate } from '../../../store/appState';
 
     interface ParentDimension {
@@ -22,6 +23,10 @@
         dimensionName?: string;          // division builders: the parent dim key
         parentDimensions?: ParentDimension[]; // leaf builders: per-dim parent name checkboxes
         suggestedFields?: SuggestedField[];   // fields to highlight with ★ badges
+        // aggregate extras (level1 and level2 only)
+        aggregateFields?: string[];      // numerical fields available for agg selection
+        suggestedAggField?: string;      // pre-highlighted field for min/max (divisions)
+        dimensionCount?: number;         // how many dimensions selected (for position checkbox)
     }
 
     let {
@@ -33,6 +38,9 @@
         dimensionName = undefined,
         parentDimensions = [],
         suggestedFields = [],
+        aggregateFields = [],
+        suggestedAggField = undefined,
+        dimensionCount = 1,
     }: Props = $props();
 
 
@@ -41,6 +49,15 @@
 
     function buildPreview(tmpl: LabelTemplate, data: Record<string, unknown>): string {
         let resolved = tmpl.template;
+
+        // Aggregate tokens (resolve before key/value tokens)
+        resolved = resolved.replace(/\{count\}/g, '[count]');
+        resolved = resolved.replace(/\{min:"([^"]+)"\}/g, (_: string, f: string) => `[min ${f}]`);
+        resolved = resolved.replace(/\{max:"([^"]+)"\}/g, (_: string, f: string) => `[max ${f}]`);
+        resolved = resolved.replace(/\{sum:"([^"]+)"\}/g, (_: string, f: string) => `[sum ${f}]`);
+        resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) => `[avg ${f}]`);
+        resolved = resolved.replace(/\{trend:"[^"]+":"[^"]+"\}/g, 'slightly up');
+        resolved = resolved.replace(/\{r2:"[^"]+":"[^"]+"\}/g, 'R²: 0.82');
 
         if (tmpl.omitKeyNames) {
             // Strip "{key:"..."}:" patterns (with following colon + optional space),
@@ -61,10 +78,12 @@
             resolved = resolved ? `${dimensionName}: ${resolved}` : dimensionName;
         }
 
-        const name = tmpl.name || 'data point';
+        const name = tmpl.name || (nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'range' : 'data point');
         const cap = name.charAt(0).toUpperCase() + name.slice(1);
         let suffix = cap;
-        if (tmpl.includeIndex) suffix += ` 3 of 8`;
+        if (tmpl.includeIndex) {
+            suffix += nodeType === 'level1' ? ` dimension 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
+        }
 
         // Leaf builders: per-dimension parent names
         if (tmpl.includeParentNames && tmpl.includeParentNames.length > 0) {
@@ -145,6 +164,153 @@
     function handleOmitKeyNames(e: Event) {
         onchange({ ...value, omitKeyNames: (e.target as HTMLInputElement).checked });
     }
+
+    // ── Aggregate state (level1 and level2 only) ──────────────────────────────
+
+    const showAggregates = $derived(nodeType === 'level1' || nodeType === 'level2');
+
+    // Count
+    const countInTemplate = $derived(value.template.includes('{count}'));
+
+    // Min/Max (combined — one field picker for both)
+    const minMaxFieldFromTemplate = $derived(value.template.match(/\{min:"([^"]+)"\}/)?.[1] ?? null);
+    const hasMinMax = $derived(
+        value.template.includes('{min:') || value.template.includes('{max:')
+    );
+    let minMaxField = $state<string>('');
+    $effect(() => {
+        const fromTmpl = minMaxFieldFromTemplate;
+        const fields = aggregateFields;
+        const suggested = suggestedAggField;
+        const cur = untrack(() => minMaxField);
+        if (fromTmpl !== null && fields.includes(fromTmpl)) {
+            minMaxField = fromTmpl;
+        } else if (!cur || !fields.includes(cur)) {
+            minMaxField = (suggested && fields.includes(suggested)) ? suggested : (fields[0] ?? '');
+        }
+    });
+
+    // Sum
+    const sumFieldFromTemplate = $derived(value.template.match(/\{sum:"([^"]+)"\}/)?.[1] ?? null);
+    const hasSumInTemplate = $derived(sumFieldFromTemplate !== null);
+    let sumField = $state<string>('');
+    $effect(() => {
+        const fromTmpl = sumFieldFromTemplate;
+        const fields = aggregateFields;
+        const cur = untrack(() => sumField);
+        if (fromTmpl !== null && fields.includes(fromTmpl)) {
+            sumField = fromTmpl;
+        } else if (!cur || !fields.includes(cur)) {
+            sumField = fields[0] ?? '';
+        }
+    });
+
+    // Average
+    const avgFieldFromTemplate = $derived(value.template.match(/\{avg:"([^"]+)"\}/)?.[1] ?? null);
+    const hasAvgInTemplate = $derived(avgFieldFromTemplate !== null);
+    let avgField = $state<string>('');
+    $effect(() => {
+        const fromTmpl = avgFieldFromTemplate;
+        const fields = aggregateFields;
+        const cur = untrack(() => avgField);
+        if (fromTmpl !== null && fields.includes(fromTmpl)) {
+            avgField = fromTmpl;
+        } else if (!cur || !fields.includes(cur)) {
+            avgField = fields[0] ?? '';
+        }
+    });
+
+    // Trend + R² (shared field pickers)
+    const trendMatchResult = $derived(value.template.match(/\{trend:"([^"]+)":"([^"]+)"\}/));
+    const r2MatchResult = $derived(value.template.match(/\{r2:"([^"]+)":"([^"]+)"\}/));
+    const hasTrendInTemplate = $derived(trendMatchResult !== null);
+    const hasR2InTemplate = $derived(r2MatchResult !== null);
+    let trendXField = $state<string>('');
+    let trendYField = $state<string>('');
+    $effect(() => {
+        const tm = trendMatchResult;
+        const rm = r2MatchResult;
+        const fields = aggregateFields;
+        const tx = tm?.[1] ?? rm?.[1];
+        const ty = tm?.[2] ?? rm?.[2];
+        const curX = untrack(() => trendXField);
+        const curY = untrack(() => trendYField);
+        if (tx && fields.includes(tx)) {
+            trendXField = tx;
+        } else if (!curX || !fields.includes(curX)) {
+            trendXField = fields[0] ?? '';
+        }
+        if (ty && fields.includes(ty)) {
+            trendYField = ty;
+        } else if (!curY || !fields.includes(curY)) {
+            trendYField = fields.length > 1 ? fields[1] : (fields[0] ?? '');
+        }
+    });
+
+    // ── Aggregate toggle functions ────────────────────────────────────────────
+
+    function toggleCount() {
+        if (countInTemplate) {
+            onchange({ ...value, template: value.template.replace(/ \{count\}, /g, '').replace(/\{count\}/g, '').trim() });
+        } else {
+            onchange({ ...value, template: value.template + ' {count},' });
+        }
+    }
+
+    function toggleMinMax() {
+        if (hasMinMax) {
+            let t = value.template;
+            // Remove exact combined pattern first
+            t = t.replace(/ \{min:"[^"]+"\}, \{max:"[^"]+"\}, /g, ' ');
+            // Fallback: remove individual tokens
+            t = t.replace(/ \{min:"[^"]+"\}, /g, ' ').replace(/ \{max:"[^"]+"\}, /g, ' ');
+            t = t.replace(/\{min:"[^"]+"\}/g, '').replace(/\{max:"[^"]+"\}/g, '');
+            t = t.replace(/\s{2,}/g, ' ').trim();
+            onchange({ ...value, template: t });
+        } else if (minMaxField) {
+            onchange({ ...value, template: value.template + ` {min:"${minMaxField}"}, {max:"${minMaxField}"},` });
+        }
+    }
+
+    function toggleSum() {
+        if (hasSumInTemplate) {
+            let t = value.template;
+            t = t.replace(/ \{sum:"[^"]+"\}, /g, ' ').replace(/\{sum:"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
+            onchange({ ...value, template: t });
+        } else if (sumField) {
+            onchange({ ...value, template: value.template + ` {sum:"${sumField}"},` });
+        }
+    }
+
+    function toggleAvg() {
+        if (hasAvgInTemplate) {
+            let t = value.template;
+            t = t.replace(/ \{avg:"[^"]+"\}, /g, ' ').replace(/\{avg:"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
+            onchange({ ...value, template: t });
+        } else if (avgField) {
+            onchange({ ...value, template: value.template + ` {avg:"${avgField}"},` });
+        }
+    }
+
+    function toggleTrend() {
+        if (hasTrendInTemplate) {
+            let t = value.template;
+            t = t.replace(/ \{trend:"[^"]+":"[^"]+"\}, /g, ' ').replace(/\{trend:"[^"]+":"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
+            onchange({ ...value, template: t });
+        } else if (trendXField && trendYField) {
+            onchange({ ...value, template: value.template + ` {trend:"${trendXField}":"${trendYField}"},` });
+        }
+    }
+
+    function toggleR2() {
+        if (hasR2InTemplate) {
+            let t = value.template;
+            t = t.replace(/ \{r2:"[^"]+":"[^"]+"\}, /g, ' ').replace(/\{r2:"[^"]+":"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
+            onchange({ ...value, template: t });
+        } else if (trendXField && trendYField) {
+            onchange({ ...value, template: value.template + ` {r2:"${trendXField}":"${trendYField}"},` });
+        }
+    }
 </script>
 
 <div class="label-builder">
@@ -183,6 +349,148 @@
         </div>
     {/if}
 
+    {#if showAggregates}
+        <div class="lb-agg-section">
+            <p class="lb-agg-heading">Aggregate summaries from children</p>
+
+            <!-- Count of children (no field selector needed) -->
+            <div class="lb-agg-row">
+                <button
+                    class="lb-agg-pill"
+                    class:lb-agg-pill-active={countInTemplate}
+                    onclick={toggleCount}
+                    aria-pressed={countInTemplate}
+                    aria-label={countInTemplate ? 'Remove count of children from label' : 'Add count of children to label'}
+                >
+                    <span class="lb-agg-pill-icon" aria-hidden="true">{countInTemplate ? '✓' : '+'}</span>
+                    Count of children
+                </button>
+            </div>
+
+            {#if aggregateFields.length > 0}
+                <!-- Min and Max (combined) -->
+                <div class="lb-agg-row">
+                    <button
+                        class="lb-agg-pill"
+                        class:lb-agg-pill-active={hasMinMax}
+                        onclick={toggleMinMax}
+                        aria-pressed={hasMinMax}
+                        aria-label={hasMinMax ? 'Remove min and max from label' : `Add min and max of ${minMaxField} to label`}
+                    >
+                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasMinMax ? '✓' : '+'}</span>
+                        Min and Max of
+                    </button>
+                    <label class="lb-agg-field-label">
+                        <span class="visually-hidden">Field for min and max</span>
+                        <select
+                            class="lb-agg-select"
+                            bind:value={minMaxField}
+                        >
+                            {#each aggregateFields as f (f)}
+                                <option value={f}>{f}{suggestedAggField === f ? ' ★' : ''}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Sum -->
+                <div class="lb-agg-row">
+                    <button
+                        class="lb-agg-pill"
+                        class:lb-agg-pill-active={hasSumInTemplate}
+                        onclick={toggleSum}
+                        aria-pressed={hasSumInTemplate}
+                        aria-label={hasSumInTemplate ? 'Remove sum from label' : `Add sum of ${sumField} to label`}
+                    >
+                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasSumInTemplate ? '✓' : '+'}</span>
+                        Sum of
+                    </button>
+                    <label class="lb-agg-field-label">
+                        <span class="visually-hidden">Field for sum</span>
+                        <select
+                            class="lb-agg-select"
+                            bind:value={sumField}
+                        >
+                            {#each aggregateFields as f (f)}
+                                <option value={f}>{f}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Average -->
+                <div class="lb-agg-row">
+                    <button
+                        class="lb-agg-pill"
+                        class:lb-agg-pill-active={hasAvgInTemplate}
+                        onclick={toggleAvg}
+                        aria-pressed={hasAvgInTemplate}
+                        aria-label={hasAvgInTemplate ? 'Remove average from label' : `Add average of ${avgField} to label`}
+                    >
+                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasAvgInTemplate ? '✓' : '+'}</span>
+                        Average of
+                    </button>
+                    <label class="lb-agg-field-label">
+                        <span class="visually-hidden">Field for average</span>
+                        <select
+                            class="lb-agg-select"
+                            bind:value={avgField}
+                        >
+                            {#each aggregateFields as f (f)}
+                                <option value={f}>{f}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Trend direction + R² (shared field pickers) -->
+                <div class="lb-agg-trend">
+                    <p class="lb-agg-trend-label">Trend direction and R²</p>
+                    <div class="lb-agg-trend-fields">
+                        <label class="lb-agg-trend-field">
+                            <span class="lb-agg-trend-field-name">X variable</span>
+                            <select class="lb-agg-select" bind:value={trendXField}>
+                                {#each aggregateFields as f (f)}
+                                    <option value={f}>{f}</option>
+                                {/each}
+                            </select>
+                        </label>
+                        <label class="lb-agg-trend-field">
+                            <span class="lb-agg-trend-field-name">Y variable</span>
+                            <select class="lb-agg-select" bind:value={trendYField}>
+                                {#each aggregateFields as f (f)}
+                                    <option value={f}>{f}</option>
+                                {/each}
+                            </select>
+                        </label>
+                    </div>
+                    <div class="lb-agg-trend-toggles">
+                        <button
+                            class="lb-agg-pill"
+                            class:lb-agg-pill-active={hasTrendInTemplate}
+                            onclick={toggleTrend}
+                            aria-pressed={hasTrendInTemplate}
+                            aria-label={hasTrendInTemplate ? 'Remove trend direction from label' : 'Add trend direction to label'}
+                        >
+                            <span class="lb-agg-pill-icon" aria-hidden="true">{hasTrendInTemplate ? '✓' : '+'}</span>
+                            Trend direction
+                        </button>
+                        <button
+                            class="lb-agg-pill"
+                            class:lb-agg-pill-active={hasR2InTemplate}
+                            onclick={toggleR2}
+                            aria-pressed={hasR2InTemplate}
+                            aria-label={hasR2InTemplate ? 'Remove R² from label' : 'Add R² to label'}
+                        >
+                            <span class="lb-agg-pill-icon" aria-hidden="true">{hasR2InTemplate ? '✓' : '+'}</span>
+                            R² value
+                        </button>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    {/if}
+
     <div class="lb-template-row">
         <label class="lb-label" for="lb-template-input">Label template</label>
         <div class="lb-template-controls">
@@ -213,19 +521,33 @@
                 class="lb-noun-input"
                 value={value.name}
                 oninput={handleNameInput}
-                placeholder="data point"
+                placeholder={nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'range' : 'data point'}
             />
         </div>
 
-        <label class="lb-checkbox-label">
-            <input
-                type="checkbox"
-                checked={value.includeIndex}
-                onchange={handleIncludeIndex}
-            />
-            Include position in group?
-            <span class="lb-checkbox-example">(e.g., item 3 of 8)</span>
-        </label>
+        {#if nodeType === 'level1' && dimensionCount > 1}
+            <!-- Dimension builders: show "position among dimensions" only when multiple dims selected -->
+            <label class="lb-checkbox-label">
+                <input
+                    type="checkbox"
+                    checked={value.includeIndex}
+                    onchange={handleIncludeIndex}
+                />
+                Include position among dimensions?
+                <span class="lb-checkbox-example">(e.g., dimension 1 of {dimensionCount})</span>
+            </label>
+        {:else if nodeType !== 'level1'}
+            <!-- All other builders (level0, level2, level3): standard "position in group" -->
+            <label class="lb-checkbox-label">
+                <input
+                    type="checkbox"
+                    checked={value.includeIndex}
+                    onchange={handleIncludeIndex}
+                />
+                Include position in group?
+                <span class="lb-checkbox-example">(e.g., item 3 of 8)</span>
+            </label>
+        {/if}
 
         {#if dimensionName}
             <!-- Division builders: prepend the dimension's name to this sub-group label -->
@@ -257,8 +579,8 @@
                     <span class="lb-checkbox-example">(e.g., in {pd.exampleLabel})</span>
                 </label>
             {/each}
-        {:else}
-            <!-- Fallback for non-leaf/non-division builders (level0, generic level1) -->
+        {:else if nodeType === 'level0'}
+            <!-- Level 0 only: include parent name (root has no parent so this is a fallback for custom use) -->
             <label class="lb-checkbox-label">
                 <input
                     type="checkbox"
@@ -363,6 +685,144 @@
 
     .lb-pill-selected .lb-pill-suggested {
         opacity: 0.9;
+    }
+
+    /* ── Aggregate section ── */
+
+    .lb-agg-section {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.625);
+        padding: calc(var(--dn-space) * 1);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        background: var(--dn-surface);
+    }
+
+    .lb-agg-heading {
+        margin: 0 0 calc(var(--dn-space) * 0.25);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--dn-text-muted);
+    }
+
+    .lb-agg-row {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.5);
+        flex-wrap: wrap;
+    }
+
+    .lb-agg-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8125rem;
+        font-family: var(--dn-font);
+        cursor: pointer;
+        background: var(--dn-accent-soft);
+        color: var(--dn-accent);
+        border: 1px solid var(--dn-accent-light);
+        min-height: 0;
+        min-width: 0;
+        transition: background 0.1s, border-color 0.1s, color 0.1s;
+        white-space: nowrap;
+    }
+
+    .lb-agg-pill:hover {
+        background: var(--dn-accent);
+        color: #fff;
+        border-color: var(--dn-accent);
+    }
+
+    .lb-agg-pill-active {
+        background: var(--dn-accent);
+        color: #fff;
+        border-color: var(--dn-accent);
+    }
+
+    .lb-agg-pill-active:hover {
+        background: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
+        border-color: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
+    }
+
+    .lb-agg-pill-icon {
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .lb-agg-field-label {
+        display: contents; /* keeps select inline */
+    }
+
+    .lb-agg-select {
+        padding: 3px 6px;
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        background: var(--dn-surface);
+        color: var(--dn-text);
+        font-size: 0.8125rem;
+        font-family: var(--dn-font-mono);
+        cursor: pointer;
+    }
+
+    /* Trend + R² sub-section */
+
+    .lb-agg-trend {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.5);
+        padding-top: calc(var(--dn-space) * 0.5);
+        border-top: 1px solid var(--dn-border);
+        margin-top: calc(var(--dn-space) * 0.25);
+    }
+
+    .lb-agg-trend-label {
+        margin: 0;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--dn-text);
+    }
+
+    .lb-agg-trend-fields {
+        display: flex;
+        gap: calc(var(--dn-space) * 1);
+        flex-wrap: wrap;
+    }
+
+    .lb-agg-trend-field {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .lb-agg-trend-field-name {
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        font-weight: 600;
+    }
+
+    .lb-agg-trend-toggles {
+        display: flex;
+        gap: calc(var(--dn-space) * 0.5);
+        flex-wrap: wrap;
+    }
+
+    /* visually-hidden for screen reader labels on select elements */
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
     /* ── Template row ── */
