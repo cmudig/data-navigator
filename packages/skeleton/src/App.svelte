@@ -416,7 +416,8 @@
     :global(body) {
         display: flex;
         flex-direction: column;
-        min-height: 100dvh;
+        height: 100dvh;
+        overflow: hidden;
         margin: 0;
     }
 

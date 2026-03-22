@@ -25,7 +25,7 @@
         /* Left column ~35%, right column ~65% */
         grid-template-columns: 35% 65%;
         /* Two rows for the left column; right column spans both */
-        grid-template-rows: 40vh 55vh;
+        grid-template-rows: 40vh 45vh;
         grid-template-areas:
             "top-left    top-right"
             "bottom-left top-right";
