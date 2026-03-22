@@ -16,7 +16,7 @@
     const DRILL_OUT_KEYS = ['w', 'j', '\\'] as const;
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
-    let uploadedData: Record<string, unknown>[] | null = $state(null);
+    let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
     let schema: SchemaState = $state({
         dimensions: [], childmostNavigation: 'within', allowMoreThan3: false,
         collapsed: false, graphMode: 'tree', hideLeafNodes: false,
@@ -40,6 +40,7 @@
     let _dnTick = $state(0);
     let _dnCounter = 0; // plain (non-reactive) counter — used to write _dnTick without reading it
     let schemaGraphContainer: HTMLDivElement | undefined = $state();
+    let leafNodeWarning = $state('');
     let _inspector: ReturnType<typeof Inspector> | null = null;
     // Mirrored separately from schema so the Inspector effect only re-runs when
     // these values actually change, not on every schema proxy replacement.

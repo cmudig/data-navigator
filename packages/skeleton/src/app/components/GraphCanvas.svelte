@@ -101,7 +101,7 @@
     let renderConfig = $state<RenderConfig>(initial.renderConfig);
     let toolOptions = $state<ToolOptions>(initial.toolOptions);
     let schemaState = $state<SchemaState>(initial.schemaState);
-    let uploadedData = $state<Record<string, unknown>[] | null>(initial.uploadedData);
+    let uploadedData = $state.raw<Record<string, unknown>[] | null>(initial.uploadedData);
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -118,7 +118,7 @@
             renderConfig = s.renderConfig;
             toolOptions = s.toolOptions;
             schemaState = s.schemaState;
-            uploadedData = s.uploadedData;
+            if (s.uploadedData !== uploadedData) uploadedData = s.uploadedData;
         });
     });
 
@@ -208,15 +208,15 @@
     // Compute which edges have a reverse-direction counterpart (for bezier curves)
     const pairedEdgeIds = $derived.by((): Set<string> => {
         const paired = new Set<string>();
-        const edgeArr = [...edges.values()];
-        for (const edge of edgeArr) {
-            for (const other of edgeArr) {
-                if (other.id !== edge.id && other.sourceId === edge.targetId && other.targetId === edge.sourceId) {
-                    paired.add(edge.id);
-                    break;
-                }
+        const reverseKey = new Map<string, string>();
+        edges.forEach((edge) => {
+            reverseKey.set(`${edge.targetId}→${edge.sourceId}`, edge.id);
+        });
+        edges.forEach((edge) => {
+            if (reverseKey.has(`${edge.sourceId}→${edge.targetId}`)) {
+                paired.add(edge.id);
             }
-        }
+        });
         return paired;
     });
 
