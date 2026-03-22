@@ -264,6 +264,10 @@
                     ? `These become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}.`
                     : 'These become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values.';
 
+                const ch2Ans = prep.qaProgress.chapters.find(c => c.id === 'dimensions')?.answers ?? {};
+                const idConfirmAnswer = ch2Ans['confirm-id-variable'] as string | undefined;
+                const idVar = prep.variables.find(v => v.isId);
+
                 const questions: QAQuestionDef[] = [
                     {
                         id: 'choose-dimensions',
@@ -343,6 +347,52 @@
                     },
                 ];
 
+                // Q2.0 — Confirm ID variable (inserted before choose-dimensions)
+                if (idVar || idConfirmAnswer !== undefined) {
+                    questions.unshift({
+                        id: 'confirm-id-variable',
+                        question: idVar
+                            ? `We identified "${idVar.key}" as containing only unique values. Will this variable always remain full of unique values? If so, can we use this for IDs?`
+                            : `We previously identified a potential ID variable. Can we use it as the unique row identifier?`,
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes, use it as the ID column', suggested: true },
+                            { value: 'no', label: 'No, don\'t use this as the ID' },
+                        ],
+                        onAnswer: (value, prepAtCall, _s, _d) => {
+                            if (value === 'no') {
+                                const currentIdVar = prepAtCall.variables.find(v => v.isId);
+                                if (currentIdVar) {
+                                    return {
+                                        prepPatch: (p) => ({
+                                            ...p,
+                                            variables: p.variables.map(v =>
+                                                v.key === currentIdVar.key ? { ...v, isId: false } : v
+                                            ),
+                                        }),
+                                    };
+                                }
+                            }
+                            return {};
+                        },
+                    });
+                }
+
+                // Q2.0b — ID creator prompt (only if user rejected auto-detected ID)
+                if (idConfirmAnswer === 'no') {
+                    // Insert after confirm-id-variable, before choose-dimensions
+                    questions.splice(1, 0, {
+                        id: 'id-creator-prompt',
+                        question: 'IDs will be generated randomly during structure creation. Would you like to create your own IDs now instead?',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes, I\'ll create IDs now' },
+                            { value: 'no', label: 'No, use randomly generated IDs' },
+                        ],
+                        onAnswer: (_value, _p, _s, _d) => ({}),
+                    });
+                }
+
                 // Per-dimension questions (Q2.2, Q2.3, Q2.4)
                 for (const dim of includedDims) {
                     // Q2.2 — Confirm type
@@ -355,14 +405,14 @@
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes, that\'s right' },
-                            { value: 'no-cat', label: 'No — these are categories (names or labels)' },
-                            { value: 'no-num', label: 'No — these are numbers' },
+                            dim.type === 'categorical'
+                                ? { value: 'no', label: 'No — these are numbers' }
+                                : { value: 'no', label: 'No — these are categories (names or labels)' },
                         ],
                         onAnswer: (value, _p, _s, _d) => {
                             const newType: 'numerical' | 'categorical' =
-                                value === 'no-num' ? 'numerical' :
-                                value === 'no-cat' ? 'categorical' :
-                                dim.type;
+                                value === 'yes' ? dim.type :
+                                dim.type === 'categorical' ? 'numerical' : 'categorical';
                             return {
                                 prepPatch: (p) => ({
                                     ...p,
