@@ -1,15 +1,39 @@
 <script lang="ts">
     import type { LabelTemplate } from '../../../store/appState';
 
+    interface ParentDimension {
+        key: string;
+        label: string;        // e.g. "Use Age division name" or "Use Category name"
+        isReduced: boolean;   // true = no sub-divisions (show dim name, not division name)
+        exampleLabel: string; // e.g. "170–180" or "Electronics"
+    }
+
+    interface SuggestedField {
+        key: string;
+        rank?: '1st' | '2nd' | '3rd';
+    }
+
     interface Props {
         fields: string[];
         nodeType: 'level0' | 'level1' | 'level2' | 'level3';
         value: LabelTemplate;
         sampleData: Record<string, unknown>;
         onchange: (v: LabelTemplate) => void;
+        dimensionName?: string;          // division builders: the parent dim key
+        parentDimensions?: ParentDimension[]; // leaf builders: per-dim parent name checkboxes
+        suggestedFields?: SuggestedField[];   // fields to highlight with ★ badges
     }
 
-    let { fields, nodeType, value, sampleData, onchange }: Props = $props();
+    let {
+        fields,
+        nodeType,
+        value,
+        sampleData,
+        onchange,
+        dimensionName = undefined,
+        parentDimensions = [],
+        suggestedFields = [],
+    }: Props = $props();
 
 
     // ── Live preview ─────────────────────────────────────────────────────────
@@ -32,11 +56,27 @@
             return val !== undefined ? String(val) : `[${key}]`;
         });
 
+        // Division builders: prepend dimension name when checked
+        if (tmpl.includeDimensionName && dimensionName) {
+            resolved = resolved ? `${dimensionName}: ${resolved}` : dimensionName;
+        }
+
         const name = tmpl.name || 'data point';
         const cap = name.charAt(0).toUpperCase() + name.slice(1);
         let suffix = cap;
         if (tmpl.includeIndex) suffix += ` 3 of 8`;
-        if (tmpl.includeParentName) suffix += ` in Example Group`;
+
+        // Leaf builders: per-dimension parent names
+        if (tmpl.includeParentNames && tmpl.includeParentNames.length > 0) {
+            const clauses = tmpl.includeParentNames
+                .map(k => parentDimensions.find(p => p.key === k)?.exampleLabel ?? '(example)')
+                .join(' / ');
+            suffix += ` in ${clauses}`;
+        } else if (tmpl.includeParentName) {
+            // Backward compat for non-leaf builders (dim/div labels)
+            suffix += ` in Example Group`;
+        }
+
         suffix += '.';
 
         return resolved ? `${resolved} ${suffix}` : suffix;
@@ -125,6 +165,7 @@
         <div class="lb-pills-area" aria-label="Available fields — click to add to label">
             {#each fields as field (field)}
                 {@const selected = selectedFields.has(field)}
+                {@const suggestion = suggestedFields.find(s => s.key === field)}
                 <button
                     class="lb-pill"
                     class:lb-pill-selected={selected}
@@ -136,7 +177,7 @@
                             ? `Add value of "${field}" to label`
                             : `Add "${field}" name and value to label`}
                 >
-                    {#if selected}<span class="lb-pill-check" aria-hidden="true">✓</span>{/if}{field}
+                    {#if selected}<span class="lb-pill-check" aria-hidden="true">✓</span>{/if}{field}{#if suggestion}<span class="lb-pill-suggested" aria-label={suggestion.rank ? `Suggested: ${suggestion.rank}` : 'Suggested'}>★{suggestion.rank ? ` ${suggestion.rank}` : ''}</span>{/if}
                 </button>
             {/each}
         </div>
@@ -186,15 +227,48 @@
             <span class="lb-checkbox-example">(e.g., item 3 of 8)</span>
         </label>
 
-        <label class="lb-checkbox-label">
-            <input
-                type="checkbox"
-                checked={value.includeParentName}
-                onchange={handleIncludeParentName}
-            />
-            Include the name of the group?
-            <span class="lb-checkbox-example">(e.g., in North region)</span>
-        </label>
+        {#if dimensionName}
+            <!-- Division builders: prepend the dimension's name to this sub-group label -->
+            <label class="lb-checkbox-label">
+                <input
+                    type="checkbox"
+                    checked={value.includeDimensionName ?? false}
+                    onchange={(e) => onchange({ ...value, includeDimensionName: (e.target as HTMLInputElement).checked })}
+                />
+                Include dimension name
+                <span class="lb-checkbox-example">(e.g., {dimensionName}: {String(sampleData['range'] ?? '10–20')})</span>
+            </label>
+        {:else if parentDimensions.length > 0}
+            <!-- Leaf builders: one checkbox per dimension, using real examples -->
+            {#each parentDimensions as pd (pd.key)}
+                <label class="lb-checkbox-label">
+                    <input
+                        type="checkbox"
+                        checked={(value.includeParentNames ?? []).includes(pd.key)}
+                        onchange={(e) => {
+                            const cur = value.includeParentNames ?? [];
+                            const next = (e.target as HTMLInputElement).checked
+                                ? [...cur, pd.key]
+                                : cur.filter(k => k !== pd.key);
+                            onchange({ ...value, includeParentNames: next });
+                        }}
+                    />
+                    {pd.label}
+                    <span class="lb-checkbox-example">(e.g., in {pd.exampleLabel})</span>
+                </label>
+            {/each}
+        {:else}
+            <!-- Fallback for non-leaf/non-division builders (level0, generic level1) -->
+            <label class="lb-checkbox-label">
+                <input
+                    type="checkbox"
+                    checked={value.includeParentName}
+                    onchange={handleIncludeParentName}
+                />
+                Include the name of the group?
+                <span class="lb-checkbox-example">(e.g., in North region)</span>
+            </label>
+        {/if}
 
         <label class="lb-checkbox-label lb-omit-toggle">
             <input
@@ -278,6 +352,17 @@
     .lb-pill-check {
         margin-right: 5px;
         font-size: 0.75rem;
+    }
+
+    .lb-pill-suggested {
+        margin-left: 5px;
+        font-size: 0.7rem;
+        font-family: var(--dn-font);
+        opacity: 0.85;
+    }
+
+    .lb-pill-selected .lb-pill-suggested {
+        opacity: 0.9;
     }
 
     /* ── Template row ── */

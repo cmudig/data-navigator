@@ -10,6 +10,18 @@
         suggested?: boolean;
     }
 
+    interface ParentDimension {
+        key: string;
+        label: string;
+        isReduced: boolean;
+        exampleLabel: string;
+    }
+
+    interface SuggestedField {
+        key: string;
+        rank?: '1st' | '2nd' | '3rd';
+    }
+
     interface Props {
         question: string;
         hint?: string;
@@ -21,6 +33,9 @@
         fields?: string[];
         sampleData?: Record<string, unknown>;
         nodeType?: 'level0' | 'level1' | 'level2' | 'level3';
+        dimensionName?: string;
+        parentDimensions?: ParentDimension[];
+        suggestedFields?: SuggestedField[];
         // multiselect limit
         maxSelect?: number;
         // expandable info panel (e.g. "What are dimensions?")
@@ -39,6 +54,9 @@
         fields = [],
         sampleData = {},
         nodeType = 'level3',
+        dimensionName = undefined,
+        parentDimensions = [],
+        suggestedFields = [],
         maxSelect,
         expandableInfo,
         suggestionBox,
@@ -237,6 +255,9 @@
                 {nodeType}
                 value={labelValue}
                 {sampleData}
+                {dimensionName}
+                {parentDimensions}
+                {suggestedFields}
                 onchange={(v) => onchange(v)}
             />
 

@@ -28,6 +28,18 @@
         overrideCursor?: string; // if set, skip auto-advance and jump to this question id
     }
 
+    interface ParentDimension {
+        key: string;
+        label: string;
+        isReduced: boolean;
+        exampleLabel: string;
+    }
+
+    interface SuggestedField {
+        key: string;
+        rank?: '1st' | '2nd' | '3rd';
+    }
+
     interface QAQuestionDef {
         id: string;
         question: string;
@@ -42,6 +54,10 @@
         maxSelect?: number; // multiselect only — limits selection count
         expandableInfo?: { buttonLabel: string; content: string };
         suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
+        // label-builder extras
+        dimensionName?: string;
+        parentDimensions?: ParentDimension[];
+        suggestedFields?: SuggestedField[];
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -72,6 +88,98 @@
         const unique = [...new Set(vals.map(String))];
         return unique.length === vals.length && vals.length > 0;
     }
+
+    // ── Label-building helpers (used by Chapter 4) ────────────────────────────
+
+    // Lightweight template resolver — strips key tokens, resolves value tokens.
+    // Used to compute example labels from already-saved templates.
+    function resolveTemplateToString(template: string, sampleRow: Row): string {
+        let r = template;
+        r = r.replace(/\{key:"[^"]+"\}:\s*/g, '');
+        r = r.replace(/\{key:"[^"]+"\}/g, (_: string, k: string) => k);
+        r = r.replace(/\{value:"([^"]+)"\}/g, (_: string, k: string) => {
+            const v = sampleRow[k];
+            return v !== undefined ? String(v) : `[${k}]`;
+        });
+        return r.trim();
+    }
+
+    // Build sample row for the first numerical bucket of a dimension.
+    function buildDivisionSampleRow(dim: DimensionSchema, d: Row[] | null): Row {
+        const numVals = (d ?? []).map(row => Number(row[dim.key])).filter(n => !isNaN(n)).sort((a, b) => a - b);
+        if (numVals.length === 0) return { range: '(example)', count: 0 };
+        const min = numVals[0], max = numVals[numVals.length - 1];
+        const bucket = (max - min) / Math.max(dim.subdivisions, 1);
+        const bMin = min, bMax = Math.round((min + bucket) * 100) / 100;
+        const exampleRange = `${Math.round(bMin * 100) / 100}–${bMax}`;
+        const exampleCount = numVals.filter(n => n >= bMin && n < bMin + bucket).length;
+        return { range: exampleRange, count: exampleCount, [dim.key]: bMin };
+    }
+
+    // Compute the best available example label for a dimension (for leaf parentDimensions).
+    // Tier 1: apply saved label template to sample data.
+    // Tier 2: fall back to raw first value / first range.
+    function computeExampleLabel(dim: DimensionSchema, prep: PrepState, d: Row[] | null): string {
+        if (dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, d)) {
+            const savedTemplate = prep.labelConfig.perDivision[dim.key]?.template;
+            if (savedTemplate) {
+                const sampleRow = buildDivisionSampleRow(dim, d);
+                const resolved = resolveTemplateToString(savedTemplate, sampleRow);
+                if (resolved) return resolved;
+            }
+            // Fallback: raw first range
+            const sampleRow = buildDivisionSampleRow(dim, d);
+            return String(sampleRow['range'] ?? '(example)');
+        } else {
+            const savedTemplate = prep.labelConfig.perDimension[dim.key]?.template;
+            if (savedTemplate) {
+                const vals = (d ?? []).map(r => r[dim.key]).filter(x => x != null);
+                const unique = [...new Set(vals.map(String))];
+                const firstVal = unique[0] ?? '(example)';
+                const resolved = resolveTemplateToString(savedTemplate, { [dim.key]: firstVal });
+                if (resolved) return resolved;
+            }
+            // Fallback: raw first unique value
+            const vals = (d ?? []).map(r => r[dim.key]).filter(x => x != null);
+            const unique = [...new Set(vals.map(String))];
+            return unique[0] ?? '(example)';
+        }
+    }
+
+    // Build the auto-suggested default template for leaf labels.
+    // Numerical dimensions first (they carry the actual data values), then categorical.
+    function buildLeafDefaultTemplate(dims: DimensionSchema[]): string {
+        const numerical = dims.filter(d => d.type === 'numerical').sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+        const categorical = dims.filter(d => d.type === 'categorical').sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+        const ordered = [...numerical, ...categorical];
+        if (ordered.length === 0) return '';
+        return ordered.map(d => ` {key:"${d.key}"}: {value:"${d.key}"},`).join('').trim().replace(/,\s*$/, '');
+    }
+
+    // Build the suggestedFields array. Numerical dims get ranked ('1st','2nd','3rd');
+    // categorical dims are marked suggested but unranked.
+    function buildSuggestedFields(dims: DimensionSchema[]): SuggestedField[] {
+        const RANKS = ['1st', '2nd', '3rd'] as const;
+        const numerical = dims.filter(d => d.type === 'numerical').sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+        const categorical = dims.filter(d => d.type === 'categorical').sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+        const result: SuggestedField[] = [];
+        for (let i = 0; i < numerical.length; i++) {
+            result.push({ key: numerical[i].key, rank: RANKS[i] });
+        }
+        for (const d of categorical) {
+            result.push({ key: d.key });
+        }
+        return result;
+    }
+
+    // "Help me build a good label" guidance text (based on accessibility research).
+    const LABEL_HELP_TEXT =
+        'Screen readers announce text in order, left to right. ' +
+        'Put the most important value first (usually a number or name), and less critical context after.\n\n' +
+        'Shorter labels are easier to remember. Aim for what you would say out loud, not a full sentence. ' +
+        'Users exploring a chart repeatedly will hear these labels many times — every unnecessary word adds up.\n\n' +
+        'If your chart shows information in a tooltip on hover, include that same information here. ' +
+        'Screen reader users will never see tooltips — labels are their equivalent.';
 
     // Infer which preset a dimension is using from its forwardKey
     function getDimPreset(dim: DimensionSchema): 'updown' | 'leftright' | 'brackets' | null {
@@ -163,11 +271,11 @@
                     {
                         id: 'root-node',
                         question: 'Does your visualization have a single starting point that everything else branches from?',
-                        hint: 'Think of it like a home page — a place where navigation begins before drilling into any specific group.',
+                        hint: 'Think of it like a home page — a place where navigation begins before drilling into any specific dimension.',
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.' },
-                            { value: 'no',  label: 'No — let users start at the first group directly', description: 'Navigation begins at the first browsing group without a parent node. Recommended if you already have a high-level description elsewhere.' },
+                            { value: 'no',  label: 'No — let users start at the first group directly', description: 'Navigation begins at the first dimension without a parent node. Recommended if you already have a high-level description elsewhere.' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
@@ -543,7 +651,7 @@
                 if (includedDims.length >= 2) {
                     questions.push({
                         id: 'dim-order',
-                        question: 'In what order should your browsing groups be layered? Use the up/down buttons to reorder.',
+                        question: 'In what order should your dimensions (groups) be layered? Use the up/down buttons to reorder.',
                         hint: 'The first group is what a user encounters first. Groups appear to a user in the following order as they navigate:',
                         inputType: 'drag-order',
                         options: includedDims.map(d => ({ value: d.key, label: d.key })),
@@ -587,16 +695,22 @@
                     { value: 'brackets',  label: '[ and ] brackets (\\ to drill out)',        description: 'Press [ or ] to move through items. Press Enter to drill in. Press \\ to drill out.' },
                 ];
 
+                const NAV_PRESET_OPTIONS_HIGH: QAOption[] = [
+                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
+                    { value: 'leftright', label: 'Left/Right arrows (←/→ + J to drill out)', description: 'Press ←/→ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
+                    { value: 'brackets',  label: '[ and ] brackets (\\ to drill out)',        description: 'Press [ or ] to move through items. Press Enter to drill in. Press Escape to exit the chart.' },
+                ];
+
                 const questions: QAQuestionDef[] = [];
 
                 // Q3.A — Navigation between top-level groups (only if 2+ dimensions)
                 if (dims.length >= 2) {
                     questions.push({
                         id: 'nav-between-dims',
-                        question: 'How should keyboard users move between top-level groups in your visualization?',
-                        hint: "Pressing Escape leaves the chart entirely, regardless of which option you choose. Choosing a key layout here doesn't prevent using those same keys within a dimension.",
+                        question: 'How should keyboard users move between top-level dimensions in your visualization?',
+                        hint: "The 'top level' is where your dimensions live — e.g., 'date', 'value', and 'region'. Choosing a key layout here doesn't prevent using those same keys within a dimension.",
                         inputType: 'radio',
-                        options: NAV_PRESET_OPTIONS,
+                        options: NAV_PRESET_OPTIONS_HIGH,
                         onAnswer: (value, _p, _s, _d) => {
                             const MAP: Record<string, number> = { updown: 0, leftright: 1, brackets: 2 };
                             const slot = NAV_SLOTS_QA[MAP[value as string] ?? 1];
@@ -610,6 +724,23 @@
                                 }),
                             };
                         },
+                    });
+                    // Q3.A2 — Top-level extent
+                    questions.push({
+                        id: 'top-level-extents',
+                        question: 'When a user reaches the last dimension at the top level, what should happen?',
+                        hint: "This decides what happens after a user reaches the last dimension.",
+                        inputType: 'radio',
+                        options: [
+                            { value: 'circular', label: 'Loop back to the first dimension' },
+                            { value: 'terminal', label: 'Stop at the last dimension' },
+                        ],
+                        onAnswer: (value, _p, _s, _d) => ({
+                            schemaPatch: (sch) => ({
+                                ...sch,
+                                level1Extents: value as SchemaState['level1Extents'],
+                            }),
+                        }),
                     });
                 }
 
@@ -842,36 +973,16 @@
                     });
                 }
 
-                // Q3.G1 — Top-level extent (only if no root/level0 node)
-                if (!schema.level0Enabled) {
-                    questions.push({
-                        id: 'top-level-extents',
-                        question: 'When a user reaches the last browsing group at the top level, what should happen?',
-                        hint: "The 'top level' is where your main groups live — e.g., 'Category A', 'Category B', 'Category C'. This decides what happens after the last one.",
-                        inputType: 'radio',
-                        options: [
-                            { value: 'circular', label: 'Loop back to the first group' },
-                            { value: 'terminal', label: 'Stop at the last group' },
-                        ],
-                        onAnswer: (value, _p, _s, _d) => ({
-                            schemaPatch: (sch) => ({
-                                ...sch,
-                                level1Extents: value as SchemaState['level1Extents'],
-                            }),
-                        }),
-                    });
-                }
-
                 // Q3.G2 — Cross-group nav at data level (only if 2+ dimensions)
                 if (dims.length >= 2) {
                     questions.push({
                         id: 'cross-group-nav',
-                        question: 'When a user is looking at an individual data point, can they jump directly to the same position in a neighboring group?',
-                        hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when groups have matching items in the same position.',
+                        question: 'When a user is looking at an individual data point, can they jump directly to the same position in a neighboring dimension?',
+                        hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when dimensions have matching items in the same position.',
                         inputType: 'radio',
                         options: [
-                            { value: 'across', label: 'Yes — let them jump across groups',         description: 'Best when groups have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
-                            { value: 'within', label: 'No — keep them within their current group', description: 'Best when groups are independent (e.g., different categories with different numbers of items).' },
+                            { value: 'within', label: 'No — keep them within their current group', description: 'Best when dimensions are independent (e.g., mixing categorical and numerical dimensions, having different categories with different numbers of items, etc.).' },
+                            { value: 'across', label: 'Yes — let them jump across dimensions', description: 'Best when dimensions have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({
@@ -900,37 +1011,9 @@
                     { value: 'no',  label: 'No — these are display only' },
                 ];
 
-                const questions: QAQuestionDef[] = [
-                    // Q4.1 — Leaf label template
-                    {
-                        id: 'leaf-label',
-                        question: "Let's set up a template for how individual data points are announced. When a user navigates to one, what should a screen reader say?",
-                        hint: "Use the field buttons below to build your template. The placeholders like {value:\"score\"} are automatically replaced with real data from each row. You're setting this up once — it will apply to every data point in your visualization. The preview shows what it will sound like for one example row.",
-                        inputType: 'label-builder',
-                        nodeType: 'level3',
-                        getFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
-                        getSampleData: (d, _p) => d?.[0] ?? {},
-                        onAnswer: (value, _p, _s, _d) => ({
-                            prepPatch: (p) => ({
-                                ...p,
-                                labelConfig: { ...p.labelConfig, leaves: value as LabelTemplate },
-                            }),
-                        }),
-                    },
-                    // Q4.1b — Are individual data points interactive?
-                    {
-                        id: 'leaf-interactive',
-                        question: 'Are individual data points interactive? For example, can users select, click, or otherwise interact with them?',
-                        hint: 'If yes, these elements will be given an interactive role (like a button) so screen readers announce them as actionable. Screen readers will say "button" after the label — this comes from the role, not from the label text itself.',
-                        inputType: 'radio',
-                        options: INTERACTIVE_OPTIONS,
-                        onAnswer: (value, _p, _s, _d) => ({
-                            prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
-                        }),
-                    },
-                ];
+                const questions: QAQuestionDef[] = [];
 
-                // Q4.2 — Group header label + interactive (per dimension)
+                // ── Phase 1: Dimension group header labels ────────────────────
                 for (const dim of dims) {
                     const firstUniqueVal = (() => {
                         const vals = (data ?? []).map(row => row[dim.key]);
@@ -938,21 +1021,24 @@
                         return unique[0] ?? '(example)';
                     })();
                     const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
-                    const suggestedTemplate = `{key:"${dim.key}"}: {value:"${dim.key}"}`;
 
-                    // Q4.2a — Group header label
+                    // Q4.A — Dimension group header label
                     questions.push({
                         id: `dim-label-${dim.key}`,
-                        question: `Now let's set up a template for "${dim.key}" group headers — what a screen reader says when a user arrives at this type of group.`,
+                        question: `Let's set up a label for "${dim.key}" group headers — what a screen reader says when a user arrives at this dimension.`,
                         hint: `You're writing one template that applies to every group in this browsing layer. The {value:"${dim.key}"} placeholder is replaced with the actual group value for each group. Example: "${dim.key}: Electronics" or "${dim.key}: 2020".`,
                         inputType: 'label-builder',
                         nodeType: 'level1',
                         getFields: (_p) => [dim.key, 'count'],
                         getSampleData: (_d, _p) => ({ [dim.key]: firstUniqueVal, count: countForFirst }),
                         defaultValue: {
-                            template: suggestedTemplate, name: dim.key.toLowerCase(),
+                            template: `{key:"${dim.key}"}: {value:"${dim.key}"}`,
+                            name: dim.key.toLowerCase(),
                             includeIndex: false, includeParentName: false, omitKeyNames: false,
+                            includeDimensionName: false, includeParentNames: [],
                         } as LabelTemplate,
+                        suggestedFields: [{ key: dim.key }],
+                        expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => ({
                                 ...p,
@@ -964,7 +1050,7 @@
                         }),
                     });
 
-                    // Q4.2b — Are group-header nodes interactive?
+                    // Q4.A interactive — are group-header nodes interactive?
                     questions.push({
                         id: `dim-interactive-${dim.key}`,
                         question: `Are "${dim.key}" group elements interactive? For example, can users select or click on them?`,
@@ -975,62 +1061,110 @@
                             prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
                         }),
                     });
-
-                    // Q4.3 — Sub-group label (numerical dims with subdivisions > 1 only)
-                    if (dim.type === 'numerical' && dim.subdivisions > 1) {
-                        const numVals = (data ?? [])
-                            .map(row => Number(row[dim.key]))
-                            .filter(n => !isNaN(n))
-                            .sort((a, b) => a - b);
-                        let exampleRange = '(example range)';
-                        let exampleCount = 0;
-                        if (numVals.length > 0) {
-                            const min = numVals[0];
-                            const max = numVals[numVals.length - 1];
-                            const bucket = (max - min) / dim.subdivisions;
-                            const bMin = min;
-                            const bMax = Math.round((min + bucket) * 100) / 100;
-                            exampleRange = `${Math.round(bMin * 100) / 100}–${bMax}`;
-                            exampleCount = numVals.filter(n => n >= bMin && n < bMin + bucket).length;
-                        }
-
-                        // Q4.3a — Sub-group label
-                        questions.push({
-                            id: `div-label-${dim.key}`,
-                            question: `For "${dim.key}" sub-groups, what should a screen reader say when a user arrives at a specific range or subset?`,
-                            hint: `This template applies to each sub-group (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket.`,
-                            inputType: 'label-builder',
-                            nodeType: 'level2',
-                            getFields: (_p) => ['range', 'count'],
-                            getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
-                            defaultValue: {
-                                template: '{value:"range"}', name: 'range',
-                                includeIndex: false, includeParentName: false, omitKeyNames: false,
-                            } as LabelTemplate,
-                            onAnswer: (value, _p, _s, _d) => ({
-                                prepPatch: (p) => ({
-                                    ...p,
-                                    labelConfig: {
-                                        ...p.labelConfig,
-                                        perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
-                                    },
-                                }),
-                            }),
-                        });
-
-                        // Q4.3b — Are sub-group nodes interactive?
-                        questions.push({
-                            id: `div-interactive-${dim.key}`,
-                            question: `Are "${dim.key}" sub-group elements interactive? For example, can users select or click on them?`,
-                            hint: 'If yes, screen readers will announce "button" after the label for these sub-groups. This comes from the element\'s role — not the label text.',
-                            inputType: 'radio',
-                            options: INTERACTIVE_OPTIONS,
-                            onAnswer: (value, _p, _s, _d) => ({
-                                prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
-                            }),
-                        });
-                    }
                 }
+
+                // ── Phase 2: Division (sub-group) labels ──────────────────────
+                // Only for numerical dims with meaningful divisions (not reduced)
+                for (const dim of dims) {
+                    if (dim.type !== 'numerical' || dim.subdivisions <= 1 || isReducedDimension(dim, data)) continue;
+
+                    const divSampleRow = buildDivisionSampleRow(dim, data);
+                    const exampleRange = String(divSampleRow['range'] ?? '(example range)');
+                    const exampleCount = Number(divSampleRow['count'] ?? 0);
+
+                    // Q4.B — Division sub-group label
+                    questions.push({
+                        id: `div-label-${dim.key}`,
+                        question: `For "${dim.key}" sub-groups, what should a screen reader say when a user arrives at a specific range or subset?`,
+                        hint: `This template applies to each sub-group (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each sub-group with "${dim.key}:".`,
+                        inputType: 'label-builder',
+                        nodeType: 'level2',
+                        getFields: (_p) => ['range', 'count'],
+                        getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
+                        defaultValue: {
+                            template: '{value:"range"}', name: 'range',
+                            includeIndex: false, includeParentName: false, omitKeyNames: false,
+                            includeDimensionName: false, includeParentNames: [],
+                        } as LabelTemplate,
+                        dimensionName: dim.key,
+                        suggestedFields: [{ key: 'range' }],
+                        expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => ({
+                                ...p,
+                                labelConfig: {
+                                    ...p.labelConfig,
+                                    perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
+                                },
+                            }),
+                        }),
+                    });
+
+                    // Q4.B interactive — are division elements interactive?
+                    questions.push({
+                        id: `div-interactive-${dim.key}`,
+                        question: `Are "${dim.key}" sub-group elements interactive? For example, can users select or click on them?`,
+                        hint: 'If yes, screen readers will announce "button" after the label for these sub-groups. This comes from the element\'s role — not the label text.',
+                        inputType: 'radio',
+                        options: INTERACTIVE_OPTIONS,
+                        onAnswer: (value, _p, _s, _d) => ({
+                            prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
+                        }),
+                    });
+                }
+
+                // ── Phase 3: Leaf (individual data point) label ───────────────
+                // Build per-dimension parent checkboxes with real examples
+                const leafParentDimensions: ParentDimension[] = dims.map(dim => {
+                    const reduced = isReducedDimension(dim, data);
+                    const hasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !reduced;
+                    return {
+                        key: dim.key,
+                        label: hasDivisions
+                            ? `Use ${dim.key} division name`
+                            : `Use ${dim.key} name`,
+                        isReduced: reduced,
+                        exampleLabel: computeExampleLabel(dim, prep, data),
+                    };
+                });
+
+                // Q4.C — Leaf label template
+                questions.push({
+                    id: 'leaf-label',
+                    question: "Now let's set up a template for individual data points — what a screen reader says when a user navigates to one.",
+                    hint: "Use the field buttons below to build your template. The ★ suggested variables are the ones that became dimensions — these are most important to include. You are welcome to include more, if it is important to understanding the data. The preview shows what it will sound like for one example row.",
+                    inputType: 'label-builder',
+                    nodeType: 'level3',
+                    getFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
+                    getSampleData: (d, _p) => d?.[0] ?? {},
+                    defaultValue: {
+                        template: buildLeafDefaultTemplate(dims),
+                        name: 'data point',
+                        includeIndex: false, includeParentName: false, omitKeyNames: false,
+                        includeDimensionName: false, includeParentNames: [],
+                    } as LabelTemplate,
+                    parentDimensions: leafParentDimensions,
+                    suggestedFields: buildSuggestedFields(dims),
+                    expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
+                    onAnswer: (value, _p, _s, _d) => ({
+                        prepPatch: (p) => ({
+                            ...p,
+                            labelConfig: { ...p.labelConfig, leaves: value as LabelTemplate },
+                        }),
+                    }),
+                });
+
+                // Q4.C interactive — are individual data points interactive?
+                questions.push({
+                    id: 'leaf-interactive',
+                    question: 'Are individual data points interactive? For example, can users select, click, or otherwise interact with them?',
+                    hint: 'If yes, these elements will be given an interactive role (like a button) so screen readers announce them as actionable. Screen readers will say "button" after the label — this comes from the role, not from the label text itself.',
+                    inputType: 'radio',
+                    options: INTERACTIVE_OPTIONS,
+                    onAnswer: (value, _p, _s, _d) => ({
+                        prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
+                    }),
+                });
 
                 return questions;
             },
@@ -1102,7 +1236,7 @@
     function defaultValue(inputType: string): unknown {
         if (inputType === 'multiselect' || inputType === 'drag-order') return [];
         if (inputType === 'label-builder') {
-            const tmpl: LabelTemplate = { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false };
+            const tmpl: LabelTemplate = { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false, includeDimensionName: false, includeParentNames: [] };
             return tmpl;
         }
         return '';
@@ -1316,6 +1450,9 @@
                 maxSelect={currentQuestion.maxSelect}
                 expandableInfo={currentQuestion.expandableInfo}
                 suggestionBox={currentQuestion.suggestionBox}
+                dimensionName={currentQuestion.dimensionName}
+                parentDimensions={currentQuestion.parentDimensions}
+                suggestedFields={currentQuestion.suggestedFields}
             />
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>
