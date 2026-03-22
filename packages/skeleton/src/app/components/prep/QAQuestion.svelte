@@ -67,12 +67,20 @@
     }
 
     // ── Drag-order helpers ────────────────────────────────────────────────────
-    const orderedItems = $derived(Array.isArray(value) ? (value as string[]) : []);
+    // Use $state (not $derived) so button clicks update the list immediately without
+    // relying on the prop round-trip. The $effect syncs from the prop when the parent
+    // loads a saved answer (e.g. on question navigation).
+    let orderedItems = $state<string[]>([]);
+
+    $effect(() => {
+        orderedItems = Array.isArray(value) ? [...(value as string[])] : [];
+    });
 
     function moveUp(index: number) {
         if (index === 0) return;
         const arr = [...orderedItems];
         [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+        orderedItems = arr;
         onchange(arr);
     }
 
@@ -80,6 +88,7 @@
         if (index >= orderedItems.length - 1) return;
         const arr = [...orderedItems];
         [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+        orderedItems = arr;
         onchange(arr);
     }
 
@@ -168,6 +177,7 @@
                         class="qa-radio-label"
                         class:qa-option-checked={value === opt.value}
                         class:qa-option-disabled={opt.disabled}
+                        class:qa-option-suggested={opt.suggested && value !== opt.value}
                     >
                         <input
                             type="radio"

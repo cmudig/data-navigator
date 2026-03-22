@@ -15,6 +15,7 @@ export interface DimensionSchema {
     navIndex: number | null; // 0/1/2 when selected
     // Behavior
     extents: 'circular' | 'terminal' | 'bridgedCousins';
+    divisionExtents: 'circular' | 'terminal' | null; // null = reduced dim (no divisions)
     compressSparseDivisions: boolean;
     sortMethod: 'ascending' | 'descending' | 'none';
     subdivisions: number; // numerical only, 1–12, default 4

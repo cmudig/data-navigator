@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import { onDestroy, untrack } from 'svelte';
     import {
         appState,
         type PrepState,
@@ -25,6 +25,7 @@
     interface StoreUpdate {
         prepPatch?: (prev: PrepState) => PrepState;
         schemaPatch?: (prev: SchemaState) => SchemaState;
+        overrideCursor?: string; // if set, skip auto-advance and jump to this question id
     }
 
     interface QAQuestionDef {
@@ -60,6 +61,51 @@
 
     function makeValidId(s: string): string {
         return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
+    }
+
+    // ── Navigation helpers (used by Chapter 3) ────────────────────────────────
+
+    // "Reduced" = no meaningful divisions: all-unique categorical, or numerical with ≤1 bucket
+    function isReducedDimension(dim: DimensionSchema, d: Row[] | null): boolean {
+        if (dim.type === 'numerical') return dim.subdivisions <= 1;
+        const vals = (d ?? []).map(r => r[dim.key]).filter(x => x != null);
+        const unique = [...new Set(vals.map(String))];
+        return unique.length === vals.length && vals.length > 0;
+    }
+
+    // Infer which preset a dimension is using from its forwardKey
+    function getDimPreset(dim: DimensionSchema): 'updown' | 'leftright' | 'brackets' | null {
+        if (dim.forwardKey === 'ArrowUp')   return 'updown';
+        if (dim.forwardKey === 'ArrowLeft') return 'leftright';
+        if (dim.forwardKey === '[')         return 'brackets';
+        return null;
+    }
+
+    // Returns { preset: dimKey } for all included dims except excludeKey
+    function getTakenPresets(dims: DimensionSchema[], excludeKey: string): Record<string, string> {
+        const taken: Record<string, string> = {};
+        for (const d of dims) {
+            if (d.key === excludeKey || !d.included) continue;
+            const p = getDimPreset(d);
+            if (p) taken[p] = d.key;
+        }
+        return taken;
+    }
+
+    // Build partial nav fields for a dim from a preset string
+    function applyNavPreset(preset: string, dim: DimensionSchema, allDims: DimensionSchema[]): Partial<DimensionSchema> {
+        const MAP: Record<string, number> = { updown: 0, leftright: 1, brackets: 2 };
+        const slot = NAV_SLOTS_QA[MAP[preset] ?? 0];
+        const drillOutKey = allDims.length > 1
+            ? (DRILL_OUT_KEYS_QA[dim.navIndex ?? 0] ?? 'Backspace')
+            : 'Backspace';
+        return {
+            forwardName: slot.forwardName, forwardKey: slot.forwardKey,
+            backwardName: slot.backwardName, backwardKey: slot.backwardKey,
+            drillInName: 'drill in', drillInKey: 'Enter',
+            drillOutName: allDims.length > 1 ? `drill out to ${dim.key}` : 'drill out',
+            drillOutKey,
+        };
     }
 
     // ── Chart type label map (used in Chapter 1 root-announcement composition) ─
@@ -328,6 +374,7 @@
                                         return {
                                             key, type, included: true, navIndex: idx,
                                             extents: (type === 'categorical' ? 'circular' : 'bridgedCousins') as DimensionSchema['extents'],
+                                            divisionExtents: null,
                                             compressSparseDivisions: true,
                                             sortMethod: (type === 'numerical' ? 'ascending' : 'none') as DimensionSchema['sortMethod'],
                                             subdivisions: 4, divisions: [],
@@ -442,6 +489,7 @@
                             hint: 'For example, if values range from 0–100 and you pick 4 buckets, users navigate through 4 ranges: 0–25, 25–50, 50–75, 75–100. Fewer buckets = easier to navigate; more = more precision. 4 is a good starting point.',
                             inputType: 'dropdown',
                             options: [
+                                { value: '1', label: 'No grouping (treat each value individually)' },
                                 { value: '2', label: '2 buckets' },
                                 { value: '3', label: '3 buckets' },
                                 { value: '4', label: '4 buckets (recommended)' },
@@ -496,7 +544,7 @@
                     questions.push({
                         id: 'dim-order',
                         question: 'In what order should your browsing groups be layered? Use the up/down buttons to reorder.',
-                        hint: 'The first group is the outermost layer — users navigate into it first. Later groups are nested deeper inside.',
+                        hint: 'The first group is what a user encounters first. Groups appear to a user in the following order as they navigate:',
                         inputType: 'drag-order',
                         options: includedDims.map(d => ({ value: d.key, label: d.key })),
                         defaultValue: includedDims.map(d => d.key),
@@ -519,104 +567,282 @@
             },
         },
 
-        // ── Chapter 3: Navigation (Task 13) ──────────────────────────────────
+        // ── Chapter 3: Navigation ────────────────────────────────────────────
         {
             id: 'navigation',
             label: 'Navigation',
-            getQuestions: (prep, schema, _data): QAQuestionDef[] => {
+            getQuestions: (prep, schema, data): QAQuestionDef[] => {
                 const dims = schema.dimensions
                     .filter(d => d.included)
                     .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
-                // Slot assignment per preset: index = dim position (by navIndex), value = which NAV_SLOTS_QA entry to use
-                const SLOT_ORDER: Record<string, number[]> = {
-                    updown:    [0, 1, 2],
-                    leftright: [1, 0, 2],
-                    brackets:  [2, 0, 1],
-                };
+                const ch3Ans = prep.qaProgress.chapters.find(c => c.id === 'navigation')?.answers ?? {};
+                const replacementQueue: string[] = Array.isArray(ch3Ans['nav-replacement-queue'])
+                    ? (ch3Ans['nav-replacement-queue'] as string[])
+                    : [];
 
-                const questions: QAQuestionDef[] = [
-                    {
-                        id: 'nav-preset',
-                        question: 'How should keyboard users move between groups in your data? Pick the key layout that fits your visualization.',
-                        hint: "There's no wrong answer — these are just defaults that users can customize later.",
+                const NAV_PRESET_OPTIONS: QAOption[] = [
+                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press W to drill out.' },
+                    { value: 'leftright', label: 'Left/Right arrows (←/→ + J to drill out)', description: 'Press ←/→ to move through items. Press Enter to drill in. Press J to drill out.' },
+                    { value: 'brackets',  label: '[ and ] brackets (\\ to drill out)',        description: 'Press [ or ] to move through items. Press Enter to drill in. Press \\ to drill out.' },
+                ];
+
+                const questions: QAQuestionDef[] = [];
+
+                // Q3.A — Navigation between top-level groups (only if 2+ dimensions)
+                if (dims.length >= 2) {
+                    questions.push({
+                        id: 'nav-between-dims',
+                        question: 'How should keyboard users move between top-level groups in your visualization?',
+                        hint: "Pressing Escape leaves the chart entirely, regardless of which option you choose. Choosing a key layout here doesn't prevent using those same keys within a dimension.",
                         inputType: 'radio',
-                        options: [
-                            { value: 'updown',    label: 'Up/Down arrows (+ W to go back up)',       description: 'Press ↑/↓ to move between groups. Press Enter to go inside a group. Press W to return to the parent level.' },
-                            { value: 'leftright', label: 'Left/Right arrows (+ J to go back up)',    description: 'Press ←/→ to move between groups. Press Enter to go inside a group. Press J to return to the parent level.' },
-                            { value: 'brackets',  label: '[ and ] brackets (+ \\ to go back up)',   description: 'Press [ or ] to move between groups. Press Enter to go inside a group. Press \\ to return to the parent level.' },
-                        ],
+                        options: NAV_PRESET_OPTIONS,
+                        onAnswer: (value, _p, _s, _d) => {
+                            const MAP: Record<string, number> = { updown: 0, leftright: 1, brackets: 2 };
+                            const slot = NAV_SLOTS_QA[MAP[value as string] ?? 1];
+                            return {
+                                schemaPatch: (sch) => ({
+                                    ...sch,
+                                    level1NavForwardName: slot.forwardName,
+                                    level1NavForwardKey: slot.forwardKey,
+                                    level1NavBackwardName: slot.backwardName,
+                                    level1NavBackwardKey: slot.backwardKey,
+                                }),
+                            };
+                        },
+                    });
+                }
+
+                // Per-dimension questions (B, C, D, E)
+                for (const dim of dims) {
+                    const reduced = isReducedDimension(dim, data);
+
+                    // Q3.B — Navigation within this dimension
+                    questions.push({
+                        id: `nav-within-${dim.key}`,
+                        question: reduced
+                            ? `How would you like users to navigate between datapoints in "${dim.key}"?`
+                            : `Your dimension "${dim.key}" will be divided into subgroups, called "divisions." How would you like users to navigate within "${dim.key}"?`,
+                        hint: reduced
+                            ? undefined
+                            : 'Within each division, users move forward and backward between items. Drilling in takes them inside a division. Drilling out returns them to the parent level.',
+                        inputType: 'radio',
+                        getDynamicOptions: (_p, sch, _d) => {
+                            const taken = getTakenPresets(sch.dimensions, dim.key);
+                            return NAV_PRESET_OPTIONS.map(opt => ({
+                                ...opt,
+                                description: taken[opt.value]
+                                    ? `(Already chosen by "${taken[opt.value]}") ${opt.description ?? ''}`
+                                    : opt.description,
+                            }));
+                        },
                         onAnswer: (value, _p, _s, _d) => {
                             const preset = value as string;
                             return {
                                 schemaPatch: (sch) => {
-                                    const sortedDims = sch.dimensions
-                                        .filter(d => d.included)
-                                        .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
-                                    const slotOrder = SLOT_ORDER[preset] ?? [0, 1, 2];
-                                    const updatedDims = sch.dimensions.map(d => {
-                                        if (!d.included) return d;
-                                        const dimIdx = sortedDims.findIndex(sd => sd.key === d.key);
-                                        if (dimIdx < 0) return d;
-                                        const slotIdx = slotOrder[dimIdx] ?? dimIdx;
-                                        const slot = NAV_SLOTS_QA[slotIdx] ?? NAV_SLOTS_QA[0];
-                                        const drillOutKey = sortedDims.length > 1
-                                            ? (DRILL_OUT_KEYS_QA[d.navIndex ?? 0] ?? 'Backspace')
-                                            : 'Backspace';
+                                    const allIncluded = sch.dimensions.filter(d => d.included);
+                                    const navFields = applyNavPreset(preset, dim, allIncluded);
+                                    const MAP: Record<string, number> = { updown: 0, leftright: 1, brackets: 2 };
+                                    const slot = NAV_SLOTS_QA[MAP[preset] ?? 0];
+                                    const updatedDims = sch.dimensions.map(d =>
+                                        d.key === dim.key ? { ...d, ...navFields } : d
+                                    );
+                                    // For single-dim setups, mirror this dim's keys to level1Nav too
+                                    if (allIncluded.length === 1) {
                                         return {
-                                            ...d,
-                                            forwardName: slot.forwardName,
-                                            forwardKey: slot.forwardKey,
-                                            backwardName: slot.backwardName,
-                                            backwardKey: slot.backwardKey,
-                                            drillInName: 'drill in',
-                                            drillInKey: 'Enter',
-                                            drillOutName: sortedDims.length > 1 ? `drill out to ${d.key}` : 'drill out',
-                                            drillOutKey,
+                                            ...sch,
+                                            dimensions: updatedDims,
+                                            level1NavForwardName: slot.forwardName,
+                                            level1NavForwardKey: slot.forwardKey,
+                                            level1NavBackwardName: slot.backwardName,
+                                            level1NavBackwardKey: slot.backwardKey,
                                         };
-                                    });
-                                    const firstSlotIdx = slotOrder[0] ?? 1;
-                                    const firstSlot = NAV_SLOTS_QA[firstSlotIdx] ?? NAV_SLOTS_QA[1];
-                                    return {
-                                        ...sch,
-                                        dimensions: updatedDims,
-                                        level1NavForwardName: firstSlot.forwardName,
-                                        level1NavForwardKey: firstSlot.forwardKey,
-                                        level1NavBackwardName: firstSlot.backwardName,
-                                        level1NavBackwardKey: firstSlot.backwardKey,
-                                    };
+                                    }
+                                    return { ...sch, dimensions: updatedDims };
                                 },
                             };
                         },
-                    },
-                ];
+                    });
 
-                // Q3.2 — Per-dimension extent behavior
-                for (const dim of dims) {
+                    // Q3.C — Conflict confirmation (only if this dim's saved preset conflicts with another)
+                    const savedNavWithin = ch3Ans[`nav-within-${dim.key}`] as string | undefined;
+                    if (savedNavWithin) {
+                        const taken = getTakenPresets(dims, dim.key);
+                        const conflictingDimKey = taken[savedNavWithin];
+                        if (conflictingDimKey) {
+                            questions.push({
+                                id: `nav-conflict-confirm-${dim.key}`,
+                                question: `You chose the same navigation keys as "${conflictingDimKey}". Would you like to reassign "${conflictingDimKey}"'s navigation? You'll choose new keys for it after this step.`,
+                                inputType: 'radio',
+                                options: [
+                                    { value: 'yes', label: `Yes, reassign "${conflictingDimKey}"` },
+                                    { value: 'no',  label: 'No, go back and pick different keys' },
+                                ],
+                                onAnswer: (value, _p, _s, _d) => {
+                                    if (value === 'yes') {
+                                        return {
+                                            schemaPatch: (sch) => ({
+                                                ...sch,
+                                                dimensions: sch.dimensions.map(d =>
+                                                    d.key === conflictingDimKey
+                                                        ? { ...d, forwardName: '', forwardKey: '', backwardName: '', backwardKey: '' }
+                                                        : d
+                                                ),
+                                            }),
+                                            prepPatch: (p) => {
+                                                const ch = p.qaProgress.chapters.find(c => c.id === 'navigation');
+                                                const current: string[] = Array.isArray(ch?.answers?.['nav-replacement-queue'])
+                                                    ? (ch!.answers['nav-replacement-queue'] as string[])
+                                                    : [];
+                                                const next = current.includes(conflictingDimKey)
+                                                    ? current
+                                                    : [...current, conflictingDimKey];
+                                                return {
+                                                    ...p,
+                                                    qaProgress: {
+                                                        ...p.qaProgress,
+                                                        chapters: p.qaProgress.chapters.map(c =>
+                                                            c.id === 'navigation'
+                                                                ? { ...c, answers: { ...c.answers, 'nav-replacement-queue': next } }
+                                                                : c
+                                                        ),
+                                                    },
+                                                };
+                                            },
+                                        };
+                                    }
+                                    // 'no' — clear this dim's nav-within answer and send cursor back
+                                    return {
+                                        overrideCursor: `nav-within-${dim.key}`,
+                                        prepPatch: (p) => ({
+                                            ...p,
+                                            qaProgress: {
+                                                ...p.qaProgress,
+                                                chapters: p.qaProgress.chapters.map(c =>
+                                                    c.id === 'navigation'
+                                                        ? { ...c, answers: { ...c.answers, [`nav-within-${dim.key}`]: undefined } }
+                                                        : c
+                                                ),
+                                            },
+                                        }),
+                                    };
+                                },
+                            });
+                        }
+                    }
+
+                    // Q3.D — Data-point endpoint behavior (replaces old Q3.2)
                     questions.push({
-                        id: `dim-extents-${dim.key}`,
-                        question: `When a user reaches the last group in "${dim.key}", what should happen?`,
-                        hint: 'Think about what feels natural for your data. If groups represent a continuous cycle (like months of the year), looping makes sense. If they represent distinct categories with clear endpoints, stopping there is cleaner.',
+                        id: `dim-endpoint-data-${dim.key}`,
+                        question: reduced
+                            ? `When the user reaches the last data point in "${dim.key}", how do you want to navigate?`
+                            : `When the user reaches the end of data points within a division in "${dim.key}", how do you want to navigate?`,
+                        hint: 'Think about what feels natural for your data. If items represent a continuous cycle, looping makes sense. If they have a clear endpoint, stopping there is cleaner.',
                         inputType: 'radio',
                         options: [
-                            { value: 'circular',       label: 'Loop back to the beginning',       description: 'After the last group, navigation wraps around to the first group. Good for cyclical data (months, days of week).' },
-                            { value: 'terminal',       label: 'Stop at the last group',            description: 'Navigation stops at the final group. Good for ordered data with a clear start and end.' },
-                            ...(dim.type === 'numerical' ? [{ value: 'bridgedCousins', label: 'Skip empty groups (numerical only)', description: 'If some buckets have no data, navigation skips over them to the next group that has data. Only available for number ranges.' }] : []),
+                            { value: 'circular', label: 'Loop back to the beginning',    description: 'After the last item, navigation wraps around to the first.' },
+                            { value: 'terminal', label: 'Stop at the last item',          description: 'Navigation stops at the final item.' },
+                            ...(dim.type === 'numerical' ? [{ value: 'bridgedCousins', label: 'Skip empty groups', description: 'If some buckets have no data, navigation skips over them to the next one that has data. Only available for number ranges.' }] : []),
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({
                                 ...sch,
                                 dimensions: sch.dimensions.map(d =>
-                                    d.key === dim.key
-                                        ? { ...d, extents: value as DimensionSchema['extents'] }
-                                        : d
+                                    d.key === dim.key ? { ...d, extents: value as DimensionSchema['extents'] } : d
                                 ),
                             }),
                         }),
                     });
+
+                    // Q3.E — Division endpoint behavior (only for non-reduced dims)
+                    if (!reduced) {
+                        const savedDataExtent = ch3Ans[`dim-endpoint-data-${dim.key}`] as string | undefined;
+                        questions.push({
+                            id: `dim-endpoint-divs-${dim.key}`,
+                            question: `When the user reaches the last division in "${dim.key}", how do you want to navigate?`,
+                            hint: 'Divisions are the subgroups within this dimension. This controls what happens after the last one.',
+                            inputType: 'radio',
+                            options: [
+                                {
+                                    value: 'circular',
+                                    label: 'Loop back to the first division',
+                                    description: 'After the last division, navigation wraps to the first.',
+                                    suggested: savedDataExtent === 'circular' || savedDataExtent === 'bridgedCousins',
+                                },
+                                {
+                                    value: 'terminal',
+                                    label: 'Stop at the last division',
+                                    description: 'Navigation stops at the final division.',
+                                    suggested: savedDataExtent === 'terminal',
+                                },
+                            ],
+                            onAnswer: (value, _p, _s, _d) => ({
+                                schemaPatch: (sch) => ({
+                                    ...sch,
+                                    dimensions: sch.dimensions.map(d =>
+                                        d.key === dim.key
+                                            ? { ...d, divisionExtents: value as 'circular' | 'terminal' }
+                                            : d
+                                    ),
+                                }),
+                            }),
+                        });
+                    }
                 }
 
-                // Q3.3 — Top-level extent (only if no root/level0 node)
+                // Nav replacement questions — for dims whose preset was displaced by a conflict resolution
+                for (const replaceDimKey of replacementQueue) {
+                    const replaceDim = dims.find(d => d.key === replaceDimKey);
+                    if (!replaceDim) continue;
+                    questions.push({
+                        id: `nav-replacement-${replaceDimKey}`,
+                        question: `Choose new navigation keys for "${replaceDimKey}" — its previous selection was replaced.`,
+                        inputType: 'radio',
+                        getDynamicOptions: (_p, sch, _d) => {
+                            const taken = getTakenPresets(sch.dimensions, replaceDimKey);
+                            return NAV_PRESET_OPTIONS.map(opt => ({
+                                ...opt,
+                                description: taken[opt.value]
+                                    ? `(Already chosen by "${taken[opt.value]}") ${opt.description ?? ''}`
+                                    : opt.description,
+                            }));
+                        },
+                        onAnswer: (value, _p, _s, _d) => {
+                            const preset = value as string;
+                            return {
+                                schemaPatch: (sch) => {
+                                    const allIncluded = sch.dimensions.filter(d => d.included);
+                                    const navFields = applyNavPreset(preset, replaceDim, allIncluded);
+                                    return {
+                                        ...sch,
+                                        dimensions: sch.dimensions.map(d =>
+                                            d.key === replaceDimKey ? { ...d, ...navFields } : d
+                                        ),
+                                    };
+                                },
+                                prepPatch: (p) => {
+                                    const ch = p.qaProgress.chapters.find(c => c.id === 'navigation');
+                                    const current: string[] = Array.isArray(ch?.answers?.['nav-replacement-queue'])
+                                        ? (ch!.answers['nav-replacement-queue'] as string[])
+                                        : [];
+                                    return {
+                                        ...p,
+                                        qaProgress: {
+                                            ...p.qaProgress,
+                                            chapters: p.qaProgress.chapters.map(c =>
+                                                c.id === 'navigation'
+                                                    ? { ...c, answers: { ...c.answers, 'nav-replacement-queue': current.filter(k => k !== replaceDimKey) } }
+                                                    : c
+                                            ),
+                                        },
+                                    };
+                                },
+                            };
+                        },
+                    });
+                }
+
+                // Q3.G1 — Top-level extent (only if no root/level0 node)
                 if (!schema.level0Enabled) {
                     questions.push({
                         id: 'top-level-extents',
@@ -636,7 +862,7 @@
                     });
                 }
 
-                // Q3.4 — Cross-group nav at data level (only if 2+ dimensions)
+                // Q3.G2 — Cross-group nav at data level (only if 2+ dimensions)
                 if (dims.length >= 2) {
                     questions.push({
                         id: 'cross-group-nav',
@@ -644,7 +870,7 @@
                         hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when groups have matching items in the same position.',
                         inputType: 'radio',
                         options: [
-                            { value: 'across', label: 'Yes — let them jump across groups',      description: 'Best when groups have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
+                            { value: 'across', label: 'Yes — let them jump across groups',         description: 'Best when groups have the same number of items in the same order (e.g., stacked bar charts, line charts with multiple series).' },
                             { value: 'within', label: 'No — keep them within their current group', description: 'Best when groups are independent (e.g., different categories with different numbers of items).' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
@@ -882,18 +1108,21 @@
         return '';
     }
 
-    // Preload saved answer whenever the active question changes.
-    // Falls back to question-specific defaultValue, then generic defaultValue().
+    // Preload saved answer when the active question ID changes.
+    // Tracks questionId (a stable string) rather than currentQuestion (a new object on each
+    // getQuestions() call) to prevent resetting pendingValue mid-interaction (e.g. drag-order).
+    // currentQuestion is read via untrack so object-reference churn doesn't retrigger the effect.
     $effect(() => {
-        if (!currentQuestion || !prep) return;
+        if (!questionId || !prep) return;
         const chapter = prep.qaProgress.chapters.find(c => c.id === chapterId);
-        const saved = chapter?.answers[currentQuestion.id];
+        const saved = chapter?.answers[questionId];
+        const q = untrack(() => currentQuestion);
         if (saved !== undefined) {
             pendingValue = saved;
-        } else if (currentQuestion.defaultValue !== undefined) {
-            pendingValue = currentQuestion.defaultValue;
+        } else if (q?.defaultValue !== undefined) {
+            pendingValue = q.defaultValue;
         } else {
-            pendingValue = defaultValue(currentQuestion.inputType);
+            pendingValue = defaultValue(q?.inputType ?? 'text');
         }
     });
 
@@ -930,6 +1159,12 @@
                     ),
                 },
             };
+
+            // Override cursor — used by conflict-confirm "no" path to send user backward
+            if (update.overrideCursor) {
+                p = { ...p, qaProgress: { ...p.qaProgress, currentQuestionId: update.overrideCursor } };
+                return { ...s, prepState: p, schemaState: sch };
+            }
 
             // Re-evaluate the chapter's question list with updated state.
             // This handles conditional questions (e.g. Q1.3/Q1.4 appear only after Q1.2='yes',
