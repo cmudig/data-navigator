@@ -11,27 +11,23 @@
     import SchemaPanel from './app/components/SchemaPanel.svelte';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
-    import Step1_Structure from './app/steps/Step1_Structure.svelte';
-    import Step2_Input from './app/steps/Step2_Input.svelte';
-    import Step3_Render from './app/steps/Step3_Render.svelte';
-    import Step4_Debug from './app/steps/Step4_Debug.svelte';
-    import Step5_Accessibility from './app/steps/Step5_Accessibility.svelte';
-    import Step6_Export from './app/steps/Step6_Export.svelte';
+    import Step1_Prep from './app/steps/Step1_Prep.svelte';
+    import Step2_Editor from './app/steps/Step2_Editor.svelte';
+    import Step3_Testing from './app/steps/Step3_Testing.svelte';
+    import Step4_Export from './app/steps/Step4_Export.svelte';
     import HelpModal from './app/components/HelpModal.svelte';
 
     const stepComponents = [
         Step0_Upload,
-        Step1_Structure,
-        Step2_Input,
-        Step3_Render,
-        Step4_Debug,
-        Step5_Accessibility,
-        Step6_Export,
+        Step1_Prep,
+        Step2_Editor,
+        Step3_Testing,
+        Step4_Export,
     ] as const;
 
     // Steps that should be full-width (no properties panel)
-    // Step 2 is full-width because it manages its own two-column layout internally
-    const fullWidthSteps = new Set([0, 2, 4, 5, 6]);
+    // Editor (step 2) shows the properties panel; all others are full-width
+    const fullWidthSteps = new Set([0, 1, 3, 4]);
 
     let currentStep = $state(0);
     let hasUploadedData = $state(false);
@@ -52,8 +48,19 @@
     });
 
     function beforeStepNavigate(targetStep: number): boolean {
+        const s = get(appState);
+        if (targetStep === 2 && s.currentStep === 1) {
+            if (!s.prepState?.hasRun) {
+                const confirmed = window.confirm(
+                    "You haven't finished prepping your data yet.\n\n" +
+                    "The Editor will try to auto-build a structure, but labels and descriptions " +
+                    "won't be set up. You can always come back to Prep later.\n\n" +
+                    "Continue anyway?"
+                );
+                if (!confirmed) return false;
+            }
+        }
         if (targetStep === 3) {
-            const s = get(appState);
             if (!s.entryNodeId) {
                 showEntryGate = true;
                 return false;
@@ -64,7 +71,7 @@
 
     const ActiveStep = $derived(stepComponents[currentStep]);
     const isFullWidth = $derived(fullWidthSteps.has(currentStep));
-    const showSchemaPanel = $derived(currentStep === 1 && hasUploadedData);
+    const showSchemaPanel = $derived(currentStep === 2 && hasUploadedData);
 
     // ── History ───────────────────────────────────────────────────────────────
     let historyEntries = $state<HistoryEntry[]>([]);
@@ -279,7 +286,7 @@
             </aside>
         {/if}
 
-        <div class="workspace-canvas">
+        <div class="workspace-canvas" class:workspace-canvas--fill={currentStep === 2}>
             <ActiveStep />
         </div>
 
@@ -409,7 +416,8 @@
     :global(body) {
         display: flex;
         flex-direction: column;
-        min-height: 100dvh;
+        height: 100dvh;
+        overflow: hidden;
         margin: 0;
     }
 
@@ -423,6 +431,11 @@
     main > :global(.workspace) {
         flex: 1;
         display: flex;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    :global(.workspace > aside) {
         min-height: 0;
         overflow: hidden;
     }

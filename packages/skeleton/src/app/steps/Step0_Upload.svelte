@@ -10,8 +10,8 @@
     let imageFileInput: HTMLInputElement;
 
     // ─── Data upload ───────────────────────────────────────────────────────────
-    let uploadedData: Record<string, unknown>[] | null = $state(null);
-    let uploadedDataRaw: { filename: string; content: string } | null = $state(null);
+    let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
+    let uploadedDataRaw: { filename: string; content: string } | null = $state.raw(null);
     let dataStatus = $state('');
     let dataDragging = $state(false);
     let dataFileInput: HTMLInputElement;
@@ -50,14 +50,19 @@
         }
     }
 
-    async function useExampleData() {
+    async function useExampleData(filename: 'skeleton_starter.json' | 'seattle-weather.csv') {
         dataStatus = 'Loading example dataset…';
         try {
-            const res = await fetch(`${BASE}skeleton_starter.json`);
+            const res = await fetch(`${BASE}${filename}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const content = await res.text();
-            const data: Record<string, unknown>[] = JSON.parse(content);
-            const raw = { filename: 'skeleton_starter.json', content };
+            let data: Record<string, unknown>[];
+            if (filename.endsWith('.json')) {
+                data = JSON.parse(content);
+            } else {
+                data = parseCSV(content);
+            }
+            const raw = { filename, content };
             uploadedData = data;
             uploadedDataRaw = raw;
             dataStatus = `Example dataset loaded (${data.length} row${data.length !== 1 ? 's' : ''}).`;
@@ -224,7 +229,7 @@
     }
 
     // ─── Continue ─────────────────────────────────────────────────────────────
-    function continueToStructure() {
+    function continueToPrep() {
         appState.update(s => ({ ...s, currentStep: 1 }));
     }
 
@@ -409,9 +414,14 @@
                 {/if}
             </div>
             {#if uploadedData === null}
-                <button class="btn-example" type="button" onclick={useExampleData}>
-                    Use example dataset
-                </button>
+                <div class="btn-example-group">
+                    <button class="btn-example" type="button" onclick={() => useExampleData('skeleton_starter.json')}>
+                        Use example dataset (JSON)
+                    </button>
+                    <button class="btn-example" type="button" onclick={() => useExampleData('seattle-weather.csv')}>
+                        Use example dataset (seattle-weather.csv)
+                    </button>
+                </div>
             {/if}
         </div>
     </div>
@@ -422,8 +432,8 @@
 
     <!-- ── Actions row ─────────────────────────────────────────────────────── -->
     <div class="step-actions">
-        <button class="btn-primary" type="button" onclick={continueToStructure}>
-            Continue to Structure →
+        <button class="btn-primary" type="button" onclick={continueToPrep}>
+            Continue to Prep →
         </button>
     </div>
 </div>
@@ -466,6 +476,12 @@
         display: flex;
         flex-direction: column;
         gap: calc(var(--dn-space) * 1);
+    }
+
+    .btn-example-group {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.5);
     }
 
     .btn-example {

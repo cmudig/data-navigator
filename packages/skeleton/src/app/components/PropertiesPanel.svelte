@@ -198,7 +198,23 @@
     // ── Semantic preview ──────────────────────────────────────────────────────
     function buildSemanticOutput(node: SkeletonNode): string {
         // 1. Resolve label template
-        let resolved = node.semantics.label
+        // Aggregate tokens resolve from node.data when available, else show [placeholder]
+        let resolved = node.semantics.label;
+        resolved = resolved.replace(/\{count\}/g, () => {
+            const v = node.data['count'];
+            return v !== undefined ? String(v) : '[count]';
+        });
+        resolved = resolved.replace(/\{subcount\}/g, () => {
+            const v = node.data['subcount'];
+            return v !== undefined ? String(v) : '[subcount]';
+        });
+        resolved = resolved.replace(/\{min:"([^"]+)"\}/g, (_: string, f: string) => `[min ${f}]`);
+        resolved = resolved.replace(/\{max:"([^"]+)"\}/g, (_: string, f: string) => `[max ${f}]`);
+        resolved = resolved.replace(/\{sum:"([^"]+)"\}/g, (_: string, f: string) => `[sum ${f}]`);
+        resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) => `[avg ${f}]`);
+        resolved = resolved.replace(/\{trend:"[^"]+":"[^"]+"\}/g, () => '[trend]');
+        resolved = resolved.replace(/\{r2:"[^"]+":"[^"]+"\}/g, () => '[r²]');
+        resolved = resolved
             .replace(/\{key:"([^"]+)"\}/g, (_, key) => key)
             .replace(/\{value:"([^"]+)"\}/g, (_, key) => {
                 const val = node.data[key];

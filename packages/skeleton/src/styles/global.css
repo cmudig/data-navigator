@@ -128,6 +128,7 @@ button {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    max-height: calc(100vh - 110px);
 }
 
 .workspace-canvas {
@@ -137,6 +138,12 @@ button {
     padding: calc(var(--dn-space) * 3);
 }
 
+.workspace-canvas--fill {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 .workspace-panel {
     width: var(--dn-panel-width);
     flex-shrink: 0;
@@ -144,6 +151,7 @@ button {
     background: var(--dn-surface);
     overflow-y: auto;
     padding: calc(var(--dn-space) * 2);
+    min-height: 0;
 }
 
 /* Full-width steps: 0, 4, 5, 6 */

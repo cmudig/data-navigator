@@ -2,7 +2,7 @@
     import { onDestroy } from 'svelte';
     import dataNavigator from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
-    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState } from '../../store/appState';
+    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState, type PrepState } from '../../store/appState';
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import { defaultRenderProperties } from '../../store/nodeFactory';
@@ -16,7 +16,7 @@
     const DRILL_OUT_KEYS = ['w', 'j', '\\'] as const;
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
-    let uploadedData: Record<string, unknown>[] | null = $state(null);
+    let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
     let schema: SchemaState = $state({
         dimensions: [], childmostNavigation: 'within', allowMoreThan3: false,
         collapsed: false, graphMode: 'tree', hideLeafNodes: false,
@@ -40,6 +40,7 @@
     let _dnTick = $state(0);
     let _dnCounter = 0; // plain (non-reactive) counter — used to write _dnTick without reading it
     let schemaGraphContainer: HTMLDivElement | undefined = $state();
+    let leafNodeWarning = $state('');
     let _inspector: ReturnType<typeof Inspector> | null = null;
     // Mirrored separately from schema so the Inspector effect only re-runs when
     // these values actually change, not on every schema proxy replacement.
@@ -54,6 +55,7 @@
     // assigning the same plain array reference each time appState changes creates a new proxy,
     // which Svelte treats as a change and re-triggers the DN build effect (infinite loop).
     let _lastUploadedDataRef: Record<string, unknown>[] | null = null;
+    let prepState = $state.raw<PrepState | null>(null);
 
     // Set to true by syncDivisionsFromDN before it calls appState.update, so the next
     // $effect re-run (caused by the division update) skips rebuilding the DN structure.
@@ -62,6 +64,7 @@
     let _skipNextDivisionTrigger = false;
 
     const _unsubscribeAppState = appState.subscribe(s => {
+        prepState = s.prepState;
         if (s.uploadedData !== _lastUploadedDataRef) {
             _lastUploadedDataRef = s.uploadedData;
             uploadedData = s.uploadedData;
@@ -82,13 +85,17 @@
         imageHeight = s.imageHeight;
         if (s.uploadedData && !initialized) {
             initialized = true;
-            const inferred = buildInitialSchema(s.uploadedData);
-            // Use queueMicrotask to avoid synchronous re-entrancy: calling appState.update
-            // synchronously here would re-enter this subscribe callback with the NEW state
-            // while the outer callback is still running with the OLD state. When the outer
-            // callback resumes it would see _lastSchemaRef pointing to the NEW schemaState
-            // and incorrectly overwrite schema back to the old (empty) value.
-            queueMicrotask(() => appState.update(st => ({ ...st, schemaState: inferred })));
+            // If Prep has already configured the schema, skip auto-inference.
+            // The schemaState is already populated from Prep. SchemaPanel just reads it.
+            if (!s.prepState?.hasRun) {
+                const inferred = buildInitialSchema(s.uploadedData);
+                // Use queueMicrotask to avoid synchronous re-entrancy: calling appState.update
+                // synchronously here would re-enter this subscribe callback with the NEW state
+                // while the outer callback is still running with the OLD state. When the outer
+                // callback resumes it would see _lastSchemaRef pointing to the NEW schemaState
+                // and incorrectly overwrite schema back to the old (empty) value.
+                queueMicrotask(() => appState.update(st => ({ ...st, schemaState: inferred })));
+            }
         }
         if (!s.uploadedData) initialized = false;
     });
@@ -434,6 +441,42 @@
         }
     }
 
+    // ─── Semantics helper: map prep labelConfig to SkeletonNode.semantics ────
+    // Called per-node in initCanvasNodesFromSchema when prep has run.
+    // SkeletonNode.semantics stores the TEMPLATE STRING (not resolved). Extended
+    // LabelTemplate fields (omitKeyNames, includeDimensionName, etc.) stay in
+    // prepState.labelConfig and are used by the export pipeline, not per-node.
+    function getSemanticsForNode(
+        nodeId: string,
+        dnNode: any,
+        prep: PrepState | null
+    ): SkeletonNode['semantics'] {
+        const fallback = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false };
+        if (!prep?.hasRun || !prep.labelConfig) return fallback;
+        const lc = prep.labelConfig;
+        const level: number | undefined = dnNode?.dimensionLevel;
+        const dimKey: string | undefined = dnNode?.dimensionKey;
+
+        if (level === 0) {
+            const t = lc.level0;
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        if (level === 1 && dimKey && lc.perDimension[dimKey]) {
+            const t = lc.perDimension[dimKey];
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        if (level === 2 && dimKey && lc.perDivision[dimKey]) {
+            const t = lc.perDivision[dimKey];
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        // level3 leaves and categorical level2 nodes (no perDivision entry)
+        if (lc.leaves && (level === undefined || level === 3)) {
+            const t = lc.leaves;
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        return fallback;
+    }
+
     // ─── Canvas node initialization from schema ───────────────────────────────
     // Creates rectangular SkeletonNode objects in GraphCanvas for each hierarchy node
     // (level 0 / dimensions / divisions) the first time they appear. Existing nodes are
@@ -608,7 +651,7 @@
                     isEntry: nodeId === (schemaSnap.level0Enabled ? schemaSnap.level0Id : null),
                     isCluster: false,
                     source: 'schema',
-                    semantics: { label: nodeId, name: 'node', includeParentName: false, includeIndex: false },
+                    semantics: getSemanticsForNode(nodeId, dnNode, prepState),
                     data: dnNode?.data ?? {},
                     renderProperties: defaultRenderProperties(),
                 } as SkeletonNode);
@@ -659,33 +702,6 @@
             return { ...s, nodes: newNodes, edges: newEdges, entryNodeId: newEntryId };
         });
     }
-
-    // ─── Debug: reactive trigger inspection ──────────────────────────────────
-    // Remove these once the loop is identified.
-
-    // DN build effect deps
-    $inspect(uploadedData).with((t, v) =>
-        console.log('[SP:DN] uploadedData', t, !!v));
-    $inspect(schema).with((t) => {
-        console.log('[SP:DN] schema', t);
-        console.trace();
-    });
-
-    // Inspector effect deps
-    $inspect(_dnTick).with((t, v) =>
-        console.log('[SP:Inspector] _dnTick', t, v));
-    $inspect(_graphMode).with((t, v) =>
-        console.log('[SP:Inspector] _graphMode', t, v));
-    $inspect(_hideLeafNodes).with((t, v) =>
-        console.log('[SP:Inspector] _hideLeafNodes', t, v));
-    $inspect(schemaGraphContainer).with((t, v) =>
-        console.log('[SP:Inspector] schemaGraphContainer', t, !!v));
-
-    // Visual sync effect deps
-    $inspect(selectedNodeIds).with((t, v) =>
-        console.log('[SP:VisualSync] selectedNodeIds', t, v?.size));
-    $inspect(hoveredNodeId).with((t, v) =>
-        console.log('[SP:VisualSync] hoveredNodeId', t, v));
 
     // ─── DN structure effect ──────────────────────────────────────────────────
     // Builds DN structure when schema changes; updates dnResult for the schema graph viewer.
@@ -777,7 +793,7 @@
             _inspector = Inspector({
                 structure: filteredStructure,
                 container,
-                size: 280,
+                size: { width: 360, height: 350 },
                 mode,
                 colorBy: 'dimensionLevel',
                 nodeRadius: 6,
@@ -875,22 +891,6 @@
              of x/y coordinates in GraphCanvas. The two views share node IDs so that
              hover and selection highlight the same node in both views. -->
         <div class="schema-graph-section">
-            <div class="graph-mode-bar" role="group" aria-label="Graph layout mode">
-                <button
-                    class="graph-mode-btn"
-                    class:active={schema.graphMode === 'tree'}
-                    type="button"
-                    aria-pressed={schema.graphMode === 'tree'}
-                    onclick={() => setSchemaField('graphMode', 'tree')}
-                >Tree</button>
-                <button
-                    class="graph-mode-btn"
-                    class:active={schema.graphMode === 'force'}
-                    type="button"
-                    aria-pressed={schema.graphMode === 'force'}
-                    onclick={() => setSchemaField('graphMode', 'force')}
-                >Force</button>
-            </div>
             {#if _dnHasResult}
                 <!-- Inspector mounts here — its layout is self-contained -->
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -916,52 +916,63 @@
 
             <!-- Level 0 -->
             <section class="schema-section">
-                <label class="checkbox-field section-toggle">
-                    <input type="checkbox" checked={schema.level0Enabled}
-                        onchange={(e) => setSchemaField('level0Enabled', (e.target as HTMLInputElement).checked)} />
-                    <span class="section-toggle-label">Add level 0 node <span class="badge-entry">entry</span></span>
-                </label>
-                {#if schema.level0Enabled}
-                    <div class="indented">
-                        <label class="field-label">
-                            ID
-                            <input type="text" class="text-input" value={schema.level0Id}
-                                aria-label="Level 0 node ID"
-                                oninput={(e) => setSchemaField('level0Id', (e.target as HTMLInputElement).value)} />
+                <h3 class="section-heading">Level 0</h3>
+                <details class="dim-options">
+                    <summary class="dim-options-summary">Options</summary>
+                    <div class="dim-options-body">
+                        <label class="checkbox-field section-toggle">
+                            <input type="checkbox" checked={schema.level0Enabled}
+                                onchange={(e) => setSchemaField('level0Enabled', (e.target as HTMLInputElement).checked)} />
+                            <span class="section-toggle-label">Add level 0 node <span class="badge-entry">entry</span></span>
                         </label>
+                        {#if schema.level0Enabled}
+                            <div class="indented">
+                                <label class="field-label">
+                                    ID
+                                    <input type="text" class="text-input" value={schema.level0Id}
+                                        aria-label="Level 0 node ID"
+                                        oninput={(e) => setSchemaField('level0Id', (e.target as HTMLInputElement).value)} />
+                                </label>
+                            </div>
+                        {/if}
                     </div>
-                {/if}
+                </details>
             </section>
 
             <!-- Level 1 options -->
             <section class="schema-section">
                 <h3 class="section-heading">Dimensions (level 1)</h3>
-                <label class="field-label">
-                    Extents
-                    <select value={schema.level1Extents}
-                        onchange={(e) => setSchemaField('level1Extents', (e.target as HTMLSelectElement).value as 'circular' | 'terminal')}>
-                        <option value="terminal">Terminal</option>
-                        <option value="circular">Circular</option>
-                    </select>
-                </label>
-                <div class="nav-rule-row">
-                    <span class="nav-dir-label">Forward</span>
-                    <input type="text" class="nav-name-input" value={schema.level1NavForwardName}
-                        aria-label="Level 1 forward nav name"
-                        oninput={(e) => setSchemaField('level1NavForwardName', (e.target as HTMLInputElement).value)} />
-                    <input type="text" class="nav-key-input" value={schema.level1NavForwardKey}
-                        aria-label="Level 1 forward nav key"
-                        oninput={(e) => setSchemaField('level1NavForwardKey', (e.target as HTMLInputElement).value)} />
-                </div>
-                <div class="nav-rule-row">
-                    <span class="nav-dir-label">Backward</span>
-                    <input type="text" class="nav-name-input" value={schema.level1NavBackwardName}
-                        aria-label="Level 1 backward nav name"
-                        oninput={(e) => setSchemaField('level1NavBackwardName', (e.target as HTMLInputElement).value)} />
-                    <input type="text" class="nav-key-input" value={schema.level1NavBackwardKey}
-                        aria-label="Level 1 backward nav key"
-                        oninput={(e) => setSchemaField('level1NavBackwardKey', (e.target as HTMLInputElement).value)} />
-                </div>
+                <details class="dim-options">
+                    <summary class="dim-options-summary">Options</summary>
+                    <div class="dim-options-body">
+                        <label class="field-label">
+                            Extents
+                            <select value={schema.level1Extents}
+                                onchange={(e) => setSchemaField('level1Extents', (e.target as HTMLSelectElement).value as 'circular' | 'terminal')}>
+                                <option value="terminal">Terminal</option>
+                                <option value="circular">Circular</option>
+                            </select>
+                        </label>
+                        <div class="nav-rule-row">
+                            <span class="nav-dir-label">Forward</span>
+                            <input type="text" class="nav-name-input" value={schema.level1NavForwardName}
+                                aria-label="Level 1 forward nav name"
+                                oninput={(e) => setSchemaField('level1NavForwardName', (e.target as HTMLInputElement).value)} />
+                            <input type="text" class="nav-key-input" value={schema.level1NavForwardKey}
+                                aria-label="Level 1 forward nav key"
+                                oninput={(e) => setSchemaField('level1NavForwardKey', (e.target as HTMLInputElement).value)} />
+                        </div>
+                        <div class="nav-rule-row">
+                            <span class="nav-dir-label">Backward</span>
+                            <input type="text" class="nav-name-input" value={schema.level1NavBackwardName}
+                                aria-label="Level 1 backward nav name"
+                                oninput={(e) => setSchemaField('level1NavBackwardName', (e.target as HTMLInputElement).value)} />
+                            <input type="text" class="nav-key-input" value={schema.level1NavBackwardKey}
+                                aria-label="Level 1 backward nav key"
+                                oninput={(e) => setSchemaField('level1NavBackwardKey', (e.target as HTMLInputElement).value)} />
+                        </div>
+                    </div>
+                </details>
             </section>
 
             <!-- Global childmost + allow-more -->
@@ -997,6 +1008,9 @@
                                     <span class="dim-type-badge" class:numerical={dim.type === 'numerical'}>
                                         {dim.type === 'numerical' ? 'num' : 'cat'}
                                     </span>
+                                    {#if prepState?.hasRun && prepState.variables.find(v => v.key === dim.key)?.isDimension}
+                                        <span class="dim-prep-badge" aria-label="Configured by Prep">★ Prep</span>
+                                    {/if}
                                 </label>
                             </div>
 
@@ -1196,45 +1210,15 @@
         border-bottom: 1px solid var(--dn-border);
         background: var(--dn-bg);
     }
-    /* ── Graph mode toggle bar ── */
-    .graph-mode-bar {
-        display: flex;
-        gap: 4px;
-        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 1.25);
-        border-bottom: 1px solid var(--dn-border);
-        flex-shrink: 0;
-    }
-    .graph-mode-btn {
-        font-size: 0.75rem;
-        font-family: var(--dn-font);
-        padding: 2px calc(var(--dn-space) * 0.875);
-        border: 1px solid var(--dn-border);
-        border-radius: calc(var(--dn-radius) / 2);
-        background: var(--dn-bg);
-        color: var(--dn-text-muted);
-        cursor: pointer;
-        transition: background 0.1s, color 0.1s;
-    }
-    .graph-mode-btn.active {
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border-color: var(--dn-accent-light);
-    }
-
     /* ── Inspector container ── */
     .schema-inspector-container {
         width: 100%;
-        min-height: 220px;
+        height: 350px;
         overflow: hidden;
         position: relative;
     }
     :global(.schema-inspector-container .dn-inspector-wrapper) {
         width: 100%;
-    }
-    :global(.schema-inspector-container svg) {
-        width: 100%;
-        height: auto;
-        display: block;
     }
     :global(.schema-inspector-container .dn-inspector-tooltip) {
         font-size: 0.75rem;
@@ -1249,7 +1233,7 @@
 
     .graph-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
     .graph-empty-state {
-        height: 220px;
+        height: 350px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1265,6 +1249,7 @@
         flex-direction: column;
         gap: 0;
         min-height: 0;
+        padding-top: 0;
     }
     .schema-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
 
@@ -1361,6 +1346,11 @@
         background: var(--dn-accent-soft); color: var(--dn-accent); flex-shrink: 0;
     }
     .dim-type-badge.numerical { background: rgba(103,128,192,0.15); color: var(--dn-accent-mid); }
+    .dim-prep-badge {
+        font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+        padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+        background: rgba(52, 81, 178, 0.12); color: var(--dn-accent);
+    }
 
     /* ── Options disclosure ── */
     .dim-options { border-top: 1px solid var(--dn-border); }
