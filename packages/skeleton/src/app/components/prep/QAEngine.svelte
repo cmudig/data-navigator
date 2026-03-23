@@ -10,6 +10,10 @@
     } from '../../../store/appState';
     import QAQuestion from './QAQuestion.svelte';
     import { computeDimensionSuggestion } from './dimensionSuggestions';
+    import { logAction } from '../../../store/historyStore';
+
+    // ── Props ─────────────────────────────────────────────────────────────────
+    let { onComplete }: { onComplete?: () => void } = $props();
 
     // ── Types (used by Tasks 11–14 to define chapter content) ─────────────────
     type Row = Record<string, unknown>;
@@ -578,6 +582,7 @@
                                         }
                                         return s;
                                     });
+                                    logAction('Prep: stamped _id column onto data');
                                 });
                             }
                             return {
@@ -1352,6 +1357,8 @@
     function handleNext() {
         if (!prep || !schema || !currentQuestion) return;
 
+        const qId = currentQuestion.id;
+        const pv = pendingValue;
         const update = currentQuestion.onAnswer(pendingValue, prep, schema, data);
         const snapshotQId = currentQuestion.id;
         const snapshotChId = chapterId;
@@ -1428,6 +1435,19 @@
 
             return { ...s, prepState: p, schemaState: sch };
         });
+
+        const qLabel = qId.replace(/-/g, ' ');
+        const aLabel = Array.isArray(pv)
+            ? (pv as string[]).slice(0, 3).join(', ') + ((pv as string[]).length > 3 ? '…' : '')
+            : typeof pv === 'object' && pv !== null
+                ? 'label template'
+                : String(pv).slice(0, 40);
+        logAction(`Prep: ${qLabel} — ${aLabel}`);
+    }
+
+    function handleContinueToEditor() {
+        handleNext();
+        onComplete?.();
     }
 
     function handleBack() {
@@ -1576,12 +1596,13 @@
             </span>
 
             {#if isAtEnd}
+                <span class="qa-done-label">Done!</span>
                 <button
-                    class="qa-btn qa-btn-done"
-                    onclick={handleNext}
-                    aria-label="Finish setup"
+                    class="qa-btn qa-btn-next"
+                    onclick={handleContinueToEditor}
+                    aria-label="Continue to editor"
                 >
-                    Done &#x2713;
+                    Continue to Editor &#8594;
                 </button>
             {:else}
                 <button
@@ -1738,14 +1759,12 @@
         border-color: var(--dn-accent-hover);
     }
 
-    .qa-btn-done {
-        background: #166534;
-        border: 1px solid #166534;
-        color: #fff;
-        font-weight: 500;
-        margin-left: auto;
+    .qa-done-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--dn-accent);
+        align-self: center;
     }
-    .qa-btn-done:hover { background: #14532d; border-color: #14532d; }
 
     .qa-nav-pos {
         flex: 1;

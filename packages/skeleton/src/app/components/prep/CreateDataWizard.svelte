@@ -1,5 +1,6 @@
 <script lang="ts">
     import { appState, type VariableMeta, type PrepState, type QAChapterId } from '../../../store/appState';
+    import { logAction } from '../../../store/historyStore';
 
     type Props = { onclose: () => void };
     const { onclose }: Props = $props();
@@ -107,6 +108,8 @@
             return out;
         });
 
+        const colCount = namedColumns.length;
+        const rowCount = draftRows.length;
         appState.update(s => {
             const existing = s.prepState;
             const initial: PrepState = existing ?? {
@@ -141,6 +144,7 @@
                 },
             };
         });
+        logAction(`Prep: created data (${colCount} cols, ${rowCount} rows)`);
 
         onclose();
     }

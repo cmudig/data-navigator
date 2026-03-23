@@ -8,6 +8,7 @@
     } from '../../../store/appState';
     import ComputedVariableModal from './ComputedVariableModal.svelte';
     import { computeDimensionSuggestion } from './dimensionSuggestions';
+    import { logAction } from '../../../store/historyStore';
 
     // ─── Store mirrors ────────────────────────────────────────────────────────
     let data = $state<Record<string, unknown>[] | null>(null);
@@ -125,6 +126,7 @@
             };
             return { ...s, prepState: { ...s.prepState, variables, qaProgress } };
         });
+        logAction(`Prep: changed type — ${key}`);
     }
 
     function removeVariable(key: string) {
@@ -135,6 +137,7 @@
             );
             return { ...s, prepState: { ...s.prepState, variables } };
         });
+        logAction(`Prep: removed variable — ${key}`);
     }
 
     function restoreVariable(key: string) {
@@ -145,6 +148,7 @@
             );
             return { ...s, prepState: { ...s.prepState, variables } };
         });
+        logAction(`Prep: restored variable — ${key}`);
     }
 
     // Triggers the Q/A engine to navigate to the Dimensions chapter for this variable.
@@ -164,6 +168,7 @@
                 },
             };
         });
+        logAction(`Prep: added dimension — ${key}`);
     }
 
     // ─── Modal state ──────────────────────────────────────────────────────────

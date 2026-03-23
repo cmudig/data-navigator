@@ -648,7 +648,7 @@
 
     <div class="lb-options">
         <div class="lb-noun-row">
-            <label class="lb-label" for="lb-noun-input">What is each item called?</label>
+            <label class="lb-label" for="lb-noun-input">What is this item called?</label>
             <input
                 id="lb-noun-input"
                 type="text"

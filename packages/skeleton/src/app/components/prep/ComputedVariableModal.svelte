@@ -1,5 +1,6 @@
 <script lang="ts">
     import { appState, type PrepState, type VariableMeta, type FormulaToken, type ComputedVariable } from '../../../store/appState';
+    import { logAction } from '../../../store/historyStore';
 
     type Props = { onclose: () => void };
     const { onclose }: Props = $props();
@@ -107,6 +108,7 @@
                 ...(s.uploadedData ? { uploadedData: withId } : {}),
             };
         });
+        logAction('Prep: auto-created _id column');
         step = 'name';
     }
 
@@ -314,6 +316,7 @@
                 ...(s.uploadedData ? { uploadedData: withCol } : {}),
             };
         });
+        logAction(`Prep: added computed variable — ${name}`);
 
         onclose();
     }
