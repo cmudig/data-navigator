@@ -153,8 +153,9 @@ export function Inspector({
     if (!rootEl.id) rootEl.id = rootId;
 
     // Build the graph SVG
-    const graphWidth = mode === 'tree' ? size * 2 : size;
-    const graphHeight = mode === 'tree' ? Math.round(size * 1.5) : size;
+    const sizeIsObject = size !== null && typeof size === 'object';
+    const graphWidth = sizeIsObject ? size.width : mode === 'tree' ? size * 2 : size;
+    const graphHeight = sizeIsObject ? size.height : mode === 'tree' ? Math.round(size * 1.5) : size;
     const nodeArray = convertToArray(structure.nodes, nodeInclusions);
     const linkArray = convertToArray(structure.edges, [], edgeExclusions);
     const idPrefix = rootId + '-';
@@ -172,6 +173,12 @@ export function Inspector({
         mode === 'tree'
             ? TreeGraph({ nodes: nodeArray, links: linkArray }, { ...graphOptions, dimensions: structure.dimensions })
             : ForceGraph({ nodes: nodeArray, links: linkArray }, graphOptions);
+
+    // When explicit pixel dimensions are given, remove the auto-scaling inline style so the
+    // SVG renders at exactly the specified size rather than scaling to container width.
+    if (sizeIsObject) {
+        graph.style.cssText = 'display: block;';
+    }
 
     // Create wrapper structure
     const wrapperEl = document.createElement('div');
