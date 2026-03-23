@@ -662,7 +662,7 @@
         {/if}
 
         {#if nodeType === 'level1'}
-            <label class="lb-checkbox-label lb-omit-toggle">
+            <!-- <label class="lb-checkbox-label lb-omit-toggle">
                 <input
                     type="checkbox"
                     checked={value.omitKeyNames}
@@ -670,7 +670,7 @@
                 />
                 Hide natural language
                 <span class="lb-checkbox-example">(strip descriptive phrases, keep only tokens)</span>
-            </label>
+            </label> -->
         {:else}
             <label class="lb-checkbox-label lb-omit-toggle">
                 <input
