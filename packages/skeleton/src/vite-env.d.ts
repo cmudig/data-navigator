@@ -14,7 +14,7 @@ declare module '@data-navigator/inspector' {
     export function Inspector(options: {
         structure: unknown;
         container: HTMLElement | string;
-        size?: number;
+        size?: number | { width: number; height: number };
         colorBy?: string;
         nodeRadius?: number;
         edgeExclusions?: string[];
