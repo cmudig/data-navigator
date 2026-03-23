@@ -14,7 +14,7 @@
 import { strToU8, strFromU8, zipSync, unzipSync } from 'fflate';
 import { get } from 'svelte/store';
 import { appState, DEFAULT_APP_STATE } from '../store/appState';
-import type { AppState, SkeletonNode, SkeletonEdge } from '../store/appState';
+import type { AppState, SkeletonNode, SkeletonEdge, PrepState } from '../store/appState';
 
 // ── Save-file format ──────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export interface SerializedState {
     inputConfig: AppState['inputConfig'];
     renderConfig: AppState['renderConfig'];
     toolOptions?: AppState['toolOptions'];
+    prepState?: PrepState | null;
     // future fields go here (all optional so old saves remain loadable)
 }
 
@@ -117,7 +118,8 @@ export function serializeAppState(s: AppState): SerializedState {
         schemaState: s.schemaState,
         inputConfig: s.inputConfig,
         renderConfig: s.renderConfig,
-        toolOptions: s.toolOptions
+        toolOptions: s.toolOptions,
+        prepState: s.prepState
     };
 }
 
@@ -160,7 +162,8 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
         schemaState: { ...DEFAULT_APP_STATE.schemaState, ...ss.schemaState },
         inputConfig: { ...DEFAULT_APP_STATE.inputConfig, ...ss.inputConfig },
         renderConfig: { ...DEFAULT_APP_STATE.renderConfig, ...ss.renderConfig },
-        toolOptions: { ...DEFAULT_APP_STATE.toolOptions, ...ss.toolOptions }
+        toolOptions: { ...DEFAULT_APP_STATE.toolOptions, ...ss.toolOptions },
+        prepState: ss.prepState ?? null
     });
 }
 

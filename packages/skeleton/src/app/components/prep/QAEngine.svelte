@@ -549,12 +549,47 @@
                     questions.splice(1, 0, {
                         id: 'id-creator-prompt',
                         question: 'IDs will be generated randomly during structure creation. Would you like to create your own IDs now instead?',
+                        hint: 'Choosing "Yes" will add a sequential numeric ID column called "_id" (1, 2, 3…) to your dataset. You can rename it later using the computed variable tool.',
                         inputType: 'radio',
                         options: [
-                            { value: 'yes', label: 'Yes, I\'ll create IDs now' },
+                            { value: 'yes', label: 'Yes, add a sequential ID column' },
                             { value: 'no', label: 'No, use randomly generated IDs' },
                         ],
-                        onAnswer: (_value, _p, _s, _d) => ({}),
+                        onAnswer: (value, _p, _s, d) => {
+                            if (value !== 'yes') return {};
+                            // Stamp _id: 1, 2, 3… onto each row as a side effect
+                            if (d && d.length > 0) {
+                                queueMicrotask(() => {
+                                    appState.update(s => {
+                                        if (s.uploadedData) {
+                                            return {
+                                                ...s,
+                                                uploadedData: s.uploadedData.map((row, i) => ({ _id: i + 1, ...row })),
+                                            };
+                                        }
+                                        if (s.prepState?.customData) {
+                                            return {
+                                                ...s,
+                                                prepState: {
+                                                    ...s.prepState,
+                                                    customData: s.prepState.customData.map((row, i) => ({ _id: i + 1, ...row })),
+                                                },
+                                            };
+                                        }
+                                        return s;
+                                    });
+                                });
+                            }
+                            return {
+                                prepPatch: (p) => ({
+                                    ...p,
+                                    variables: [
+                                        { key: '_id', type: 'numerical' as const, isId: true, isDimension: false, removed: false },
+                                        ...p.variables.filter(v => v.key !== '_id').map(v => ({ ...v, isId: false })),
+                                    ],
+                                }),
+                            };
+                        },
                     });
                 }
 

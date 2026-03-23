@@ -2,7 +2,7 @@
     import { onDestroy } from 'svelte';
     import dataNavigator from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
-    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState } from '../../store/appState';
+    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState, type PrepState } from '../../store/appState';
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import { defaultRenderProperties } from '../../store/nodeFactory';
@@ -55,6 +55,7 @@
     // assigning the same plain array reference each time appState changes creates a new proxy,
     // which Svelte treats as a change and re-triggers the DN build effect (infinite loop).
     let _lastUploadedDataRef: Record<string, unknown>[] | null = null;
+    let prepState = $state.raw<PrepState | null>(null);
 
     // Set to true by syncDivisionsFromDN before it calls appState.update, so the next
     // $effect re-run (caused by the division update) skips rebuilding the DN structure.
@@ -63,6 +64,7 @@
     let _skipNextDivisionTrigger = false;
 
     const _unsubscribeAppState = appState.subscribe(s => {
+        prepState = s.prepState;
         if (s.uploadedData !== _lastUploadedDataRef) {
             _lastUploadedDataRef = s.uploadedData;
             uploadedData = s.uploadedData;
@@ -439,6 +441,42 @@
         }
     }
 
+    // ─── Semantics helper: map prep labelConfig to SkeletonNode.semantics ────
+    // Called per-node in initCanvasNodesFromSchema when prep has run.
+    // SkeletonNode.semantics stores the TEMPLATE STRING (not resolved). Extended
+    // LabelTemplate fields (omitKeyNames, includeDimensionName, etc.) stay in
+    // prepState.labelConfig and are used by the export pipeline, not per-node.
+    function getSemanticsForNode(
+        nodeId: string,
+        dnNode: any,
+        prep: PrepState | null
+    ): SkeletonNode['semantics'] {
+        const fallback = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false };
+        if (!prep?.hasRun || !prep.labelConfig) return fallback;
+        const lc = prep.labelConfig;
+        const level: number | undefined = dnNode?.dimensionLevel;
+        const dimKey: string | undefined = dnNode?.dimensionKey;
+
+        if (level === 0) {
+            const t = lc.level0;
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        if (level === 1 && dimKey && lc.perDimension[dimKey]) {
+            const t = lc.perDimension[dimKey];
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        if (level === 2 && dimKey && lc.perDivision[dimKey]) {
+            const t = lc.perDivision[dimKey];
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        // level3 leaves and categorical level2 nodes (no perDivision entry)
+        if (lc.leaves && (level === undefined || level === 3)) {
+            const t = lc.leaves;
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+        }
+        return fallback;
+    }
+
     // ─── Canvas node initialization from schema ───────────────────────────────
     // Creates rectangular SkeletonNode objects in GraphCanvas for each hierarchy node
     // (level 0 / dimensions / divisions) the first time they appear. Existing nodes are
@@ -613,7 +651,7 @@
                     isEntry: nodeId === (schemaSnap.level0Enabled ? schemaSnap.level0Id : null),
                     isCluster: false,
                     source: 'schema',
-                    semantics: { label: nodeId, name: 'node', includeParentName: false, includeIndex: false },
+                    semantics: getSemanticsForNode(nodeId, dnNode, prepState),
                     data: dnNode?.data ?? {},
                     renderProperties: defaultRenderProperties(),
                 } as SkeletonNode);
@@ -1002,6 +1040,9 @@
                                     <span class="dim-type-badge" class:numerical={dim.type === 'numerical'}>
                                         {dim.type === 'numerical' ? 'num' : 'cat'}
                                     </span>
+                                    {#if prepState?.hasRun && prepState.variables.find(v => v.key === dim.key)?.isDimension}
+                                        <span class="dim-prep-badge" aria-label="Configured by Prep">★ Prep</span>
+                                    {/if}
                                 </label>
                             </div>
 
@@ -1366,6 +1407,11 @@
         background: var(--dn-accent-soft); color: var(--dn-accent); flex-shrink: 0;
     }
     .dim-type-badge.numerical { background: rgba(103,128,192,0.15); color: var(--dn-accent-mid); }
+    .dim-prep-badge {
+        font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+        padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+        background: rgba(52, 81, 178, 0.12); color: var(--dn-accent);
+    }
 
     /* ── Options disclosure ── */
     .dim-options { border-top: 1px solid var(--dn-border); }
