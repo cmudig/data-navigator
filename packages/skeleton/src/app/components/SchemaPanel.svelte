@@ -793,7 +793,7 @@
             _inspector = Inspector({
                 structure: filteredStructure,
                 container,
-                size: { width: container.clientWidth || 360, height: 350 },
+                size: { width: 360, height: 350 },
                 mode,
                 colorBy: 'dimensionLevel',
                 nodeRadius: 6,
