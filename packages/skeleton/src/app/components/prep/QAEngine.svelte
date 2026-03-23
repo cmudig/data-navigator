@@ -280,7 +280,7 @@
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
-                            { value: 'no',  label: 'No — let users start at the first group directly', description: 'Navigation begins at the first dimension without a parent node. Recommended if you already have a high-level description elsewhere.' },
+                            { value: 'no',  label: 'No — let users start at the first dimension directly', description: 'Navigation begins at the first dimension without a parent node. Recommended if you already have a high-level description elsewhere.' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
@@ -420,8 +420,8 @@
                 const chartTypeForHint = (ch1Ans['chart-type'] as string | undefined) ?? '';
                 const chartLabelForHint = chartTypeForHint ? (CHART_TYPE_LABELS[chartTypeForHint] ?? '') : '';
                 const chooseDimHint = chartLabelForHint
-                    ? `These become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}.`
-                    : 'These become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values.';
+                    ? `Dimensions become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}.`
+                    : 'Dimensions become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values.';
 
                 const ch2Ans = prep.qaProgress.chapters.find(c => c.id === 'dimensions')?.answers ?? {};
                 const idConfirmAnswer = ch2Ans['confirm-id-variable'] as string | undefined;
@@ -627,7 +627,7 @@
                     // Q2.4 — Sort order
                     questions.push({
                         id: `dim-sort-${dim.key}`,
-                        question: `In what order should "${dim.key}" groups appear?`,
+                        question: `In what order should values in the "${dim.key}" dimension appear?`,
                         inputType: 'radio',
                         options: dim.type === 'categorical'
                             ? [
@@ -656,8 +656,8 @@
                 if (includedDims.length >= 2) {
                     questions.push({
                         id: 'dim-order',
-                        question: 'In what order should your dimensions (groups) be layered? Use the up/down buttons to reorder.',
-                        hint: 'The first group is what a user encounters first. Groups appear to a user in the following order as they navigate:',
+                        question: 'In what order should your dimensions be layered? Use the up/down buttons to reorder.',
+                        hint: 'The first dimension is what a user encounters first. Dimensions appear to a user in the following order as they navigate:',
                         inputType: 'drag-order',
                         options: includedDims.map(d => ({ value: d.key, label: d.key })),
                         defaultValue: includedDims.map(d => d.key),
@@ -701,8 +701,8 @@
                 ];
 
                 const NAV_PRESET_OPTIONS_HIGH: QAOption[] = [
-                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press Escape to exit the chart', notice: { type: 'suggest', message: '★ Suggested' } },
-                    { value: 'leftright', label: 'Left/Right arrows (←/→ + J to drill out)', description: 'Press ←/→ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
+                    { value: 'leftright', label: 'Left/Right arrows (←/→ + J to drill out)', description: 'Press ←/→ to move through items. Press Enter to drill in. Press Escape to exit the chart', notice: { type: 'suggest', message: '★ Suggested' } },
+                    { value: 'updown',    label: 'Up/Down arrows (↑/↓ + W to drill out)',    description: 'Press ↑/↓ to move through items. Press Enter to drill in. Press Escape to exit the chart' },
                     { value: 'brackets',  label: '[ and ] brackets (\\ to drill out)',        description: 'Press [ or ] to move through items. Press Enter to drill in. Press Escape to exit the chart.' },
                 ];
 
@@ -761,7 +761,7 @@
                             : `Your dimension "${dim.key}" will be divided into subgroups, called "divisions." How would you like users to navigate within "${dim.key}"?`,
                         hint: reduced
                             ? undefined
-                            : 'Within each division, users move forward and backward between items. Drilling in takes them inside a division. Drilling out returns them to the parent level.',
+                            : 'Within each division, users move forward and backward between data points. Drilling in takes them inside a division. Drilling out returns them to the parent level.',
                         inputType: 'radio',
                         getDynamicOptions: (_p, sch, _d) => {
                             const taken = getTakenPresets(sch.dimensions, dim.key);
@@ -896,7 +896,7 @@
                         questions.push({
                             id: `dim-endpoint-divs-${dim.key}`,
                             question: `When the user reaches the last division in "${dim.key}", how do you want to navigate?`,
-                            hint: 'Divisions are the subgroups within this dimension. This controls what happens after the last one.',
+                            hint: 'This controls what happens after the user reaches the last division in this dimension.',
                             inputType: 'radio',
                             options: [
                                 {
@@ -1034,7 +1034,7 @@
 
                 const questions: QAQuestionDef[] = [];
 
-                // ── Phase 1: Dimension group header labels ────────────────────
+                // ── Phases 1 + 2 merged: per-dimension (+ per-division) questions ─
                 for (const dim of dims) {
                     const firstUniqueVal = (() => {
                         const vals = (data ?? []).map(row => row[dim.key]);
@@ -1043,11 +1043,11 @@
                     })();
                     const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
 
-                    // Q4.A — Dimension group header label
+                    // Q4.A — Dimension header label
                     questions.push({
                         id: `dim-label-${dim.key}`,
                         question: `Let's set up a label for "${dim.key}" — what a screen reader says when a user arrives at this dimension.`,
-                        hint: `The {value:"${dim.key}"} placeholder is replaced with the actual group value for each group. Example: "${dim.key}: Electronics" or "${dim.key}: 2020".`,
+                        hint: `Users will often want to know what the dimension is and what is inside. The options below can help you build aggregate summaries.`,
                         inputType: 'label-builder',
                         nodeType: 'level1',
                         getFields: (_p) => [dim.key, 'count'],
@@ -1073,69 +1073,64 @@
                         }),
                     });
 
-                    // Q4.A interactive — are group-header nodes interactive?
+                    // Q4.A interactive — are dimension-header nodes interactive?
                     questions.push({
                         id: `dim-interactive-${dim.key}`,
-                        question: `Are "${dim.key}" group elements interactive? For example, can users select or click on them?`,
-                        hint: 'If yes, screen readers will announce "button" after the label for these groups. This comes from the element\'s role — not the label text.',
+                        question: `Are "${dim.key}" dimension header elements interactive? For example, can users select or click on them?`,
+                        hint: 'If yes, screen readers will announce "button" after the label for these dimension headers. This comes from the element\'s role — not the label text.',
                         inputType: 'radio',
                         options: INTERACTIVE_OPTIONS,
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
                         }),
                     });
-                }
 
-                // ── Phase 2: Division (sub-group) labels ──────────────────────
-                // Only for numerical dims with meaningful divisions (not reduced)
-                for (const dim of dims) {
-                    if (dim.type !== 'numerical' || dim.subdivisions <= 1 || isReducedDimension(dim, data)) continue;
+                    // Q4.B — Division label + interactive (only for numerical dims with meaningful divisions)
+                    if (dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, data)) {
+                        const divSampleRow = buildDivisionSampleRow(dim, data);
+                        const exampleRange = String(divSampleRow['range'] ?? '(example range)');
+                        const exampleCount = Number(divSampleRow['count'] ?? 0);
 
-                    const divSampleRow = buildDivisionSampleRow(dim, data);
-                    const exampleRange = String(divSampleRow['range'] ?? '(example range)');
-                    const exampleCount = Number(divSampleRow['count'] ?? 0);
-
-                    // Q4.B — Division sub-group label
-                    questions.push({
-                        id: `div-label-${dim.key}`,
-                        question: `For "${dim.key}" sub-groups, what should a screen reader say when a user arrives at a specific range or subset?`,
-                        hint: `This template applies to each sub-group (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each sub-group with "${dim.key}:".`,
-                        inputType: 'label-builder',
-                        nodeType: 'level2',
-                        getFields: (_p) => ['range', 'count'],
-                        getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
-                        defaultValue: {
-                            template: '{value:"range"}', name: 'range',
-                            includeIndex: false, includeParentName: false, omitKeyNames: false,
-                            includeDimensionName: false, includeParentNames: [],
-                        } as LabelTemplate,
-                        dimensionName: dim.key,
-                        suggestedFields: [{ key: 'range' }],
-                        getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
-                        suggestedAggField: dim.key,
-                        expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
-                        onAnswer: (value, _p, _s, _d) => ({
-                            prepPatch: (p) => ({
-                                ...p,
-                                labelConfig: {
-                                    ...p.labelConfig,
-                                    perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
-                                },
+                        questions.push({
+                            id: `div-label-${dim.key}`,
+                            question: `For "${dim.key}" divisions, what should a screen reader say when a user arrives at a specific range or subset?`,
+                            hint: `This template applies to each division (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each division with "${dim.key}:".`,
+                            inputType: 'label-builder',
+                            nodeType: 'level2',
+                            getFields: (_p) => ['range', 'count'],
+                            getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
+                            defaultValue: {
+                                template: '{value:"range"}', name: 'subgroup',
+                                includeIndex: false, includeParentName: false, omitKeyNames: false,
+                                includeDimensionName: false, includeParentNames: [],
+                            } as LabelTemplate,
+                            dimensionName: dim.key,
+                            suggestedFields: [{ key: 'range' }],
+                            getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                            suggestedAggField: dim.key,
+                            expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
+                            onAnswer: (value, _p, _s, _d) => ({
+                                prepPatch: (p) => ({
+                                    ...p,
+                                    labelConfig: {
+                                        ...p.labelConfig,
+                                        perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
+                                    },
+                                }),
                             }),
-                        }),
-                    });
+                        });
 
-                    // Q4.B interactive — are division elements interactive?
-                    questions.push({
-                        id: `div-interactive-${dim.key}`,
-                        question: `Are "${dim.key}" sub-group elements interactive? For example, can users select or click on them?`,
-                        hint: 'If yes, screen readers will announce "button" after the label for these sub-groups. This comes from the element\'s role — not the label text.',
-                        inputType: 'radio',
-                        options: INTERACTIVE_OPTIONS,
-                        onAnswer: (value, _p, _s, _d) => ({
-                            prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
-                        }),
-                    });
+                        questions.push({
+                            id: `div-interactive-${dim.key}`,
+                            question: `Are "${dim.key}" division elements interactive? For example, can users select or click on them?`,
+                            hint: 'If yes, screen readers will announce "button" after the label for these division elements. This comes from the element\'s role — not the label text.',
+                            inputType: 'radio',
+                            options: INTERACTIVE_OPTIONS,
+                            onAnswer: (value, _p, _s, _d) => ({
+                                prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
+                            }),
+                        });
+                    }
                 }
 
                 // ── Phase 3: Leaf (individual data point) label ───────────────

@@ -31,34 +31,34 @@ export function computeDimensionSuggestion(
     switch (chartType) {
         case 'bar': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — x-axis grouping', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for axis grouping or possibly (optionally) for color', primary: true };
             if (catVars.length >= 2) {
-                result[catVars[1].key] = { note: 'Optional — add if bars are color-coded by this variable', primary: false };
+                result[catVars[1].key] = { note: 'Optional — often used for axis grouping or possibly (optionally) for color', primary: false };
             }
             return result;
         }
         case 'stacked-bar':
         case 'clustered-bar': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — x-axis categories', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for axis categories or stack/cluster groupings', primary: true };
             if (catVars.length >= 2) {
-                result[catVars[1].key] = { note: 'Suggested — stack/cluster groupings', primary: true };
+                result[catVars[1].key] = { note: 'Suggested — often used for axis categories or stack/cluster groupings', primary: true };
             }
             return result;
         }
         case 'line':
         case 'area': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — x-axis values', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for intervals, time, or series grouping', primary: true };
             if (catVars.length >= 2) {
-                result[catVars[1].key] = { note: 'Suggested — series grouping', primary: true };
+                result[catVars[1].key] = { note: 'Suggested — often used for intervals, time, or series grouping', primary: true };
             }
             return result;
         }
         case 'scatter': {
             if (numVars.length < 2) return null;
-            result[numVars[0].key] = { note: 'Suggested — x-axis bins', primary: true };
-            result[numVars[1].key] = { note: 'Suggested — y-axis bins', primary: true };
+            result[numVars[0].key] = { note: 'Suggested — often used for axis', primary: true };
+            result[numVars[1].key] = { note: 'Suggested — often used for axis', primary: true };
             if (catVars.length >= 1) {
                 result[catVars[0].key] = { note: 'Optional — add if points are color-coded or grouped', primary: false };
             }
@@ -67,34 +67,34 @@ export function computeDimensionSuggestion(
         case 'pie':
         case 'donut': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — defines each slice', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used to define each slice', primary: true };
             return result;
         }
         case 'heatmap': {
             if (catVars.length < 2) return null;
-            result[catVars[0].key] = { note: 'Suggested — row axis', primary: true };
-            result[catVars[1].key] = { note: 'Suggested — column axis', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for row/column axis', primary: true };
+            result[catVars[1].key] = { note: 'Suggested — often used for row/column axis', primary: true };
             return result;
         }
         case 'treemap': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — parent level', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for nesting', primary: true };
             if (catVars.length >= 2) {
-                result[catVars[1].key] = { note: 'Suggested — child level', primary: true };
+                result[catVars[1].key] = { note: 'Suggested — often used for nesting', primary: true };
             }
             return result;
         }
         case 'network': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — node grouping', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for grouping', primary: true };
             if (catVars.length >= 2) {
-                result[catVars[1].key] = { note: 'Optional — secondary grouping', primary: false };
+                result[catVars[1].key] = { note: 'Optional — often used for grouping', primary: false };
             }
             return result;
         }
         case 'map': {
             if (catVars.length === 0) return null;
-            result[catVars[0].key] = { note: 'Suggested — geographic/regional identifier', primary: true };
+            result[catVars[0].key] = { note: 'Suggested — often used for geographic/regional identifier', primary: true };
             return result;
         }
         default:

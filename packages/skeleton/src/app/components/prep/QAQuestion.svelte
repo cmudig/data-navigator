@@ -82,7 +82,7 @@
     function toggleMultiselect(optValue: string) {
         const current = Array.isArray(value) ? (value as string[]) : [];
         if (!isChecked(optValue) && maxSelect !== undefined && current.length >= maxSelect) {
-            multiselectWarning = `We recommend using at most ${maxSelect} browsing groups for accessibility reasons. You can enable more later in advanced settings.`;
+            multiselectWarning = `We recommend using at most ${maxSelect} dimensions for accessibility reasons. You can enable more later in advanced settings.`;
             return;
         }
         multiselectWarning = '';

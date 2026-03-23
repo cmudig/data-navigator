@@ -213,15 +213,15 @@
                             remove variable
                         </button>
                         {#if v.isDimension}
-                            <span class="var-dim-done" aria-label="{v.key} is set up as a browsing group">
+                            <span class="var-dim-done" aria-label="{v.key} is set up as a dimension">
                                 &#x2713; added
                             </span>
                         {:else}
                             <button
                                 class="var-dim-btn"
                                 onclick={() => createDimension(v.key)}
-                                aria-label="Set up {v.key} as a browsing group"
-                                title="This will guide you through setting up {v.key} as a browsing group."
+                                aria-label="Set up {v.key} as a dimension"
+                                title="This will guide you through setting up {v.key} as a dimension."
                             >
                                 Create dimension &#x2192;
                             </button>

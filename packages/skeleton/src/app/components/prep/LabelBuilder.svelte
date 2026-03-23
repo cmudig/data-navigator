@@ -78,11 +78,11 @@
             resolved = resolved ? `${dimensionName}: ${resolved}` : dimensionName;
         }
 
-        const name = tmpl.name || (nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'range' : 'data point');
+        const name = tmpl.name || (nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'subgroup' : 'data point');
         const cap = name.charAt(0).toUpperCase() + name.slice(1);
         let suffix = cap;
         if (tmpl.includeIndex) {
-            suffix += nodeType === 'level1' ? ` dimension 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
+            suffix += nodeType === 'level1' ? ` 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
         }
 
         // Leaf builders: per-dimension parent names
@@ -104,8 +104,8 @@
     // ── Node type labels ─────────────────────────────────────────────────────
     const NODE_TYPE_LABELS: Record<string, string> = {
         level0: 'entry point (root)',
-        level1: 'group header',
-        level2: 'sub-group header',
+        level1: 'dimension header',
+        level2: 'division header',
         level3: 'individual data point',
     };
 
