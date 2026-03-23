@@ -271,22 +271,6 @@
         }));
     }
 
-    // ── Debug: reactive trigger inspection ───────────────────────────────────
-    // Remove these once the loop is identified.
-
-    // Keyboard hover sync effect deps
-    $inspect(focusedNodeIdx).with((t, v) =>
-        console.log('[GC:HoverSync] focusedNodeIdx', t, v));
-    $inspect(nodes).with((t, v) =>
-        console.log('[GC:HoverSync] nodes', t, v?.size));
-
-    // Store-synced values that touch multiple effects
-    $inspect(hoveredNodeId).with((t, v) => {
-        console.log('[GC] hoveredNodeId', t, v);
-        console.trace();
-    });
-    $inspect(selectedNodeIds).with((t, v) =>
-        console.log('[GC] selectedNodeIds', t, v?.size));
 
     // ── Coordinate helpers ────────────────────────────────────────────────────
 

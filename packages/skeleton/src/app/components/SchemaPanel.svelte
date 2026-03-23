@@ -703,33 +703,6 @@
         });
     }
 
-    // ─── Debug: reactive trigger inspection ──────────────────────────────────
-    // Remove these once the loop is identified.
-
-    // DN build effect deps
-    $inspect(uploadedData).with((t, v) =>
-        console.log('[SP:DN] uploadedData', t, !!v));
-    $inspect(schema).with((t) => {
-        console.log('[SP:DN] schema', t);
-        console.trace();
-    });
-
-    // Inspector effect deps
-    $inspect(_dnTick).with((t, v) =>
-        console.log('[SP:Inspector] _dnTick', t, v));
-    $inspect(_graphMode).with((t, v) =>
-        console.log('[SP:Inspector] _graphMode', t, v));
-    $inspect(_hideLeafNodes).with((t, v) =>
-        console.log('[SP:Inspector] _hideLeafNodes', t, v));
-    $inspect(schemaGraphContainer).with((t, v) =>
-        console.log('[SP:Inspector] schemaGraphContainer', t, !!v));
-
-    // Visual sync effect deps
-    $inspect(selectedNodeIds).with((t, v) =>
-        console.log('[SP:VisualSync] selectedNodeIds', t, v?.size));
-    $inspect(hoveredNodeId).with((t, v) =>
-        console.log('[SP:VisualSync] hoveredNodeId', t, v));
-
     // ─── DN structure effect ──────────────────────────────────────────────────
     // Builds DN structure when schema changes; updates dnResult for the schema graph viewer.
     // The schema graph viewer (Inspector) is independent of the GraphCanvas coordinate space.
