@@ -16,6 +16,10 @@
         label: string;
         isReduced: boolean;
         exampleLabel: string;
+        dimNoun: string;
+        hasDivisions: boolean;
+        divExampleLabel?: string;
+        divNoun?: string;
     }
 
     interface SuggestedField {
@@ -45,6 +49,9 @@
         hasDivisions?: boolean;
         rawData?: Record<string, unknown>[];
         dimensionKey?: string;
+        // level2 parent dimension info
+        parentDimLabel?: string;
+        parentDimNoun?: string;
         // multiselect limit
         maxSelect?: number;
         // expandable info panel (e.g. "What are dimensions?")
@@ -73,6 +80,8 @@
         hasDivisions = false,
         rawData = [],
         dimensionKey = undefined,
+        parentDimLabel = undefined,
+        parentDimNoun = undefined,
         maxSelect,
         expandableInfo,
         suggestionBox,
@@ -286,6 +295,8 @@
                 {hasDivisions}
                 {rawData}
                 {dimensionKey}
+                {parentDimLabel}
+                {parentDimNoun}
                 onchange={(v) => onchange(v)}
             />
 

@@ -9,9 +9,13 @@
 
     interface ParentDimension {
         key: string;
-        label: string;        // e.g. "Use Age division name" or "Use Category name"
-        isReduced: boolean;   // true = no sub-divisions (show dim name, not division name)
-        exampleLabel: string; // e.g. "170–180" or "Electronics"
+        label: string;
+        isReduced: boolean;
+        exampleLabel: string;     // dimension-level example (e.g., "Electronics")
+        dimNoun: string;          // noun from LabelTemplate.name (e.g., "group")
+        hasDivisions: boolean;    // whether this dim has meaningful divisions
+        divExampleLabel?: string; // division-level example (e.g., "0.5–1.0")
+        divNoun?: string;         // noun from division LabelTemplate.name (e.g., "subgroup")
     }
 
     interface SuggestedField {
@@ -36,6 +40,8 @@
         hasDivisions?: boolean;          // level1 only: whether this dim has sub-divisions
         rawData?: Record<string, unknown>[];  // full dataset for real aggregate previews
         dimensionKey?: string;           // level1 only: the dimension's field key (for subcount)
+        parentDimLabel?: string;         // level2 only: resolved example of the parent dimension label
+        parentDimNoun?: string;          // level2 only: noun of the parent dimension
     }
 
     let {
@@ -54,6 +60,8 @@
         hasDivisions = false,
         rawData = [],
         dimensionKey = undefined,
+        parentDimLabel = undefined,
+        parentDimNoun = undefined,
     }: Props = $props();
 
     const effectiveTrendXFields = $derived(trendXFields ?? aggregateFields);
@@ -119,14 +127,33 @@
             suffix += nodeType === 'level1' ? ` 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
         }
 
-        // Leaf builders: per-dimension parent names
-        if (tmpl.includeParentNames && tmpl.includeParentNames.length > 0) {
-            const clauses = tmpl.includeParentNames
-                .map(k => parentDimensions.find(p => p.key === k)?.exampleLabel ?? '(example)')
-                .join(' / ');
-            suffix += ` in ${clauses}`;
+        // Division builders: append parent dimension label when checked
+        if (tmpl.includeParentDimension && dimensionName) {
+            const label = parentDimLabel ?? dimensionName;
+            const noun = parentDimNoun ?? 'group';
+            suffix += ` in ${label} ${noun}`;
+        }
+
+        // Leaf builders: per-dimension parent names and per-division parent names
+        const parentClauses: string[] = [];
+        if (tmpl.includeParentNames?.length) {
+            for (const k of tmpl.includeParentNames) {
+                const pd = parentDimensions.find(p => p.key === k);
+                if (pd) parentClauses.push(`${pd.exampleLabel} ${pd.dimNoun}`);
+            }
+        }
+        if (tmpl.includeParentDivisions?.length) {
+            for (const k of tmpl.includeParentDivisions) {
+                const pd = parentDimensions.find(p => p.key === k);
+                if (pd?.divExampleLabel) {
+                    parentClauses.push(`${pd.divExampleLabel} ${pd.divNoun ?? 'subgroup'}`);
+                }
+            }
+        }
+        if (parentClauses.length > 0) {
+            suffix += ` in ${parentClauses.join(' / ')}`;
         } else if (tmpl.includeParentName) {
-            // Backward compat for non-leaf builders (dim/div labels)
+            // Backward compat
             suffix += ` in Example Group`;
         }
 
@@ -197,9 +224,9 @@
 
     function handleOmitKeyNames(e: Event) {
         const checked = (e.target as HTMLInputElement).checked;
-        if (nodeType === 'level1') {
-            // For level1, omitKeyNames isn't a real runtime prop in data-navigator,
-            // so we directly modify the template to strip or re-add key name tokens.
+        if (nodeType === 'level1' || nodeType === 'level2') {
+            // For level1/level2, aggregate phrase key tokens are handled via template surgery
+            // (not runtime omitKeyNames) so that phrase colons are preserved properly.
             const newTemplate = checked
                 ? stripKeyNamesFromDimTemplate(value.template)
                 : addKeyNamesToDimTemplate(value.template);
@@ -310,6 +337,8 @@
                 ? ' contains {subcount} subgroups and {count} total child data points'
                 : ' contains {count} total child data points';
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
+        } else if (nodeType === 'level2') {
+            onchange({ ...value, template: normalizeTemplate(value.template + ' contains {count} data points') });
         } else {
             onchange({ ...value, template: normalizeTemplate(value.template + ' {count}') });
         }
@@ -326,11 +355,12 @@
             t = t.replace(/\{min:"[^"]+"\}/g, '').replace(/\{max:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (minMaxField) {
-            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, {key:"${minMaxField}"} ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
-                : (nodeType === 'level1')
+            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
+            const phrase = !useNaturalLang
+                ? ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`
+                : value.omitKeyNames
                     ? `, ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
-                    : ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`;
+                    : `, {key:"${minMaxField}"} ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -346,11 +376,12 @@
             t = t.replace(/\{sum:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (sumField) {
-            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, total {key:"${sumField}"}: {sum:"${sumField}"}`
-                : (nodeType === 'level1')
+            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
+            const phrase = !useNaturalLang
+                ? ` {sum:"${sumField}"}`
+                : value.omitKeyNames
                     ? `, total: {sum:"${sumField}"}`
-                    : ` {sum:"${sumField}"}`;
+                    : `, total {key:"${sumField}"}: {sum:"${sumField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -366,11 +397,12 @@
             t = t.replace(/\{avg:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (avgField) {
-            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, average {key:"${avgField}"}: {avg:"${avgField}"}`
-                : (nodeType === 'level1')
+            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
+            const phrase = !useNaturalLang
+                ? ` {avg:"${avgField}"}`
+                : value.omitKeyNames
                     ? `, average: {avg:"${avgField}"}`
-                    : ` {avg:"${avgField}"}`;
+                    : `, average {key:"${avgField}"}: {avg:"${avgField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -386,11 +418,12 @@
             t = t.replace(/\{trend:"[^"]+":"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
-            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, trend {key:"${trendXField}"}/{key:"${trendYField}"}: {trend:"${trendXField}":"${trendYField}"}`
-                : (nodeType === 'level1')
+            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
+            const phrase = !useNaturalLang
+                ? ` {trend:"${trendXField}":"${trendYField}"}`
+                : value.omitKeyNames
                     ? `, trend: {trend:"${trendXField}":"${trendYField}"}`
-                    : ` {trend:"${trendXField}":"${trendYField}"}`;
+                    : `, trend {key:"${trendXField}"}/{key:"${trendYField}"}: {trend:"${trendXField}":"${trendYField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -406,11 +439,12 @@
             t = t.replace(/\{r2:"[^"]+":"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
-            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, R² {key:"${trendXField}"}/{key:"${trendYField}"}: {r2:"${trendXField}":"${trendYField}"}`
-                : (nodeType === 'level1')
+            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
+            const phrase = !useNaturalLang
+                ? ` {r2:"${trendXField}":"${trendYField}"}`
+                : value.omitKeyNames
                     ? `, R²: {r2:"${trendXField}":"${trendYField}"}`
-                    : ` {r2:"${trendXField}":"${trendYField}"}`;
+                    : `, R² {key:"${trendXField}"}/{key:"${trendYField}"}: {r2:"${trendXField}":"${trendYField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -663,8 +697,18 @@
                 Include dimension name
                 <span class="lb-checkbox-example">(e.g., {dimensionName}: {String(sampleData['range'] ?? '10–20')})</span>
             </label>
+            <!-- Division builders: include parent dimension label in suffix -->
+            <label class="lb-checkbox-label">
+                <input
+                    type="checkbox"
+                    checked={value.includeParentDimension ?? false}
+                    onchange={(e) => onchange({ ...value, includeParentDimension: (e.target as HTMLInputElement).checked })}
+                />
+                Include parent {dimensionName} information
+                <span class="lb-checkbox-example">(e.g., in {parentDimLabel ?? dimensionName} {parentDimNoun ?? 'group'})</span>
+            </label>
         {:else if parentDimensions.length > 0}
-            <!-- Leaf builders: one checkbox per dimension, using real examples -->
+            <!-- Leaf builders: one checkbox per dimension + optional division checkbox -->
             {#each parentDimensions as pd (pd.key)}
                 <label class="lb-checkbox-label">
                     <input
@@ -678,9 +722,26 @@
                             onchange({ ...value, includeParentNames: next });
                         }}
                     />
-                    {pd.label}
-                    <span class="lb-checkbox-example">(e.g., in {pd.exampleLabel})</span>
+                    Include parent {pd.key} information
+                    <span class="lb-checkbox-example">(e.g., in {pd.exampleLabel} {pd.dimNoun})</span>
                 </label>
+                {#if pd.hasDivisions}
+                    <label class="lb-checkbox-label">
+                        <input
+                            type="checkbox"
+                            checked={(value.includeParentDivisions ?? []).includes(pd.key)}
+                            onchange={(e) => {
+                                const cur = value.includeParentDivisions ?? [];
+                                const next = (e.target as HTMLInputElement).checked
+                                    ? [...cur, pd.key]
+                                    : cur.filter(k => k !== pd.key);
+                                onchange({ ...value, includeParentDivisions: next });
+                            }}
+                        />
+                        Include parent {pd.key} subgroup information
+                        <span class="lb-checkbox-example">(e.g., in {pd.divExampleLabel ?? '(example)'} {pd.divNoun ?? 'subgroup'})</span>
+                    </label>
+                {/if}
             {/each}
         {:else if nodeType === 'level0'}
             <!-- Level 0 only: include parent name (root has no parent so this is a fallback for custom use) -->
@@ -695,7 +756,7 @@
             </label>
         {/if}
 
-        {#if nodeType === 'level1'}
+        {#if nodeType === 'level1' || nodeType === 'level2'}
             <label class="lb-checkbox-label lb-omit-toggle">
                 <input
                     type="checkbox"

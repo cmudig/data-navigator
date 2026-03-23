@@ -33,7 +33,11 @@
         key: string;
         label: string;
         isReduced: boolean;
-        exampleLabel: string;
+        exampleLabel: string;  // dimension-level example (e.g., "fruit")
+        dimNoun: string;       // noun from LabelTemplate.name (e.g., "group")
+        hasDivisions: boolean; // whether this dim has meaningful divisions
+        divExampleLabel?: string; // division-level example (e.g., "0.5–1.0")
+        divNoun?: string;      // noun from division LabelTemplate.name (e.g., "subgroup")
     }
 
     interface SuggestedField {
@@ -65,6 +69,8 @@
         suggestedAggField?: string;
         dimensionCount?: number;
         hasDivisions?: boolean;
+        parentDimLabel?: string;  // level2: resolved example of parent dimension label
+        parentDimNoun?: string;   // level2: noun of parent dimension
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -1094,7 +1100,17 @@
                     if (dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, data)) {
                         const divSampleRow = buildDivisionSampleRow(dim, data);
                         const exampleRange = String(divSampleRow['range'] ?? '(example range)');
-                        const exampleCount = Number(divSampleRow['count'] ?? 0);
+
+                        // Compute parent dimension label example and noun for the "Include parent" toggle
+                        const parentDimLabel = (() => {
+                            const saved = prep.labelConfig.perDimension[dim.key]?.template;
+                            if (saved) {
+                                const resolved = resolveTemplateToString(saved, { [dim.key]: dim.key });
+                                if (resolved) return resolved;
+                            }
+                            return dim.key;
+                        })();
+                        const parentDimNoun = prep.labelConfig.perDimension[dim.key]?.name ?? 'group';
 
                         questions.push({
                             id: `div-label-${dim.key}`,
@@ -1102,16 +1118,19 @@
                             hint: `This template applies to each division (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each division with "${dim.key}:".`,
                             inputType: 'label-builder',
                             nodeType: 'level2',
-                            getFields: (_p) => ['range', 'count'],
-                            getSampleData: (_d, _p) => ({ range: exampleRange, count: exampleCount }),
+                            getFields: (_p) => ['range'],
+                            getSampleData: (_d, _p) => ({ range: exampleRange }),
                             defaultValue: {
-                                template: '{value:"range"}', name: 'subgroup',
+                                template: '{key:"range"}: {value:"range"}', name: 'subgroup',
                                 includeIndex: false, includeParentName: false, omitKeyNames: false,
-                                includeDimensionName: false, includeParentNames: [],
+                                includeDimensionName: false, includeParentDimension: false, includeParentNames: [],
                             } as LabelTemplate,
                             dimensionName: dim.key,
+                            parentDimLabel,
+                            parentDimNoun,
                             suggestedFields: [{ key: 'range' }],
                             getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                            getTrendXFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
                             suggestedAggField: dim.key,
                             expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
                             onAnswer: (value, _p, _s, _d) => ({
@@ -1143,13 +1162,41 @@
                 const leafParentDimensions: ParentDimension[] = dims.map(dim => {
                     const reduced = isReducedDimension(dim, data);
                     const hasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !reduced;
+                    const dimNoun = prep.labelConfig.perDimension[dim.key]?.name ?? 'group';
+                    const divNoun = hasDivisions
+                        ? (prep.labelConfig.perDivision[dim.key]?.name ?? 'subgroup')
+                        : undefined;
+
+                    // Dimension example: apply saved dim template to (key → key) sample
+                    const dimExampleLabel = (() => {
+                        const saved = prep.labelConfig.perDimension[dim.key]?.template;
+                        if (saved) {
+                            const resolved = resolveTemplateToString(saved, { [dim.key]: dim.key });
+                            if (resolved) return resolved;
+                        }
+                        return dim.key;
+                    })();
+
+                    // Division example: apply saved div template to first bucket sample
+                    const divExampleLabel = hasDivisions ? (() => {
+                        const saved = prep.labelConfig.perDivision[dim.key]?.template;
+                        const sampleRow = buildDivisionSampleRow(dim, data);
+                        if (saved) {
+                            const resolved = resolveTemplateToString(saved, sampleRow);
+                            if (resolved) return resolved;
+                        }
+                        return String(sampleRow['range'] ?? '(example)');
+                    })() : undefined;
+
                     return {
                         key: dim.key,
-                        label: hasDivisions
-                            ? `Use ${dim.key} division name`
-                            : `Use ${dim.key} name`,
+                        label: `Include parent ${dim.key} information`,
                         isReduced: reduced,
-                        exampleLabel: computeExampleLabel(dim, prep, data),
+                        exampleLabel: dimExampleLabel,
+                        dimNoun,
+                        hasDivisions,
+                        divExampleLabel,
+                        divNoun,
                     };
                 });
 
@@ -1166,7 +1213,7 @@
                         template: buildLeafDefaultTemplate(dims),
                         name: 'data point',
                         includeIndex: false, includeParentName: false, omitKeyNames: false,
-                        includeDimensionName: false, includeParentNames: [],
+                        includeDimensionName: false, includeParentNames: [], includeParentDivisions: [],
                     } as LabelTemplate,
                     parentDimensions: leafParentDimensions,
                     suggestedFields: buildSuggestedFields(dims),
@@ -1506,6 +1553,8 @@
                 hasDivisions={currentQuestion.hasDivisions ?? false}
                 rawData={data ?? []}
                 dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
+                parentDimLabel={currentQuestion.parentDimLabel}
+                parentDimNoun={currentQuestion.parentDimNoun}
             />
             {/key}
         {:else}
