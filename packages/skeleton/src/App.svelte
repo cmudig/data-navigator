@@ -286,7 +286,7 @@
             </aside>
         {/if}
 
-        <div class="workspace-canvas">
+        <div class="workspace-canvas" class:workspace-canvas--fill={currentStep === 2}>
             <ActiveStep />
         </div>
 
@@ -431,6 +431,11 @@
     main > :global(.workspace) {
         flex: 1;
         display: flex;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    :global(.workspace > aside) {
         min-height: 0;
         overflow: hidden;
     }

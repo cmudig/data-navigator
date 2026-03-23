@@ -1750,7 +1750,7 @@
 
     .graph-canvas {
         width: 100%;
-        min-height: 480px;
+        min-height: 0;
         flex: 1;
         display: block;
         background: var(--dn-surface);

@@ -1244,6 +1244,7 @@
     .schema-inspector-container {
         width: 100%;
         min-height: 220px;
+        max-height: 320px;
         overflow: hidden;
         position: relative;
     }
@@ -1284,6 +1285,7 @@
         flex-direction: column;
         gap: 0;
         min-height: 0;
+        padding-top: 0;
     }
     .schema-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
 
