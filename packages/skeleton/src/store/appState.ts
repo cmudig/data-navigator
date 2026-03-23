@@ -125,10 +125,9 @@ export interface LabelTemplate {
     includeIndex: boolean; // append "X of Y"
     includeParentName: boolean; // append "in [parent]" (used by dim/div builders)
     omitKeyNames: boolean; // suppress {key:"..."} tokens in output; corresponds to DN's omitKeyNames
-    includeDimensionName?: boolean; // division builders: prepend dimension key (e.g. "Age: 170–180")
-    includeParentDimension?: boolean; // division (level2): include parent dimension label in suffix
-    includeParentNames?: string[]; // leaf builders: dimension keys whose names to append (e.g. "in Electronics")
-    includeParentDivisions?: string[]; // leaf builders: dimension keys whose division labels to append (e.g. "in 170–180")
+    includeDimensionName?: boolean; // division (level2): append "in {dimKey} {dimNoun}" to label suffix
+    includeParentNames?: string[]; // leaf (level3): dimension keys whose "dim name" to append to suffix
+    includeParentDivisions?: string[]; // leaf (level3): dimension keys whose "subgroup position" to append to suffix
 }
 
 export interface LabelConfig {

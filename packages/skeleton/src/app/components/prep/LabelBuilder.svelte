@@ -9,13 +9,11 @@
 
     interface ParentDimension {
         key: string;
-        label: string;
         isReduced: boolean;
-        exampleLabel: string;     // dimension-level example (e.g., "Electronics")
-        dimNoun: string;          // noun from LabelTemplate.name (e.g., "group")
-        hasDivisions: boolean;    // whether this dim has meaningful divisions
-        divExampleLabel?: string; // division-level example (e.g., "0.5–1.0")
-        divNoun?: string;         // noun from division LabelTemplate.name (e.g., "subgroup")
+        dimNoun: string;       // noun from LabelTemplate.name (e.g., "group")
+        hasDivisions: boolean; // whether this dim has meaningful divisions
+        divNoun?: string;      // noun from division LabelTemplate.name (e.g., "subgroup")
+        divTotal?: number;     // dim.subdivisions — for "of N" in subgroup preview
     }
 
     interface SuggestedField {
@@ -40,8 +38,7 @@
         hasDivisions?: boolean;          // level1 only: whether this dim has sub-divisions
         rawData?: Record<string, unknown>[];  // full dataset for real aggregate previews
         dimensionKey?: string;           // level1 only: the dimension's field key (for subcount)
-        parentDimLabel?: string;         // level2 only: resolved example of the parent dimension label
-        parentDimNoun?: string;          // level2 only: noun of the parent dimension
+        parentDimNoun?: string;          // level2 only: noun of the parent dimension (for suffix preview)
     }
 
     let {
@@ -60,7 +57,6 @@
         hasDivisions = false,
         rawData = [],
         dimensionKey = undefined,
-        parentDimLabel = undefined,
         parentDimNoun = undefined,
     }: Props = $props();
 
@@ -115,11 +111,6 @@
             return val !== undefined ? String(val) : `[${key}]`;
         });
 
-        // Division builders: prepend dimension name when checked
-        if (tmpl.includeDimensionName && dimensionName) {
-            resolved = resolved ? `${dimensionName}: ${resolved}` : dimensionName;
-        }
-
         const name = tmpl.name || (nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'subgroup' : 'data point');
         const cap = name.charAt(0).toUpperCase() + name.slice(1);
         let suffix = cap;
@@ -127,33 +118,39 @@
             suffix += nodeType === 'level1' ? ` 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
         }
 
-        // Division builders: append parent dimension label when checked
-        if (tmpl.includeParentDimension && dimensionName) {
-            const label = parentDimLabel ?? dimensionName;
-            const noun = parentDimNoun ?? 'group';
-            suffix += ` in ${label} ${noun}`;
+        // Division builders: append "in {dimKey} {dimNoun}" when checked
+        if (tmpl.includeDimensionName && dimensionName) {
+            suffix += ` in ${dimensionName} ${parentDimNoun ?? 'group'}`;
         }
 
-        // Leaf builders: per-dimension parent names and per-division parent names
-        const parentClauses: string[] = [];
-        if (tmpl.includeParentNames?.length) {
-            for (const k of tmpl.includeParentNames) {
-                const pd = parentDimensions.find(p => p.key === k);
-                if (pd) parentClauses.push(`${pd.exampleLabel} ${pd.dimNoun}`);
+        // Leaf builders: build per-dimension clauses, joined with " and "
+        // Each clause can be: dim-only, div-only, or combined div+dim.
+        function buildParentClause(pd: ParentDimension, includeDim: boolean, includeDiv: boolean): string | null {
+            const hasDivInfo = includeDiv && pd.hasDivisions && pd.divNoun;
+            if (hasDivInfo && includeDim) {
+                return `in ${pd.divNoun} 1 of ${pd.divTotal ?? '?'} in ${pd.key}`;
+            } else if (hasDivInfo) {
+                return `in ${pd.divNoun} 1 of ${pd.divTotal ?? '?'}`;
+            } else if (includeDim) {
+                return `in ${pd.key} ${pd.dimNoun}`;
             }
+            return null;
         }
-        if (tmpl.includeParentDivisions?.length) {
-            for (const k of tmpl.includeParentDivisions) {
-                const pd = parentDimensions.find(p => p.key === k);
-                if (pd?.divExampleLabel) {
-                    parentClauses.push(`${pd.divExampleLabel} ${pd.divNoun ?? 'subgroup'}`);
-                }
+
+        if (parentDimensions.length > 0) {
+            const parentClauses: string[] = [];
+            for (const pd of parentDimensions) {
+                const includeDim = (tmpl.includeParentNames ?? []).includes(pd.key);
+                const includeDiv = (tmpl.includeParentDivisions ?? []).includes(pd.key);
+                const clause = buildParentClause(pd, includeDim, includeDiv);
+                if (clause) parentClauses.push(clause);
             }
-        }
-        if (parentClauses.length > 0) {
-            suffix += ` in ${parentClauses.join(' / ')}`;
+            if (parentClauses.length > 0) {
+                suffix += ` ${parentClauses.join(' and ')}`;
+            } else if (tmpl.includeParentName) {
+                suffix += ` in Example Group`;
+            }
         } else if (tmpl.includeParentName) {
-            // Backward compat
             suffix += ` in Example Group`;
         }
 
@@ -687,28 +684,18 @@
         {/if}
 
         {#if dimensionName}
-            <!-- Division builders: prepend the dimension's name to this sub-group label -->
+            <!-- Division builders: append "in {dimKey} {dimNoun}" to label suffix -->
             <label class="lb-checkbox-label">
                 <input
                     type="checkbox"
                     checked={value.includeDimensionName ?? false}
                     onchange={(e) => onchange({ ...value, includeDimensionName: (e.target as HTMLInputElement).checked })}
                 />
-                Include dimension name
-                <span class="lb-checkbox-example">(e.g., {dimensionName}: {String(sampleData['range'] ?? '10–20')})</span>
-            </label>
-            <!-- Division builders: include parent dimension label in suffix -->
-            <label class="lb-checkbox-label">
-                <input
-                    type="checkbox"
-                    checked={value.includeParentDimension ?? false}
-                    onchange={(e) => onchange({ ...value, includeParentDimension: (e.target as HTMLInputElement).checked })}
-                />
-                Include parent {dimensionName} information
-                <span class="lb-checkbox-example">(e.g., in {parentDimLabel ?? dimensionName} {parentDimNoun ?? 'group'})</span>
+                Include parent {dimensionName} dimension
+                <span class="lb-checkbox-example">(e.g., in {dimensionName} {parentDimNoun ?? 'group'})</span>
             </label>
         {:else if parentDimensions.length > 0}
-            <!-- Leaf builders: one checkbox per dimension + optional division checkbox -->
+            <!-- Leaf builders: per-dim "dimension" toggle + optional "subgroup" toggle -->
             {#each parentDimensions as pd (pd.key)}
                 <label class="lb-checkbox-label">
                     <input
@@ -722,8 +709,8 @@
                             onchange({ ...value, includeParentNames: next });
                         }}
                     />
-                    Include parent {pd.key} information
-                    <span class="lb-checkbox-example">(e.g., in {pd.exampleLabel} {pd.dimNoun})</span>
+                    Include parent {pd.key} dimension
+                    <span class="lb-checkbox-example">(e.g., in {pd.key} {pd.dimNoun})</span>
                 </label>
                 {#if pd.hasDivisions}
                     <label class="lb-checkbox-label">
@@ -738,8 +725,8 @@
                                 onchange({ ...value, includeParentDivisions: next });
                             }}
                         />
-                        Include parent {pd.key} subgroup information
-                        <span class="lb-checkbox-example">(e.g., in {pd.divExampleLabel ?? '(example)'} {pd.divNoun ?? 'subgroup'})</span>
+                        Include parent subgroup of dimension {pd.key}
+                        <span class="lb-checkbox-example">(e.g., in {pd.divNoun ?? 'subgroup'} 1 of {pd.divTotal ?? '?'})</span>
                     </label>
                 {/if}
             {/each}

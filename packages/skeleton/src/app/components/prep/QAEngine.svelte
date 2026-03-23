@@ -31,13 +31,11 @@
 
     interface ParentDimension {
         key: string;
-        label: string;
         isReduced: boolean;
-        exampleLabel: string;  // dimension-level example (e.g., "fruit")
         dimNoun: string;       // noun from LabelTemplate.name (e.g., "group")
         hasDivisions: boolean; // whether this dim has meaningful divisions
-        divExampleLabel?: string; // division-level example (e.g., "0.5–1.0")
         divNoun?: string;      // noun from division LabelTemplate.name (e.g., "subgroup")
+        divTotal?: number;     // dim.subdivisions — for "of N" in subgroup preview
     }
 
     interface SuggestedField {
@@ -69,8 +67,7 @@
         suggestedAggField?: string;
         dimensionCount?: number;
         hasDivisions?: boolean;
-        parentDimLabel?: string;  // level2: resolved example of parent dimension label
-        parentDimNoun?: string;   // level2: noun of parent dimension
+        parentDimNoun?: string;   // level2: noun of parent dimension (for suffix preview)
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -1101,15 +1098,6 @@
                         const divSampleRow = buildDivisionSampleRow(dim, data);
                         const exampleRange = String(divSampleRow['range'] ?? '(example range)');
 
-                        // Compute parent dimension label example and noun for the "Include parent" toggle
-                        const parentDimLabel = (() => {
-                            const saved = prep.labelConfig.perDimension[dim.key]?.template;
-                            if (saved) {
-                                const resolved = resolveTemplateToString(saved, { [dim.key]: dim.key });
-                                if (resolved) return resolved;
-                            }
-                            return dim.key;
-                        })();
                         const parentDimNoun = prep.labelConfig.perDimension[dim.key]?.name ?? 'group';
 
                         questions.push({
@@ -1123,10 +1111,9 @@
                             defaultValue: {
                                 template: '{key:"range"}: {value:"range"}', name: 'subgroup',
                                 includeIndex: false, includeParentName: false, omitKeyNames: false,
-                                includeDimensionName: false, includeParentDimension: false, includeParentNames: [],
+                                includeDimensionName: false, includeParentNames: [],
                             } as LabelTemplate,
                             dimensionName: dim.key,
-                            parentDimLabel,
                             parentDimNoun,
                             suggestedFields: [{ key: 'range' }],
                             getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
@@ -1158,45 +1145,19 @@
                 }
 
                 // ── Phase 3: Leaf (individual data point) label ───────────────
-                // Build per-dimension parent checkboxes with real examples
+                // Build per-dimension parent checkboxes for the leaf label builder
                 const leafParentDimensions: ParentDimension[] = dims.map(dim => {
                     const reduced = isReducedDimension(dim, data);
                     const hasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !reduced;
-                    const dimNoun = prep.labelConfig.perDimension[dim.key]?.name ?? 'group';
-                    const divNoun = hasDivisions
-                        ? (prep.labelConfig.perDivision[dim.key]?.name ?? 'subgroup')
-                        : undefined;
-
-                    // Dimension example: apply saved dim template to (key → key) sample
-                    const dimExampleLabel = (() => {
-                        const saved = prep.labelConfig.perDimension[dim.key]?.template;
-                        if (saved) {
-                            const resolved = resolveTemplateToString(saved, { [dim.key]: dim.key });
-                            if (resolved) return resolved;
-                        }
-                        return dim.key;
-                    })();
-
-                    // Division example: apply saved div template to first bucket sample
-                    const divExampleLabel = hasDivisions ? (() => {
-                        const saved = prep.labelConfig.perDivision[dim.key]?.template;
-                        const sampleRow = buildDivisionSampleRow(dim, data);
-                        if (saved) {
-                            const resolved = resolveTemplateToString(saved, sampleRow);
-                            if (resolved) return resolved;
-                        }
-                        return String(sampleRow['range'] ?? '(example)');
-                    })() : undefined;
-
                     return {
                         key: dim.key,
-                        label: `Include parent ${dim.key} information`,
                         isReduced: reduced,
-                        exampleLabel: dimExampleLabel,
-                        dimNoun,
+                        dimNoun: prep.labelConfig.perDimension[dim.key]?.name ?? 'group',
                         hasDivisions,
-                        divExampleLabel,
-                        divNoun,
+                        divNoun: hasDivisions
+                            ? (prep.labelConfig.perDivision[dim.key]?.name ?? 'subgroup')
+                            : undefined,
+                        divTotal: hasDivisions ? dim.subdivisions : undefined,
                     };
                 });
 
@@ -1553,7 +1514,6 @@
                 hasDivisions={currentQuestion.hasDivisions ?? false}
                 rawData={data ?? []}
                 dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
-                parentDimLabel={currentQuestion.parentDimLabel}
                 parentDimNoun={currentQuestion.parentDimNoun}
             />
             {/key}
