@@ -3,7 +3,8 @@
     import type { LabelTemplate } from '../../../store/appState';
     import {
         calcCount, calcSubcount, calcMin, calcMax, calcSum, calcAvg,
-        calcTrend, calcR2, normalizeTemplate, stripNaturalLanguage, formatNum,
+        calcTrend, calcR2, normalizeTemplate,
+        stripKeyNamesFromDimTemplate, addKeyNamesToDimTemplate, formatNum,
     } from './aggregateUtils';
 
     interface ParentDimension {
@@ -196,9 +197,13 @@
 
     function handleOmitKeyNames(e: Event) {
         const checked = (e.target as HTMLInputElement).checked;
-        if (nodeType === 'level1' && checked) {
-            // Strip natural language wrappers from existing template
-            onchange({ ...value, omitKeyNames: checked, template: stripNaturalLanguage(value.template) });
+        if (nodeType === 'level1') {
+            // For level1, omitKeyNames isn't a real runtime prop in data-navigator,
+            // so we directly modify the template to strip or re-add key name tokens.
+            const newTemplate = checked
+                ? stripKeyNamesFromDimTemplate(value.template)
+                : addKeyNamesToDimTemplate(value.template);
+            onchange({ ...value, omitKeyNames: checked, template: newTemplate });
         } else {
             onchange({ ...value, omitKeyNames: checked });
         }
@@ -299,7 +304,8 @@
             t = t.replace(/ \{subcount\},?\s*/g, ' ').replace(/\{subcount\}/g, '');
             t = t.replace(/ \{count\},?\s*/g, ' ').replace(/\{count\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (nodeType === 'level1' && !value.omitKeyNames) {
+        } else if (nodeType === 'level1') {
+            // Count has no key tokens to hide, so always use the natural language phrase
             const phrase = hasDivisions
                 ? ' contains {subcount} subgroups and {count} total child data points'
                 : ' contains {count} total child data points';
@@ -312,15 +318,19 @@
     function toggleMinMax() {
         if (hasMinMax) {
             let t = value.template;
-            // Remove natural language phrase first
+            // Remove with-key phrase: ", {key:"f"} ranging from {min:"f"} to {max:"f"}"
+            t = t.replace(/, \{key:"[^"]+"\} ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, '');
+            // Remove without-key phrase: ", ranging from {min:"f"} to {max:"f"}"
             t = t.replace(/, ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, '');
-            // Fallback: remove bare tokens
+            // Bare token fallback
             t = t.replace(/\{min:"[^"]+"\}/g, '').replace(/\{max:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (minMaxField) {
             const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
-                : ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`;
+                ? `, {key:"${minMaxField}"} ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
+                : (nodeType === 'level1')
+                    ? `, ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
+                    : ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -328,13 +338,19 @@
     function toggleSum() {
         if (hasSumInTemplate) {
             let t = value.template;
+            // Remove with-key phrase: ", total {key:"f"}: {sum:"f"}"
+            t = t.replace(/, total \{key:"[^"]+"\}: \{sum:"[^"]+"\}/g, '');
+            // Remove without-key phrase: ", total: {sum:"f"}"
             t = t.replace(/, total: \{sum:"[^"]+"\}/g, '');
+            // Bare token fallback
             t = t.replace(/\{sum:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (sumField) {
             const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, total: {sum:"${sumField}"}`
-                : ` {sum:"${sumField}"}`;
+                ? `, total {key:"${sumField}"}: {sum:"${sumField}"}`
+                : (nodeType === 'level1')
+                    ? `, total: {sum:"${sumField}"}`
+                    : ` {sum:"${sumField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -342,13 +358,19 @@
     function toggleAvg() {
         if (hasAvgInTemplate) {
             let t = value.template;
+            // Remove with-key phrase: ", average {key:"f"}: {avg:"f"}"
+            t = t.replace(/, average \{key:"[^"]+"\}: \{avg:"[^"]+"\}/g, '');
+            // Remove without-key phrase: ", average: {avg:"f"}"
             t = t.replace(/, average: \{avg:"[^"]+"\}/g, '');
+            // Bare token fallback
             t = t.replace(/\{avg:"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (avgField) {
             const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, average: {avg:"${avgField}"}`
-                : ` {avg:"${avgField}"}`;
+                ? `, average {key:"${avgField}"}: {avg:"${avgField}"}`
+                : (nodeType === 'level1')
+                    ? `, average: {avg:"${avgField}"}`
+                    : ` {avg:"${avgField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -356,13 +378,19 @@
     function toggleTrend() {
         if (hasTrendInTemplate) {
             let t = value.template;
+            // Remove with-key phrase: ", trend {key:"x"}/{key:"y"}: {trend:"x":"y"}"
+            t = t.replace(/, trend \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{trend:"[^"]+":"[^"]+"\}/g, '');
+            // Remove without-key phrase: ", trend: {trend:"x":"y"}"
             t = t.replace(/, trend: \{trend:"[^"]+":"[^"]+"\}/g, '');
+            // Bare token fallback
             t = t.replace(/\{trend:"[^"]+":"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
             const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, trend: {trend:"${trendXField}":"${trendYField}"}`
-                : ` {trend:"${trendXField}":"${trendYField}"}`;
+                ? `, trend {key:"${trendXField}"}/{key:"${trendYField}"}: {trend:"${trendXField}":"${trendYField}"}`
+                : (nodeType === 'level1')
+                    ? `, trend: {trend:"${trendXField}":"${trendYField}"}`
+                    : ` {trend:"${trendXField}":"${trendYField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -370,13 +398,19 @@
     function toggleR2() {
         if (hasR2InTemplate) {
             let t = value.template;
+            // Remove with-key phrase: ", R² {key:"x"}/{key:"y"}: {r2:"x":"y"}"
+            t = t.replace(/, R² \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{r2:"[^"]+":"[^"]+"\}/g, '');
+            // Remove without-key phrase: ", R²: {r2:"x":"y"}"
             t = t.replace(/, R²: \{r2:"[^"]+":"[^"]+"\}/g, '');
+            // Bare token fallback
             t = t.replace(/\{r2:"[^"]+":"[^"]+"\}/g, '');
             onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
             const phrase = (nodeType === 'level1' && !value.omitKeyNames)
-                ? `, R²: {r2:"${trendXField}":"${trendYField}"}`
-                : ` {r2:"${trendXField}":"${trendYField}"}`;
+                ? `, R² {key:"${trendXField}"}/{key:"${trendYField}"}: {r2:"${trendXField}":"${trendYField}"}`
+                : (nodeType === 'level1')
+                    ? `, R²: {r2:"${trendXField}":"${trendYField}"}`
+                    : ` {r2:"${trendXField}":"${trendYField}"}`;
             onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
@@ -662,15 +696,15 @@
         {/if}
 
         {#if nodeType === 'level1'}
-            <!-- <label class="lb-checkbox-label lb-omit-toggle">
+            <label class="lb-checkbox-label lb-omit-toggle">
                 <input
                     type="checkbox"
                     checked={value.omitKeyNames}
                     onchange={handleOmitKeyNames}
                 />
-                Hide natural language
-                <span class="lb-checkbox-example">(strip descriptive phrases, keep only tokens)</span>
-            </label> -->
+                Hide field names
+                <span class="lb-checkbox-example">(omit field labels from aggregate summaries)</span>
+            </label>
         {:else}
             <label class="lb-checkbox-label lb-omit-toggle">
                 <input

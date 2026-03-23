@@ -124,6 +124,42 @@ export function normalizeTemplate(t: string): string {
 }
 
 /**
+ * Strip {key:"..."} tokens from the known aggregate phrases added by the
+ * dimension label builder (level1). Used when "Hide field names" is toggled on.
+ */
+export function stripKeyNamesFromDimTemplate(t: string): string {
+    // Min/Max: ", {key:"f"} ranging from ..." → ", ranging from ..."
+    t = t.replace(/, \{key:"[^"]+"\} ranging from /g, ', ranging from ');
+    // Sum: ", total {key:"f"}: ..." → ", total: ..."
+    t = t.replace(/, total \{key:"[^"]+"\}: /g, ', total: ');
+    // Average: ", average {key:"f"}: ..." → ", average: ..."
+    t = t.replace(/, average \{key:"[^"]+"\}: /g, ', average: ');
+    // Trend: ", trend {key:"x"}/{key:"y"}: ..." → ", trend: ..."
+    t = t.replace(/, trend \{key:"[^"]+"\}\/\{key:"[^"]+"\}: /g, ', trend: ');
+    // R²: ", R² {key:"x"}/{key:"y"}: ..." → ", R²: ..."
+    t = t.replace(/, R² \{key:"[^"]+"\}\/\{key:"[^"]+"\}: /g, ', R²: ');
+    return t;
+}
+
+/**
+ * Re-insert {key:"..."} tokens into the known aggregate phrases in a level1
+ * template. Used when "Hide field names" is toggled off.
+ */
+export function addKeyNamesToDimTemplate(t: string): string {
+    // Min/Max: ", ranging from {min:"f"} ..." → ", {key:"f"} ranging from {min:"f"} ..."
+    t = t.replace(/, ranging from \{min:"([^"]+)"\}/g, ', {key:"$1"} ranging from {min:"$1"}');
+    // Sum: ", total: {sum:"f"}" → ", total {key:"f"}: {sum:"f"}"
+    t = t.replace(/, total: \{sum:"([^"]+)"\}/g, ', total {key:"$1"}: {sum:"$1"}');
+    // Average: ", average: {avg:"f"}" → ", average {key:"f"}: {avg:"f"}"
+    t = t.replace(/, average: \{avg:"([^"]+)"\}/g, ', average {key:"$1"}: {avg:"$1"}');
+    // Trend: ", trend: {trend:"x":"y"}" → ", trend {key:"x"}/{key:"y"}: {trend:"x":"y"}"
+    t = t.replace(/, trend: \{trend:"([^"]+)":"([^"]+)"\}/g, ', trend {key:"$1"}/{key:"$2"}: {trend:"$1":"$2"}');
+    // R²: ", R²: {r2:"x":"y"}" → ", R² {key:"x"}/{key:"y"}: {r2:"x":"y"}"
+    t = t.replace(/, R²: \{r2:"([^"]+)":"([^"]+)"\}/g, ', R² {key:"$1"}/{key:"$2"}: {r2:"$1":"$2"}');
+    return t;
+}
+
+/**
  * Strip the natural language wrappers added by the dimension label builder,
  * leaving only the bare aggregate tokens.
  */
@@ -133,15 +169,25 @@ export function stripNaturalLanguage(template: string): string {
     t = t.replace(/ contains \{subcount\} subgroups and \{count\} total child data points/g, ' {subcount}, {count}');
     // Count without subcount
     t = t.replace(/ contains \{count\} total child data points/g, ' {count}');
-    // Min/Max
-    t = t.replace(/, ranging from \{min:"([^"]+)"\} to \{max:"([^"]+)"\}/g, ', {min:"$1"}, {max:"$2"}');
-    // Sum
+    // Min/Max (with key)
+    t = t.replace(/, \{key:"([^"]+)"\} ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, ', {min:"$1"}, {max:"$1"}');
+    // Min/Max (without key)
+    t = t.replace(/, ranging from \{min:"([^"]+)"\} to \{max:"[^"]+"\}/g, ', {min:"$1"}, {max:"$1"}');
+    // Sum (with key)
+    t = t.replace(/, total \{key:"[^"]+"\}: \{sum:"([^"]+)"\}/g, ', {sum:"$1"}');
+    // Sum (without key)
     t = t.replace(/, total: \{sum:"([^"]+)"\}/g, ', {sum:"$1"}');
-    // Average
+    // Average (with key)
+    t = t.replace(/, average \{key:"[^"]+"\}: \{avg:"([^"]+)"\}/g, ', {avg:"$1"}');
+    // Average (without key)
     t = t.replace(/, average: \{avg:"([^"]+)"\}/g, ', {avg:"$1"}');
-    // Trend
+    // Trend (with key)
+    t = t.replace(/, trend \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{trend:"([^"]+)":"([^"]+)"\}/g, ', {trend:"$1":"$2"}');
+    // Trend (without key)
     t = t.replace(/, trend: \{trend:"([^"]+)":"([^"]+)"\}/g, ', {trend:"$1":"$2"}');
-    // R²
+    // R² (with key)
+    t = t.replace(/, R² \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{r2:"([^"]+)":"([^"]+)"\}/g, ', {r2:"$1":"$2"}');
+    // R² (without key)
     t = t.replace(/, R²: \{r2:"([^"]+)":"([^"]+)"\}/g, ', {r2:"$1":"$2"}');
     return normalizeTemplate(t);
 }
