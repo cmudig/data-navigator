@@ -1482,6 +1482,7 @@
                 Upload a dataset (or create one) to begin setting up your structure.
             </p>
         {:else if currentQuestion}
+            {#key questionId}
             <QAQuestion
                 question={currentQuestion.question}
                 hint={currentQuestion.hint}
@@ -1506,6 +1507,7 @@
                 rawData={data ?? []}
                 dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
             />
+            {/key}
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>
         {/if}
