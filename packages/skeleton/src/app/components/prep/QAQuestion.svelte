@@ -39,8 +39,12 @@
         suggestedFields?: SuggestedField[];
         // aggregate label-builder extras (level1 and level2 only)
         aggregateFields?: string[];
+        trendXFields?: string[];
         suggestedAggField?: string;
         dimensionCount?: number;
+        hasDivisions?: boolean;
+        rawData?: Record<string, unknown>[];
+        dimensionKey?: string;
         // multiselect limit
         maxSelect?: number;
         // expandable info panel (e.g. "What are dimensions?")
@@ -63,8 +67,12 @@
         parentDimensions = [],
         suggestedFields = [],
         aggregateFields = [],
+        trendXFields = undefined,
         suggestedAggField = undefined,
         dimensionCount = 1,
+        hasDivisions = false,
+        rawData = [],
+        dimensionKey = undefined,
         maxSelect,
         expandableInfo,
         suggestionBox,
@@ -272,8 +280,12 @@
                 {parentDimensions}
                 {suggestedFields}
                 {aggregateFields}
+                {trendXFields}
                 {suggestedAggField}
                 {dimensionCount}
+                {hasDivisions}
+                {rawData}
+                {dimensionKey}
                 onchange={(v) => onchange(v)}
             />
 

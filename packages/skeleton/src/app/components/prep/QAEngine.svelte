@@ -61,8 +61,10 @@
         suggestedFields?: SuggestedField[];
         // aggregate label-builder extras (level1 and level2 only)
         getAggregateFields?: (prep: PrepState, data: Row[] | null) => string[];
+        getTrendXFields?: (prep: PrepState) => string[];
         suggestedAggField?: string;
         dimensionCount?: number;
+        hasDivisions?: boolean;
         onAnswer: (value: unknown, prep: PrepState, schema: SchemaState, data: Row[] | null) => StoreUpdate;
     }
 
@@ -1044,23 +1046,26 @@
                     const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
 
                     // Q4.A — Dimension header label
+                    const dimHasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, data);
                     questions.push({
                         id: `dim-label-${dim.key}`,
                         question: `Let's set up a label for "${dim.key}" — what a screen reader says when a user arrives at this dimension.`,
                         hint: `Users will often want to know what the dimension is and what is inside. The options below can help you build aggregate summaries.`,
                         inputType: 'label-builder',
                         nodeType: 'level1',
-                        getFields: (_p) => [dim.key, 'count'],
-                        getSampleData: (_d, _p) => ({ [dim.key]: firstUniqueVal, count: countForFirst }),
+                        getFields: (_p) => [dim.key],
+                        getSampleData: (_d, _p) => ({ [dim.key]: dim.key }),
                         defaultValue: {
-                            template: `{key:"${dim.key}"}: {value:"${dim.key}"}`,
+                            template: `{value:"${dim.key}"}`,
                             name: 'group',
                             includeIndex: false, includeParentName: false, omitKeyNames: false,
                             includeDimensionName: false, includeParentNames: [],
                         } as LabelTemplate,
                         suggestedFields: [{ key: dim.key }],
                         getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                        getTrendXFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
                         dimensionCount: dims.length,
+                        hasDivisions: dimHasDivisions,
                         expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => ({
@@ -1253,6 +1258,11 @@
     const resolvedAggregateFields = $derived.by((): string[] => {
         if (!currentQuestion?.getAggregateFields || !prep) return [];
         return currentQuestion.getAggregateFields(prep, data);
+    });
+
+    const resolvedTrendXFields = $derived.by((): string[] => {
+        if (!currentQuestion?.getTrendXFields || !prep) return resolvedAggregateFields;
+        return currentQuestion.getTrendXFields(prep);
     });
 
     // ── Pending answer (local; committed to store on Next) ────────────────────
@@ -1489,8 +1499,12 @@
                 parentDimensions={currentQuestion.parentDimensions}
                 suggestedFields={currentQuestion.suggestedFields}
                 aggregateFields={resolvedAggregateFields}
+                trendXFields={resolvedTrendXFields}
                 suggestedAggField={currentQuestion.suggestedAggField}
                 dimensionCount={currentQuestion.dimensionCount}
+                hasDivisions={currentQuestion.hasDivisions ?? false}
+                rawData={data ?? []}
+                dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
             />
         {:else}
             <p class="qa-empty">No questions available for this chapter yet.</p>

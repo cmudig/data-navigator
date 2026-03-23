@@ -1,6 +1,10 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import type { LabelTemplate } from '../../../store/appState';
+    import {
+        calcCount, calcSubcount, calcMin, calcMax, calcSum, calcAvg,
+        calcTrend, calcR2, normalizeTemplate, stripNaturalLanguage, formatNum,
+    } from './aggregateUtils';
 
     interface ParentDimension {
         key: string;
@@ -25,8 +29,12 @@
         suggestedFields?: SuggestedField[];   // fields to highlight with ★ badges
         // aggregate extras (level1 and level2 only)
         aggregateFields?: string[];      // numerical fields available for agg selection
+        trendXFields?: string[];         // all fields eligible as trend X variable (cat + num)
         suggestedAggField?: string;      // pre-highlighted field for min/max (divisions)
         dimensionCount?: number;         // how many dimensions selected (for position checkbox)
+        hasDivisions?: boolean;          // level1 only: whether this dim has sub-divisions
+        rawData?: Record<string, unknown>[];  // full dataset for real aggregate previews
+        dimensionKey?: string;           // level1 only: the dimension's field key (for subcount)
     }
 
     let {
@@ -39,9 +47,15 @@
         parentDimensions = [],
         suggestedFields = [],
         aggregateFields = [],
+        trendXFields = undefined,
         suggestedAggField = undefined,
         dimensionCount = 1,
+        hasDivisions = false,
+        rawData = [],
+        dimensionKey = undefined,
     }: Props = $props();
+
+    const effectiveTrendXFields = $derived(trendXFields ?? aggregateFields);
 
 
     // ── Live preview ─────────────────────────────────────────────────────────
@@ -50,14 +64,33 @@
     function buildPreview(tmpl: LabelTemplate, data: Record<string, unknown>): string {
         let resolved = tmpl.template;
 
-        // Aggregate tokens (resolve before key/value tokens)
-        resolved = resolved.replace(/\{count\}/g, '[count]');
-        resolved = resolved.replace(/\{min:"([^"]+)"\}/g, (_: string, f: string) => `[min ${f}]`);
-        resolved = resolved.replace(/\{max:"([^"]+)"\}/g, (_: string, f: string) => `[max ${f}]`);
-        resolved = resolved.replace(/\{sum:"([^"]+)"\}/g, (_: string, f: string) => `[sum ${f}]`);
-        resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) => `[avg ${f}]`);
-        resolved = resolved.replace(/\{trend:"[^"]+":"[^"]+"\}/g, 'slightly up');
-        resolved = resolved.replace(/\{r2:"[^"]+":"[^"]+"\}/g, 'R²: 0.82');
+        // Aggregate tokens (resolve before key/value tokens) — use real data when available
+        resolved = resolved.replace(/\{subcount\}/g, () =>
+            (rawData.length > 0 && dimensionKey)
+                ? String(calcSubcount(rawData, dimensionKey))
+                : '[subcount]'
+        );
+        resolved = resolved.replace(/\{count\}/g, () =>
+            rawData.length > 0 ? String(calcCount(rawData)) : '[count]'
+        );
+        resolved = resolved.replace(/\{min:"([^"]+)"\}/g, (_: string, f: string) =>
+            rawData.length > 0 ? formatNum(calcMin(rawData, f)) : `[min ${f}]`
+        );
+        resolved = resolved.replace(/\{max:"([^"]+)"\}/g, (_: string, f: string) =>
+            rawData.length > 0 ? formatNum(calcMax(rawData, f)) : `[max ${f}]`
+        );
+        resolved = resolved.replace(/\{sum:"([^"]+)"\}/g, (_: string, f: string) =>
+            rawData.length > 0 ? formatNum(calcSum(rawData, f)) : `[sum ${f}]`
+        );
+        resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) =>
+            rawData.length > 0 ? formatNum(calcAvg(rawData, f)) : `[avg ${f}]`
+        );
+        resolved = resolved.replace(/\{trend:"([^"]+)":"([^"]+)"\}/g, (_: string, x: string, y: string) =>
+            rawData.length > 0 ? calcTrend(rawData, x, y) : 'slightly increasing'
+        );
+        resolved = resolved.replace(/\{r2:"([^"]+)":"([^"]+)"\}/g, (_: string, x: string, y: string) =>
+            rawData.length > 0 ? formatNum(calcR2(rawData, x, y)) : '0.82'
+        );
 
         if (tmpl.omitKeyNames) {
             // Strip "{key:"..."}:" patterns (with following colon + optional space),
@@ -162,7 +195,13 @@
     }
 
     function handleOmitKeyNames(e: Event) {
-        onchange({ ...value, omitKeyNames: (e.target as HTMLInputElement).checked });
+        const checked = (e.target as HTMLInputElement).checked;
+        if (nodeType === 'level1' && checked) {
+            // Strip natural language wrappers from existing template
+            onchange({ ...value, omitKeyNames: checked, template: stripNaturalLanguage(value.template) });
+        } else {
+            onchange({ ...value, omitKeyNames: checked });
+        }
     }
 
     // ── Aggregate state (level1 and level2 only) ──────────────────────────────
@@ -230,20 +269,21 @@
     $effect(() => {
         const tm = trendMatchResult;
         const rm = r2MatchResult;
-        const fields = aggregateFields;
+        const xFields = effectiveTrendXFields;
+        const yFields = aggregateFields;
         const tx = tm?.[1] ?? rm?.[1];
         const ty = tm?.[2] ?? rm?.[2];
         const curX = untrack(() => trendXField);
         const curY = untrack(() => trendYField);
-        if (tx && fields.includes(tx)) {
+        if (tx && xFields.includes(tx)) {
             trendXField = tx;
-        } else if (!curX || !fields.includes(curX)) {
-            trendXField = fields[0] ?? '';
+        } else if (!curX || !xFields.includes(curX)) {
+            trendXField = xFields[0] ?? '';
         }
-        if (ty && fields.includes(ty)) {
+        if (ty && yFields.includes(ty)) {
             trendYField = ty;
-        } else if (!curY || !fields.includes(curY)) {
-            trendYField = fields.length > 1 ? fields[1] : (fields[0] ?? '');
+        } else if (!curY || !yFields.includes(curY)) {
+            trendYField = yFields.length > 1 ? yFields[1] : (yFields[0] ?? '');
         }
     });
 
@@ -251,64 +291,93 @@
 
     function toggleCount() {
         if (countInTemplate) {
-            onchange({ ...value, template: value.template.replace(/ \{count\}, /g, '').replace(/\{count\}/g, '').trim() });
+            let t = value.template;
+            // Remove full natural language phrases first
+            t = t.replace(/ contains \{subcount\} subgroups and \{count\} total child data points/g, '');
+            t = t.replace(/ contains \{count\} total child data points/g, '');
+            // Fallback: remove bare tokens
+            t = t.replace(/ \{subcount\},?\s*/g, ' ').replace(/\{subcount\}/g, '');
+            t = t.replace(/ \{count\},?\s*/g, ' ').replace(/\{count\}/g, '');
+            onchange({ ...value, template: normalizeTemplate(t) });
+        } else if (nodeType === 'level1' && !value.omitKeyNames) {
+            const phrase = hasDivisions
+                ? ' contains {subcount} subgroups and {count} total child data points'
+                : ' contains {count} total child data points';
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         } else {
-            onchange({ ...value, template: value.template + ' {count},' });
+            onchange({ ...value, template: normalizeTemplate(value.template + ' {count}') });
         }
     }
 
     function toggleMinMax() {
         if (hasMinMax) {
             let t = value.template;
-            // Remove exact combined pattern first
-            t = t.replace(/ \{min:"[^"]+"\}, \{max:"[^"]+"\}, /g, ' ');
-            // Fallback: remove individual tokens
-            t = t.replace(/ \{min:"[^"]+"\}, /g, ' ').replace(/ \{max:"[^"]+"\}, /g, ' ');
+            // Remove natural language phrase first
+            t = t.replace(/, ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, '');
+            // Fallback: remove bare tokens
             t = t.replace(/\{min:"[^"]+"\}/g, '').replace(/\{max:"[^"]+"\}/g, '');
-            t = t.replace(/\s{2,}/g, ' ').trim();
-            onchange({ ...value, template: t });
+            onchange({ ...value, template: normalizeTemplate(t) });
         } else if (minMaxField) {
-            onchange({ ...value, template: value.template + ` {min:"${minMaxField}"}, {max:"${minMaxField}"},` });
+            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
+                ? `, ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
+                : ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`;
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
 
     function toggleSum() {
         if (hasSumInTemplate) {
             let t = value.template;
-            t = t.replace(/ \{sum:"[^"]+"\}, /g, ' ').replace(/\{sum:"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
-            onchange({ ...value, template: t });
+            t = t.replace(/, total: \{sum:"[^"]+"\}/g, '');
+            t = t.replace(/\{sum:"[^"]+"\}/g, '');
+            onchange({ ...value, template: normalizeTemplate(t) });
         } else if (sumField) {
-            onchange({ ...value, template: value.template + ` {sum:"${sumField}"},` });
+            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
+                ? `, total: {sum:"${sumField}"}`
+                : ` {sum:"${sumField}"}`;
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
 
     function toggleAvg() {
         if (hasAvgInTemplate) {
             let t = value.template;
-            t = t.replace(/ \{avg:"[^"]+"\}, /g, ' ').replace(/\{avg:"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
-            onchange({ ...value, template: t });
+            t = t.replace(/, average: \{avg:"[^"]+"\}/g, '');
+            t = t.replace(/\{avg:"[^"]+"\}/g, '');
+            onchange({ ...value, template: normalizeTemplate(t) });
         } else if (avgField) {
-            onchange({ ...value, template: value.template + ` {avg:"${avgField}"},` });
+            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
+                ? `, average: {avg:"${avgField}"}`
+                : ` {avg:"${avgField}"}`;
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
 
     function toggleTrend() {
         if (hasTrendInTemplate) {
             let t = value.template;
-            t = t.replace(/ \{trend:"[^"]+":"[^"]+"\}, /g, ' ').replace(/\{trend:"[^"]+":"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
-            onchange({ ...value, template: t });
+            t = t.replace(/, trend: \{trend:"[^"]+":"[^"]+"\}/g, '');
+            t = t.replace(/\{trend:"[^"]+":"[^"]+"\}/g, '');
+            onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
-            onchange({ ...value, template: value.template + ` {trend:"${trendXField}":"${trendYField}"},` });
+            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
+                ? `, trend: {trend:"${trendXField}":"${trendYField}"}`
+                : ` {trend:"${trendXField}":"${trendYField}"}`;
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
 
     function toggleR2() {
         if (hasR2InTemplate) {
             let t = value.template;
-            t = t.replace(/ \{r2:"[^"]+":"[^"]+"\}, /g, ' ').replace(/\{r2:"[^"]+":"[^"]+"\}/g, '').replace(/\s{2,}/g, ' ').trim();
-            onchange({ ...value, template: t });
+            t = t.replace(/, R²: \{r2:"[^"]+":"[^"]+"\}/g, '');
+            t = t.replace(/\{r2:"[^"]+":"[^"]+"\}/g, '');
+            onchange({ ...value, template: normalizeTemplate(t) });
         } else if (trendXField && trendYField) {
-            onchange({ ...value, template: value.template + ` {r2:"${trendXField}":"${trendYField}"},` });
+            const phrase = (nodeType === 'level1' && !value.omitKeyNames)
+                ? `, R²: {r2:"${trendXField}":"${trendYField}"}`
+                : ` {r2:"${trendXField}":"${trendYField}"}`;
+            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
         }
     }
 </script>
@@ -450,7 +519,7 @@
                         <label class="lb-agg-trend-field">
                             <span class="lb-agg-trend-field-name">X variable</span>
                             <select class="lb-agg-select" bind:value={trendXField}>
-                                {#each aggregateFields as f (f)}
+                                {#each effectiveTrendXFields as f (f)}
                                     <option value={f}>{f}</option>
                                 {/each}
                             </select>
@@ -592,15 +661,27 @@
             </label>
         {/if}
 
-        <label class="lb-checkbox-label lb-omit-toggle">
-            <input
-                type="checkbox"
-                checked={value.omitKeyNames}
-                onchange={handleOmitKeyNames}
-            />
-            Hide field names
-            <span class="lb-checkbox-example">(show values only — e.g., "42" instead of "Score: 42")</span>
-        </label>
+        {#if nodeType === 'level1'}
+            <label class="lb-checkbox-label lb-omit-toggle">
+                <input
+                    type="checkbox"
+                    checked={value.omitKeyNames}
+                    onchange={handleOmitKeyNames}
+                />
+                Hide natural language
+                <span class="lb-checkbox-example">(strip descriptive phrases, keep only tokens)</span>
+            </label>
+        {:else}
+            <label class="lb-checkbox-label lb-omit-toggle">
+                <input
+                    type="checkbox"
+                    checked={value.omitKeyNames}
+                    onchange={handleOmitKeyNames}
+                />
+                Hide field names
+                <span class="lb-checkbox-example">(show values only — e.g., "42" instead of "Score: 42")</span>
+            </label>
+        {/if}
     </div>
 
     <!-- Preview is last so it can stick to the bottom of the scroll container -->
