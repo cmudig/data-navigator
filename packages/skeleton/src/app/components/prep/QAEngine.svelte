@@ -334,7 +334,7 @@
                     // Q1.2 — Dataset description (alt text for the root node)
                     questions.push({
                         id: 'dataset-description',
-                        question: 'What does this chart or dataset represent, in plain English?',
+                        question: 'What does this chart or dataset represent, in clear, concise language?',
                         hint: 'Example: "Monthly sales figures for each product and region." This becomes the opening description that screen readers use to introduce the data.',
                         inputType: 'text',
                         onAnswer: (_value, _p, _s, _d) => ({}),
