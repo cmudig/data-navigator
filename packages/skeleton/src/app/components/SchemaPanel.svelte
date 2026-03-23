@@ -793,7 +793,7 @@
             _inspector = Inspector({
                 structure: filteredStructure,
                 container,
-                size: 280,
+                size: { width: container.clientWidth || 360, height: 350 },
                 mode,
                 colorBy: 'dimensionLevel',
                 nodeRadius: 6,
@@ -891,22 +891,6 @@
              of x/y coordinates in GraphCanvas. The two views share node IDs so that
              hover and selection highlight the same node in both views. -->
         <div class="schema-graph-section">
-            <div class="graph-mode-bar" role="group" aria-label="Graph layout mode">
-                <button
-                    class="graph-mode-btn"
-                    class:active={schema.graphMode === 'tree'}
-                    type="button"
-                    aria-pressed={schema.graphMode === 'tree'}
-                    onclick={() => setSchemaField('graphMode', 'tree')}
-                >Tree</button>
-                <button
-                    class="graph-mode-btn"
-                    class:active={schema.graphMode === 'force'}
-                    type="button"
-                    aria-pressed={schema.graphMode === 'force'}
-                    onclick={() => setSchemaField('graphMode', 'force')}
-                >Force</button>
-            </div>
             {#if _dnHasResult}
                 <!-- Inspector mounts here — its layout is self-contained -->
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -932,52 +916,63 @@
 
             <!-- Level 0 -->
             <section class="schema-section">
-                <label class="checkbox-field section-toggle">
-                    <input type="checkbox" checked={schema.level0Enabled}
-                        onchange={(e) => setSchemaField('level0Enabled', (e.target as HTMLInputElement).checked)} />
-                    <span class="section-toggle-label">Add level 0 node <span class="badge-entry">entry</span></span>
-                </label>
-                {#if schema.level0Enabled}
-                    <div class="indented">
-                        <label class="field-label">
-                            ID
-                            <input type="text" class="text-input" value={schema.level0Id}
-                                aria-label="Level 0 node ID"
-                                oninput={(e) => setSchemaField('level0Id', (e.target as HTMLInputElement).value)} />
+                <h3 class="section-heading">Level 0</h3>
+                <details class="dim-options">
+                    <summary class="dim-options-summary">Options</summary>
+                    <div class="dim-options-body">
+                        <label class="checkbox-field section-toggle">
+                            <input type="checkbox" checked={schema.level0Enabled}
+                                onchange={(e) => setSchemaField('level0Enabled', (e.target as HTMLInputElement).checked)} />
+                            <span class="section-toggle-label">Add level 0 node <span class="badge-entry">entry</span></span>
                         </label>
+                        {#if schema.level0Enabled}
+                            <div class="indented">
+                                <label class="field-label">
+                                    ID
+                                    <input type="text" class="text-input" value={schema.level0Id}
+                                        aria-label="Level 0 node ID"
+                                        oninput={(e) => setSchemaField('level0Id', (e.target as HTMLInputElement).value)} />
+                                </label>
+                            </div>
+                        {/if}
                     </div>
-                {/if}
+                </details>
             </section>
 
             <!-- Level 1 options -->
             <section class="schema-section">
                 <h3 class="section-heading">Dimensions (level 1)</h3>
-                <label class="field-label">
-                    Extents
-                    <select value={schema.level1Extents}
-                        onchange={(e) => setSchemaField('level1Extents', (e.target as HTMLSelectElement).value as 'circular' | 'terminal')}>
-                        <option value="terminal">Terminal</option>
-                        <option value="circular">Circular</option>
-                    </select>
-                </label>
-                <div class="nav-rule-row">
-                    <span class="nav-dir-label">Forward</span>
-                    <input type="text" class="nav-name-input" value={schema.level1NavForwardName}
-                        aria-label="Level 1 forward nav name"
-                        oninput={(e) => setSchemaField('level1NavForwardName', (e.target as HTMLInputElement).value)} />
-                    <input type="text" class="nav-key-input" value={schema.level1NavForwardKey}
-                        aria-label="Level 1 forward nav key"
-                        oninput={(e) => setSchemaField('level1NavForwardKey', (e.target as HTMLInputElement).value)} />
-                </div>
-                <div class="nav-rule-row">
-                    <span class="nav-dir-label">Backward</span>
-                    <input type="text" class="nav-name-input" value={schema.level1NavBackwardName}
-                        aria-label="Level 1 backward nav name"
-                        oninput={(e) => setSchemaField('level1NavBackwardName', (e.target as HTMLInputElement).value)} />
-                    <input type="text" class="nav-key-input" value={schema.level1NavBackwardKey}
-                        aria-label="Level 1 backward nav key"
-                        oninput={(e) => setSchemaField('level1NavBackwardKey', (e.target as HTMLInputElement).value)} />
-                </div>
+                <details class="dim-options">
+                    <summary class="dim-options-summary">Options</summary>
+                    <div class="dim-options-body">
+                        <label class="field-label">
+                            Extents
+                            <select value={schema.level1Extents}
+                                onchange={(e) => setSchemaField('level1Extents', (e.target as HTMLSelectElement).value as 'circular' | 'terminal')}>
+                                <option value="terminal">Terminal</option>
+                                <option value="circular">Circular</option>
+                            </select>
+                        </label>
+                        <div class="nav-rule-row">
+                            <span class="nav-dir-label">Forward</span>
+                            <input type="text" class="nav-name-input" value={schema.level1NavForwardName}
+                                aria-label="Level 1 forward nav name"
+                                oninput={(e) => setSchemaField('level1NavForwardName', (e.target as HTMLInputElement).value)} />
+                            <input type="text" class="nav-key-input" value={schema.level1NavForwardKey}
+                                aria-label="Level 1 forward nav key"
+                                oninput={(e) => setSchemaField('level1NavForwardKey', (e.target as HTMLInputElement).value)} />
+                        </div>
+                        <div class="nav-rule-row">
+                            <span class="nav-dir-label">Backward</span>
+                            <input type="text" class="nav-name-input" value={schema.level1NavBackwardName}
+                                aria-label="Level 1 backward nav name"
+                                oninput={(e) => setSchemaField('level1NavBackwardName', (e.target as HTMLInputElement).value)} />
+                            <input type="text" class="nav-key-input" value={schema.level1NavBackwardKey}
+                                aria-label="Level 1 backward nav key"
+                                oninput={(e) => setSchemaField('level1NavBackwardKey', (e.target as HTMLInputElement).value)} />
+                        </div>
+                    </div>
+                </details>
             </section>
 
             <!-- Global childmost + allow-more -->
@@ -1215,46 +1210,15 @@
         border-bottom: 1px solid var(--dn-border);
         background: var(--dn-bg);
     }
-    /* ── Graph mode toggle bar ── */
-    .graph-mode-bar {
-        display: flex;
-        gap: 4px;
-        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 1.25);
-        border-bottom: 1px solid var(--dn-border);
-        flex-shrink: 0;
-    }
-    .graph-mode-btn {
-        font-size: 0.75rem;
-        font-family: var(--dn-font);
-        padding: 2px calc(var(--dn-space) * 0.875);
-        border: 1px solid var(--dn-border);
-        border-radius: calc(var(--dn-radius) / 2);
-        background: var(--dn-bg);
-        color: var(--dn-text-muted);
-        cursor: pointer;
-        transition: background 0.1s, color 0.1s;
-    }
-    .graph-mode-btn.active {
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border-color: var(--dn-accent-light);
-    }
-
     /* ── Inspector container ── */
     .schema-inspector-container {
         width: 100%;
-        min-height: 220px;
-        max-height: 320px;
+        height: 350px;
         overflow: hidden;
         position: relative;
     }
     :global(.schema-inspector-container .dn-inspector-wrapper) {
         width: 100%;
-    }
-    :global(.schema-inspector-container svg) {
-        width: 100%;
-        height: auto;
-        display: block;
     }
     :global(.schema-inspector-container .dn-inspector-tooltip) {
         font-size: 0.75rem;
@@ -1269,7 +1233,7 @@
 
     .graph-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
     .graph-empty-state {
-        height: 220px;
+        height: 350px;
         display: flex;
         align-items: center;
         justify-content: center;
