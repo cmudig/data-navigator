@@ -9,17 +9,10 @@
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig } from '../../../store/appState';
-    import type { ExtractedMark } from '../../../utils/scaffoldAdapter';
     import { buildVegaSpec } from '../../../utils/vegaBuilder';
     import { renderToHidden, extractMarksFromSVG } from '../../../utils/scaffoldAdapter';
-    import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
-
-    // Expose the current Vega view so the parent can call extractValues()
-    type Props = {
-        onMarksUpdated?: (marks: ExtractedMark[]) => void;
-        onViewReady?: (view: VegaEmbedResult['view'] | null) => void;
-    };
-    const { onMarksUpdated, onViewReady }: Props = $props();
+    import type { ExtractedMark, VegaEmbedResult } from '../../../utils/scaffoldAdapter';
+    import { setScaffoldMarks, setScaffoldView } from '../../../store/scaffoldRuntime';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let config = $state<ScaffoldConfig | null>(null);
@@ -62,16 +55,16 @@
 
             currentCleanup = cleanup;
             currentView = view;
-            onViewReady?.(view);
+            setScaffoldView(view);
 
             const extracted = extractMarksFromSVG(container, cfg);
             marks = extracted;
-            onMarksUpdated?.(extracted);
+            setScaffoldMarks(extracted);
         } catch (err) {
             renderError = String(err);
             marks = [];
             currentView = null;
-            onViewReady?.(null);
+            setScaffoldView(null);
         } finally {
             isRendering = false;
         }
@@ -84,7 +77,7 @@
         } else {
             marks = [];
             currentView = null;
-            onViewReady?.(null);
+            setScaffoldView(null);
         }
     });
 

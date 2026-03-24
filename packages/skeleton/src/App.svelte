@@ -9,6 +9,7 @@
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
+    import ScaffoldPanel from './app/components/scaffold/ScaffoldPanel.svelte';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Prep from './app/steps/Step1_Prep.svelte';
@@ -32,6 +33,7 @@
     let currentStep = $state(0);
     let hasUploadedData = $state(false);
     let showEntryGate = $state(false);
+    let scaffoldModeActive = $state(false);
 
     let _lastStep = -1;
     appState.subscribe(async s => {
@@ -39,6 +41,7 @@
         _lastStep = s.currentStep;
         currentStep = s.currentStep;
         hasUploadedData = s.uploadedData !== null;
+        scaffoldModeActive = s.scaffoldModeActive;
         // Move focus to the new step heading only when the step actually changes
         if (stepChanged) {
             await tick();
@@ -303,8 +306,12 @@
         </div>
 
         {#if !isFullWidth}
-            <aside class="workspace-panel" aria-label="Properties">
-                <PropertiesPanel />
+            <aside class="workspace-panel" aria-label={currentStep === 2 && scaffoldModeActive ? 'Scaffold' : 'Properties'}>
+                {#if currentStep === 2 && scaffoldModeActive}
+                    <ScaffoldPanel />
+                {:else}
+                    <PropertiesPanel />
+                {/if}
             </aside>
         {/if}
     </div>

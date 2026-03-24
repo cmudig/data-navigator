@@ -7,7 +7,6 @@
     import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
     import { defaultRenderProperties } from '../../store/nodeFactory';
     import ScaffoldOverlay from './scaffold/ScaffoldOverlay.svelte';
-    import type { ExtractedMark, VegaEmbedResult } from '../../utils/scaffoldAdapter';
 
     // ── Callback props (Svelte 5 style) ───────────────────────────────────────
     type Props = {
@@ -15,11 +14,8 @@
         selectEdges?: (ids: string[]) => void;
         nodesMoved?: (moves: Array<{ nodeId: string; x: number; y: number }>) => void;
         readonly?: boolean;
-        // Scaffold callbacks — forwarded from ScaffoldOverlay to Step2_Editor
-        onScaffoldMarksUpdated?: (marks: ExtractedMark[]) => void;
-        onScaffoldViewReady?: (view: VegaEmbedResult['view'] | null) => void;
     };
-    const { selectNodes, selectEdges, nodesMoved, readonly = false, onScaffoldMarksUpdated, onScaffoldViewReady }: Props = $props();
+    const { selectNodes, selectEdges, nodesMoved, readonly = false }: Props = $props();
 
     // ── DOM refs ──────────────────────────────────────────────────────────────
     let svgEl: SVGSVGElement | undefined = $state();
@@ -1608,10 +1604,7 @@
 
         <!-- Layer 7: Scaffold overlay (active only in scaffold mode) -->
         {#if scaffoldModeActive}
-            <ScaffoldOverlay
-                onMarksUpdated={onScaffoldMarksUpdated}
-                onViewReady={onScaffoldViewReady}
-            />
+            <ScaffoldOverlay />
         {/if}
 
     </g>

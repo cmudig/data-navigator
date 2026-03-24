@@ -2,24 +2,90 @@
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig, SyntheticDataConfig, PrepState } from '../../../store/appState';
-    import type { SkeletonNode } from '../../../store/types';
-
-    type Props = {
-        onCommit: () => void;
-        onExtractValues: (nodeId: string, knownValue: number) => void;
-        committedScaffoldNodes: SkeletonNode[];
-    };
-    const { onCommit, onExtractValues, committedScaffoldNodes }: Props = $props();
+    import type { SkeletonNode, SkeletonEdge } from '../../../store/types';
+    import { marksToNodes } from '../../../utils/scaffoldAdapter';
+    import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
+    import { latestMarks, latestView } from '../../../store/scaffoldRuntime';
+    import { logAction } from '../../../store/historyStore';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let config = $state<ScaffoldConfig | null>(null);
     let prepState = $state<PrepState | null>(null);
+    let committedScaffoldNodes = $state<SkeletonNode[]>([]);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
         prepState = s.prepState;
+        committedScaffoldNodes = [...s.nodes.values()].filter(n => n.source === 'scaffold');
     });
     onDestroy(_unsub);
+
+    // ── Commit ────────────────────────────────────────────────────────────────
+    function handleCommit() {
+        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
+        const scaffoldCfg = s.scaffoldConfig;
+        if (!scaffoldCfg) return;
+
+        const manualNodes = [...s.nodes.values()].filter(n => n.source === 'manual');
+        let keepManual = true;
+        if (manualNodes.length > 0) {
+            keepManual = window.confirm(
+                `Keep ${manualNodes.length} manually-added node${manualNodes.length !== 1 ? 's' : ''}?\n\n` +
+                `OK = Keep manual nodes alongside scaffold nodes\n` +
+                `Cancel = Replace all nodes with scaffold nodes`
+            );
+        }
+
+        const { nodes: newNodes, edges: newEdges } = marksToNodes(latestMarks, scaffoldCfg);
+
+        appState.update(state => {
+            const nextNodes = new Map<string, SkeletonNode>();
+            const nextEdges = new Map<string, SkeletonEdge>(state.edges);
+
+            if (keepManual) {
+                state.nodes.forEach((node, id) => { if (node.source !== 'scaffold') nextNodes.set(id, node); });
+            } else {
+                state.nodes.forEach((node, id) => { if (node.source === 'schema') nextNodes.set(id, node); });
+            }
+
+            state.edges.forEach((edge, id) => {
+                const src = state.nodes.get(edge.sourceId);
+                const tgt = state.nodes.get(edge.targetId);
+                if (src?.source === 'scaffold' || tgt?.source === 'scaffold') nextEdges.delete(id);
+            });
+
+            for (const node of newNodes) nextNodes.set(node.id, node);
+            for (const edge of newEdges) nextEdges.set(edge.id, edge);
+
+            return { ...state, nodes: nextNodes, edges: nextEdges };
+        });
+
+        logAction('Committed scaffold to nodes');
+    }
+
+    // ── Extract values ────────────────────────────────────────────────────────
+    function handleExtractValues() {
+        if (!latestView) {
+            window.alert('No scaffold render available. Try re-entering scaffold mode to regenerate the chart.');
+            return;
+        }
+        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
+        const cfg = s.scaffoldConfig;
+        if (!cfg) return;
+
+        const nodes = [...s.nodes.values()];
+        const updated = cfg.chartType === 'scatter'
+            ? extractXYValues(latestView, nodes, cfg)
+            : extractValues(latestView, nodes, cfg, extractCalibNodeId, extractCalibValue);
+
+        appState.update(st => {
+            const nextNodes = new Map(st.nodes);
+            for (const node of updated) nextNodes.set(node.id, node);
+            return { ...st, nodes: nextNodes };
+        });
+
+        logAction('Extracted values from scaffold');
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const chartTypeLabel = $derived.by(() => {
@@ -81,7 +147,7 @@
 
     function applyExtractValues() {
         if (!extractCalibNodeId || extractCalibValue <= 0) return;
-        onExtractValues(extractCalibNodeId, extractCalibValue);
+        handleExtractValues();
     }
 </script>
 
@@ -263,7 +329,7 @@
 
     <!-- Commit button -->
     <div class="panel-actions">
-        <button class="btn-primary" type="button" onclick={onCommit}>
+        <button class="btn-primary" type="button" onclick={handleCommit}>
             Commit to nodes
         </button>
     </div>
@@ -307,14 +373,12 @@
 
 <style>
     .scaffold-panel {
-        width: 260px;
-        flex-shrink: 0;
-        border-right: 1px solid var(--dn-border);
-        overflow-y: auto;
-        background: var(--dn-surface);
         display: flex;
         flex-direction: column;
         gap: 0;
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .panel-header {
