@@ -1,6 +1,8 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import { get } from 'svelte/store';
     import { appState, type PrepState } from '../../store/appState';
+    import { logAction } from '../../store/historyStore';
     import GraphCanvas from '../components/GraphCanvas.svelte';
 
     let selectedNodeIds = $state<string[]>([]);
@@ -19,7 +21,11 @@
     }
 
     function toggleScaffold() {
-        appState.update(s => ({ ...s, scaffoldModeActive: !s.scaffoldModeActive }));
+        const s = get(appState);
+        if (!s.scaffoldModeActive) {
+            logAction('Entered scaffold mode'); // snapshot before positions change
+        }
+        appState.update(st => ({ ...st, scaffoldModeActive: !st.scaffoldModeActive }));
     }
 </script>
 

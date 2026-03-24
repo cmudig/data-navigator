@@ -15,7 +15,8 @@
                 s.scaffoldConfig,
                 s.imageWidth,
                 s.imageHeight,
-                s.uploadedData !== null && s.uploadedData.length > 0
+                s.uploadedData !== null && s.uploadedData.length > 0,
+                s.schemaState
             ),
             currentStep: 2,
         }));

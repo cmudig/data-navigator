@@ -43,9 +43,21 @@ export function seedScaffoldConfig(
     existing: ScaffoldConfig | null,
     imageWidth: number | null,
     imageHeight: number | null,
-    hasData: boolean
+    hasData: boolean,
+    schemaState?: SchemaState | null
 ): ScaffoldConfig {
-    if (existing) return existing;
+    // If existing config already has field mappings, preserve it entirely.
+    // If fields are missing (e.g. config was seeded before this feature), patch them in.
+    if (existing) {
+        if (existing.xField && existing.yField) return existing;
+        if (hasData && schemaState) {
+            const includedDims = schemaState.dimensions.filter(d => d.included);
+            const xField = existing.xField ?? includedDims.find(d => d.type === 'categorical')?.key;
+            const yField = existing.yField ?? includedDims.find(d => d.type === 'numerical')?.key;
+            if (xField || yField) return { ...existing, xField, yField };
+        }
+        return existing;
+    }
 
     const ch1 = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
     const rawChartType = (ch1['chart-type'] as string | undefined) ?? 'bar';
@@ -69,6 +81,15 @@ export function seedScaffoldConfig(
     const offsetX = Math.round((imgW - plotWidth - paddingLeft - paddingRight) / 2);
     const offsetY = Math.round((imgH - plotHeight - paddingTop - paddingBottom) / 2);
 
+    // Auto-detect field names from schema dimensions when using CSV data
+    let xField: string | undefined;
+    let yField: string | undefined;
+    if (hasData && schemaState) {
+        const includedDims = schemaState.dimensions.filter(d => d.included);
+        xField = includedDims.find(d => d.type === 'categorical')?.key;
+        yField = includedDims.find(d => d.type === 'numerical')?.key;
+    }
+
     return {
         chartType,
         offsetX,
@@ -81,6 +102,8 @@ export function seedScaffoldConfig(
         paddingBottom,
         markParams: {},
         dataMode: hasData ? 'csv' : 'synthetic',
+        xField,
+        yField,
         syntheticConfig: hasData
             ? undefined
             : {

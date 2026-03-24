@@ -2,10 +2,9 @@
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig, SyntheticDataConfig, PrepState } from '../../../store/appState';
-    import type { SkeletonNode, SkeletonEdge } from '../../../store/types';
-    import { marksToNodes } from '../../../utils/scaffoldAdapter';
+    import type { SkeletonNode } from '../../../store/types';
     import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
-    import { latestMarks, latestView } from '../../../store/scaffoldRuntime';
+    import { latestView } from '../../../store/scaffoldRuntime';
     import { logAction } from '../../../store/historyStore';
 
     // ── Store sync ────────────────────────────────────────────────────────────
@@ -20,47 +19,10 @@
     });
     onDestroy(_unsub);
 
-    // ── Commit ────────────────────────────────────────────────────────────────
-    function handleCommit() {
-        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
-        const scaffoldCfg = s.scaffoldConfig;
-        if (!scaffoldCfg) return;
-
-        const manualNodes = [...s.nodes.values()].filter(n => n.source === 'manual');
-        let keepManual = true;
-        if (manualNodes.length > 0) {
-            keepManual = window.confirm(
-                `Keep ${manualNodes.length} manually-added node${manualNodes.length !== 1 ? 's' : ''}?\n\n` +
-                `OK = Keep manual nodes alongside scaffold nodes\n` +
-                `Cancel = Replace all nodes with scaffold nodes`
-            );
-        }
-
-        const { nodes: newNodes, edges: newEdges } = marksToNodes(latestMarks, scaffoldCfg);
-
-        appState.update(state => {
-            const nextNodes = new Map<string, SkeletonNode>();
-            const nextEdges = new Map<string, SkeletonEdge>(state.edges);
-
-            if (keepManual) {
-                state.nodes.forEach((node, id) => { if (node.source !== 'scaffold') nextNodes.set(id, node); });
-            } else {
-                state.nodes.forEach((node, id) => { if (node.source === 'schema') nextNodes.set(id, node); });
-            }
-
-            state.edges.forEach((edge, id) => {
-                const src = state.nodes.get(edge.sourceId);
-                const tgt = state.nodes.get(edge.targetId);
-                if (src?.source === 'scaffold' || tgt?.source === 'scaffold') nextEdges.delete(id);
-            });
-
-            for (const node of newNodes) nextNodes.set(node.id, node);
-            for (const edge of newEdges) nextEdges.set(edge.id, edge);
-
-            return { ...state, nodes: nextNodes, edges: nextEdges };
-        });
-
-        logAction('Committed scaffold to nodes');
+    // ── Done ──────────────────────────────────────────────────────────────────
+    function handleDone() {
+        logAction('Applied scaffold positions');
+        appState.update(s => ({ ...s, scaffoldModeActive: false }));
     }
 
     // ── Extract values ────────────────────────────────────────────────────────
@@ -233,6 +195,31 @@
         </div>
     </section>
 
+    <!-- Field mapping (CSV mode only) -->
+    {#if config.dataMode === 'csv'}
+    <section class="param-section">
+        <h3 class="section-heading">Field mapping</h3>
+        <div class="param-grid">
+            <label class="param-row">
+                <span class="param-label">X field</span>
+                <input type="text" class="param-input field-input"
+                    value={config.xField ?? ''}
+                    oninput={(e) => patchConfig({ xField: e.currentTarget.value || undefined })}
+                    placeholder="column name"
+                />
+            </label>
+            <label class="param-row">
+                <span class="param-label">Y field</span>
+                <input type="text" class="param-input field-input"
+                    value={config.yField ?? ''}
+                    oninput={(e) => patchConfig({ yField: e.currentTarget.value || undefined })}
+                    placeholder="column name"
+                />
+            </label>
+        </div>
+    </section>
+    {/if}
+
     <!-- Mark params (chart-type-specific) -->
     <section class="param-section">
         <h3 class="section-heading">Mark params</h3>
@@ -327,10 +314,10 @@
         </section>
     {/if}
 
-    <!-- Commit button -->
+    <!-- Done button -->
     <div class="panel-actions">
-        <button class="btn-primary" type="button" onclick={handleCommit}>
-            Commit to nodes
+        <button class="btn-primary" type="button" onclick={handleDone}>
+            Done
         </button>
     </div>
 
@@ -492,6 +479,12 @@
         border-radius: 3px;
         background: var(--dn-bg);
         color: var(--dn-text);
+    }
+
+    .field-input {
+        width: 110px;
+        font-family: var(--dn-font-mono);
+        font-size: 0.75rem;
     }
 
     .categories-input {

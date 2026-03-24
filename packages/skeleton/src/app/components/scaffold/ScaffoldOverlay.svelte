@@ -10,9 +10,10 @@
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig } from '../../../store/appState';
     import { buildVegaSpec } from '../../../utils/vegaBuilder';
-    import { renderToHidden, extractMarksFromSVG } from '../../../utils/scaffoldAdapter';
-    import type { ExtractedMark, VegaEmbedResult } from '../../../utils/scaffoldAdapter';
-    import { setScaffoldMarks, setScaffoldView } from '../../../store/scaffoldRuntime';
+    import { get } from 'svelte/store';
+    import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
+    import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
+    import { setScaffoldView } from '../../../store/scaffoldRuntime';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let config = $state<ScaffoldConfig | null>(null);
@@ -25,7 +26,6 @@
     onDestroy(_unsub);
 
     // ── Vega lifecycle ────────────────────────────────────────────────────────
-    let marks = $state<ExtractedMark[]>([]);
     let isRendering = $state(false);
     let renderError = $state<string | null>(null);
     let currentView = $state<VegaEmbedResult['view'] | null>(null);
@@ -49,20 +49,61 @@
         renderError = null;
 
         try {
+            // If field mappings are missing, auto-detect them
+            if (!cfg.xField || !cfg.yField) {
+                const s = get(appState);
+                let xField = cfg.xField;
+                let yField = cfg.yField;
+
+                // First try: included schemaState dimensions
+                const includedDims = s.schemaState.dimensions.filter(d => d.included);
+                xField = xField ?? includedDims.find(d => d.type === 'categorical')?.key;
+                yField = yField ?? includedDims.find(d => d.type === 'numerical')?.key;
+
+                // Fallback: all schemaState dimensions (included or not)
+                if (!xField || !yField) {
+                    const allDims = s.schemaState.dimensions;
+                    xField = xField ?? allDims.find(d => d.type === 'categorical')?.key;
+                    yField = yField ?? allDims.find(d => d.type === 'numerical')?.key;
+                }
+
+                // Last resort: scan first data row for string vs number columns
+                if ((!xField || !yField) && s.uploadedData?.[0]) {
+                    const row = s.uploadedData[0];
+                    xField = xField ?? Object.keys(row).find(k => typeof row[k] === 'string');
+                    yField = yField ?? Object.keys(row).find(k => typeof row[k] === 'number');
+                }
+
+                if (xField || yField) {
+                    cfg = { ...cfg, xField, yField };
+                    appState.update(st => ({ ...st, scaffoldConfig: cfg }));
+                }
+            }
+
             const data = uploadedData ?? [];
             const spec = buildVegaSpec(cfg, data);
-            const { container, view, cleanup } = await renderToHidden(spec);
+            const { view, cleanup } = await renderToHidden(spec);
 
             currentCleanup = cleanup;
             currentView = view;
             setScaffoldView(view);
 
-            const extracted = extractMarksFromSVG(container, cfg);
-            marks = extracted;
-            setScaffoldMarks(extracted);
+            // Reposition existing leaf nodes using Vega scale functions
+            const s = get(appState);
+            const allNodes = [...s.nodes.values()];
+            const posUpdates = positionNodesFromVegaScales(view, allNodes, cfg);
+            if (posUpdates.size > 0) {
+                appState.update(st => {
+                    const nextNodes = new Map(st.nodes);
+                    for (const [id, pos] of posUpdates) {
+                        const n = nextNodes.get(id);
+                        if (n) nextNodes.set(id, { ...n, ...pos });
+                    }
+                    return { ...st, nodes: nextNodes };
+                });
+            }
         } catch (err) {
             renderError = String(err);
-            marks = [];
             currentView = null;
             setScaffoldView(null);
         } finally {
@@ -75,7 +116,6 @@
         if (config) {
             triggerRender(config);
         } else {
-            marks = [];
             currentView = null;
             setScaffoldView(null);
         }
@@ -206,39 +246,6 @@
         stroke-width="1"
         opacity="0.7"
     />
-
-    <!-- Scaffold marks -->
-    {#each marks as mark, i (i)}
-        {#if mark.type === 'rect'}
-            <rect
-                x={mark.x} y={mark.y}
-                width={mark.width} height={mark.height}
-                fill="#6366f1"
-                fill-opacity="0.35"
-                stroke="#4338ca"
-                stroke-width="1"
-            />
-        {:else if mark.type === 'ellipse'}
-            <ellipse
-                cx={mark.x + mark.width / 2}
-                cy={mark.y + mark.height / 2}
-                rx={mark.width / 2}
-                ry={mark.height / 2}
-                fill="#6366f1"
-                fill-opacity="0.35"
-                stroke="#4338ca"
-                stroke-width="1"
-            />
-        {:else if mark.type === 'path' && mark.pathData}
-            <path
-                d={mark.pathData}
-                fill="#6366f1"
-                fill-opacity="0.2"
-                stroke="#4338ca"
-                stroke-width="1.5"
-            />
-        {/if}
-    {/each}
 
     <!-- Status indicator -->
     {#if isRendering}
