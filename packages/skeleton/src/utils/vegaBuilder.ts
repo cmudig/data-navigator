@@ -68,6 +68,12 @@ export function buildSyntheticData(cfg: SyntheticDataConfig): Row[] {
 
 // ── Chart-type spec builders ───────────────────────────────────────────────────
 
+function vegaSortX(config: ScaffoldConfig): unknown {
+    if (config.sortX === 'ascending') return 'ascending';
+    if (config.sortX === 'descending') return 'descending';
+    return null; // 'none' or unset → preserve data insertion order
+}
+
 function buildBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const xField = config.xField ?? 'x';
     const yField = config.yField ?? 'value';
@@ -80,6 +86,7 @@ function buildBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
             x: {
                 field: xField,
                 type: 'ordinal',
+                sort: vegaSortX(config),
                 bandPaddingInner: mp.barInnerPadding ?? 0.1,
                 bandPaddingOuter: mp.barOuterPadding ?? 0.05
             },
@@ -101,6 +108,7 @@ function buildStackedBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec 
             x: {
                 field: xField,
                 type: 'ordinal',
+                sort: vegaSortX(config),
                 bandPaddingInner: mp.barInnerPadding ?? 0.1,
                 bandPaddingOuter: mp.barOuterPadding ?? 0.05
             },
@@ -123,6 +131,7 @@ function buildClusteredBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpe
             x: {
                 field: xField,
                 type: 'ordinal',
+                sort: vegaSortX(config),
                 bandPaddingInner: mp.barInnerPadding ?? 0.1,
                 bandPaddingOuter: mp.barOuterPadding ?? 0.05
             },

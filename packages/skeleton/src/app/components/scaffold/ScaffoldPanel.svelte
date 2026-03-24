@@ -216,6 +216,17 @@
                     placeholder="column name"
                 />
             </label>
+            <label class="param-row">
+                <span class="param-label">X sort</span>
+                <select class="param-select"
+                    value={config.sortX ?? 'none'}
+                    onchange={(e) => patchConfig({ sortX: e.currentTarget.value as 'none' | 'ascending' | 'descending' })}
+                >
+                    <option value="none">Data order</option>
+                    <option value="ascending">Ascending</option>
+                    <option value="descending">Descending</option>
+                </select>
+            </label>
         </div>
     </section>
     {/if}

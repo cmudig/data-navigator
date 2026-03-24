@@ -217,6 +217,10 @@ export interface ScaffoldConfig {
     xField?: string; // column name for x channel
     yField?: string; // column name for y channel (quantitative value)
     colorField?: string; // column name for color/series channel (stacked, clustered, line)
+
+    // Visual sort order for the x axis — independent of navigation order set in Prep.
+    // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
+    sortX?: 'none' | 'ascending' | 'descending';
 }
 
 export interface AppState {
