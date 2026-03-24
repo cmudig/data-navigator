@@ -71,15 +71,24 @@ export function seedScaffoldConfig(
     const imgW = imageWidth ?? 800;
     const imgH = imageHeight ?? 600;
 
-    // Plot area = 65% of image, centered
-    const plotWidth = Math.round(imgW * 0.65);
-    const plotHeight = Math.round(imgH * 0.55);
-    const paddingLeft = Math.round(imgW * 0.12);
-    const paddingTop = Math.round(imgH * 0.08);
-    const paddingRight = Math.round(imgW * 0.05);
-    const paddingBottom = Math.round(imgH * 0.12);
-    const offsetX = Math.round((imgW - plotWidth - paddingLeft - paddingRight) / 2);
-    const offsetY = Math.round((imgH - plotHeight - paddingTop - paddingBottom) / 2);
+    // Padding: top/right are minimal; left/bottom reserve space for axis labels.
+    // If the image is very small, collapse all padding to 0 to avoid negative plot area.
+    const TOO_SMALL = 200;
+    let paddingTop: number, paddingRight: number, paddingLeft: number, paddingBottom: number;
+    if (imgW < TOO_SMALL || imgH < TOO_SMALL) {
+        paddingTop = paddingRight = paddingLeft = paddingBottom = 0;
+    } else {
+        paddingTop = 10;
+        paddingRight = 10;
+        paddingLeft = Math.round(Math.max(50, imgW * 0.07));
+        paddingBottom = Math.round(Math.max(50, imgH * 0.07));
+    }
+
+    // Plot fills the full image minus padding; origin at 0,0
+    const plotWidth = Math.max(1, imgW - paddingLeft - paddingRight);
+    const plotHeight = Math.max(1, imgH - paddingTop - paddingBottom);
+    const offsetX = 0;
+    const offsetY = 0;
 
     // Auto-detect field names from schema dimensions when using CSV data
     let xField: string | undefined;
