@@ -185,7 +185,7 @@
   resolved "file:packages/bokeh-wrapper"
 
 "@data-navigator/inspector@*", "@data-navigator/inspector@file:/Users/Elavsky/Documents/projects/data-navigator/packages/inspector":
-  version "1.1.1"
+  version "1.2.0"
   resolved "file:packages/inspector"
 
 "@data-navigator/skeleton@file:/Users/Elavsky/Documents/projects/data-navigator/packages/skeleton":
@@ -941,7 +941,7 @@ d3-selection@^3.0.0, d3-selection@3:
     data-navigator "*"
 
 data-navigator@*, "data-navigator@file:/Users/Elavsky/Documents/projects/data-navigator/packages/data-navigator":
-  version "2.4.0"
+  version "2.4.1"
   resolved "file:packages/data-navigator"
 
 debug@^4.3.1, debug@^4.3.7, debug@^4.4.1:
