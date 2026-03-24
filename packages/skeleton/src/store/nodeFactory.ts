@@ -14,3 +14,14 @@ export function defaultRenderProperties(): SkeletonNode['renderProperties'] {
         customClass: ''
     };
 }
+
+/** Shared default semantics for all new nodes. */
+export function defaultSemantics(): SkeletonNode['semantics'] {
+    return {
+        label: '',
+        name: 'data point',
+        includeParentName: false,
+        includeIndex: false,
+        omitKeyNames: false
+    };
+}

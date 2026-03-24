@@ -49,6 +49,8 @@ export interface SchemaState {
     level1NavForwardKey: string;
     level1NavBackwardName: string;
     level1NavBackwardKey: string;
+    // Label templates for all levels — editable in SchemaPanel; copied from prepState on Prep→Editor transition
+    labelConfig: LabelConfig;
 }
 
 export interface UploadedDataRaw {
@@ -187,6 +189,8 @@ export interface AppState {
     toolOptions: ToolOptions;
     // Step 1 — Prep
     prepState: PrepState | null; // null = prep hasn't been started
+    // Conflict tracking
+    hasManualNodeEdits: boolean; // true once user has manually edited any schema-generated node/edge
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -216,7 +220,19 @@ export const DEFAULT_APP_STATE: AppState = {
         level1NavForwardName: 'left',
         level1NavForwardKey: 'ArrowLeft',
         level1NavBackwardName: 'right',
-        level1NavBackwardKey: 'ArrowRight'
+        level1NavBackwardKey: 'ArrowRight',
+        labelConfig: {
+            level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
+            perDimension: {},
+            perDivision: {},
+            leaves: {
+                template: '',
+                name: 'data point',
+                includeIndex: false,
+                includeParentName: false,
+                omitKeyNames: false
+            }
+        }
     },
     inputConfig: {
         enableKeyboard: true,
@@ -250,7 +266,8 @@ export const DEFAULT_APP_STATE: AppState = {
         showLevel3Nodes: true,
         level3BackfillColor: '#ffffff'
     },
-    prepState: null
+    prepState: null,
+    hasManualNodeEdits: false
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

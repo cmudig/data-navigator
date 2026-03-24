@@ -21,6 +21,10 @@ export function applyPrepToSchema(prep: PrepState, current: SchemaState): Schema
     return {
         ...current,
         level0Enabled,
-        level0Id
+        level0Id,
+        // Copy label templates from prep so SchemaPanel can edit them independently.
+        // If the user then edits labels in SchemaPanel, those edits stay in schemaState.labelConfig
+        // and do not write back to prepState.
+        labelConfig: prep.labelConfig
     };
 }

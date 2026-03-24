@@ -60,6 +60,18 @@
                 if (!confirmed) return false;
             }
         }
+        // Warn when navigating upstream from the Editor if the user has manual node/edge edits.
+        // Going back to Prep (step 1) or Upload (step 0) and then back to the Editor could
+        // trigger a schema rebuild that overwrites those changes.
+        if (targetStep < 2 && s.currentStep >= 2 && s.hasManualNodeEdits) {
+            const confirmed = window.confirm(
+                "You've manually edited individual nodes or edges in the Editor.\n\n" +
+                "Going back to an earlier step and re-running setup may rebuild the graph " +
+                "structure and override those changes.\n\n" +
+                "Continue?"
+            );
+            if (!confirmed) return false;
+        }
         if (targetStep === 3) {
             if (!s.entryNodeId) {
                 showEntryGate = true;
