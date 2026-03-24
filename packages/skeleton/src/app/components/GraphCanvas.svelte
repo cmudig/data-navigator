@@ -6,6 +6,8 @@
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
     import { defaultRenderProperties } from '../../store/nodeFactory';
+    import ScaffoldOverlay from './scaffold/ScaffoldOverlay.svelte';
+    import type { ExtractedMark, VegaEmbedResult } from '../../utils/scaffoldAdapter';
 
     // ── Callback props (Svelte 5 style) ───────────────────────────────────────
     type Props = {
@@ -13,8 +15,11 @@
         selectEdges?: (ids: string[]) => void;
         nodesMoved?: (moves: Array<{ nodeId: string; x: number; y: number }>) => void;
         readonly?: boolean;
+        // Scaffold callbacks — forwarded from ScaffoldOverlay to Step2_Editor
+        onScaffoldMarksUpdated?: (marks: ExtractedMark[]) => void;
+        onScaffoldViewReady?: (view: VegaEmbedResult['view'] | null) => void;
     };
-    const { selectNodes, selectEdges, nodesMoved, readonly = false }: Props = $props();
+    const { selectNodes, selectEdges, nodesMoved, readonly = false, onScaffoldMarksUpdated, onScaffoldViewReady }: Props = $props();
 
     // ── DOM refs ──────────────────────────────────────────────────────────────
     let svgEl: SVGSVGElement | undefined = $state();
@@ -102,6 +107,7 @@
     let toolOptions = $state<ToolOptions>(initial.toolOptions);
     let schemaState = $state<SchemaState>(initial.schemaState);
     let uploadedData = $state.raw<Record<string, unknown>[] | null>(initial.uploadedData);
+    let scaffoldModeActive = $state<boolean>(initial.scaffoldModeActive);
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -118,6 +124,7 @@
             renderConfig = s.renderConfig;
             toolOptions = s.toolOptions;
             schemaState = s.schemaState;
+            scaffoldModeActive = s.scaffoldModeActive;
             if (s.uploadedData !== uploadedData) uploadedData = s.uploadedData;
         });
     });
@@ -1453,6 +1460,21 @@
                             stroke-dasharray={nodeDashArray}
                             opacity={node.renderProperties.opacity}
                         />
+                    {:else if node.renderProperties.shape === 'path'}
+                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
+                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
+                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
+                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
+                        <path
+                            d={node.pathData ?? ''}
+                            fill={nodeFill}
+                            fill-opacity={nodeFillOpacity}
+                            stroke={nodeStroke}
+                            stroke-width={nodeStrokeWidth}
+                            stroke-dasharray={nodeDashArray}
+                            opacity={node.renderProperties.opacity}
+                        />
                     {:else}
                         {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
                         {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
@@ -1517,8 +1539,8 @@
                         >★</text>
                     {/if}
 
-                    <!-- Resize handles (single selection, editable) -->
-                    {#if isSel && selectedNodeIds.size === 1 && !readonly}
+                    <!-- Resize handles (single selection, editable, not for path nodes) -->
+                    {#if isSel && selectedNodeIds.size === 1 && !readonly && node.renderProperties.shape !== 'path'}
                         {@const hs = 8 / scale}
                         {@const hhs = hs / 2}
                         {#each getHandlePositions(node) as h (h.dir)}
@@ -1581,6 +1603,14 @@
                 x={lx} y={ly}
                 width={lw} height={lh}
                 pointer-events="none"
+            />
+        {/if}
+
+        <!-- Layer 7: Scaffold overlay (active only in scaffold mode) -->
+        {#if scaffoldModeActive}
+            <ScaffoldOverlay
+                onMarksUpdated={onScaffoldMarksUpdated}
+                onViewReady={onScaffoldViewReady}
             />
         {/if}
 

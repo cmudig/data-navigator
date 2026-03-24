@@ -168,6 +168,7 @@
             level1Extents: 'terminal',
             level1NavForwardName: 'left',  level1NavForwardKey: 'ArrowLeft',
             level1NavBackwardName: 'right', level1NavBackwardKey: 'ArrowRight',
+            labelConfig: schema.labelConfig,
         };
     }
 

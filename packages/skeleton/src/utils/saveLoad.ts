@@ -14,7 +14,7 @@
 import { strToU8, strFromU8, zipSync, unzipSync } from 'fflate';
 import { get } from 'svelte/store';
 import { appState, DEFAULT_APP_STATE } from '../store/appState';
-import type { AppState, SkeletonNode, SkeletonEdge, PrepState } from '../store/appState';
+import type { AppState, SkeletonNode, SkeletonEdge, PrepState, ScaffoldConfig } from '../store/appState';
 
 // ── Save-file format ──────────────────────────────────────────────────────────
 
@@ -46,6 +46,8 @@ export interface SerializedState {
     toolOptions?: AppState['toolOptions'];
     prepState?: PrepState | null;
     hasManualNodeEdits?: boolean;
+    scaffoldConfig?: ScaffoldConfig | null;
+    scaffoldModeActive?: boolean;
     // future fields go here (all optional so old saves remain loadable)
 }
 
@@ -129,7 +131,9 @@ export function serializeAppState(s: AppState): SerializedState {
         renderConfig: s.renderConfig,
         toolOptions: s.toolOptions,
         prepState: s.prepState,
-        hasManualNodeEdits: s.hasManualNodeEdits
+        hasManualNodeEdits: s.hasManualNodeEdits,
+        scaffoldConfig: s.scaffoldConfig,
+        scaffoldModeActive: s.scaffoldModeActive
     };
 }
 
@@ -181,7 +185,9 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
         renderConfig: { ...DEFAULT_APP_STATE.renderConfig, ...ss.renderConfig },
         toolOptions: { ...DEFAULT_APP_STATE.toolOptions, ...ss.toolOptions },
         prepState: ss.prepState ?? null,
-        hasManualNodeEdits: ss.hasManualNodeEdits ?? false
+        hasManualNodeEdits: ss.hasManualNodeEdits ?? false,
+        scaffoldConfig: ss.scaffoldConfig ?? null,
+        scaffoldModeActive: ss.scaffoldModeActive ?? false
     });
 }
 

@@ -702,9 +702,43 @@
             >
                 <option value="rect">rect</option>
                 <option value="ellipse">ellipse</option>
-                <option value="custom">custom</option>
+                <option value="path">path</option>
             </select>
         </div>
+
+        {#if node.renderProperties.shape === 'path'}
+        <div class="field">
+            <label for="node-path-data">SVG path data <span class="field-sub">(d attribute)</span></label>
+            <textarea
+                id="node-path-data"
+                class="path-data-textarea"
+                rows="4"
+                spellcheck="false"
+                value={node.pathData ?? ''}
+                oninput={(e) => {
+                    const d = e.currentTarget.value;
+                    appState.update(s => {
+                        const n = s.nodes.get(node.id);
+                        if (!n) return s;
+                        const newNodes = new Map(s.nodes);
+                        newNodes.set(node.id, { ...n, pathData: d });
+                        return { ...s, nodes: newNodes };
+                    });
+                }}
+            ></textarea>
+        </div>
+        {#if node.pathBounds}
+        <div class="field">
+            <span class="field-label-only">Bounding box</span>
+            <div class="bounds-grid">
+                <span class="bounds-label">X</span><span class="bounds-val">{node.pathBounds.x.toFixed(1)}</span>
+                <span class="bounds-label">Y</span><span class="bounds-val">{node.pathBounds.y.toFixed(1)}</span>
+                <span class="bounds-label">W</span><span class="bounds-val">{node.pathBounds.width.toFixed(1)}</span>
+                <span class="bounds-label">H</span><span class="bounds-val">{node.pathBounds.height.toFixed(1)}</span>
+            </div>
+        </div>
+        {/if}
+        {/if}
 
         <div class="field">
             <label for="node-rendering-strategy">Rendering strategy <span class="field-sub">(DN group rendering)</span></label>
@@ -1426,5 +1460,53 @@
         border: 1px solid var(--dn-border);
         border-radius: 3px;
         padding: 1px 4px;
+    }
+
+    /* ── Scaffold source badge ── */
+    .badge-source-scaffold {
+        background: color-mix(in srgb, #6366f1 15%, transparent);
+        color: #6366f1;
+        border: 1px solid color-mix(in srgb, #6366f1 30%, transparent);
+    }
+
+    /* ── Path node editor ── */
+    .field-label-only {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--dn-text);
+        display: block;
+        margin-bottom: calc(var(--dn-space) * 0.5);
+    }
+
+    .path-data-textarea {
+        font-family: var(--dn-font-mono);
+        font-size: 0.75rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .bounds-grid {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
+        align-items: center;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
+    }
+
+    .bounds-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--dn-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .bounds-val {
+        font-family: var(--dn-font-mono);
+        font-size: 0.8125rem;
+        color: var(--dn-text);
     }
 </style>
