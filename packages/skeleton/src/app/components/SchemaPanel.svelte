@@ -729,7 +729,6 @@
             );
             const hasNew = [...allHierarchyIds].some(id => !existingSchemaIds.has(id));
             const hasStale = [...existingSchemaIds].some(id => !allHierarchyIds.has(id));
-            if (!hasNew && !hasStale) return s;
 
             const newNodes = new Map<string, SkeletonNode>();
             // Keep manual nodes unchanged; keep schema nodes still in hierarchy
@@ -739,11 +738,27 @@
                 }
             });
 
-            // Add newly-seen hierarchy nodes with initial canvas positions
+            // Add newly-seen hierarchy nodes; refresh semantics of existing ones.
+            // Semantics must always be refreshed from schemaSnap.labelConfig so that
+            // labels configured in Prep (or edited in SchemaPanel) carry through to
+            // the node that PropertiesPanel reads — not just the labelConfig the
+            // SchemaPanel LabelBuilder reads directly.
             allHierarchyIds.forEach(nodeId => {
-                if (newNodes.has(nodeId)) return; // preserve existing
-                const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 const dnNode = structure.nodes[nodeId];
+                if (newNodes.has(nodeId)) {
+                    // Node exists — keep position/label/renderProperties but refresh
+                    // semantics and dimensionKey from the current labelConfig.
+                    const existing = newNodes.get(nodeId)!;
+                    if (existing.source === 'schema') {
+                        newNodes.set(nodeId, {
+                            ...existing,
+                            dimensionKey: dnNode?.dimensionKey as string | undefined,
+                            semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
+                        });
+                    }
+                    return;
+                }
+                const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 let label = nodeId;
                 if (dnNode) {
                     const key = dnNode.dimensionKey;
@@ -780,6 +795,12 @@
                     renderProperties: defaultRenderProperties(),
                 } as SkeletonNode);
             });
+
+            // Skip the edge rebuild if nothing actually changed (no new/stale nodes and
+            // semantics refreshed to identical values).
+            const nodesActuallyChanged = hasNew || hasStale ||
+                [...allHierarchyIds].some(id => newNodes.get(id) !== s.nodes.get(id));
+            if (!nodesActuallyChanged) return s;
 
             // Rebuild edges: keep non-schema edges, rebuild schema edges
             const newEdges = new Map<string, SkeletonEdge>();
