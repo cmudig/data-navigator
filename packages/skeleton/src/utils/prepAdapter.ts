@@ -84,9 +84,10 @@ export function seedScaffoldConfig(
         paddingBottom = Math.round(Math.max(50, imgH * 0.07));
     }
 
-    // Plot fills the full image minus padding; origin at 0,0
-    const plotWidth = Math.max(1, imgW - paddingLeft - paddingRight);
-    const plotHeight = Math.max(1, imgH - paddingTop - paddingBottom);
+    // plotWidth/plotHeight are the OUTER box (border-box model): full image dimensions.
+    // vegaBuilder subtracts padding internally to get the inner mark area.
+    const plotWidth = imgW;
+    const plotHeight = imgH;
     const offsetX = 0;
     const offsetY = 0;
 

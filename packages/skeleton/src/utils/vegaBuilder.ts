@@ -17,10 +17,15 @@ export type VegaLiteSpec = Record<string, unknown>;
 // ── Shared spec scaffolding ────────────────────────────────────────────────────
 
 function baseSpec(config: ScaffoldConfig): Record<string, unknown> {
+    // plotWidth/plotHeight are the OUTER box dimensions (border-box model).
+    // Vega-Lite's width/height are the inner mark area; padding is outside that area.
+    // So: vega_width = outer - left_pad - right_pad, and the total SVG = vega_width + pads = outer. ✓
+    const innerW = Math.max(1, config.plotWidth - config.paddingLeft - config.paddingRight);
+    const innerH = Math.max(1, config.plotHeight - config.paddingTop - config.paddingBottom);
     return {
         $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-        width: config.plotWidth,
-        height: config.plotHeight,
+        width: innerW,
+        height: innerH,
         padding: {
             left: config.paddingLeft,
             top: config.paddingTop,

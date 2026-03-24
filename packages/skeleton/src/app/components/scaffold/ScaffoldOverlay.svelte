@@ -204,17 +204,18 @@
     }
 
     // ── Derived geometry ──────────────────────────────────────────────────────
-    // Bounding box of the full scaffold area (plot + padding) in image space
-    const totalW = $derived(config ? config.plotWidth + config.paddingLeft + config.paddingRight : 0);
-    const totalH = $derived(config ? config.plotHeight + config.paddingTop + config.paddingBottom : 0);
+    // plotWidth/plotHeight are the OUTER box (border-box model).
+    // Padding is inside that box; the mark area is the inner region.
+    const totalW = $derived(config?.plotWidth ?? 0);
+    const totalH = $derived(config?.plotHeight ?? 0);
     const ox = $derived(config?.offsetX ?? 0);
     const oy = $derived(config?.offsetY ?? 0);
 
-    // Plot area corners (where data marks live)
+    // Mark area corners (where data marks live = outer minus padding)
     const plotX = $derived(ox + (config?.paddingLeft ?? 0));
     const plotY = $derived(oy + (config?.paddingTop ?? 0));
-    const plotW = $derived(config?.plotWidth ?? 0);
-    const plotH = $derived(config?.plotHeight ?? 0);
+    const plotW = $derived(config ? config.plotWidth - config.paddingLeft - config.paddingRight : 0);
+    const plotH = $derived(config ? config.plotHeight - config.paddingTop - config.paddingBottom : 0);
 
     // Handle size (in image pixels; parent scale handles zoom)
     const HANDLE_SIZE = 10;
@@ -276,7 +277,7 @@
     />
 
     <!-- Padding edge handles -->
-    <!-- Left padding -->
+    <!-- Left padding — handle sits on the inner left boundary of the mark area -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
         class="drag-handle pad-handle"
@@ -289,7 +290,7 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'pad-left')}
     />
-    <!-- Top padding -->
+    <!-- Top padding — handle sits on the inner top boundary of the mark area -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
         class="drag-handle pad-handle"
@@ -302,11 +303,11 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'pad-top')}
     />
-    <!-- Right padding -->
+    <!-- Right padding — handle sits on the inner right boundary of the mark area -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
         class="drag-handle pad-handle"
-        x={ox + totalW - HANDLE_SIZE / 2} y={oy + totalH / 2 - HANDLE_SIZE / 2}
+        x={plotX + plotW - HANDLE_SIZE / 2} y={oy + totalH / 2 - HANDLE_SIZE / 2}
         width={HANDLE_SIZE} height={HANDLE_SIZE}
         fill="white"
         stroke="#6366f1"
@@ -315,11 +316,11 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'pad-right')}
     />
-    <!-- Bottom padding -->
+    <!-- Bottom padding — handle sits on the inner bottom boundary of the mark area -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
         class="drag-handle pad-handle"
-        x={ox + totalW / 2 - HANDLE_SIZE / 2} y={oy + totalH - HANDLE_SIZE / 2}
+        x={ox + totalW / 2 - HANDLE_SIZE / 2} y={plotY + plotH - HANDLE_SIZE / 2}
         width={HANDLE_SIZE} height={HANDLE_SIZE}
         fill="white"
         stroke="#6366f1"
