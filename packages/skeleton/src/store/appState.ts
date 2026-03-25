@@ -49,6 +49,8 @@ export interface SchemaState {
     level1NavForwardKey: string;
     level1NavBackwardName: string;
     level1NavBackwardKey: string;
+    // Label templates for all levels — editable in SchemaPanel; copied from prepState on Prep→Editor transition
+    labelConfig: LabelConfig;
 }
 
 export interface UploadedDataRaw {
@@ -162,6 +164,65 @@ export interface PrepState {
     labelConfig: LabelConfig;
 }
 
+// --- Scaffold mode types ---
+
+export interface ScaffoldMarkParams {
+    // Bar / stacked-bar / clustered-bar
+    barInnerPadding?: number; // 0–1, maps to Vega-Lite bandPaddingInner
+    barOuterPadding?: number; // 0–1
+    groupPadding?: number; // clustered-bar only: spacing between cluster groups
+    // Scatter / line points
+    pointSize?: number; // mark area in px², maps to Vega-Lite size
+    // Line / area
+    strokeWidth?: number; // px
+    showPoints?: boolean; // render point marks at each data point
+    fillOpacity?: number; // area only: fill opacity 0–1
+}
+
+export interface SyntheticDataConfig {
+    categories: string[]; // category values for the primary x-axis dimension
+    seriesNames?: string[]; // for stacked / clustered / line (multiple series)
+    xField: string; // field name used for x channel in the Vega-Lite spec
+    yField: string; // field name used for y channel (all values = 1 in synthetic data)
+    colorField?: string; // field name for series/color channel
+}
+
+export interface ScaffoldConfig {
+    chartType: string; // matches Q/A engine chart-type values (e.g. 'bar', 'scatter', 'line')
+
+    // Chart origin in image coordinate space — dragging the bounding box handle updates these
+    offsetX: number;
+    offsetY: number;
+
+    // Plot area dimensions → Vega-Lite width/height
+    plotWidth: number;
+    plotHeight: number;
+
+    // Axis space → Vega-Lite padding object (space reserved for axis labels/ticks)
+    paddingLeft: number;
+    paddingTop: number;
+    paddingRight: number;
+    paddingBottom: number;
+
+    // Chart-type specific mark rendering params
+    markParams: ScaffoldMarkParams;
+
+    // Data source
+    dataMode: 'csv' | 'synthetic';
+    syntheticConfig?: SyntheticDataConfig; // populated when dataMode === 'synthetic'
+    // When dataMode === 'csv', vegaBuilder reads appState.uploadedData
+
+    // Channel field mappings — seeded from schemaState.dimensions on scaffold init,
+    // stored here so the user can later override them without changing the schema.
+    xField?: string; // column name for x channel
+    yField?: string; // column name for y channel (quantitative value)
+    colorField?: string; // column name for color/series channel (stacked, clustered, line)
+
+    // Visual sort order for the x axis — independent of navigation order set in Prep.
+    // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
+    sortX?: 'none' | 'ascending' | 'descending';
+}
+
 export interface AppState {
     currentStep: number; // 0–4
     // Step 0 — Upload
@@ -187,6 +248,11 @@ export interface AppState {
     toolOptions: ToolOptions;
     // Step 1 — Prep
     prepState: PrepState | null; // null = prep hasn't been started
+    // Conflict tracking
+    hasManualNodeEdits: boolean; // true once user has manually edited any schema-generated node/edge
+    // Scaffold mode (Step 2 — Editor)
+    scaffoldConfig: ScaffoldConfig | null; // null until first scaffold setup
+    scaffoldModeActive: boolean; // true when scaffold toolbar panel is open
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -216,7 +282,19 @@ export const DEFAULT_APP_STATE: AppState = {
         level1NavForwardName: 'left',
         level1NavForwardKey: 'ArrowLeft',
         level1NavBackwardName: 'right',
-        level1NavBackwardKey: 'ArrowRight'
+        level1NavBackwardKey: 'ArrowRight',
+        labelConfig: {
+            level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
+            perDimension: {},
+            perDivision: {},
+            leaves: {
+                template: '',
+                name: 'data point',
+                includeIndex: false,
+                includeParentName: false,
+                omitKeyNames: false
+            }
+        }
     },
     inputConfig: {
         enableKeyboard: true,
@@ -250,7 +328,10 @@ export const DEFAULT_APP_STATE: AppState = {
         showLevel3Nodes: true,
         level3BackfillColor: '#ffffff'
     },
-    prepState: null
+    prepState: null,
+    hasManualNodeEdits: false,
+    scaffoldConfig: null,
+    scaffoldModeActive: false
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

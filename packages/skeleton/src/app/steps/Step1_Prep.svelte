@@ -3,13 +3,21 @@
     import DataTablePreview from '../components/prep/DataTablePreview.svelte';
     import QAEngine from '../components/prep/QAEngine.svelte';
     import { appState } from '../../store/appState';
-    import { applyPrepToSchema } from '../../utils/prepAdapter';
+    import { applyPrepToSchema, seedScaffoldConfig } from '../../utils/prepAdapter';
     import { logAction } from '../../store/historyStore';
 
     function continueToEditor() {
         appState.update(s => ({
             ...s,
             schemaState: applyPrepToSchema(s.prepState!, s.schemaState),
+            scaffoldConfig: seedScaffoldConfig(
+                s.prepState!,
+                s.scaffoldConfig,
+                s.imageWidth,
+                s.imageHeight,
+                s.uploadedData !== null && s.uploadedData.length > 0,
+                s.schemaState
+            ),
             currentStep: 2,
         }));
         logAction('Completed Prep — entered Editor');

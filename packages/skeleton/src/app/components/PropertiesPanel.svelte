@@ -1,7 +1,8 @@
 <script lang="ts">
     import { appState } from '../../store/appState';
-    import type { RenderConfig } from '../../store/appState';
+    import type { RenderConfig, SchemaState } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
+    import LabelBuilder from './prep/LabelBuilder.svelte';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let nodes = $state<Map<string, SkeletonNode>>(new Map());
@@ -13,6 +14,8 @@
     let imageHeight = $state<number | null>(null);
     let currentStep = $state(0);
     let renderConfig = $state<RenderConfig>({ positionUnit: 'px', showOverlay: false, semanticNames: ['data point', 'node'] });
+    let schemaState = $state<SchemaState | null>(null);
+    let uploadedData = $state<Record<string, unknown>[] | null>(null);
 
     $effect(() => {
         return appState.subscribe(s => {
@@ -25,8 +28,17 @@
             imageHeight = s.imageHeight;
             currentStep = s.currentStep;
             renderConfig = s.renderConfig;
+            schemaState = s.schemaState;
+            uploadedData = s.uploadedData;
         });
     });
+
+    // ── Conflict tracking: mark appState when schema-generated nodes are edited ──
+    function markManualEdit(node: SkeletonNode) {
+        if (node.source === 'schema') {
+            appState.update(s => ({ ...s, hasManualNodeEdits: true }));
+        }
+    }
 
     // ── Selection derivations ─────────────────────────────────────────────────
     const selNodeCount = $derived(selectedNodeIds.size);
@@ -143,7 +155,37 @@
         appState.update(s => {
             const n = s.nodes.get(id);
             if (!n) return s;
-            return { ...s, nodes: new Map(s.nodes).set(id, { ...n, ...patch }) };
+            const updated = { ...n, ...patch };
+            markManualEdit(n);
+            return { ...s, nodes: new Map(s.nodes).set(id, updated) };
+        });
+    }
+
+    function updateNodeId(oldId: string, newId: string) {
+        if (!newId.trim() || newId === oldId) return;
+        appState.update(s => {
+            const n = s.nodes.get(oldId);
+            if (!n) return s;
+            const newNodes = new Map(s.nodes);
+            newNodes.delete(oldId);
+            newNodes.set(newId, { ...n, id: newId });
+            markManualEdit(n);
+            // Remap edges that reference the old ID
+            const newEdges = new Map<string, SkeletonEdge>();
+            s.edges.forEach((e, eid) => {
+                newEdges.set(eid, {
+                    ...e,
+                    sourceId: e.sourceId === oldId ? newId : e.sourceId,
+                    targetId: e.targetId === oldId ? newId : e.targetId,
+                });
+            });
+            return {
+                ...s,
+                nodes: newNodes,
+                edges: newEdges,
+                entryNodeId: s.entryNodeId === oldId ? newId : s.entryNodeId,
+                selectedNodeIds: new Set([...s.selectedNodeIds].map(id => id === oldId ? newId : id)),
+            };
         });
     }
 
@@ -153,6 +195,7 @@
         appState.update(s => {
             const n = s.nodes.get(id);
             if (!n) return s;
+            markManualEdit(n);
             return {
                 ...s,
                 nodes: new Map(s.nodes).set(id, {
@@ -169,6 +212,7 @@
         appState.update(s => {
             const n = s.nodes.get(id);
             if (!n) return s;
+            markManualEdit(n);
             return {
                 ...s,
                 nodes: new Map(s.nodes).set(id, {
@@ -176,6 +220,20 @@
                     semantics: { ...n.semantics, ...patch },
                 }),
             };
+        });
+    }
+
+    // Svelte-friendly: update semantics via LabelBuilder onchange
+    function updateNodeSemanticsFromTemplate(tmpl: import('../../store/appState').LabelTemplate) {
+        updateNodeSemantics({
+            label: tmpl.template,
+            name: tmpl.name,
+            includeIndex: tmpl.includeIndex,
+            includeParentName: tmpl.includeParentName,
+            omitKeyNames: tmpl.omitKeyNames,
+            includeDimensionName: tmpl.includeDimensionName,
+            includeParentNames: tmpl.includeParentNames,
+            includeParentDivisions: tmpl.includeParentDivisions,
         });
     }
 
@@ -214,9 +272,12 @@
         resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) => `[avg ${f}]`);
         resolved = resolved.replace(/\{trend:"[^"]+":"[^"]+"\}/g, () => '[trend]');
         resolved = resolved.replace(/\{r2:"[^"]+":"[^"]+"\}/g, () => '[r²]');
-        resolved = resolved
-            .replace(/\{key:"([^"]+)"\}/g, (_, key) => key)
-            .replace(/\{value:"([^"]+)"\}/g, (_, key) => {
+        if (node.semantics.omitKeyNames) {
+            resolved = resolved.replace(/\{key:"([^"]+)"\}/g, '');
+        } else {
+            resolved = resolved.replace(/\{key:"([^"]+)"\}/g, (_, key) => key);
+        }
+        resolved = resolved.replace(/\{value:"([^"]+)"\}/g, (_, key) => {
                 const val = node.data[key];
                 return val !== undefined ? String(val) : `[${key}]`;
             });
@@ -252,6 +313,56 @@
         selectedNode ? buildSemanticOutput(selectedNode) : ''
     );
 
+    // Derived helpers for LabelBuilder in the properties panel
+    const nodeDataFields = $derived(
+        selectedNode ? Object.keys(selectedNode.data) : []
+    );
+    const allDataFields = $derived(
+        uploadedData?.[0] ? Object.keys(uploadedData[0]) : nodeDataFields
+    );
+    const numericalFields = $derived(
+        schemaState?.dimensions.filter(d => d.type === 'numerical').map(d => d.key) ?? []
+    );
+    const selectedDim = $derived(
+        selectedNode?.dimensionKey
+            ? schemaState?.dimensions.find(d => d.key === selectedNode!.dimensionKey)
+            : undefined
+    );
+    const leafParentDimensions = $derived(
+        schemaState?.dimensions.filter(d => d.included).map(d => ({
+            key: d.key,
+            isReduced: d.divisionExtents === null,
+            dimNoun: schemaState!.labelConfig.perDimension[d.key]?.name ?? 'group',
+            hasDivisions: d.type === 'numerical' && (d.subdivisions ?? 1) > 1,
+            divNoun: schemaState!.labelConfig.perDivision[d.key]?.name ?? 'subgroup',
+            divTotal: d.subdivisions ?? 1,
+        })) ?? []
+    );
+    // Build a LabelTemplate from the selected node's semantics for LabelBuilder
+    const nodeAsLabelTemplate = $derived(
+        selectedNode
+            ? {
+                template: selectedNode.semantics.label,
+                name: selectedNode.semantics.name,
+                includeIndex: selectedNode.semantics.includeIndex,
+                includeParentName: selectedNode.semantics.includeParentName,
+                omitKeyNames: selectedNode.semantics.omitKeyNames,
+                includeDimensionName: selectedNode.semantics.includeDimensionName,
+                includeParentNames: selectedNode.semantics.includeParentNames,
+                includeParentDivisions: selectedNode.semantics.includeParentDivisions,
+            }
+            : null
+    );
+    // Node level for LabelBuilder nodeType
+    const nodeLevelType = $derived((): 'level0' | 'level1' | 'level2' | 'level3' => {
+        if (!selectedNode) return 'level3';
+        const lvl = selectedNode.dnLevel;
+        if (lvl === 0) return 'level0';
+        if (lvl === 1) return 'level1';
+        if (lvl === 2) return 'level2';
+        return 'level3';
+    });
+
     function setEntryNode(nodeId: string, makeEntry: boolean) {
         appState.update(s => ({
             ...s,
@@ -266,7 +377,30 @@
         appState.update(s => {
             const e = s.edges.get(id);
             if (!e) return s;
-            return { ...s, edges: new Map(s.edges).set(id, { ...e, ...patch }) };
+            // Mark manual edit if either endpoint belongs to a schema node
+            const srcSchema = s.nodes.get(e.sourceId)?.source === 'schema';
+            const tgtSchema = s.nodes.get(e.targetId)?.source === 'schema';
+            const hasManual = srcSchema || tgtSchema ? true : s.hasManualNodeEdits;
+            return { ...s, hasManualNodeEdits: hasManual, edges: new Map(s.edges).set(id, { ...e, ...patch }) };
+        });
+    }
+
+    // ── Navigation rule names editor ─────────────────────────────────────────
+    let navRuleInput = $state('');
+
+    $effect(() => {
+        const edge = selectedEdge;
+        if (edge) {
+            navRuleInput = (edge.navigationRuleNames ?? []).join(', ');
+        }
+    });
+
+    function flushNavRuleNames(edgeId: string) {
+        const names = navRuleInput.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+        appState.update(s => {
+            const e = s.edges.get(edgeId);
+            if (!e) return s;
+            return { ...s, edges: new Map(s.edges).set(edgeId, { ...e, navigationRuleNames: names.length ? names : undefined }) };
         });
     }
 
@@ -339,15 +473,41 @@
 
     <!-- IDENTITY -->
     <section class="panel-section" aria-labelledby="section-identity">
-        <h3 id="section-identity" class="section-heading">Identity</h3>
+        <h3 id="section-identity" class="section-heading">
+            Identity
+            {#if node.source}<span class="badge-source badge-source-{node.source}">{node.source}</span>{/if}
+            {#if node.dnLevel !== undefined}<span class="badge-level">L{node.dnLevel}</span>{/if}
+        </h3>
 
         <div class="field">
-            <label for="node-label">Label</label>
+            <label for="node-label">Display label</label>
             <input
                 id="node-label"
                 type="text"
                 value={node.label}
                 oninput={(e) => updateNode({ label: e.currentTarget.value })}
+            />
+        </div>
+
+        <div class="field">
+            <label for="node-id">Node ID <span class="field-sub">(used in DN structure)</span></label>
+            <input
+                id="node-id"
+                type="text"
+                value={node.id}
+                onblur={(e) => updateNodeId(node.id, e.currentTarget.value)}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); updateNodeId(node.id, (e.target as HTMLInputElement).value); } }}
+            />
+        </div>
+
+        <div class="field">
+            <label for="node-render-id">Render ID <span class="field-sub">(links to DOM element; defaults to node ID)</span></label>
+            <input
+                id="node-render-id"
+                type="text"
+                placeholder={node.id}
+                value={node.renderId ?? ''}
+                oninput={(e) => updateNode({ renderId: e.currentTarget.value || undefined })}
             />
         </div>
 
@@ -458,87 +618,22 @@
     <section class="panel-section" aria-labelledby="section-semantics">
         <h3 id="section-semantics" class="section-heading">Semantics</h3>
 
-        <div class="field">
-            <label for="node-sem-label">Label</label>
-            <textarea
-                id="node-sem-label"
-                rows="3"
-                value={node.semantics.label}
-                oninput={(e) => updateNodeSemantics({ label: e.currentTarget.value })}
-            ></textarea>
-            <p class="field-hint">
-                Use <code>{'{key:"field"}'}</code> for the field name,
-                <code>{'{value:"field"}'}</code> for its data value.
-            </p>
-        </div>
-
-        <div class="field">
-            <label for="node-sem-name">Name</label>
-            <div class="name-row">
-                <select
-                    id="node-sem-name"
-                    value={node.semantics.name}
-                    onchange={(e) => updateNodeSemantics({ name: e.currentTarget.value })}
-                >
-                    {#each renderConfig.semanticNames as n (n)}
-                        <option value={n}>{n}</option>
-                    {/each}
-                </select>
-                <input
-                    type="text"
-                    class="name-new-input"
-                    placeholder="New name…"
-                    aria-label="New name to add"
-                    bind:value={newNameInput}
-                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSemanticName(); } }}
-                />
-                <button
-                    class="btn-ghost btn-sm"
-                    type="button"
-                    aria-label="Add name"
-                    onclick={addSemanticName}
-                >+ Add</button>
-            </div>
-        </div>
-
-        <fieldset class="panel-fieldset">
-            <legend class="fieldset-legend">Group info</legend>
-            <div class="field field-inline">
-                <label for="node-include-index">Include index (X of Y)</label>
-                <input
-                    id="node-include-index"
-                    type="checkbox"
-                    checked={node.semantics.includeIndex}
-                    onchange={(e) => updateNodeSemantics({ includeIndex: e.currentTarget.checked })}
-                />
-            </div>
-            <div class="field field-inline">
-                <label for="node-include-parent">Include parent name</label>
-                <input
-                    id="node-include-parent"
-                    type="checkbox"
-                    checked={node.semantics.includeParentName}
-                    onchange={(e) => updateNodeSemantics({ includeParentName: e.currentTarget.checked })}
-                />
-            </div>
-        </fieldset>
-
-        <div class="sem-preview" aria-label="Semantic label preview">
-            <span class="field-hint">Preview:</span>
-            <p class="sem-preview-text">{semanticPreview}</p>
-        </div>
-
-        <button
-            class="btn-ghost btn-sm"
-            type="button"
-            disabled
-            aria-describedby="ai-suggest-tip"
-        >
-            AI Suggest
-        </button>
-        <p id="ai-suggest-tip" class="field-hint">
-            AI suggestions available after Anthropic API key is set.
-        </p>
+        {#if nodeAsLabelTemplate}
+            <LabelBuilder
+                nodeType={nodeLevelType()}
+                value={nodeAsLabelTemplate}
+                fields={allDataFields}
+                sampleData={node.data}
+                rawData={uploadedData ?? []}
+                aggregateFields={numericalFields}
+                trendXFields={allDataFields}
+                dimensionKey={node.dimensionKey}
+                hasDivisions={selectedDim ? (selectedDim.type === 'numerical' && (selectedDim.subdivisions ?? 1) > 1) : false}
+                parentDimensions={nodeLevelType() === 'level3' ? leafParentDimensions : []}
+                parentDimNoun={nodeLevelType() === 'level2' ? (schemaState?.labelConfig.perDimension[node.dimensionKey ?? '']?.name ?? 'group') : undefined}
+                onchange={updateNodeSemanticsFromTemplate}
+            />
+        {/if}
     </section>
 
     <!-- DATA -->
@@ -607,6 +702,55 @@
             >
                 <option value="rect">rect</option>
                 <option value="ellipse">ellipse</option>
+                <option value="path">path</option>
+            </select>
+        </div>
+
+        {#if node.renderProperties.shape === 'path'}
+        <div class="field">
+            <label for="node-path-data">SVG path data <span class="field-sub">(d attribute)</span></label>
+            <textarea
+                id="node-path-data"
+                class="path-data-textarea"
+                rows="4"
+                spellcheck="false"
+                value={node.pathData ?? ''}
+                oninput={(e) => {
+                    const d = e.currentTarget.value;
+                    appState.update(s => {
+                        const n = s.nodes.get(node.id);
+                        if (!n) return s;
+                        const newNodes = new Map(s.nodes);
+                        newNodes.set(node.id, { ...n, pathData: d });
+                        return { ...s, nodes: newNodes };
+                    });
+                }}
+            ></textarea>
+        </div>
+        {#if node.pathBounds}
+        <div class="field">
+            <span class="field-label-only">Bounding box</span>
+            <div class="bounds-grid">
+                <span class="bounds-label">X</span><span class="bounds-val">{node.pathBounds.x.toFixed(1)}</span>
+                <span class="bounds-label">Y</span><span class="bounds-val">{node.pathBounds.y.toFixed(1)}</span>
+                <span class="bounds-label">W</span><span class="bounds-val">{node.pathBounds.width.toFixed(1)}</span>
+                <span class="bounds-label">H</span><span class="bounds-val">{node.pathBounds.height.toFixed(1)}</span>
+            </div>
+        </div>
+        {/if}
+        {/if}
+
+        <div class="field">
+            <label for="node-rendering-strategy">Rendering strategy <span class="field-sub">(DN group rendering)</span></label>
+            <select
+                id="node-rendering-strategy"
+                value={node.renderingStrategy ?? ''}
+                onchange={(e) => updateNode({ renderingStrategy: (e.currentTarget.value || undefined) as SkeletonNode['renderingStrategy'] })}
+            >
+                <option value="">(none / inherited)</option>
+                <option value="outlineEach">outlineEach</option>
+                <option value="convexHull">convexHull</option>
+                <option value="singleSquare">singleSquare</option>
                 <option value="custom">custom</option>
             </select>
         </div>
@@ -746,6 +890,19 @@
                 <option value="exit">exit</option>
                 <option value="custom">custom</option>
             </select>
+        </div>
+
+        <div class="field">
+            <label for="edge-nav-rules">Navigation rule names <span class="field-sub">(comma-separated, e.g. left, right)</span></label>
+            <input
+                id="edge-nav-rules"
+                type="text"
+                placeholder="e.g. left, right"
+                value={navRuleInput}
+                oninput={(e) => { navRuleInput = e.currentTarget.value; }}
+                onblur={() => flushNavRuleNames(edge.id)}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); flushNavRuleNames(edge.id); } }}
+            />
         </div>
 
         <div class="field">
@@ -1144,6 +1301,47 @@
         margin-left: calc(var(--dn-space) * 0.5);
     }
 
+    /* ── Source / level badges ── */
+    .badge-source,
+    .badge-level {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: calc(var(--dn-space) * 0.5);
+        vertical-align: middle;
+        line-height: 1.6;
+    }
+
+    .badge-source-schema {
+        background: color-mix(in srgb, var(--dn-accent) 15%, transparent);
+        color: var(--dn-accent);
+        border: 1px solid color-mix(in srgb, var(--dn-accent) 30%, transparent);
+    }
+
+    .badge-source-manual {
+        background: color-mix(in srgb, var(--dn-text-muted) 12%, transparent);
+        color: var(--dn-text-muted);
+        border: 1px solid color-mix(in srgb, var(--dn-text-muted) 25%, transparent);
+    }
+
+    .badge-level {
+        background: var(--dn-surface);
+        color: var(--dn-text-muted);
+        border: 1px solid var(--dn-border);
+    }
+
+    /* ── Field sub-label ── */
+    .field-sub {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: var(--dn-text-muted);
+        margin-left: calc(var(--dn-space) * 0.25);
+    }
+
     /* ── AI Suggest hint ── */
     .field-hint {
         margin: 0;
@@ -1262,5 +1460,53 @@
         border: 1px solid var(--dn-border);
         border-radius: 3px;
         padding: 1px 4px;
+    }
+
+    /* ── Scaffold source badge ── */
+    .badge-source-scaffold {
+        background: color-mix(in srgb, #6366f1 15%, transparent);
+        color: #6366f1;
+        border: 1px solid color-mix(in srgb, #6366f1 30%, transparent);
+    }
+
+    /* ── Path node editor ── */
+    .field-label-only {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--dn-text);
+        display: block;
+        margin-bottom: calc(var(--dn-space) * 0.5);
+    }
+
+    .path-data-textarea {
+        font-family: var(--dn-font-mono);
+        font-size: 0.75rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .bounds-grid {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
+        align-items: center;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
+    }
+
+    .bounds-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--dn-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .bounds-val {
+        font-family: var(--dn-font-mono);
+        font-size: 0.8125rem;
+        color: var(--dn-text);
     }
 </style>

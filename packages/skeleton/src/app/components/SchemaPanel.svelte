@@ -2,7 +2,8 @@
     import { onDestroy } from 'svelte';
     import dataNavigator from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
-    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState, type PrepState } from '../../store/appState';
+    import { appState, type DimensionSchema, type DivisionEntry, type SchemaState, type PrepState, type LabelConfig, type LabelTemplate } from '../../store/appState';
+    import LabelBuilder from './prep/LabelBuilder.svelte';
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import { defaultRenderProperties } from '../../store/nodeFactory';
@@ -17,6 +18,7 @@
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
     let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
+    const DEFAULT_LABEL_TEMPLATE: import('../../store/appState').LabelTemplate = { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false };
     let schema: SchemaState = $state({
         dimensions: [], childmostNavigation: 'within', allowMoreThan3: false,
         collapsed: false, graphMode: 'tree', hideLeafNodes: false,
@@ -24,7 +26,14 @@
         level1Extents: 'terminal',
         level1NavForwardName: 'left',  level1NavForwardKey: 'ArrowLeft',
         level1NavBackwardName: 'right', level1NavBackwardKey: 'ArrowRight',
+        labelConfig: {
+            level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
+            perDimension: {},
+            perDivision: {},
+            leaves: { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false },
+        },
     });
+    let hasManualNodeEdits = $state(false);
     let initialized = $state(false);
     let selectedNodeIds = $state<Set<string>>(new Set());
     let hoveredNodeId = $state<string | null>(null);
@@ -83,6 +92,7 @@
         hoveredNodeId = s.hoveredNodeId;
         imageWidth = s.imageWidth;
         imageHeight = s.imageHeight;
+        hasManualNodeEdits = s.hasManualNodeEdits;
         if (s.uploadedData && !initialized) {
             initialized = true;
             // If Prep has already configured the schema, skip auto-inference.
@@ -158,6 +168,7 @@
             level1Extents: 'terminal',
             level1NavForwardName: 'left',  level1NavForwardKey: 'ArrowLeft',
             level1NavBackwardName: 'right', level1NavBackwardKey: 'ArrowRight',
+            labelConfig: schema.labelConfig,
         };
     }
 
@@ -179,6 +190,26 @@
 
     // ─── Derived ──────────────────────────────────────────────────────────────
     const includedCount = $derived(schema.dimensions.filter(d => d.included).length);
+    // Data field names and sample row — used by LabelBuilder for hints and preview
+    const dataFields = $derived(uploadedData?.[0] ? Object.keys(uploadedData[0]) : []);
+    const sampleRow = $derived(uploadedData?.[0] ?? {});
+    const includedDimKeys = $derived(schema.dimensions.filter(d => d.included).map(d => d.key));
+    // Numerical field keys for aggregate pickers in LabelBuilder
+    const numericalFields = $derived(
+        prepState?.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key)
+        ?? schema.dimensions.filter(d => d.included && d.type === 'numerical').map(d => d.key)
+    );
+    // ParentDimension[] for level3 leaf LabelBuilder
+    const leafParentDimensions = $derived(
+        schema.dimensions.filter(d => d.included).map(d => ({
+            key: d.key,
+            isReduced: d.divisionExtents === null,
+            dimNoun: schema.labelConfig.perDimension[d.key]?.name ?? 'group',
+            hasDivisions: d.type === 'numerical' && (d.subdivisions ?? 1) > 1,
+            divNoun: schema.labelConfig.perDivision[d.key]?.name ?? 'subgroup',
+            divTotal: d.subdivisions ?? 1,
+        }))
+    );
 
     // ─── Mutations ────────────────────────────────────────────────────────────
     function toggleCollapse() {
@@ -186,6 +217,10 @@
     }
 
     function toggleDimension(key: string) {
+        withConflictCheck(() => _toggleDimensionInner(key));
+    }
+
+    function _toggleDimensionInner(key: string) {
         appState.update(s => {
             const dims = s.schemaState.dimensions.map(d => ({ ...d, divisions: [...d.divisions] }));
             const dim = dims.find(d => d.key === key);
@@ -270,6 +305,93 @@
         } else {
             logAction('Updated schema setting');
         }
+    }
+
+    // ─── Conflict detection ───────────────────────────────────────────────────
+    // When the user has manually edited individual canvas nodes/edges, structural
+    // schema changes (dimension toggling, nav key reassignment) may override those edits.
+    // withConflictCheck prompts before proceeding if manual edits exist.
+    function withConflictCheck(fn: () => void) {
+        if (hasManualNodeEdits) {
+            const ok = confirm(
+                'You have manually edited individual nodes or edges on the canvas. ' +
+                'Changing the schema structure will rebuild those nodes and may override your changes. Continue?'
+            );
+            if (!ok) return;
+        }
+        fn();
+    }
+
+    // ─── Label config mutations ───────────────────────────────────────────────
+    function templateToSemantics(t: LabelTemplate): SkeletonNode['semantics'] {
+        return {
+            label: t.template,
+            name: t.name,
+            includeIndex: t.includeIndex,
+            includeParentName: t.includeParentName,
+            omitKeyNames: t.omitKeyNames,
+            includeDimensionName: t.includeDimensionName,
+            includeParentNames: t.includeParentNames,
+            includeParentDivisions: t.includeParentDivisions,
+        };
+    }
+
+    function updateLabelConfig(patch: Partial<LabelConfig>) {
+        appState.update(s => {
+            const newLabelConfig = { ...s.schemaState.labelConfig, ...patch };
+            const newNodes = new Map(s.nodes);
+            // Patch affected schema nodes in the same update
+            if (patch.level0) {
+                newNodes.forEach((n, id) => {
+                    if (n.source === 'schema' && n.dnLevel === 0)
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.level0!) });
+                });
+            }
+            if (patch.leaves) {
+                newNodes.forEach((n, id) => {
+                    if (n.source === 'schema' && n.dnLevel === 3)
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.leaves!) });
+                });
+            }
+            return {
+                ...s,
+                schemaState: { ...s.schemaState, labelConfig: newLabelConfig },
+                nodes: newNodes,
+            };
+        });
+        logActionDebounced('Updated label config');
+    }
+
+    function updateDimLabel(dimKey: string, tmpl: LabelTemplate) {
+        appState.update(s => {
+            const newLabelConfig = {
+                ...s.schemaState.labelConfig,
+                perDimension: { ...s.schemaState.labelConfig.perDimension, [dimKey]: tmpl },
+            };
+            const newNodes = new Map(s.nodes);
+            newNodes.forEach((n, id) => {
+                if (n.source === 'schema' && n.dnLevel === 1 && n.dimensionKey === dimKey)
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+            });
+            return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
+        });
+        logActionDebounced('Updated dimension label');
+    }
+
+    function updateDivLabel(dimKey: string, tmpl: LabelTemplate) {
+        appState.update(s => {
+            const newLabelConfig = {
+                ...s.schemaState.labelConfig,
+                perDivision: { ...s.schemaState.labelConfig.perDivision, [dimKey]: tmpl },
+            };
+            const newNodes = new Map(s.nodes);
+            newNodes.forEach((n, id) => {
+                if (n.source === 'schema' && n.dnLevel === 2 && n.dimensionKey === dimKey)
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+            });
+            return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
+        });
+        logActionDebounced('Updated division label');
     }
 
     // ─── DN structure building ────────────────────────────────────────────────
@@ -441,38 +563,38 @@
         }
     }
 
-    // ─── Semantics helper: map prep labelConfig to SkeletonNode.semantics ────
-    // Called per-node in initCanvasNodesFromSchema when prep has run.
-    // SkeletonNode.semantics stores the TEMPLATE STRING (not resolved). Extended
-    // LabelTemplate fields (omitKeyNames, includeDimensionName, etc.) stay in
-    // prepState.labelConfig and are used by the export pipeline, not per-node.
+    // ─── Semantics helper: map schemaState.labelConfig to SkeletonNode.semantics ──
+    // Called per-node in initCanvasNodesFromSchema.
+    // SkeletonNode.semantics stores the TEMPLATE STRING (not resolved). All LabelTemplate
+    // fields (omitKeyNames, includeDimensionName, etc.) are now stored on SkeletonNode.semantics
+    // and are used for both live preview and the export pipeline.
     function getSemanticsForNode(
         nodeId: string,
         dnNode: any,
-        prep: PrepState | null
+        labelConfig: LabelConfig | null
     ): SkeletonNode['semantics'] {
-        const fallback = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false };
-        if (!prep?.hasRun || !prep.labelConfig) return fallback;
-        const lc = prep.labelConfig;
+        const fallback: SkeletonNode['semantics'] = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false, omitKeyNames: false };
+        if (!labelConfig) return fallback;
+        const lc = labelConfig;
         const level: number | undefined = dnNode?.dimensionLevel;
         const dimKey: string | undefined = dnNode?.dimensionKey;
 
         if (level === 0) {
             const t = lc.level0;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
         }
         if (level === 1 && dimKey && lc.perDimension[dimKey]) {
             const t = lc.perDimension[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames };
         }
         if (level === 2 && dimKey && lc.perDivision[dimKey]) {
             const t = lc.perDivision[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
         }
         // level3 leaves and categorical level2 nodes (no perDivision entry)
         if (lc.leaves && (level === undefined || level === 3)) {
             const t = lc.leaves;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex };
+            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeParentNames: t.includeParentNames, includeParentDivisions: t.includeParentDivisions };
         }
         return fallback;
     }
@@ -608,7 +730,6 @@
             );
             const hasNew = [...allHierarchyIds].some(id => !existingSchemaIds.has(id));
             const hasStale = [...existingSchemaIds].some(id => !allHierarchyIds.has(id));
-            if (!hasNew && !hasStale) return s;
 
             const newNodes = new Map<string, SkeletonNode>();
             // Keep manual nodes unchanged; keep schema nodes still in hierarchy
@@ -618,11 +739,27 @@
                 }
             });
 
-            // Add newly-seen hierarchy nodes with initial canvas positions
+            // Add newly-seen hierarchy nodes; refresh semantics of existing ones.
+            // Semantics must always be refreshed from schemaSnap.labelConfig so that
+            // labels configured in Prep (or edited in SchemaPanel) carry through to
+            // the node that PropertiesPanel reads — not just the labelConfig the
+            // SchemaPanel LabelBuilder reads directly.
             allHierarchyIds.forEach(nodeId => {
-                if (newNodes.has(nodeId)) return; // preserve existing
-                const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 const dnNode = structure.nodes[nodeId];
+                if (newNodes.has(nodeId)) {
+                    // Node exists — keep position/label/renderProperties but refresh
+                    // semantics and dimensionKey from the current labelConfig.
+                    const existing = newNodes.get(nodeId)!;
+                    if (existing.source === 'schema') {
+                        newNodes.set(nodeId, {
+                            ...existing,
+                            dimensionKey: dnNode?.dimensionKey as string | undefined,
+                            semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
+                        });
+                    }
+                    return;
+                }
+                const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 let label = nodeId;
                 if (dnNode) {
                     const key = dnNode.dimensionKey;
@@ -643,6 +780,7 @@
                         }
                     }
                 }
+                const dnLevel = (dnNode?.dimensionLevel ?? (dnNode?.data !== undefined && !dnNode?.derivedNode ? 3 : undefined)) as 0 | 1 | 2 | 3 | undefined;
                 newNodes.set(nodeId, {
                     id: nodeId,
                     label: label.length > 24 ? label.substring(0, 24) + '…' : label,
@@ -651,11 +789,19 @@
                     isEntry: nodeId === (schemaSnap.level0Enabled ? schemaSnap.level0Id : null),
                     isCluster: false,
                     source: 'schema',
-                    semantics: getSemanticsForNode(nodeId, dnNode, prepState),
+                    dnLevel,
+                    dimensionKey: dnNode?.dimensionKey as string | undefined,
+                    semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
                     data: dnNode?.data ?? {},
                     renderProperties: defaultRenderProperties(),
                 } as SkeletonNode);
             });
+
+            // Skip the edge rebuild if nothing actually changed (no new/stale nodes and
+            // semantics refreshed to identical values).
+            const nodesActuallyChanged = hasNew || hasStale ||
+                [...allHierarchyIds].some(id => newNodes.get(id) !== s.nodes.get(id));
+            if (!nodesActuallyChanged) return s;
 
             // Rebuild edges: keep non-schema edges, rebuild schema edges
             const newEdges = new Map<string, SkeletonEdge>();
@@ -666,12 +812,12 @@
             });
             const addedPairs = new Set<string>();
             let edgeIdx = 0;
-            const addEdge = (srcId: string, tgtId: string, label: string = '', direction: SkeletonEdge['direction'] = 'down') => {
+            const addEdge = (srcId: string, tgtId: string, label: string = '', direction: SkeletonEdge['direction'] = 'down', ruleNames?: string[]) => {
                 const key = `${srcId}→${tgtId}`;
                 if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
                 addedPairs.add(key);
                 const id = `schema_edge_${edgeIdx++}`;
-                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {} });
+                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {}, navigationRuleNames: ruleNames });
             };
             // Build all edges directly from structure.edges — DN has already computed every
             // edge correctly (drill, sibling, bridgedCousins, circular, etc.).
@@ -689,9 +835,9 @@
                 const rules: string[] = dnEdge.navigationRules ?? [];
                 const fwdRule = rules[0] ?? '';
                 const bwdRule = rules[1] ?? '';
-                addEdge(src, tgt, fwdRule, ruleToDirection(fwdRule));
+                addEdge(src, tgt, fwdRule, ruleToDirection(fwdRule), fwdRule ? [fwdRule] : undefined);
                 if (bwdRule) {
-                    addEdge(tgt, src, bwdRule, ruleToDirection(bwdRule));
+                    addEdge(tgt, src, bwdRule, ruleToDirection(bwdRule), [bwdRule]);
                 }
             });
 
@@ -935,6 +1081,20 @@
                                 </label>
                             </div>
                         {/if}
+                        <!-- Level 0 label/semantics — simple announcement text + noun -->
+                        <label class="field-label">
+                            Announcement label
+                            <input type="text" class="text-input"
+                                value={schema.labelConfig.level0.template}
+                                placeholder="e.g. Chart. 3 dimensions."
+                                oninput={(e) => updateLabelConfig({ level0: { ...schema.labelConfig.level0, template: (e.target as HTMLInputElement).value } })} />
+                        </label>
+                        <label class="field-label">
+                            Noun (e.g. "chart", "figure")
+                            <input type="text" class="text-input"
+                                value={schema.labelConfig.level0.name}
+                                oninput={(e) => updateLabelConfig({ level0: { ...schema.labelConfig.level0, name: (e.target as HTMLInputElement).value } })} />
+                        </label>
                     </div>
                 </details>
             </section>
@@ -1133,12 +1293,83 @@
                                             </fieldset>
                                         {/if}
 
+                                        <!-- Division extents (behavior at endpoints of the division level) -->
+                                        <label class="field-label">
+                                            Division extents
+                                            <select value={dim.divisionExtents ?? 'terminal'}
+                                                onchange={(e) => updateDim(dim.key, 'divisionExtents', (e.target as HTMLSelectElement).value === 'null' ? null : (e.target as HTMLSelectElement).value as 'circular' | 'terminal')}>
+                                                <option value="terminal">Terminal</option>
+                                                <option value="circular">Circular</option>
+                                                <option value="null">None (reduced dimension)</option>
+                                            </select>
+                                        </label>
+
+                                        <!-- Dimension label (level 1) -->
+                                        <details class="dim-options label-subsection" open>
+                                            <summary class="dim-options-summary">Dimension label (level 1)</summary>
+                                            <div class="dim-options-body">
+                                                <LabelBuilder
+                                                    nodeType="level1"
+                                                    value={schema.labelConfig.perDimension[dim.key] ?? DEFAULT_LABEL_TEMPLATE}
+                                                    fields={dataFields}
+                                                    sampleData={sampleRow}
+                                                    rawData={uploadedData ?? []}
+                                                    aggregateFields={numericalFields}
+                                                    trendXFields={dataFields}
+                                                    dimensionKey={dim.key}
+                                                    dimensionCount={includedDimKeys.length}
+                                                    hasDivisions={dim.type === 'numerical' && (dim.subdivisions ?? 1) > 1}
+                                                    onchange={(v) => updateDimLabel(dim.key, v)}
+                                                />
+                                            </div>
+                                        </details>
+
+                                        <!-- Division label (level 2, numerical dims with bins) -->
+                                        {#if dim.type === 'numerical' && dim.subdivisions > 1}
+                                            <details class="dim-options label-subsection" open>
+                                                <summary class="dim-options-summary">Division label (level 2)</summary>
+                                                <div class="dim-options-body">
+                                                    <LabelBuilder
+                                                        nodeType="level2"
+                                                        value={schema.labelConfig.perDivision[dim.key] ?? { ...DEFAULT_LABEL_TEMPLATE, name: 'subgroup' }}
+                                                        fields={dataFields}
+                                                        sampleData={sampleRow}
+                                                        rawData={uploadedData ?? []}
+                                                        aggregateFields={numericalFields}
+                                                        trendXFields={dataFields}
+                                                        dimensionKey={dim.key}
+                                                        parentDimNoun={schema.labelConfig.perDimension[dim.key]?.name ?? 'group'}
+                                                        onchange={(v) => updateDivLabel(dim.key, v)}
+                                                    />
+                                                </div>
+                                            </details>
+                                        {/if}
+
                                     </div>
                                 </details>
                             {/if}
                         </li>
                     {/each}
                 </ul>
+
+                <!-- Leaf Node Labels — global label for all data point nodes (level 3) -->
+                <section class="schema-section leaf-label-section">
+                    <h3 class="section-heading">Leaf Node Labels</h3>
+                    <details class="dim-options">
+                        <summary class="dim-options-summary">Edit label template</summary>
+                        <div class="dim-options-body">
+                            <LabelBuilder
+                                nodeType="level3"
+                                value={schema.labelConfig.leaves}
+                                fields={dataFields}
+                                sampleData={sampleRow}
+                                rawData={uploadedData ?? []}
+                                parentDimensions={leafParentDimensions}
+                                onchange={(v) => updateLabelConfig({ leaves: v })}
+                            />
+                        </div>
+                    </details>
+                </section>
 
                 <label class="checkbox-field allow-more">
                     <input type="checkbox" checked={schema.allowMoreThan3}
@@ -1369,6 +1600,18 @@
     .dim-options-body {
         padding: calc(var(--dn-space) * 1);
         display: flex; flex-direction: column; gap: calc(var(--dn-space) * 1.25);
+    }
+
+    /* ── Label subsections ── */
+    .label-subsection {
+        border: 1px solid var(--dn-border);
+        border-radius: calc(var(--dn-radius) / 2);
+        margin-top: calc(var(--dn-space) * 0.5);
+    }
+    .leaf-label-section {
+        margin-top: calc(var(--dn-space) * 1.5);
+        border-top: 2px solid var(--dn-border);
+        padding-top: calc(var(--dn-space) * 1);
     }
 
     /* ── Nav fieldsets ── */

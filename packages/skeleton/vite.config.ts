@@ -14,5 +14,14 @@ export default defineConfig({
             '@data-navigator/inspector/style.css': resolve(__dirname, '../../packages/inspector/style.css'),
             '@data-navigator/inspector': resolve(__dirname, '../../packages/inspector/src/index.js')
         }
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vega-embed': ['vega-embed']
+                }
+            }
+        }
     }
 });

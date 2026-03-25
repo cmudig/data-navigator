@@ -14,7 +14,7 @@
 import { strToU8, strFromU8, zipSync, unzipSync } from 'fflate';
 import { get } from 'svelte/store';
 import { appState, DEFAULT_APP_STATE } from '../store/appState';
-import type { AppState, SkeletonNode, SkeletonEdge, PrepState } from '../store/appState';
+import type { AppState, SkeletonNode, SkeletonEdge, PrepState, ScaffoldConfig } from '../store/appState';
 
 // ── Save-file format ──────────────────────────────────────────────────────────
 
@@ -45,6 +45,9 @@ export interface SerializedState {
     renderConfig: AppState['renderConfig'];
     toolOptions?: AppState['toolOptions'];
     prepState?: PrepState | null;
+    hasManualNodeEdits?: boolean;
+    scaffoldConfig?: ScaffoldConfig | null;
+    scaffoldModeActive?: boolean;
     // future fields go here (all optional so old saves remain loadable)
 }
 
@@ -100,6 +103,14 @@ const DEFAULT_RENDER: SkeletonNode['renderProperties'] = {
     customClass: ''
 };
 
+const DEFAULT_SEMANTICS: SkeletonNode['semantics'] = {
+    label: '',
+    name: 'data point',
+    includeParentName: false,
+    includeIndex: false,
+    omitKeyNames: false
+};
+
 /**
  * Serialize an AppState snapshot into the portable SerializedState format.
  * imageDataUrl is intentionally excluded — callers handle it separately
@@ -119,7 +130,10 @@ export function serializeAppState(s: AppState): SerializedState {
         inputConfig: s.inputConfig,
         renderConfig: s.renderConfig,
         toolOptions: s.toolOptions,
-        prepState: s.prepState
+        prepState: s.prepState,
+        hasManualNodeEdits: s.hasManualNodeEdits,
+        scaffoldConfig: s.scaffoldConfig,
+        scaffoldModeActive: s.scaffoldModeActive
     };
 }
 
@@ -138,7 +152,14 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
     }
 
     const nodes = new Map<string, SkeletonNode>(
-        ss.nodes.map(([id, n]) => [id, { ...n, renderProperties: { ...DEFAULT_RENDER, ...n.renderProperties } }])
+        ss.nodes.map(([id, n]) => [
+            id,
+            {
+                ...n,
+                renderProperties: { ...DEFAULT_RENDER, ...n.renderProperties },
+                semantics: { ...DEFAULT_SEMANTICS, ...n.semantics }
+            }
+        ])
     );
     const edges = new Map<string, SkeletonEdge>(ss.edges);
 
@@ -163,7 +184,10 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
         inputConfig: { ...DEFAULT_APP_STATE.inputConfig, ...ss.inputConfig },
         renderConfig: { ...DEFAULT_APP_STATE.renderConfig, ...ss.renderConfig },
         toolOptions: { ...DEFAULT_APP_STATE.toolOptions, ...ss.toolOptions },
-        prepState: ss.prepState ?? null
+        prepState: ss.prepState ?? null,
+        hasManualNodeEdits: ss.hasManualNodeEdits ?? false,
+        scaffoldConfig: ss.scaffoldConfig ?? null,
+        scaffoldModeActive: ss.scaffoldModeActive ?? false
     });
 }
 
