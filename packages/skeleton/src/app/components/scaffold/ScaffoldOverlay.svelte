@@ -127,16 +127,23 @@
     });
 
     // ── Drag handle logic ─────────────────────────────────────────────────────
-    // Drag handles: bounding box (moves offsetX/Y) + 4 padding edges
-    type HandleType = 'move' | 'pad-left' | 'pad-top' | 'pad-right' | 'pad-bottom';
+    // ── Drag handle logic ─────────────────────────────────────────────────────
+    // 4 padding inner-boundary handles + 8 resize handles (4 edges + 4 corners).
+    // Left/top resize handles also shift offsetX/Y so the opposite edge stays fixed.
+    type HandleType =
+        | 'pad-left' | 'pad-top' | 'pad-right' | 'pad-bottom'
+        | 'resize-left' | 'resize-top' | 'resize-right' | 'resize-bottom'
+        | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
 
     let activeDrag = $state<{
         type: HandleType;
         startClientX: number;
         startClientY: number;
-        startOffsetX: number;
-        startOffsetY: number;
         startPad: number;
+        startW: number;
+        startH: number;
+        startOX: number;
+        startOY: number;
     } | null>(null);
 
     function onHandleMousedown(e: MouseEvent, type: HandleType) {
@@ -146,13 +153,15 @@
             type,
             startClientX: e.clientX,
             startClientY: e.clientY,
-            startOffsetX: config.offsetX,
-            startOffsetY: config.offsetY,
             startPad:
                 type === 'pad-left' ? config.paddingLeft
                 : type === 'pad-top' ? config.paddingTop
                 : type === 'pad-right' ? config.paddingRight
-                : config.paddingBottom
+                : config.paddingBottom,
+            startW: config.plotWidth,
+            startH: config.plotHeight,
+            startOX: config.offsetX,
+            startOY: config.offsetY
         };
     }
 
@@ -160,42 +169,82 @@
         if (!activeDrag || !config) return;
         const dx = e.clientX - activeDrag.startClientX;
         const dy = e.clientY - activeDrag.startClientY;
+        const { startPad, startW, startH, startOX, startOY } = activeDrag;
 
-        if (activeDrag.type === 'move') {
+        // Padding handles — adjust padding, outer box stays fixed
+        if (activeDrag.type === 'pad-left') {
             appState.update(s => ({
                 ...s,
                 scaffoldConfig: s.scaffoldConfig
-                    ? { ...s.scaffoldConfig, offsetX: activeDrag!.startOffsetX + dx, offsetY: activeDrag!.startOffsetY + dy }
-                    : s.scaffoldConfig
-            }));
-        } else if (activeDrag.type === 'pad-left') {
-            appState.update(s => ({
-                ...s,
-                scaffoldConfig: s.scaffoldConfig
-                    ? { ...s.scaffoldConfig, paddingLeft: Math.max(0, activeDrag!.startPad + dx) }
+                    ? { ...s.scaffoldConfig, paddingLeft: Math.max(0, startPad + dx) }
                     : s.scaffoldConfig
             }));
         } else if (activeDrag.type === 'pad-top') {
             appState.update(s => ({
                 ...s,
                 scaffoldConfig: s.scaffoldConfig
-                    ? { ...s.scaffoldConfig, paddingTop: Math.max(0, activeDrag!.startPad + dy) }
+                    ? { ...s.scaffoldConfig, paddingTop: Math.max(0, startPad + dy) }
                     : s.scaffoldConfig
             }));
         } else if (activeDrag.type === 'pad-right') {
             appState.update(s => ({
                 ...s,
                 scaffoldConfig: s.scaffoldConfig
-                    ? { ...s.scaffoldConfig, paddingRight: Math.max(0, activeDrag!.startPad - dx) }
+                    ? { ...s.scaffoldConfig, paddingRight: Math.max(0, startPad - dx) }
                     : s.scaffoldConfig
             }));
         } else if (activeDrag.type === 'pad-bottom') {
             appState.update(s => ({
                 ...s,
                 scaffoldConfig: s.scaffoldConfig
-                    ? { ...s.scaffoldConfig, paddingBottom: Math.max(0, activeDrag!.startPad - dy) }
+                    ? { ...s.scaffoldConfig, paddingBottom: Math.max(0, startPad - dy) }
                     : s.scaffoldConfig
             }));
+
+        // Resize handles — right/bottom grow in place; left/top also shift offset
+        } else if (activeDrag.type === 'resize-right') {
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: Math.max(10, startW + dx) }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-bottom') {
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotHeight: Math.max(10, startH + dy) }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-left') {
+            const newW = Math.max(10, startW - dx);
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: newW, offsetX: startOX + startW - newW }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-top') {
+            const newH = Math.max(10, startH - dy);
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotHeight: newH, offsetY: startOY + startH - newH }
+                : s.scaffoldConfig }));
+
+        // Corner handles
+        } else if (activeDrag.type === 'resize-br') {
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: Math.max(10, startW + dx), plotHeight: Math.max(10, startH + dy) }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-tl') {
+            const newW = Math.max(10, startW - dx);
+            const newH = Math.max(10, startH - dy);
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: newW, plotHeight: newH,
+                    offsetX: startOX + startW - newW, offsetY: startOY + startH - newH }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-tr') {
+            const newH = Math.max(10, startH - dy);
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: Math.max(10, startW + dx), plotHeight: newH,
+                    offsetY: startOY + startH - newH }
+                : s.scaffoldConfig }));
+        } else if (activeDrag.type === 'resize-bl') {
+            const newW = Math.max(10, startW - dx);
+            appState.update(s => ({ ...s, scaffoldConfig: s.scaffoldConfig
+                ? { ...s.scaffoldConfig, plotWidth: newW, plotHeight: Math.max(10, startH + dy),
+                    offsetX: startOX + startW - newW }
+                : s.scaffoldConfig }));
         }
     }
 
@@ -262,21 +311,113 @@
 <!-- Placed outside the aria-hidden group so they can receive pointer events -->
 <g class="scaffold-handles" pointer-events="all">
 
-    <!-- Move handle: top-left corner of bounding box -->
+    <!-- Resize handles on outer box edges -->
+    <!-- Left edge — resize width + shift offsetX -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
-        class="drag-handle move-handle"
+        class="drag-handle resize-handle"
+        x={ox - HANDLE_SIZE / 2} y={oy + totalH / 2 - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: ew-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-left')}
+    />
+    <!-- Right edge — resize width -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox + totalW - HANDLE_SIZE / 2} y={oy + totalH / 2 - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: ew-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-right')}
+    />
+    <!-- Top edge — resize height + shift offsetY -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox + totalW / 2 - HANDLE_SIZE / 2} y={oy - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: ns-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-top')}
+    />
+    <!-- Bottom edge — resize height -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox + totalW / 2 - HANDLE_SIZE / 2} y={oy + totalH - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: ns-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-bottom')}
+    />
+    <!-- Top-left corner — resize both + shift offset -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
         x={ox - HANDLE_SIZE / 2} y={oy - HANDLE_SIZE / 2}
         width={HANDLE_SIZE} height={HANDLE_SIZE}
         fill="#6366f1"
         stroke="white"
         stroke-width="1.5"
-        style="cursor: move"
+        style="cursor: nwse-resize"
         role="presentation"
-        onmousedown={(e) => onHandleMousedown(e, 'move')}
+        onmousedown={(e) => onHandleMousedown(e, 'resize-tl')}
+    />
+    <!-- Top-right corner — resize width + shift offsetY -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox + totalW - HANDLE_SIZE / 2} y={oy - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: nesw-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-tr')}
+    />
+    <!-- Bottom-left corner — resize height + shift offsetX -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox - HANDLE_SIZE / 2} y={oy + totalH - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: nesw-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-bl')}
+    />
+    <!-- Bottom-right corner — resize both -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <rect
+        class="drag-handle resize-handle"
+        x={ox + totalW - HANDLE_SIZE / 2} y={oy + totalH - HANDLE_SIZE / 2}
+        width={HANDLE_SIZE} height={HANDLE_SIZE}
+        fill="#6366f1"
+        stroke="white"
+        stroke-width="1.5"
+        style="cursor: nwse-resize"
+        role="presentation"
+        onmousedown={(e) => onHandleMousedown(e, 'resize-br')}
     />
 
-    <!-- Padding edge handles -->
+    <!-- Padding inner boundary handles -->
     <!-- Left padding — handle sits on the inner left boundary of the mark area -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <rect
