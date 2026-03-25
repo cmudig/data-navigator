@@ -230,75 +230,33 @@ export function positionNodesFromVegaScales(
     const updates = new Map<string, { x: number; y: number; width: number; height: number }>();
     const xField = config.xField;
     const yField = config.yField;
-    console.log(
-        '[scaffold] positionNodesFromVegaScales called — xField:',
-        xField,
-        '| yField:',
-        yField,
-        '| chartType:',
-        config.chartType
-    );
-    if (!xField || !yField) {
-        console.warn('[scaffold] xField or yField missing — cannot position nodes. Check ScaffoldPanel field mapping.');
-        return updates;
-    }
+    if (!xField || !yField) return updates;
 
     type BandScale = ((v: unknown) => number) & { bandwidth?: () => number };
     const xScale = view.scale('x') as BandScale | undefined;
     const yScale = view.scale('y') as ((v: unknown) => number) | undefined;
 
-    console.log('[scaffold] xScale:', xScale);
-    console.log('[scaffold] yScale:', yScale);
-    console.log('[scaffold] config:', {
-        chartType: config.chartType,
-        xField,
-        yField,
-        offsetX: config.offsetX,
-        offsetY: config.offsetY,
-        paddingLeft: config.paddingLeft,
-        paddingTop: config.paddingTop,
-        plotWidth: config.plotWidth,
-        plotHeight: config.plotHeight
-    });
-
-    if (!xScale || !yScale) {
-        console.warn('[scaffold] scales not found — aborting');
-        return updates;
-    }
+    if (!xScale || !yScale) return updates;
 
     const leafNodes = nodes.filter(n => n.dnLevel === 3);
-    console.log(
-        '[scaffold] leaf nodes:',
-        leafNodes.length,
-        leafNodes.map(n => ({ id: n.id, label: n.label, data: n.data }))
-    );
 
     if (config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar') {
         const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
         const yZero = yScale(0) ?? config.plotHeight;
-        console.log('[scaffold] bar: bandwidth =', bw, '| yZero (yScale(0)) =', yZero);
 
         for (const node of leafNodes) {
             const catVal = node.data[xField];
             const numVal = Number(node.data[yField] ?? 0);
             const scaledX = xScale(catVal);
-            console.log(
-                `[scaffold] node "${node.label}": ${xField}=${String(catVal)} → scaledX=${String(scaledX)}, ${yField}=${numVal} → yScale=${yScale(numVal)}`
-            );
-            if (scaledX === undefined || isNaN(scaledX as number)) {
-                console.warn(`[scaffold] skipping node "${node.label}" — scaledX is NaN/undefined`);
-                continue;
-            }
+            if (scaledX === undefined || isNaN(scaledX as number)) continue;
 
             const barTop = yScale(numVal);
-            const pos = {
+            updates.set(node.id, {
                 x: (scaledX as number) + config.paddingLeft + config.offsetX,
                 y: barTop + config.paddingTop + config.offsetY,
                 width: bw,
                 height: Math.max(1, (yZero as number) - barTop)
-            };
-            console.log(`[scaffold] node "${node.label}" → x=${pos.x} y=${pos.y} w=${pos.width} h=${pos.height}`);
-            updates.set(node.id, pos);
+            });
         }
     } else if (config.chartType === 'scatter') {
         const pointR = Math.sqrt((config.markParams.pointSize ?? 100) / Math.PI);
@@ -307,14 +265,12 @@ export function positionNodesFromVegaScales(
             const yVal = Number(node.data[yField] ?? 0);
             const px = xScale(xVal) as number;
             const py = yScale(yVal);
-            const pos = {
+            updates.set(node.id, {
                 x: px + config.paddingLeft + config.offsetX - pointR,
                 y: py + config.paddingTop + config.offsetY - pointR,
                 width: pointR * 2,
                 height: pointR * 2
-            };
-            console.log(`[scaffold] node "${node.label}" → x=${pos.x} y=${pos.y} w=${pos.width} h=${pos.height}`);
-            updates.set(node.id, pos);
+            });
         }
     }
 
