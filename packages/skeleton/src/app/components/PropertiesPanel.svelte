@@ -464,7 +464,7 @@
 
 <!-- ── EMPTY STATE ── -->
 {#if selType === 'none'}
-    <p class="panel-empty">Select a node or edge on the canvas to edit its properties.</p>
+    <p class="panel-empty">Use the "scaffold" tool (activated via a previous button) or select a node or edge on the canvas to edit its properties.</p>
 
 <!-- ── SINGLE NODE ── -->
 {:else if selType === 'singleNode' && selectedNode}
