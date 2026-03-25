@@ -13,12 +13,14 @@
     let prepState = $state<PrepState | null>(null);
     let committedScaffoldNodes = $state<SkeletonNode[]>([]);
     let allNodes = $state<SkeletonNode[]>([]);
+    let uploadedData = $state<Record<string, unknown>[] | null>(null);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
         prepState = s.prepState;
         committedScaffoldNodes = [...s.nodes.values()].filter(n => n.source === 'scaffold');
         allNodes = [...s.nodes.values()];
+        uploadedData = s.uploadedData;
     });
     onDestroy(_unsub);
 
@@ -77,6 +79,18 @@
         config?.chartType === 'line' ||
         config?.chartType === 'area'
     );
+
+    // Available column names for field mapping dropdowns.
+    // CSV mode: derived from the first uploaded data row.
+    // Synthetic mode: the field names used in the generated data.
+    const availableColumns = $derived.by(() => {
+        if (config?.dataMode === 'csv') {
+            return uploadedData?.[0] ? Object.keys(uploadedData[0]) : [];
+        }
+        const sc = config?.syntheticConfig;
+        if (!sc) return [];
+        return [sc.xField, sc.yField, ...(sc.colorField ? [sc.colorField] : [])];
+    });
 
     // ── Extract values state ──────────────────────────────────────────────────
     let extractCalibNodeId = $state('');
@@ -296,29 +310,48 @@
         </div>
     </section>
 
-    <!-- Field mapping (CSV mode only) -->
-    {#if config.dataMode === 'csv'}
+    <!-- Field mapping (Vega encoding channels) -->
     <section class="param-section">
         <h3 class="section-heading">Field mapping</h3>
         <div class="param-grid">
             <label class="param-row">
-                <span class="param-label">X field</span>
-                <input type="text" class="param-input field-input"
+                <span class="param-label">x</span>
+                <select class="param-select"
                     value={config.xField ?? ''}
-                    oninput={(e) => patchConfig({ xField: e.currentTarget.value || undefined })}
-                    placeholder="column name"
-                />
+                    onchange={(e) => patchConfig({ xField: e.currentTarget.value || undefined })}
+                >
+                    <option value="">— auto —</option>
+                    {#each availableColumns as col}
+                        <option value={col}>{col}</option>
+                    {/each}
+                </select>
             </label>
             <label class="param-row">
-                <span class="param-label">Y field</span>
-                <input type="text" class="param-input field-input"
+                <span class="param-label">y</span>
+                <select class="param-select"
                     value={config.yField ?? ''}
-                    oninput={(e) => patchConfig({ yField: e.currentTarget.value || undefined })}
-                    placeholder="column name"
-                />
+                    onchange={(e) => patchConfig({ yField: e.currentTarget.value || undefined })}
+                >
+                    <option value="">— auto —</option>
+                    {#each availableColumns as col}
+                        <option value={col}>{col}</option>
+                    {/each}
+                </select>
             </label>
             <label class="param-row">
-                <span class="param-label">X sort</span>
+                <span class="param-label">color</span>
+                <select class="param-select"
+                    value={config.colorField ?? ''}
+                    onchange={(e) => patchConfig({ colorField: e.currentTarget.value || undefined })}
+                >
+                    <option value="">— none —</option>
+                    {#each availableColumns as col}
+                        <option value={col}>{col}</option>
+                    {/each}
+                </select>
+            </label>
+            <label class="param-row">
+                <span class="param-label">Sort</span>
                 <select class="param-select"
                     value={config.sortX ?? 'none'}
                     onchange={(e) => patchConfig({ sortX: e.currentTarget.value as 'none' | 'ascending' | 'descending' })}
@@ -330,13 +363,27 @@
             </label>
         </div>
     </section>
-    {/if}
 
     <!-- Mark params (chart-type-specific) -->
     <section class="param-section">
         <h3 class="section-heading">Mark params</h3>
         <div class="param-grid">
             {#if config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar'}
+                <label class="param-row">
+                    <span class="param-label">Orientation</span>
+                    <select class="param-select"
+                        value={config.barOrientation ?? 'vertical'}
+                        onchange={(e) => {
+                            const next = e.currentTarget.value as 'vertical' | 'horizontal';
+                            if (next !== (config.barOrientation ?? 'vertical')) {
+                                patchConfig({ barOrientation: next });
+                            }
+                        }}
+                    >
+                        <option value="vertical">Vertical</option>
+                        <option value="horizontal">Horizontal</option>
+                    </select>
+                </label>
                 <label class="param-row">
                     <span class="param-label">Bar spacing</span>
                     <input type="range" class="param-slider" min="0" max="0.9" step="0.05"

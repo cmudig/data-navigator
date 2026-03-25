@@ -249,9 +249,12 @@ export interface ScaffoldConfig {
     yField?: string; // column name for y channel (quantitative value)
     colorField?: string; // column name for color/series channel (stacked, clustered, line)
 
-    // Visual sort order for the x axis — independent of navigation order set in Prep.
+    // Visual sort order for the categorical axis — independent of navigation order set in Prep.
     // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
     sortX?: 'none' | 'ascending' | 'descending';
+
+    // Bar chart orientation (bar / stacked-bar / clustered-bar only). Default: 'vertical'.
+    barOrientation?: 'vertical' | 'horizontal';
 
     // Group shape outlines for level 0/1/2 nodes — computed from leaf node positions
     groupShapes?: GroupShapeConfig;
