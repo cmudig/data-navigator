@@ -92,8 +92,10 @@ function buildBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
                 field: xField,
                 type: 'ordinal',
                 sort: vegaSortX(config),
-                bandPaddingInner: mp.barInnerPadding ?? 0.1,
-                bandPaddingOuter: mp.barOuterPadding ?? 0.05
+                scale: {
+                    paddingInner: mp.barInnerPadding ?? 0.1,
+                    paddingOuter: mp.barOuterPadding ?? 0.05
+                }
             },
             y: { field: yField, type: 'quantitative' }
         }
@@ -114,8 +116,10 @@ function buildStackedBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec 
                 field: xField,
                 type: 'ordinal',
                 sort: vegaSortX(config),
-                bandPaddingInner: mp.barInnerPadding ?? 0.1,
-                bandPaddingOuter: mp.barOuterPadding ?? 0.05
+                scale: {
+                    paddingInner: mp.barInnerPadding ?? 0.1,
+                    paddingOuter: mp.barOuterPadding ?? 0.05
+                }
             },
             y: { field: yField, type: 'quantitative', stack: 'zero' },
             color: { field: colorField, type: 'nominal' }
@@ -137,10 +141,12 @@ function buildClusteredBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpe
                 field: xField,
                 type: 'ordinal',
                 sort: vegaSortX(config),
-                bandPaddingInner: mp.barInnerPadding ?? 0.1,
-                bandPaddingOuter: mp.barOuterPadding ?? 0.05
+                scale: {
+                    paddingInner: mp.barInnerPadding ?? 0.1,
+                    paddingOuter: mp.barOuterPadding ?? 0.05
+                }
             },
-            xOffset: { field: colorField, type: 'nominal', bandPaddingInner: mp.groupPadding ?? 0.05 },
+            xOffset: { field: colorField, type: 'nominal', scale: { paddingInner: mp.groupPadding ?? 0.05 } },
             y: { field: yField, type: 'quantitative' },
             color: { field: colorField, type: 'nominal' }
         }
