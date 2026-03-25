@@ -286,7 +286,7 @@ export type NodeToAddOrReference = NodeObject | NodeId;
 
 export type Direction = 'target' | 'source';
 
-export type RenderingStrategy = 'outlineEach' | 'convexHull' | 'singleSquare' | 'custom'; // this has yet to be implemented!
+export type RenderingStrategy = 'convexHull' | 'unionOfAll' | 'boundingRect' | 'custom';
 
 export type DimensionType = 'numerical' | 'categorical';
 

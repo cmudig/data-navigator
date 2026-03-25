@@ -5,7 +5,7 @@ export type SkeletonNode = {
     dnLevel?: 0 | 1 | 2 | 3; // DN hierarchy level (set on schema-generated nodes)
     dimensionKey?: string; // the dimension field key for level1/level2 nodes (used to route labelConfig edits)
     renderId?: string; // DN's rendering ID — links to DOM element; defaults to id if unset
-    renderingStrategy?: 'outlineEach' | 'convexHull' | 'singleSquare' | 'custom'; // DN renderingStrategy
+    renderingStrategy?: 'convexHull' | 'unionOfAll' | 'boundingRect' | 'outlineEach' | 'singleSquare' | 'custom'; // DN renderingStrategy
     x: number; // pixels in image coordinate space (top-left)
     y: number;
     width: number;

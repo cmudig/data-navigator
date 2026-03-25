@@ -14,10 +14,15 @@
     import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
     import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
     import { setScaffoldView } from '../../../store/scaffoldRuntime';
+    import { computeGroupPaths } from '../../../utils/groupShapes';
+    import type { BonusRect } from '../../../store/appState';
 
     // ── Store sync ────────────────────────────────────────────────────────────
-    let config = $state<ScaffoldConfig | null>(null);
-    let uploadedData = $state<Record<string, unknown>[] | null>(null);
+    // $state.raw prevents Svelte 5 from wrapping these in a reactive proxy on each
+    // subscriber assignment. Without .raw, every appState.update() (even node-only
+    // changes) creates a new proxy object → dirtied signal → Vega $effect re-runs → loop.
+    let config = $state.raw<ScaffoldConfig | null>(null);
+    let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
@@ -40,6 +45,7 @@
     }
 
     async function doRender(cfg: ScaffoldConfig) {
+        console.log('[scaffold] doRender');
         if (currentCleanup) {
             currentCleanup();
             currentCleanup = null;
@@ -74,7 +80,7 @@
                     yField = yField ?? Object.keys(row).find(k => typeof row[k] === 'number');
                 }
 
-                if (xField || yField) {
+                if (xField !== cfg.xField || yField !== cfg.yField) {
                     cfg = { ...cfg, xField, yField };
                     appState.update(st => ({ ...st, scaffoldConfig: cfg }));
                 }
@@ -102,6 +108,9 @@
                     return { ...st, nodes: nextNodes };
                 });
             }
+
+            // Recompute group paths now that leaf positions are updated
+            applyGroupPaths();
         } catch (err) {
             renderError = String(err);
             currentView = null;
@@ -124,6 +133,54 @@
     onDestroy(() => {
         if (renderTimer) clearTimeout(renderTimer);
         if (currentCleanup) currentCleanup();
+    });
+
+    // ── Group path computation ─────────────────────────────────────────────────
+    // Separate effect: recomputes group paths whenever groupShapes config changes.
+    // Also triggered explicitly from doRender() after leaf positions update.
+
+    function applyGroupPaths() {
+        console.log('[scaffold] applyGroupPaths');
+        const cfg = get(appState).scaffoldConfig;
+        if (!cfg?.groupShapes) return;
+        const gs = cfg.groupShapes;
+        if (!gs.rootEnabled && !gs.dimensionEnabled && !gs.divisionEnabled) return;
+
+        const s = get(appState);
+        const allNodes = [...s.nodes.values()];
+        const allEdges = [...s.edges.values()];
+        const paths = computeGroupPaths(allNodes, allEdges, cfg);
+        if (paths.size === 0) return;
+
+        appState.update(st => {
+            const nextNodes = new Map(st.nodes);
+            for (const [id, pathData] of paths) {
+                const n = nextNodes.get(id);
+                if (n) {
+                    nextNodes.set(id, {
+                        ...n,
+                        pathData,
+                        renderProperties: { ...n.renderProperties, shape: 'path' }
+                    });
+                }
+            }
+            return { ...st, nodes: nextNodes };
+        });
+    }
+
+    $effect(() => {
+        // React to groupShapes config changes (strategy, padding, bonus rects)
+        const gs = config?.groupShapes;
+        // Access reactive properties to create dependency
+        if (!gs) return;
+        gs.rootEnabled; gs.rootStrategy; gs.rootPadding;
+        gs.dimensionEnabled; gs.dimensionStrategy; gs.dimensionPadding;
+        gs.divisionEnabled; gs.divisionStrategy; gs.divisionPadding;
+        // Bonus rects tracked via their records — changes propagate here
+        JSON.stringify(gs.dimensionBonusRects);
+        JSON.stringify(gs.divisionBonusRects);
+
+        applyGroupPaths();
     });
 
     // ── Drag handle logic ─────────────────────────────────────────────────────
@@ -166,6 +223,31 @@
     }
 
     function onWindowMousemove(e: MouseEvent) {
+        // Handle bonus rect drag
+        if (activeBonusDrag) {
+            const { level, key, mode, startClientX, startClientY, startRect } = activeBonusDrag;
+            const dx = e.clientX - startClientX;
+            const dy = e.clientY - startClientY;
+            const updated: BonusRect = mode === 'move'
+                ? { ...startRect, x: startRect.x + dx, y: startRect.y + dy }
+                : { ...startRect,
+                    width: Math.max(10, startRect.width + dx),
+                    height: Math.max(10, startRect.height + dy) };
+            appState.update(s => {
+                if (!s.scaffoldConfig?.groupShapes) return s;
+                const gs = s.scaffoldConfig.groupShapes;
+                const field = level === 'dimension' ? 'dimensionBonusRects' : 'divisionBonusRects';
+                return {
+                    ...s,
+                    scaffoldConfig: {
+                        ...s.scaffoldConfig,
+                        groupShapes: { ...gs, [field]: { ...gs[field], [key]: updated } }
+                    }
+                };
+            });
+            return;
+        }
+
         if (!activeDrag || !config) return;
         const dx = e.clientX - activeDrag.startClientX;
         const dy = e.clientY - activeDrag.startClientY;
@@ -248,8 +330,36 @@
         }
     }
 
+    // ── Bonus rect drag ───────────────────────────────────────────────────────
+    type BonusRectDrag = {
+        level: 'dimension' | 'division';
+        key: string;
+        mode: 'move' | 'resize';
+        startClientX: number;
+        startClientY: number;
+        startRect: BonusRect;
+    };
+    let activeBonusDrag = $state<BonusRectDrag | null>(null);
+
+    function onBonusRectMousedown(
+        e: MouseEvent,
+        level: 'dimension' | 'division',
+        key: string,
+        mode: 'move' | 'resize',
+        br: BonusRect
+    ) {
+        e.stopPropagation();
+        activeBonusDrag = {
+            level, key, mode,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startRect: { ...br }
+        };
+    }
+
     function onWindowMouseup() {
         activeDrag = null;
+        activeBonusDrag = null;
     }
 
     // ── Derived geometry ──────────────────────────────────────────────────────
@@ -416,6 +526,78 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'resize-br')}
     />
+
+    <!-- Bonus rect ghost nodes (dimension + division) -->
+    {#if config?.groupShapes}
+        {#each Object.entries(config.groupShapes.dimensionBonusRects) as [dimKey, br] (dimKey)}
+            {#if br.enabled}
+                <rect
+                    x={br.x} y={br.y} width={br.width} height={br.height}
+                    fill="rgba(99,102,241,0.1)"
+                    stroke="#818cf8"
+                    stroke-width="1.5"
+                    stroke-dasharray="5 3"
+                    pointer-events="none"
+                />
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <rect
+                    class="drag-handle bonus-handle"
+                    x={br.x + br.width / 2 - HANDLE_SIZE / 2}
+                    y={br.y + br.height / 2 - HANDLE_SIZE / 2}
+                    width={HANDLE_SIZE} height={HANDLE_SIZE}
+                    fill="#818cf8" stroke="white" stroke-width="1.5"
+                    style="cursor: move"
+                    role="presentation"
+                    onmousedown={(e) => onBonusRectMousedown(e, 'dimension', dimKey, 'move', br)}
+                />
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <rect
+                    class="drag-handle bonus-handle"
+                    x={br.x + br.width - HANDLE_SIZE / 2}
+                    y={br.y + br.height - HANDLE_SIZE / 2}
+                    width={HANDLE_SIZE} height={HANDLE_SIZE}
+                    fill="#818cf8" stroke="white" stroke-width="1.5"
+                    style="cursor: nwse-resize"
+                    role="presentation"
+                    onmousedown={(e) => onBonusRectMousedown(e, 'dimension', dimKey, 'resize', br)}
+                />
+            {/if}
+        {/each}
+        {#each Object.entries(config.groupShapes.divisionBonusRects) as [divId, br] (divId)}
+            {#if br.enabled}
+                <rect
+                    x={br.x} y={br.y} width={br.width} height={br.height}
+                    fill="rgba(99,102,241,0.1)"
+                    stroke="#a5b4fc"
+                    stroke-width="1.5"
+                    stroke-dasharray="5 3"
+                    pointer-events="none"
+                />
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <rect
+                    class="drag-handle bonus-handle"
+                    x={br.x + br.width / 2 - HANDLE_SIZE / 2}
+                    y={br.y + br.height / 2 - HANDLE_SIZE / 2}
+                    width={HANDLE_SIZE} height={HANDLE_SIZE}
+                    fill="#a5b4fc" stroke="white" stroke-width="1.5"
+                    style="cursor: move"
+                    role="presentation"
+                    onmousedown={(e) => onBonusRectMousedown(e, 'division', divId, 'move', br)}
+                />
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <rect
+                    class="drag-handle bonus-handle"
+                    x={br.x + br.width - HANDLE_SIZE / 2}
+                    y={br.y + br.height - HANDLE_SIZE / 2}
+                    width={HANDLE_SIZE} height={HANDLE_SIZE}
+                    fill="#a5b4fc" stroke="white" stroke-width="1.5"
+                    style="cursor: nwse-resize"
+                    role="presentation"
+                    onmousedown={(e) => onBonusRectMousedown(e, 'division', divId, 'resize', br)}
+                />
+            {/if}
+        {/each}
+    {/if}
 
     <!-- Padding inner boundary handles -->
     <!-- Left padding — handle sits on the inner left boundary of the mark area -->

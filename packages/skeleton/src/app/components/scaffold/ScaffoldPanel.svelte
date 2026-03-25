@@ -5,19 +5,35 @@
     import type { SkeletonNode } from '../../../store/types';
     import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
     import { latestView } from '../../../store/scaffoldRuntime';
-    import { logAction } from '../../../store/historyStore';
+    import { logAction, logActionDebounced } from '../../../store/historyStore';
+    import type { GroupShapeConfig, BonusRect } from '../../../store/appState';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let config = $state<ScaffoldConfig | null>(null);
     let prepState = $state<PrepState | null>(null);
     let committedScaffoldNodes = $state<SkeletonNode[]>([]);
+    let allNodes = $state<SkeletonNode[]>([]);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
         prepState = s.prepState;
         committedScaffoldNodes = [...s.nodes.values()].filter(n => n.source === 'scaffold');
+        allNodes = [...s.nodes.values()];
     });
     onDestroy(_unsub);
+
+    // Derived node lists for Group Shapes panel
+    const dimensionNodes = $derived(allNodes.filter(n => n.dnLevel === 1));
+    const divisionNodes  = $derived(allNodes.filter(n => n.dnLevel === 2));
+    const divisionsByDimension = $derived(() => {
+        const map = new Map<string, SkeletonNode[]>();
+        for (const n of divisionNodes) {
+            const key = n.dimensionKey ?? 'unknown';
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(n);
+        }
+        return map;
+    });
 
     // ── Done ──────────────────────────────────────────────────────────────────
     function handleDone() {
@@ -73,6 +89,7 @@
             ...s,
             scaffoldConfig: s.scaffoldConfig ? { ...s.scaffoldConfig, ...patch } : s.scaffoldConfig
         }));
+        logActionDebounced('Scaffold config changed');
     }
 
     function patchMarkParams(patch: Partial<ScaffoldConfig['markParams']>) {
@@ -82,7 +99,90 @@
                 ? { ...s.scaffoldConfig, markParams: { ...s.scaffoldConfig.markParams, ...patch } }
                 : s.scaffoldConfig
         }));
+        logActionDebounced('Scaffold config changed');
     }
+
+    // ── Group shape helpers ───────────────────────────────────────────────────
+
+    function defaultGroupShapeConfig(): GroupShapeConfig {
+        return {
+            rootEnabled: false, rootStrategy: 'convexHull', rootPadding: 8,
+            dimensionEnabled: false, dimensionStrategy: 'convexHull', dimensionPadding: 6,
+            dimensionBonusRects: {},
+            divisionEnabled: false, divisionStrategy: 'convexHull', divisionPadding: 4,
+            divisionBonusRects: {}
+        };
+    }
+
+    function patchGroupShapes(patch: Partial<GroupShapeConfig>) {
+        appState.update(s => {
+            if (!s.scaffoldConfig) return s;
+            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
+            return {
+                ...s,
+                scaffoldConfig: { ...s.scaffoldConfig, groupShapes: { ...prev, ...patch } }
+            };
+        });
+        logActionDebounced('Group shapes changed');
+    }
+
+    function toggleBonusRect(
+        level: 'dimension' | 'division',
+        key: string,
+        enabled: boolean,
+        fallbackX: number,
+        fallbackY: number
+    ) {
+        appState.update(s => {
+            if (!s.scaffoldConfig) return s;
+            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
+            const field = level === 'dimension' ? 'dimensionBonusRects' : 'divisionBonusRects';
+            const existing = prev[field][key];
+            const updated: BonusRect = existing
+                ? { ...existing, enabled }
+                : { enabled, x: fallbackX, y: fallbackY, width: 80, height: 40 };
+            return {
+                ...s,
+                scaffoldConfig: {
+                    ...s.scaffoldConfig,
+                    groupShapes: { ...prev, [field]: { ...prev[field], [key]: updated } }
+                }
+            };
+        });
+        logActionDebounced('Group shapes changed');
+    }
+
+    function patchBonusRect(
+        level: 'dimension' | 'division',
+        key: string,
+        patch: Partial<BonusRect>
+    ) {
+        appState.update(s => {
+            if (!s.scaffoldConfig) return s;
+            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
+            const field = level === 'dimension' ? 'dimensionBonusRects' : 'divisionBonusRects';
+            const existing = prev[field][key] ?? { enabled: true, x: 0, y: 0, width: 80, height: 40 };
+            return {
+                ...s,
+                scaffoldConfig: {
+                    ...s.scaffoldConfig,
+                    groupShapes: { ...prev, [field]: { ...prev[field], [key]: { ...existing, ...patch } } }
+                }
+            };
+        });
+        logActionDebounced('Group shapes changed');
+    }
+
+    // Convenience getter so template can reference gs without null checks
+    const gs = $derived(
+        config?.groupShapes ?? {
+            rootEnabled: false, rootStrategy: 'convexHull' as const, rootPadding: 8,
+            dimensionEnabled: false, dimensionStrategy: 'convexHull' as const, dimensionPadding: 6,
+            dimensionBonusRects: {},
+            divisionEnabled: false, divisionStrategy: 'convexHull' as const, divisionPadding: 4,
+            divisionBonusRects: {}
+        }
+    );
 
     function patchSyntheticConfig(patch: Partial<SyntheticDataConfig>) {
         appState.update(s => {
@@ -95,6 +195,7 @@
                 scaffoldConfig: { ...s.scaffoldConfig, syntheticConfig: { ...prev, ...patch } }
             };
         });
+        logActionDebounced('Scaffold config changed');
     }
 
     function updateCategories(raw: string) {
@@ -325,6 +426,218 @@
         </section>
     {/if}
 
+    <!-- Group Shapes -->
+    <section class="param-section">
+        <h3 class="section-heading">Group Shapes</h3>
+        <p class="section-hint">Compute SVG paths for root, dimension, and division nodes.</p>
+
+        <!-- Root node -->
+        <div class="group-subsection">
+            <label class="subsection-toggle">
+                <input type="checkbox"
+                    checked={gs.rootEnabled}
+                    onchange={(e) => patchGroupShapes({ rootEnabled: e.currentTarget.checked })}
+                />
+                <span class="subsection-label">Root node</span>
+            </label>
+            {#if gs.rootEnabled}
+                <div class="param-grid gs-indent">
+                    <label class="param-row">
+                        <span class="param-label">Strategy</span>
+                        <select class="param-select"
+                            value={gs.rootStrategy}
+                            onchange={(e) => patchGroupShapes({ rootStrategy: e.currentTarget.value as GroupShapeConfig['rootStrategy'] })}
+                        >
+                            <option value="convexHull">Convex hull</option>
+                            <option value="unionOfAll">Union of all</option>
+                            <option value="boundingRect">Bounding rect</option>
+                        </select>
+                    </label>
+                    <label class="param-row">
+                        <span class="param-label">Padding</span>
+                        <input type="number" class="param-input" min="0" step="2"
+                            value={gs.rootPadding}
+                            oninput={(e) => patchGroupShapes({ rootPadding: +e.currentTarget.value })}
+                        />
+                        <span class="param-val">px</span>
+                    </label>
+                </div>
+            {/if}
+        </div>
+
+        <!-- Dimensions -->
+        <div class="group-subsection">
+            <label class="subsection-toggle">
+                <input type="checkbox"
+                    checked={gs.dimensionEnabled}
+                    onchange={(e) => patchGroupShapes({ dimensionEnabled: e.currentTarget.checked })}
+                />
+                <span class="subsection-label">Dimensions</span>
+            </label>
+            {#if gs.dimensionEnabled}
+                <div class="param-grid gs-indent">
+                    <label class="param-row">
+                        <span class="param-label">Strategy</span>
+                        <select class="param-select"
+                            value={gs.dimensionStrategy}
+                            onchange={(e) => patchGroupShapes({ dimensionStrategy: e.currentTarget.value as GroupShapeConfig['dimensionStrategy'] })}
+                        >
+                            <option value="convexHull">Convex hull</option>
+                            <option value="unionOfAll">Union of all</option>
+                        </select>
+                    </label>
+                    <label class="param-row">
+                        <span class="param-label">Padding</span>
+                        <input type="number" class="param-input" min="0" step="2"
+                            value={gs.dimensionPadding}
+                            oninput={(e) => patchGroupShapes({ dimensionPadding: +e.currentTarget.value })}
+                        />
+                        <span class="param-val">px</span>
+                    </label>
+                </div>
+                {#if dimensionNodes.length > 0}
+                    <div class="bonus-rect-list">
+                        {#each dimensionNodes as dimNode (dimNode.id)}
+                            {@const dimKey = dimNode.dimensionKey ?? dimNode.id}
+                            {@const br = gs.dimensionBonusRects[dimKey]}
+                            <div class="bonus-rect-item">
+                                <label class="bonus-rect-toggle">
+                                    <input type="checkbox"
+                                        checked={br?.enabled ?? false}
+                                        onchange={(e) => toggleBonusRect('dimension', dimKey, e.currentTarget.checked, (config?.offsetX ?? 0) + 10, (config?.offsetY ?? 0) + 10)}
+                                    />
+                                    <span class="bonus-rect-label">{dimNode.label}</span>
+                                    <span class="bonus-rect-hint">bonus rect</span>
+                                </label>
+                                {#if br?.enabled}
+                                    <div class="bonus-rect-inputs">
+                                        <label class="param-row">
+                                            <span class="param-label xs">X</span>
+                                            <input type="number" class="param-input sm" step="1"
+                                                value={br.x}
+                                                oninput={(e) => patchBonusRect('dimension', dimKey, { x: +e.currentTarget.value })}
+                                            />
+                                        </label>
+                                        <label class="param-row">
+                                            <span class="param-label xs">Y</span>
+                                            <input type="number" class="param-input sm" step="1"
+                                                value={br.y}
+                                                oninput={(e) => patchBonusRect('dimension', dimKey, { y: +e.currentTarget.value })}
+                                            />
+                                        </label>
+                                        <label class="param-row">
+                                            <span class="param-label xs">W</span>
+                                            <input type="number" class="param-input sm" step="1" min="1"
+                                                value={br.width}
+                                                oninput={(e) => patchBonusRect('dimension', dimKey, { width: +e.currentTarget.value })}
+                                            />
+                                        </label>
+                                        <label class="param-row">
+                                            <span class="param-label xs">H</span>
+                                            <input type="number" class="param-input sm" step="1" min="1"
+                                                value={br.height}
+                                                oninput={(e) => patchBonusRect('dimension', dimKey, { height: +e.currentTarget.value })}
+                                            />
+                                        </label>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="section-hint gs-indent">No dimension nodes found. Apply scaffold first.</p>
+                {/if}
+            {/if}
+        </div>
+
+        <!-- Divisions -->
+        <div class="group-subsection">
+            <label class="subsection-toggle">
+                <input type="checkbox"
+                    checked={gs.divisionEnabled}
+                    onchange={(e) => patchGroupShapes({ divisionEnabled: e.currentTarget.checked })}
+                />
+                <span class="subsection-label">Divisions</span>
+            </label>
+            {#if gs.divisionEnabled}
+                <div class="param-grid gs-indent">
+                    <label class="param-row">
+                        <span class="param-label">Strategy</span>
+                        <select class="param-select"
+                            value={gs.divisionStrategy}
+                            onchange={(e) => patchGroupShapes({ divisionStrategy: e.currentTarget.value as GroupShapeConfig['divisionStrategy'] })}
+                        >
+                            <option value="convexHull">Convex hull</option>
+                            <option value="unionOfAll">Union of all</option>
+                        </select>
+                    </label>
+                    <label class="param-row">
+                        <span class="param-label">Padding</span>
+                        <input type="number" class="param-input" min="0" step="2"
+                            value={gs.divisionPadding}
+                            oninput={(e) => patchGroupShapes({ divisionPadding: +e.currentTarget.value })}
+                        />
+                        <span class="param-val">px</span>
+                    </label>
+                </div>
+                {#if divisionNodes.length > 0}
+                    <div class="bonus-rect-list">
+                        {#each [...divisionsByDimension()] as [dimKey, divs]}
+                            <p class="dim-heading">{dimKey}</p>
+                            {#each divs as divNode (divNode.id)}
+                                {@const br = gs.divisionBonusRects[divNode.id]}
+                                <div class="bonus-rect-item">
+                                    <label class="bonus-rect-toggle">
+                                        <input type="checkbox"
+                                            checked={br?.enabled ?? false}
+                                            onchange={(e) => toggleBonusRect('division', divNode.id, e.currentTarget.checked, divNode.x, divNode.y)}
+                                        />
+                                        <span class="bonus-rect-label">{divNode.label}</span>
+                                        <span class="bonus-rect-hint">bonus rect</span>
+                                    </label>
+                                    {#if br?.enabled}
+                                        <div class="bonus-rect-inputs">
+                                            <label class="param-row">
+                                                <span class="param-label xs">X</span>
+                                                <input type="number" class="param-input sm" step="1"
+                                                    value={br.x}
+                                                    oninput={(e) => patchBonusRect('division', divNode.id, { x: +e.currentTarget.value })}
+                                                />
+                                            </label>
+                                            <label class="param-row">
+                                                <span class="param-label xs">Y</span>
+                                                <input type="number" class="param-input sm" step="1"
+                                                    value={br.y}
+                                                    oninput={(e) => patchBonusRect('division', divNode.id, { y: +e.currentTarget.value })}
+                                                />
+                                            </label>
+                                            <label class="param-row">
+                                                <span class="param-label xs">W</span>
+                                                <input type="number" class="param-input sm" step="1" min="1"
+                                                    value={br.width}
+                                                    oninput={(e) => patchBonusRect('division', divNode.id, { width: +e.currentTarget.value })}
+                                                />
+                                            </label>
+                                            <label class="param-row">
+                                                <span class="param-label xs">H</span>
+                                                <input type="number" class="param-input sm" step="1" min="1"
+                                                    value={br.height}
+                                                    oninput={(e) => patchBonusRect('division', divNode.id, { height: +e.currentTarget.value })}
+                                                />
+                                            </label>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/each}
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="section-hint gs-indent">No division nodes found. Apply scaffold first.</p>
+                {/if}
+            {/if}
+        </div>
+    </section>
+
     <!-- Done button -->
     <div class="panel-actions">
         <button class="btn-primary" type="button" onclick={handleDone}>
@@ -523,5 +836,93 @@
 
     .extract-section {
         background: #f0fdf4;
+    }
+
+    /* Group Shapes section */
+    .group-subsection {
+        margin-bottom: calc(var(--dn-space) * 1.25);
+        padding-bottom: calc(var(--dn-space) * 1);
+        border-bottom: 1px dashed var(--dn-border);
+    }
+    .group-subsection:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .subsection-toggle {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.75);
+        cursor: pointer;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--dn-text);
+        margin-bottom: calc(var(--dn-space) * 0.75);
+    }
+    .subsection-label {
+        flex: 1;
+    }
+
+    .gs-indent {
+        margin-left: calc(var(--dn-space) * 1.5);
+    }
+
+    .bonus-rect-list {
+        margin-left: calc(var(--dn-space) * 1.5);
+        margin-top: calc(var(--dn-space) * 0.75);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.5);
+    }
+
+    .bonus-rect-item {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.5);
+    }
+
+    .bonus-rect-toggle {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--dn-space) * 0.5);
+        cursor: pointer;
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+    }
+    .bonus-rect-label {
+        flex: 1;
+        font-size: 0.8125rem;
+    }
+    .bonus-rect-hint {
+        font-size: 0.7rem;
+        color: var(--dn-text-muted);
+        background: var(--dn-accent-soft);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .bonus-rect-inputs {
+        margin-left: calc(var(--dn-space) * 1.5);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.4);
+    }
+
+    .param-label.xs {
+        flex: 0 0 20px;
+        font-size: 0.75rem;
+    }
+
+    .param-input.sm {
+        width: 54px;
+    }
+
+    .dim-heading {
+        margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.25);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--dn-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 </style>

@@ -164,6 +164,37 @@ export interface PrepState {
     labelConfig: LabelConfig;
 }
 
+// --- Group shape types ---
+
+export interface BonusRect {
+    enabled: boolean;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface GroupShapeConfig {
+    // Root node (level 0)
+    rootEnabled: boolean;
+    rootStrategy: 'convexHull' | 'unionOfAll' | 'boundingRect';
+    rootPadding: number; // px
+
+    // Dimension nodes (level 1) — single shared strategy
+    dimensionEnabled: boolean;
+    dimensionStrategy: 'convexHull' | 'unionOfAll';
+    dimensionPadding: number; // px
+    // keyed by dimensionKey (the field name, e.g. 'fruit')
+    dimensionBonusRects: Record<string, BonusRect>;
+
+    // Division nodes (level 2) — single shared strategy
+    divisionEnabled: boolean;
+    divisionStrategy: 'convexHull' | 'unionOfAll';
+    divisionPadding: number; // px
+    // keyed by division node id
+    divisionBonusRects: Record<string, BonusRect>;
+}
+
 // --- Scaffold mode types ---
 
 export interface ScaffoldMarkParams {
@@ -221,6 +252,9 @@ export interface ScaffoldConfig {
     // Visual sort order for the x axis — independent of navigation order set in Prep.
     // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
     sortX?: 'none' | 'ascending' | 'descending';
+
+    // Group shape outlines for level 0/1/2 nodes — computed from leaf node positions
+    groupShapes?: GroupShapeConfig;
 }
 
 export interface AppState {
