@@ -16,3 +16,4 @@ export {
     grahamScan
 } from './geometry';
 export type { Rect, Point, Circle } from './geometry';
+export { describeNode, createValidId } from './utilities';
