@@ -43,6 +43,35 @@ export type SkeletonNode = {
     };
 };
 
+/**
+ * Represents a single navigable relationship between two nodes.
+ *
+ * ## DN edge model — one edge, always two nav rules
+ *
+ * Every edge in the DN library carries exactly two `navigationRuleNames`
+ * (forward + backward). Directionality is NOT determined by the number of
+ * rules on the edge — it is determined at the NODE level: `addEdgeToNode()`
+ * in the DN library controls which nodes hold the edge in their edge list.
+ *
+ * **Drill (parent → child / child → parent):**
+ *   - `navigationRuleNames: ['drill in', 'drill out']`
+ *   - Dimension node holds only the edge to its FIRST division (via `addEdgeToNode`).
+ *   - Each non-first division holds its own parent edge as TARGET only.
+ *   - Visually rendered as a single straight arrow (source → target).
+ *
+ * **Sibling (within-dimension navigation):**
+ *   - `navigationRuleNames: ['forward', 'backward']` (or left/right)
+ *   - Both endpoints hold the same edge ID.
+ *   - Visually rendered as two curved arrows (one per direction) within one `<g>`.
+ *   - `addEdgeBetween()` in GraphCanvas creates this when "Add pairs" is enabled.
+ *
+ * **Navigation structure for testing:**
+ * The testing page reads `appState.dnStructure` directly (raw DN result from
+ * SchemaPanel) rather than reconstructing via `toStructure()`. This preserves
+ * the correct per-node edge membership that the DN library sets — information
+ * that is not stored on `SkeletonEdge` and cannot be reconstructed from
+ * source/target alone. `toStructure()` is a fallback for purely manual graphs.
+ */
 export type SkeletonEdge = {
     id: string;
     sourceId: string;
@@ -50,5 +79,5 @@ export type SkeletonEdge = {
     direction: 'up' | 'down' | 'left' | 'right' | 'exit' | 'custom';
     label: string;
     dnProperties: Record<string, unknown>;
-    navigationRuleNames?: string[]; // DN nav rule names this edge carries (e.g. ['left', 'right'])
+    navigationRuleNames?: string[]; // DN nav rule names (always 2: forward + backward)
 };

@@ -400,8 +400,14 @@
             .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
         if (included.length === 0) return null;
 
-        // Stamp a copy of the data with stable row IDs so we don't mutate uploadedData
-        const stampedData = data.map((d, i) => ({ ...d, '_dn_id': `row_${i}` }));
+        // Stamp a copy of the data with stable row IDs so we don't mutate uploadedData.
+        // Use the user's designated ID column (isId from Prep) when available, so that
+        // node IDs reflect real data values (e.g. "apples") rather than synthetic "row_0".
+        const idCol = prepState?.variables.find(v => v.isId && !v.removed)?.key;
+        const stampedData = data.map((d, i) => ({
+            ...d,
+            '_dn_id': idCol ? String(d[idCol] ?? `row_${i}`) : `row_${i}`,
+        }));
 
         const dimensionValues = included.map(dim => {
             // Build lookup: originalValue → user-edited ID (for passing custom IDs back to DN)
@@ -810,17 +816,10 @@
                 const tgtSchema = s.nodes.get(edge.targetId)?.source === 'schema';
                 if (!srcSchema && !tgtSchema) newEdges.set(id, edge);
             });
-            const addedPairs = new Set<string>();
-            let edgeIdx = 0;
-            const addEdge = (srcId: string, tgtId: string, label: string = '', direction: SkeletonEdge['direction'] = 'down', ruleNames?: string[]) => {
-                const key = `${srcId}→${tgtId}`;
-                if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
-                addedPairs.add(key);
-                const id = `schema_edge_${edgeIdx++}`;
-                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {}, navigationRuleNames: ruleNames });
-            };
-            // Build all edges directly from structure.edges — DN has already computed every
-            // edge correctly (drill, sibling, bridgedCousins, circular, etc.).
+            const addedEdges = new Set<string>();
+            // DN edge model: a single edge carries all nav rules. All edges have 2 rules
+            // (forward + backward); which NODES hold the edge determines traversal direction.
+            // Preserve DN edge IDs directly so the editor and testing views share the same IDs.
             const ruleToDirection = (rule: string): SkeletonEdge['direction'] => {
                 const r = rule.toLowerCase();
                 if (r.includes('up') || r.includes('drill out') || r.includes('backward')) return 'up';
@@ -828,17 +827,18 @@
                 if (r.includes('left')) return 'left';
                 return 'right';
             };
-            Object.values(structure.edges as Record<string, any>).forEach((dnEdge: any) => {
+            // Build all edges directly from structure.edges — DN has already computed every
+            // edge correctly (drill, sibling, bridgedCousins, circular, etc.).
+            // Use Object.entries to preserve the DN edge ID as the skeleton edge ID.
+            Object.entries(structure.edges as Record<string, any>).forEach(([dnEdgeId, dnEdge]: [string, any]) => {
                 const src: unknown = dnEdge.source;
                 const tgt: unknown = dnEdge.target;
                 if (typeof src !== 'string' || typeof tgt !== 'string') return;
+                if (addedEdges.has(dnEdgeId) || !newNodes.has(src) || !newNodes.has(tgt)) return;
+                addedEdges.add(dnEdgeId);
                 const rules: string[] = dnEdge.navigationRules ?? [];
-                const fwdRule = rules[0] ?? '';
-                const bwdRule = rules[1] ?? '';
-                addEdge(src, tgt, fwdRule, ruleToDirection(fwdRule), fwdRule ? [fwdRule] : undefined);
-                if (bwdRule) {
-                    addEdge(tgt, src, bwdRule, ruleToDirection(bwdRule), [bwdRule]);
-                }
+                const ruleNames = rules.filter(Boolean);
+                newEdges.set(dnEdgeId, { id: dnEdgeId, sourceId: src, targetId: tgt, direction: ruleToDirection(rules[0] ?? ''), label: rules[0] ?? '', dnProperties: {}, navigationRuleNames: ruleNames.length > 0 ? ruleNames : undefined });
             });
 
             const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id
@@ -854,7 +854,7 @@
     // The schema graph viewer (Inspector) is independent of the GraphCanvas coordinate space.
 
     $effect(() => {
-        if (!uploadedData || schema.collapsed) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (!uploadedData || schema.collapsed) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // Track all reactive schema fields BEFORE any early return so that Svelte 5 always
         // records the correct dependency set for this effect. If we returned early before
@@ -870,7 +870,7 @@
         const included = _dims.filter(d => d.included)
             .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
-        if (included.length === 0) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (included.length === 0) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // If this re-run was triggered by syncDivisionsFromDN updating the schema, skip the
         // rebuild. The DN structure hasn't changed — only the division IDs were populated as
@@ -883,7 +883,7 @@
         }
 
         const result = buildDNStructure(uploadedData, schema);
-        if (!result) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (!result) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // Defer side-effects — both have no-op guards so repeated calls are cheap.
         const capturedInc = [...included];
@@ -895,11 +895,13 @@
             queueMicrotask(() => initCanvasNodesFromSchema(result, capturedSchema));
         });
 
-        // Expose the DN structure for the schema graph viewer (Inspector).
-        // The Inspector renders its own abstract layout — no x/y bleed into GraphCanvas.
+        // Expose the DN structure for the schema graph viewer (Inspector) and for the
+        // testing page, which reads appState.dnStructure directly to avoid reconstructing
+        // the per-node edge membership that the DN library sets via addEdgeToNode().
         dnResult = result;
         _dnHasResult = true;
         _dnTick = ++_dnCounter;
+        appState.update(s => ({ ...s, dnStructure: result as Record<string, unknown> }));
     });
 
     // ─── Inspector graph (schema structure visualization) ─────────────────────

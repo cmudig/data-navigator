@@ -8,8 +8,16 @@ export interface StructureInput {
 
 /*
  * Converts the skeleton's internal SkeletonNode/SkeletonEdge maps into a
- * data-navigator v2.4.0 Structure object suitable for rendering, input, and
- * text-chat modules.
+ * data-navigator v2.4.0 Structure object.
+ *
+ * PRIMARY USE: extracting elementData (spatial positions) for the rendering overlay.
+ * FALLBACK USE: navigation structure for purely manual graphs (no schema run).
+ *
+ * For schema-generated graphs, Step3_Testing reads appState.dnStructure directly
+ * (the raw DN result from SchemaPanel). That preserves the correct per-node edge
+ * membership set by addEdgeToNode() in the DN library — something toStructure()
+ * cannot reconstruct, since SkeletonEdge only stores source/target, not which
+ * nodes hold the edge.
  */
 
 export interface DNStructure {
@@ -149,7 +157,12 @@ export function toStructure(state: StructureInput): DNStructure | null {
             edgeId: id
         };
 
-        // Both source and target nodes need the edge ID in their edges list
+        // Fallback path: add edge to both source and target.
+        // This is correct for the elementData use-case and for purely manual graphs.
+        // Schema-generated graphs bypass this entirely — the testing page uses
+        // appState.dnStructure directly, which has correct per-node membership
+        // from the DN library (addEdgeToNode sets it per-node independently of
+        // source/target designation on the edge).
         if (nodes[skEdge.sourceId]) nodes[skEdge.sourceId].edges.push(id);
         if (nodes[skEdge.targetId]) nodes[skEdge.targetId].edges.push(id);
     }

@@ -290,6 +290,10 @@ export interface AppState {
     // Scaffold mode (Step 2 — Editor)
     scaffoldConfig: ScaffoldConfig | null; // null until first scaffold setup
     scaffoldModeActive: boolean; // true when scaffold toolbar panel is open
+    // Raw DN structure from SchemaPanel — stored as the canonical navigation structure.
+    // The testing page reads this directly rather than reconstructing via toStructure(),
+    // which cannot reproduce the per-node edge membership set by the DN library.
+    dnStructure: Record<string, unknown> | null;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -368,7 +372,8 @@ export const DEFAULT_APP_STATE: AppState = {
     prepState: null,
     hasManualNodeEdits: false,
     scaffoldConfig: null,
-    scaffoldModeActive: false
+    scaffoldModeActive: false,
+    dnStructure: null
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

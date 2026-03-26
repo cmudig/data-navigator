@@ -18,6 +18,9 @@
     let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let renderConfig = $state<RenderConfig>({ positionUnit: 'px', showOverlay: false, semanticNames: [] });
+    // Raw DN result from SchemaPanel — canonical navigation structure with correct
+    // per-node edge membership. null when no schema has been built yet.
+    let appDnStructure = $state<Record<string, unknown> | null>(null);
 
     let graphMode    = $state<'force' | 'tree'>('force');
 
@@ -28,13 +31,14 @@
     const _unsub = appState.subscribe(s => {
         if (s.nodes !== _lastNodes) { _lastNodes = s.nodes; nodes = s.nodes; }
         if (s.edges !== _lastEdges) { _lastEdges = s.edges; edges = s.edges; }
-        entryNodeId  = s.entryNodeId;
-        imageDataUrl = s.imageDataUrl;
-        imageWidth   = s.imageWidth;
-        imageHeight  = s.imageHeight;
-        uploadedData = s.uploadedData;
-        renderConfig = s.renderConfig;
-        graphMode    = s.schemaState.graphMode as 'force' | 'tree';
+        entryNodeId    = s.entryNodeId;
+        imageDataUrl   = s.imageDataUrl;
+        imageWidth     = s.imageWidth;
+        imageHeight    = s.imageHeight;
+        uploadedData   = s.uploadedData;
+        renderConfig   = s.renderConfig;
+        graphMode      = s.schemaState.graphMode as 'force' | 'tree';
+        appDnStructure = s.dnStructure;
     });
     onDestroy(_unsub);
 
@@ -76,7 +80,21 @@
 
     const dnStructure = $derived.by<DNStructure | null>(() => {
         if (nodes.size === 0) return null;
-        return toStructure({ nodes, edges } satisfies StructureInput);
+        // Always call toStructure() to get elementData (spatial positions for the
+        // rendering overlay). We need it even when appDnStructure is present.
+        const skelStructure = toStructure({ nodes, edges } satisfies StructureInput);
+        if (!skelStructure) return null;
+        // Prefer the raw DN result stored by SchemaPanel — it has correct per-node
+        // edge membership set by addEdgeToNode() in the DN library. The skeleton
+        // reconstruction in toStructure() cannot reproduce this correctly.
+        // Fall back to the skeleton-reconstructed structure for purely manual graphs.
+        if (appDnStructure) {
+            return {
+                ...appDnStructure,
+                elementData: skelStructure.elementData,
+            } as DNStructure;
+        }
+        return skelStructure;
     });
 
     const warnings = $derived.by(() =>
@@ -85,13 +103,8 @@
 
     const edgeLines = $derived.by(() => {
         if (!showAllEdges) return [];
-        // Compute paired edges (A→B + B→A both exist) — same logic as GraphCanvas
-        const pairedEdgeIds = new Set<string>();
-        const reverseKey = new Map<string, string>();
-        edges.forEach(edge => reverseKey.set(`${edge.targetId}→${edge.sourceId}`, edge.id));
-        edges.forEach((edge, id) => {
-            if (reverseKey.has(`${edge.sourceId}→${edge.targetId}`)) pairedEdgeIds.add(id);
-        });
+        // A bidirectional edge has 2+ navigationRuleNames — it renders as 2 arrows.
+        // This matches GraphCanvas: one edge ID, two visual curves (forward + reverse).
         return [...edges.values()].flatMap(e => {
             const src = nodes.get(e.sourceId);
             const tgt = nodes.get(e.targetId);
@@ -101,13 +114,23 @@
             const dx = tc.x - sc.x, dy = tc.y - sc.y;
             const len = Math.sqrt(dx * dx + dy * dy) || 1;
             const mx = (sc.x + tc.x) / 2, my = (sc.y + tc.y) / 2;
-            const isPaired = pairedEdgeIds.has(e.id);
+            const isPaired = (e.navigationRuleNames?.length ?? 0) > 1;
             const cpx = isPaired ? mx + (dy / len) * 30 : mx;
             const cpy = isPaired ? my + (-dx / len) * 30 : my;
             const lx = isPaired ? (sc.x + 2 * cpx + tc.x) / 4 : mx;
             const ly = isPaired ? (sc.y + 2 * cpy + tc.y) / 4 : my;
-            return [{ id: e.id, isPaired, sc, tc, cpx, cpy, lx, ly,
-                      label: e.navigationRuleNames?.[0] ?? e.direction }];
+            const fwd = { id: e.id, isPaired, sc, tc, cpx, cpy, lx, ly,
+                          label: e.navigationRuleNames?.[0] ?? e.direction };
+            if (!isPaired) return [fwd];
+            // Reverse arrow for the bidirectional edge (tgt → src, opposite offset)
+            const cpx_bwd = mx - (dy / len) * 30;
+            const cpy_bwd = my + (dx / len) * 30;
+            const lx_bwd = (tc.x + 2 * cpx_bwd + sc.x) / 4;
+            const ly_bwd = (tc.y + 2 * cpy_bwd + sc.y) / 4;
+            const bwd = { id: `${e.id}__bwd`, isPaired, sc: tc, tc: sc,
+                          cpx: cpx_bwd, cpy: cpy_bwd, lx: lx_bwd, ly: ly_bwd,
+                          label: e.navigationRuleNames?.[1] ?? e.direction };
+            return [fwd, bwd];
         });
     });
 
