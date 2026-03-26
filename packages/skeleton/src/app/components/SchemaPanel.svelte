@@ -935,6 +935,9 @@
             : result.nodes;
         const filteredStructure = hideLeafs ? { ...result, nodes: filteredNodes } : result;
 
+        console.log('[Schema] Inspector input — nodes:', Object.keys(filteredStructure.nodes as object).length, 'edges:', Object.keys((filteredStructure as any).edges ?? {}).length);
+        console.log('[Schema] Inspector input (full):', filteredStructure);
+
         try {
             _inspector = Inspector({
                 structure: filteredStructure,

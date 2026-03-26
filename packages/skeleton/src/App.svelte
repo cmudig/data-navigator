@@ -301,9 +301,13 @@
             </aside>
         {/if}
 
-        <div class="workspace-canvas" class:workspace-canvas--fill={currentStep === 2}>
+        {#if currentStep !== 3}
+            <div class="workspace-canvas" class:workspace-canvas--fill={currentStep === 2}>
+                <ActiveStep />
+            </div>
+        {:else}
             <ActiveStep />
-        </div>
+        {/if}
 
         {#if !isFullWidth}
             <aside class="workspace-panel" aria-label={currentStep === 2 && scaffoldModeActive ? 'Scaffold' : 'Properties'}>

@@ -267,6 +267,8 @@
         const container = document.getElementById('dn-test-inspector');
         if (!container) return;
         container.innerHTML = '';
+        console.log('[Testing] Inspector input — nodes:', Object.keys(structure.nodes).length, 'edges:', Object.keys(structure.edges ?? {}).length);
+        console.log('[Testing] Inspector input (full):', structure);
         try {
             dnInspector = Inspector({
                 structure: structure as any,
@@ -379,12 +381,18 @@
     }
 </script>
 
-<div class="testing-step">
-    <!-- Controls bar -->
-    <!-- <div class="controls-bar" role="toolbar" aria-label="Testing controls">
-        <button class="btn-ghost btn-sm" type="button" onclick={resetNavigation}>Reset</button>
-    </div> -->
+<!-- LEFT: Inspector -->
+<aside class="inspector-panel" aria-label="Structure inspector">
+    <div class="inspector-header">
+        <span class="inspector-title">Schema</span>
+    </div>
+    <div class="inspector-graph-section">
+        <div id="dn-test-inspector" class="inspector-container"></div>
+    </div>
+</aside>
 
+<!-- CENTER: Output + Canvas -->
+<div class="workspace-canvas--mild center-content">
     <!-- Warnings bar (entry node only) -->
     {#if warnings.length > 0}
         <div class="warnings-bar" role="alert" aria-live="polite">
@@ -393,21 +401,6 @@
             {/each}
         </div>
     {/if}
-
-    <!-- Three-column layout -->
-    <div class="content-columns">
-        <!-- LEFT: Inspector -->
-        <aside class="inspector-panel" aria-label="Structure inspector">
-            <div class="inspector-header">
-                <span class="inspector-title">Schema</span>
-            </div>
-            <div class="inspector-graph-section">
-                <div id="dn-test-inspector" class="inspector-container"></div>
-            </div>
-        </aside>
-
-        <!-- CENTER: Output + Canvas -->
-        <div class="center-panel">
             <!-- Canvas visibility controls + screen reader output -->
             <div class="canvas-controls">
                 <label class="check-label">
@@ -541,13 +534,13 @@
                 <!-- DN wrapper + nodes appended by renderer.initialize() -->
             </div>
 
-            {#if nodes.size === 0}
-                <p class="empty-hint">Build your node graph in the Editor step, then return here to test.</p>
-            {/if}
-        </div>
+    {#if nodes.size === 0}
+        <p class="empty-hint">Build your node graph in the Editor step, then return here to test.</p>
+    {/if}
+</div>
 
-        <!-- RIGHT: Mode toggle + Chat or Keyboard + Events -->
-        <aside class="log-panel" aria-label="Navigation log and output">
+<!-- RIGHT: Mode toggle + Chat or Keyboard + Events -->
+<aside class="log-panel" aria-label="Navigation log and output">
             <!-- Keyboard mode toggle -->
             <label class="kbd-toggle-label check-label">
                 <input
@@ -612,31 +605,10 @@
                         </div>
                     {/each}
                 {/if}
-            </div>
-        </aside>
-    </div>
-</div>
+        </div>
+</aside>
 
 <style>
-    .testing-step {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        overflow: hidden;
-        font-size: 0.875rem;
-    }
-
-    /* ─── Controls bar ───────────────────────────────────────────────────────── */
-    .controls-bar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 6px 16px;
-        border-bottom: 1px solid var(--dn-border);
-        flex-shrink: 0;
-        flex-wrap: wrap;
-    }
-
     /* ─── Canvas controls (show nodes/edges, above sr-announcement) ─────────── */
     .canvas-controls {
         display: flex;
@@ -663,14 +635,6 @@
         cursor: pointer;
     }
 
-    /* ─── Three-column layout ────────────────────────────────────────────────── */
-    .content-columns {
-        display: flex;
-        flex: 1;
-        overflow: hidden;
-        min-height: 0;
-    }
-
     /* ─── Inspector panel (left) ─────────────────────────────────────────────── */
     .inspector-panel {
         width: 360px;
@@ -681,6 +645,7 @@
         overflow: hidden;
         background: var(--dn-surface);
         height: 100%;
+        font-size: 0.875rem;
     }
 
     .inspector-header {
@@ -713,15 +678,12 @@
     }
 
     /* ─── Center panel ───────────────────────────────────────────────────────── */
-    .center-panel {
-        flex: 1;
-        overflow: auto;
-        padding: 16px;
+    .center-content {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
-        min-width: 0;
+        font-size: 0.875rem;
     }
 
     /* ─── Screen reader announcement (above canvas) ──────────────────────────── */
@@ -841,6 +803,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        font-size: 0.875rem;
     }
 
     /* Keyboard nav toggle at top of right panel */
