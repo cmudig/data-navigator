@@ -589,18 +589,19 @@
             {#if focusedNodeLabel || focusedNodeData || focusedNodeDirections.length > 0}
                 <div class="sr-announcement">
                     <div class="sr-section">
-                        <span class="sr-label">Label (crafted):</span>
+                        <span class="sr-label">Screen reader announcement:</span>
                         <span class="sr-value">{focusedNodeLabel || '—'}</span>
                     </div>
                     {#if focusedNodeDirections.length > 0 || (focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0)}
                         <details>
                             <summary>Info for current node</summary>
                             {#if focusedNodeDirections.length > 0}
+                                <h4 class="sr-subheading">Navigation</h4>
                                 <table class="output-table">
                                     <tbody>
                                         {#each focusedNodeDirections as dir}
                                             <tr>
-                                                <th scope="row">{dir.rule}</th>
+                                                <th scope="row">{dir.rule} (<kbd>{dir.key}</kbd>)</th>
                                                 <td>→ {dir.destLabel}</td>
                                             </tr>
                                         {/each}
@@ -608,6 +609,7 @@
                                 </table>
                             {/if}
                             {#if focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0}
+                                <h4 class="sr-subheading">Node data</h4>
                                 <table class="output-table">
                                     <tbody>
                                         {#each Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')) as [key, val]}
@@ -699,7 +701,7 @@
 </aside>
 
 <style>
-    /* ─── Canvas controls (show nodes/edges, above sr-announcement) ─────────── */
+    /* ─── Canvas controls (show nodes/edges, above canvas) ─────────── */
     .canvas-controls {
         display: flex;
         gap: 10px;
@@ -776,11 +778,11 @@
         font-size: 0.875rem;
     }
 
-    /* ─── Screen reader announcement (above canvas) ──────────────────────────── */
+    /* ─── Screen reader announcement (below canvas) ──────────────────────────── */
     .sr-announcement {
         width: 100%;
         padding: 8px 10px;
-        background: var(--dn-surface);
+        /* background: var(--dn-surface); */
         border: 1px solid var(--dn-border);
         border-radius: 4px;
         display: flex;
@@ -793,6 +795,11 @@
         gap: 6px;
         align-items: baseline;
         flex-wrap: wrap;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        padding: 6px;
+        border-radius: 4px;
+        color: #166534;
     }
 
     .sr-label {
@@ -800,15 +807,22 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--dn-text-muted);
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .sr-value {
         font-size: 0.8rem;
-        color: var(--dn-text);
         line-height: 1.4;
+    }
+
+    .sr-subheading {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--dn-muted);
+        margin: 8px 0 2px;
     }
 
     .output-table {
@@ -838,6 +852,16 @@
         border: 1px solid var(--dn-border);
         border-radius: 4px;
         overflow: visible;
+    }
+
+    .output-table kbd {
+        font-size: 0.72rem;
+        padding: 1px 5px;
+        margin: 0px 2px;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        color: var(--dn-text);
     }
 
     .canvas-bg {
