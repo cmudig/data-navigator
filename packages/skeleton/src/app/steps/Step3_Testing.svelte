@@ -51,7 +51,6 @@
     let currentNodeId    = $state<string | null>(null);
     let focusedNodeData  = $state<Record<string, unknown> | null>(null);
     let focusedNodeLabel = $state<string>('');
-    let liveAriaLabel    = $state<string>('');
 
     type EventKind = 'enter' | 'navigate' | 'exit' | 'select' | 'hover' | 'keypress';
     interface EventLogEntry {
@@ -183,12 +182,6 @@
             dnInput?.focus(rId);
         }
 
-        // Read aria-label from the rendered element (what a screen reader would see)
-        const el = document.getElementById(rId);
-        liveAriaLabel = el?.getAttribute('aria-label')
-            ?? el?.querySelector('[aria-label]')?.getAttribute('aria-label')
-            ?? '';
-
         currentNodeId    = id;
         focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
         focusedNodeLabel = label;
@@ -207,7 +200,6 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
-        liveAriaLabel    = '';
         setFocusedElement(null);
         dnInspector?.clear();
         if (dnRenderer?.exitElement) {
@@ -285,7 +277,6 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
-        liveAriaLabel    = '';
         eventLog         = [];
         setFocusedElement(null);
         dnInspector?.clear();
@@ -349,7 +340,6 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
-        liveAriaLabel    = '';
 
         const canvasEl = document.getElementById('dn-test-canvas-root');
         if (canvasEl) {
@@ -467,22 +457,20 @@
                         <span class="sr-label">Label (crafted):</span>
                         <span class="sr-value">{focusedNodeLabel || '—'}</span>
                     </div>
-                    <div class="sr-section">
-                        <span class="sr-label">Semantics (from HTML):</span>
-                        <span class="sr-value">{liveAriaLabel || '—'}</span>
-                    </div>
                     {#if focusedNodeData && Object.keys(focusedNodeData).length > 0}
-                        <table class="output-table">
-                            <caption class="visually-hidden">Data for current node</caption>
-                            <tbody>
-                                {#each Object.entries(focusedNodeData) as [key, val]}
-                                    <tr>
-                                        <th scope="row">{key}</th>
-                                        <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
+                        <details>
+                            <summary>Data for current node</summary>
+                            <table class="output-table">
+                                <tbody>
+                                    {#each Object.entries(focusedNodeData) as [key, val]}
+                                        <tr>
+                                            <th scope="row">{key}</th>
+                                            <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
+                        </details>
                     {/if}
                 </div>
             {/if}
