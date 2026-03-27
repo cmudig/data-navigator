@@ -52,6 +52,9 @@
     let focusedNodeData  = $state<Record<string, unknown> | null>(null);
     let focusedNodeLabel = $state<string>('');
 
+    interface NavDirection { rule: string; key: string; destLabel: string; }
+    let focusedNodeDirections = $state<NavDirection[]>([]);
+
     type EventKind = 'enter' | 'navigate' | 'exit' | 'select' | 'hover' | 'keypress';
     interface EventLogEntry {
         id: number; kind: EventKind; timestamp: number;
@@ -185,7 +188,40 @@
         currentNodeId    = id;
         focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
         focusedNodeLabel = label;
-        console.log('[Step3] node.semantics.label:', (node.semantics as { label?: string })?.label);
+
+        // Build per-direction navigation targets. Mirror input.ts: first valid edge
+        // per rule wins (input.ts breaks after the first match, so later edges for
+        // the same rule — e.g. the far side of a circular sibling ring — are never
+        // reached and must not appear here either).
+        const edgeIds = (node.edges as string[] | undefined) ?? [];
+        const dirs: NavDirection[] = [];
+        const seenRules = new Set<string>();
+        const edgeMap = dnStructure?.edges as Record<string, { source: string; target: string; navigationRules: string[] }> | undefined;
+        const navRuleMap = dnStructure?.navigationRules as Record<string, { key: string; direction: string }> | undefined;
+        const nodeMap = dnStructure?.nodes as Record<string, { renderId?: string }> | undefined;
+        for (const edgeId of edgeIds) {
+            const edge = edgeMap?.[edgeId];
+            if (!edge) continue;
+            for (const ruleName of edge.navigationRules) {
+                if (seenRules.has(ruleName)) continue; // first match wins
+                const navRule = navRuleMap?.[ruleName];
+                if (!navRule) continue;
+                // DN logic: resolvedNodes[navRule.direction] is the destination,
+                // but only when that node is NOT the current focus.
+                // direction='target' → dest = edge.target (valid when current = source)
+                // direction='source' → dest = edge.source (valid when current = target)
+                let destId: string | null = null;
+                if (navRule.direction === 'target' && edge.target !== id) destId = edge.target;
+                else if (navRule.direction === 'source' && edge.source !== id) destId = edge.source;
+                if (!destId) continue;
+                seenRules.add(ruleName);
+                const destRenderId = (nodeMap?.[destId]?.renderId as string) || destId;
+                const destLabel = dnStructure?.elementData?.[destRenderId]?.semantics?.label ?? destId;
+                dirs.push({ rule: ruleName, key: navRule.key, destLabel });
+            }
+        }
+        focusedNodeDirections = dirs;
+
         setFocusedElement(id, rId);
         dnInspector?.highlight(rId);
         logEvent({ kind: 'navigate', nodeLabel: label });
@@ -200,6 +236,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
         setFocusedElement(null);
         dnInspector?.clear();
         if (dnRenderer?.exitElement) {
@@ -277,6 +314,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
         eventLog         = [];
         setFocusedElement(null);
         dnInspector?.clear();
@@ -340,6 +378,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
 
         const canvasEl = document.getElementById('dn-test-canvas-root');
         if (canvasEl) {
@@ -450,31 +489,6 @@
                 </label>
             </div>
 
-            <!-- Screen reader announcement (above canvas) -->
-            {#if focusedNodeLabel || focusedNodeData}
-                <div class="sr-announcement">
-                    <div class="sr-section">
-                        <span class="sr-label">Label (crafted):</span>
-                        <span class="sr-value">{focusedNodeLabel || '—'}</span>
-                    </div>
-                    {#if focusedNodeData && Object.keys(focusedNodeData).length > 0}
-                        <details>
-                            <summary>Data for current node</summary>
-                            <table class="output-table">
-                                <tbody>
-                                    {#each Object.entries(focusedNodeData) as [key, val]}
-                                        <tr>
-                                            <th scope="row">{key}</th>
-                                            <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
-                                        </tr>
-                                    {/each}
-                                </tbody>
-                            </table>
-                        </details>
-                    {/if}
-                </div>
-            {/if}
-
             <div
                 id="dn-test-canvas-root"
                 class="canvas-root"
@@ -570,6 +584,45 @@
 
                 <!-- DN wrapper + nodes appended by renderer.initialize() -->
             </div>
+
+            <!-- Screen reader announcement (above canvas) -->
+            {#if focusedNodeLabel || focusedNodeData || focusedNodeDirections.length > 0}
+                <div class="sr-announcement">
+                    <div class="sr-section">
+                        <span class="sr-label">Label (crafted):</span>
+                        <span class="sr-value">{focusedNodeLabel || '—'}</span>
+                    </div>
+                    {#if focusedNodeDirections.length > 0 || (focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0)}
+                        <details>
+                            <summary>Info for current node</summary>
+                            {#if focusedNodeDirections.length > 0}
+                                <table class="output-table">
+                                    <tbody>
+                                        {#each focusedNodeDirections as dir}
+                                            <tr>
+                                                <th scope="row">{dir.rule}</th>
+                                                <td>→ {dir.destLabel}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            {/if}
+                            {#if focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0}
+                                <table class="output-table">
+                                    <tbody>
+                                        {#each Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')) as [key, val]}
+                                            <tr>
+                                                <th scope="row">{key}</th>
+                                                <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            {/if}
+                        </details>
+                    {/if}
+                </div>
+            {/if}
 
     {#if nodes.size === 0}
         <p class="empty-hint">Build your node graph in the Editor step, then return here to test.</p>
