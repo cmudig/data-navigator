@@ -1094,6 +1094,17 @@
         outline-offset: 2px;
     }
 
+    :global(#dn-test-canvas-root .dn-node-svg) {
+        position: absolute;
+        overflow: visible;
+    }
+
+    :global(#dn-test-canvas-root .dn-node-path) {
+        fill: none;
+        stroke: var(--dn-accent);
+        stroke-width: 2px;
+    }
+
     :global(#dn-test-canvas-root .dn-exit-position) {
         position: absolute;
         bottom: 8px;
