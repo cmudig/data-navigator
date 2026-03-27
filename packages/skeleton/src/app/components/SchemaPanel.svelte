@@ -11,11 +11,11 @@
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
     const NAV_SLOTS = [
-        { forwardName: 'up',      forwardKey: 'ArrowUp',    backwardName: 'down',     backwardKey: 'ArrowDown'  },
-        { forwardName: 'left',    forwardKey: 'ArrowLeft',  backwardName: 'right',    backwardKey: 'ArrowRight' },
-        { forwardName: 'forward', forwardKey: '[',          backwardName: 'backward', backwardKey: ']'          },
+        { forwardName: 'up',       forwardKey: 'ArrowUp',      backwardName: 'down',    backwardKey: 'ArrowDown'    },
+        { forwardName: 'left',     forwardKey: 'ArrowLeft',    backwardName: 'right',   backwardKey: 'ArrowRight'   },
+        { forwardName: 'backward', forwardKey: 'BracketLeft',  backwardName: 'forward', backwardKey: 'BracketRight' },
     ] as const;
-    const DRILL_OUT_KEYS = ['w', 'j', '\\'] as const;
+    const DRILL_OUT_KEYS = ['KeyW', 'KeyJ', 'Backslash'] as const;
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
     let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
@@ -472,10 +472,39 @@
             return datum;
         });
 
+        // Build explicit nav rules so DN uses our keys instead of auto-assigning
+        // spare keys for unrecognized names like 'drill in' / 'drill out to X'.
+        const navRules: Record<string, { key: string; direction: 'source' | 'target' }> = {};
+        for (const dim of included) {
+            if (dim.forwardName && dim.forwardKey)
+                navRules[dim.forwardName] = { key: dim.forwardKey, direction: 'source' };
+            if (dim.backwardName && dim.backwardKey)
+                navRules[dim.backwardName] = { key: dim.backwardKey, direction: 'target' };
+            if (dim.drillInName && dim.drillInKey)
+                navRules[dim.drillInName] ??= { key: dim.drillInKey, direction: 'target' };
+            if (dim.drillOutName && dim.drillOutKey)
+                navRules[dim.drillOutName] = { key: dim.drillOutKey, direction: 'source' };
+        }
+        // Level-1 sibling nav (between dimension nodes)
+        const l1fwd = s.level1NavForwardName || 'left';
+        const l1bwd = s.level1NavBackwardName || 'right';
+        navRules[l1fwd] ??= { key: s.level1NavForwardKey || 'ArrowLeft', direction: 'source' };
+        navRules[l1bwd] ??= { key: s.level1NavBackwardKey || 'ArrowRight', direction: 'target' };
+        // Root ↔ dim (when level0 enabled) — reuse first dim's drill names so
+        // 'parent'/'child' never appear as rule names in the testing page.
+        if (s.level0Enabled && included.length > 0) {
+            const rootIn  = included[0].drillInName  || 'drill in';
+            const rootOut = included[0].drillOutName || 'drill out';
+            navRules[rootIn]  ??= { key: included[0].drillInKey  || 'Enter',     direction: 'target' };
+            navRules[rootOut] ??= { key: included[0].drillOutKey || 'Backspace',  direction: 'source' };
+        }
+        navRules['exit'] = { key: 'Escape', direction: 'target' };
+
         const opts: Record<string, unknown> = {
             data: stampedData,
             idKey: '_dn_id',
             renderIdKey: '_dn_id', // leaf renderId = node id (matches elementData keys)
+            navigationRules: navRules,
             dimensions: {
                 values: dimensionValues,
                 parentOptions: {
@@ -490,7 +519,10 @@
                                 s.level1NavForwardName || 'left',
                                 s.level1NavBackwardName || 'right',
                             ],
-                            parent_child: ['parent', 'child'],
+                            parent_child: [
+                                included[0]?.drillInName  || 'drill in',
+                                included[0]?.drillOutName || 'drill out',
+                            ],
                         },
                     },
                 },

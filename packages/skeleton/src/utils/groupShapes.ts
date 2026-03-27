@@ -130,13 +130,43 @@ function applyLineSeriesStrategy(leaves: SkeletonNode[], pad: number): string {
     return offsetLinePath(centers, pad);
 }
 
+// ── Bounding box helper ───────────────────────────────────────────────────────
+
+export interface GroupPathResult {
+    pathData: string;
+    bbox: { x: number; y: number; width: number; height: number };
+}
+
+function leafBbox(leaves: SkeletonNode[]): { x: number; y: number; width: number; height: number } {
+    const xs = leaves.map(n => n.x);
+    const ys = leaves.map(n => n.y);
+    const x2s = leaves.map(n => n.x + n.width);
+    const y2s = leaves.map(n => n.y + n.height);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    return { x, y, width: Math.max(...x2s) - x, height: Math.max(...y2s) - y };
+}
+
+function extendBboxForBonusRect(
+    bbox: { x: number; y: number; width: number; height: number },
+    br: BonusRect
+): { x: number; y: number; width: number; height: number } {
+    const x = Math.min(bbox.x, br.x);
+    const y = Math.min(bbox.y, br.y);
+    const x2 = Math.max(bbox.x + bbox.width, br.x + br.width);
+    const y2 = Math.max(bbox.y + bbox.height, br.y + br.height);
+    return { x, y, width: x2 - x, height: y2 - y };
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
- * Compute SVG pathData strings for all enabled group-shape levels.
+ * Compute SVG pathData strings and chart-space bounding boxes for all enabled
+ * group-shape levels.
  *
- * Returns Map<nodeId, pathData> — caller writes these to appState nodes,
- * setting renderProperties.shape = 'path' and pathData accordingly.
+ * Returns Map<nodeId, GroupPathResult> — caller writes pathData and bbox
+ * (as x/y/width/height) to appState nodes so the DN renderer positions the
+ * focus overlay correctly in chart coordinates.
  *
  * The `edges` param should be all edges from appState.edges.values().
  */
@@ -144,8 +174,8 @@ export function computeGroupPaths(
     nodes: SkeletonNode[],
     edges: SkeletonEdge[],
     config: ScaffoldConfig
-): Map<string, string> {
-    const result = new Map<string, string>();
+): Map<string, GroupPathResult> {
+    const result = new Map<string, GroupPathResult>();
     const gs = config.groupShapes;
     if (!gs) return result;
 
@@ -173,7 +203,7 @@ export function computeGroupPaths(
             } else {
                 pathD = applyRectStrategy(gs.rootStrategy, leaves.map(nodeToRect), gs.rootPadding);
             }
-            if (pathD) result.set(rootNode.id, pathD);
+            if (pathD) result.set(rootNode.id, { pathData: pathD, bbox: leafBbox(leaves) });
         }
     }
 
@@ -201,11 +231,13 @@ export function computeGroupPaths(
             // Append bonus rect if enabled
             const dimKey = dimNode.dimensionKey ?? '';
             const br = gs.dimensionBonusRects[dimKey];
+            let bbox = leafBbox(leaves);
             if (br?.enabled && pathD) {
                 pathD = appendBonusRect(pathD, br);
+                bbox = extendBboxForBonusRect(bbox, br);
             }
 
-            if (pathD) result.set(dimNode.id, pathD);
+            if (pathD) result.set(dimNode.id, { pathData: pathD, bbox });
         }
     }
 
@@ -241,11 +273,13 @@ export function computeGroupPaths(
 
             // Append bonus rect if enabled (keyed by division node id)
             const br = gs.divisionBonusRects[divNode.id];
+            let bbox = leafBbox(leaves);
             if (br?.enabled && pathD) {
                 pathD = appendBonusRect(pathD, br);
+                bbox = extendBboxForBonusRect(bbox, br);
             }
 
-            if (pathD) result.set(divNode.id, pathD);
+            if (pathD) result.set(divNode.id, { pathData: pathD, bbox });
         }
     }
 

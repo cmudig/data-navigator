@@ -274,9 +274,131 @@
                             <p class="step-card-caption">
                                 Draw your navigation structure on the canvas (the first major section). Add nodes that represent accessible elements in your graphic and connect them with edges. The properties panel (the section after the canvas) lets you configure each selected node.
                             </p>
-                            <div class="intro-callout">
-                                <strong>The Scaffold tool</strong> — toggled by a button at the top of this step — automatically positions nodes on your canvas based on your data. It uses your data's coordinate system to place nodes precisely, then lets you fine-tune position, padding, and groupings. A powerful shortcut for bar charts, scatter plots, line charts, and more.
+                        </div>
+                    </div>
+
+                    <!-- Skeleton diagram section (full width, between step 2 and step 3) -->
+                    <div class="intro-skeleton-section">
+                        <p class="skeleton-intro-text">
+                            Each node you create becomes a visible outline drawn on top of your chart — a navigation stop that both sighted and non-sighted users can see and reach. Edges connect nodes, defining the paths between them. Together they form the accessible <em>skeleton</em> of your visualization. Here are four ways to structure the same stacked bar chart:
+                        </p>
+                        <div class="skeleton-diagrams" aria-hidden="true">
+
+                            <div class="skeleton-diagram-item">
+                                <div class="step-card-diagram">
+                                    <svg viewBox="0 0 160 100" width="160" height="100" focusable="false" aria-hidden="true">
+                                        <rect class="dg-chart-bg" x="0" y="0" width="160" height="100"/>
+                                        <rect class="dg-bar" x="10" y="68" width="28" height="22"/>
+                                        <rect class="dg-bar" x="10" y="40" width="28" height="28"/>
+                                        <rect class="dg-bar" x="10" y="14" width="28" height="26"/>
+                                        <rect class="dg-bar" x="46" y="72" width="28" height="18"/>
+                                        <rect class="dg-bar" x="46" y="34" width="28" height="38"/>
+                                        <rect class="dg-bar" x="46" y="16" width="28" height="18"/>
+                                        <rect class="dg-bar" x="82" y="64" width="28" height="26"/>
+                                        <rect class="dg-bar" x="82" y="42" width="28" height="22"/>
+                                        <rect class="dg-bar" x="82" y="12" width="28" height="30"/>
+                                        <rect class="dg-bar" x="118" y="70" width="28" height="20"/>
+                                        <rect class="dg-bar" x="118" y="46" width="28" height="24"/>
+                                        <rect class="dg-bar" x="118" y="24" width="28" height="22"/>
+                                        <line class="dg-baseline" x1="4" y1="90" x2="156" y2="90"/>
+                                    </svg>
+                                </div>
+                                <p class="skeleton-diagram-caption"><strong>No structure</strong>: A screen reader or keyboard user cannot navigate any element.</p>
                             </div>
+
+                            <div class="skeleton-diagram-item">
+                                <div class="step-card-diagram">
+                                    <svg viewBox="0 0 160 100" width="160" height="100" focusable="false" aria-hidden="true">
+                                        <rect class="dg-chart-bg" x="0" y="0" width="160" height="100"/>
+                                        <line class="dg-baseline" x1="4" y1="90" x2="156" y2="90"/>
+                                        <rect class="dg-bar" x="10" y="68" width="28" height="22"/>
+                                        <rect class="dg-bar" x="10" y="40" width="28" height="28"/>
+                                        <rect class="dg-bar" x="10" y="14" width="28" height="26"/>
+                                        <rect class="dg-bar" x="46" y="72" width="28" height="18"/>
+                                        <rect class="dg-bar" x="46" y="34" width="28" height="38"/>
+                                        <rect class="dg-bar" x="46" y="16" width="28" height="18"/>
+                                        <rect class="dg-bar" x="82" y="64" width="28" height="26"/>
+                                        <rect class="dg-bar" x="82" y="42" width="28" height="22"/>
+                                        <rect class="dg-bar" x="82" y="12" width="28" height="30"/>
+                                        <rect class="dg-bar" x="118" y="70" width="28" height="20"/>
+                                        <rect class="dg-bar" x="118" y="46" width="28" height="24"/>
+                                        <rect class="dg-bar" x="118" y="24" width="28" height="22"/>
+                                        <!-- Stack-level outlines (one per full column) -->
+                                        <rect class="dg-outline-stack" x="8" y="12" width="32" height="80"/>
+                                        <rect class="dg-outline-stack" x="44" y="14" width="32" height="78"/>
+                                        <rect class="dg-outline-stack" x="80" y="10" width="32" height="82"/>
+                                        <rect class="dg-outline-stack" x="116" y="22" width="32" height="70"/>
+                                    </svg>
+                                </div>
+                                <p class="skeleton-diagram-caption"><strong>Column (stack) nodes</strong>: Users can navigate left and right between whole stacks as groups.</p>
+                            </div>
+
+                            <div class="skeleton-diagram-item">
+                                <div class="step-card-diagram">
+                                    <svg viewBox="0 0 160 100" width="160" height="100" focusable="false" aria-hidden="true">
+                                        <rect class="dg-chart-bg" x="0" y="0" width="160" height="100"/>
+                                        <line class="dg-baseline" x1="4" y1="90" x2="156" y2="90"/>
+                                        <rect class="dg-bar" x="10" y="68" width="28" height="22"/>
+                                        <rect class="dg-bar" x="10" y="40" width="28" height="28"/>
+                                        <rect class="dg-bar" x="10" y="14" width="28" height="26"/>
+                                        <rect class="dg-bar" x="46" y="72" width="28" height="18"/>
+                                        <rect class="dg-bar" x="46" y="34" width="28" height="38"/>
+                                        <rect class="dg-bar" x="46" y="16" width="28" height="18"/>
+                                        <rect class="dg-bar" x="82" y="64" width="28" height="26"/>
+                                        <rect class="dg-bar" x="82" y="42" width="28" height="22"/>
+                                        <rect class="dg-bar" x="82" y="12" width="28" height="30"/>
+                                        <rect class="dg-bar" x="118" y="70" width="28" height="20"/>
+                                        <rect class="dg-bar" x="118" y="46" width="28" height="24"/>
+                                        <rect class="dg-bar" x="118" y="24" width="28" height="22"/>
+                                        <!-- Cross-stack hull: bottom group (Seg A) -->
+                                        <polygon class="dg-hull" points="9,91 9,67 39,67 45,71 75,71 81,63 111,63 117,69 147,69 147,91"/>
+                                        <!-- Cross-stack hull: middle group (Seg B) -->
+                                        <polygon class="dg-hull" points="9,69 9,39 39,39 45,33 75,33 81,41 111,41 117,45 147,45 147,71 117,71 111,65 81,65 75,73 45,73 39,69"/>
+                                        <!-- Cross-stack hull: top group (Seg C) -->
+                                        <polygon class="dg-hull" points="9,41 9,13 39,13 45,15 75,15 81,11 111,11 117,23 147,23 147,47 117,47 111,43 81,43 75,35 45,35 39,41"/>
+                                    </svg>
+                                </div>
+                                <p class="skeleton-diagram-caption"><strong>Cross-stack groups</strong>: This outline spans same-layer bars across all columns and users can navigate up and down.</p>
+                            </div>
+
+                            <div class="skeleton-diagram-item">
+                                <div class="step-card-diagram">
+                                    <svg viewBox="0 0 160 100" width="160" height="100" focusable="false" aria-hidden="true">
+                                        <rect class="dg-chart-bg" x="0" y="0" width="160" height="100"/>
+                                        <line class="dg-baseline" x1="4" y1="90" x2="156" y2="90"/>
+                                        <rect class="dg-bar" x="10" y="68" width="28" height="22"/>
+                                        <rect class="dg-bar" x="10" y="40" width="28" height="28"/>
+                                        <rect class="dg-bar" x="10" y="14" width="28" height="26"/>
+                                        <rect class="dg-bar" x="46" y="72" width="28" height="18"/>
+                                        <rect class="dg-bar" x="46" y="34" width="28" height="38"/>
+                                        <rect class="dg-bar" x="46" y="16" width="28" height="18"/>
+                                        <rect class="dg-bar" x="82" y="64" width="28" height="26"/>
+                                        <rect class="dg-bar" x="82" y="42" width="28" height="22"/>
+                                        <rect class="dg-bar" x="82" y="12" width="28" height="30"/>
+                                        <rect class="dg-bar" x="118" y="70" width="28" height="20"/>
+                                        <rect class="dg-bar" x="118" y="46" width="28" height="24"/>
+                                        <rect class="dg-bar" x="118" y="24" width="28" height="22"/>
+                                        <!-- Individual leaf outlines (one per bar segment) -->
+                                        <rect class="dg-outline-leaf" x="9" y="67" width="30" height="24"/>
+                                        <rect class="dg-outline-leaf" x="9" y="39" width="30" height="30"/>
+                                        <rect class="dg-outline-leaf" x="9" y="13" width="30" height="28"/>
+                                        <rect class="dg-outline-leaf" x="45" y="71" width="30" height="20"/>
+                                        <rect class="dg-outline-leaf" x="45" y="33" width="30" height="40"/>
+                                        <rect class="dg-outline-leaf" x="45" y="15" width="30" height="20"/>
+                                        <rect class="dg-outline-leaf" x="81" y="63" width="30" height="28"/>
+                                        <rect class="dg-outline-leaf" x="81" y="41" width="30" height="24"/>
+                                        <rect class="dg-outline-leaf" x="81" y="11" width="30" height="32"/>
+                                        <rect class="dg-outline-leaf" x="117" y="69" width="30" height="22"/>
+                                        <rect class="dg-outline-leaf" x="117" y="45" width="30" height="26"/>
+                                        <rect class="dg-outline-leaf" x="117" y="23" width="30" height="24"/>
+                                    </svg>
+                                </div>
+                                <p class="skeleton-diagram-caption"><strong>Leaf nodes</strong>: each individual bar segment gets its own outline and navigation stop. Users can navigate up, down, left, and right among them.</p>
+                            </div>
+
+                        </div>
+                        <div class="intro-callout">
+                            <strong>The Scaffold tool</strong> — toggled by a button at the top of Step 2 — automatically builds these structures from your data. It uses your data's coordinate system to place nodes precisely on your canvas, then lets you choose between stack-level, cross-group, and leaf-level outlines, fine-tune padding, and adjust groupings. For structured chart types (bar, scatter, line, and more), it's by far the fastest way to build a complete navigation structure.
                         </div>
                     </div>
 
@@ -521,7 +643,7 @@
 
     .intro-step-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        grid-template-columns: 1fr 1fr;
         gap: calc(var(--dn-space) * 2);
     }
 
@@ -667,5 +789,81 @@
         stroke: var(--dn-accent-light);
         stroke-width: 1.5;
         stroke-dasharray: 5 3;
+    }
+
+    /* ── Bar chart diagram classes ── */
+
+    .dg-chart-bg  { fill: var(--dn-surface); }
+    .dg-baseline  { stroke: var(--dn-text-muted); stroke-width: 1; }
+    .dg-bar       {
+        fill: var(--dn-accent-light); 
+        fill-opacity: 0.72; 
+        stroke: white;
+    }
+
+    /* Stack-level outlines */
+    .dg-outline-stack {
+        fill: none;
+        stroke: var(--dn-text);
+        stroke-width: 2;
+        stroke-linejoin: round;
+    }
+
+    /* Cross-stack group hull outlines */
+    .dg-hull {
+        fill: var(--dn-accent);
+        fill-opacity: 0.1;
+        stroke: var(--dn-accent);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+    }
+
+    /* Leaf node outlines */
+    .dg-outline-leaf {
+        fill: none;
+        stroke: var(--dn-accent);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+    }
+
+    /* ── Skeleton diagram section ── */
+
+    .intro-skeleton-section {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 1.5);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        padding: calc(var(--dn-space) * 2);
+        background: var(--dn-surface);
+    }
+
+    .skeleton-intro-text {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.65;
+        color: var(--dn-text);
+    }
+
+    .skeleton-diagrams {
+        display: flex;
+        flex-wrap: wrap;
+        gap: calc(var(--dn-space) * 1.5);
+    }
+
+    .skeleton-diagram-item {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.75);
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .skeleton-diagram-caption {
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        color: var(--dn-text-muted);
     }
 </style>

@@ -136,8 +136,15 @@
 
     const keyboardInstructions = $derived.by(() => {
         if (!dnStructure?.navigationRules) return [];
-        return Object.entries(dnStructure.navigationRules).map(([rule, obj]) => ({
-            rule, key: (obj as { key?: string }).key ?? rule
+        const grouped = new Map<string, string[]>();
+        for (const [rule, obj] of Object.entries(dnStructure.navigationRules)) {
+            const key = (obj as { key?: string }).key ?? rule;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(rule);
+        }
+        return [...grouped.entries()].map(([key, rules]) => ({
+            key,
+            rule: rules.join(' / ')
         }));
     });
 

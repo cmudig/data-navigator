@@ -61,12 +61,20 @@ export interface ValidationError {
 }
 
 // Direction → { key, direction } mapping (DN convention: source=backward, target=forward)
+// Used only for manual-graph fallback (no schema run). Schema-generated graphs get
+// explicit navigationRules from buildDNStructure() in SchemaPanel.
 const DIRECTION_KEY_MAP: Record<string, DNNavRule> = {
     left: { key: 'ArrowLeft', direction: 'source' },
     right: { key: 'ArrowRight', direction: 'target' },
     up: { key: 'ArrowUp', direction: 'source' },
     down: { key: 'ArrowDown', direction: 'target' },
-    exit: { key: 'Escape', direction: 'target' }
+    exit: { key: 'Escape', direction: 'target' },
+    'drill in': { key: 'Enter', direction: 'target' },
+    'drill out': { key: 'Backspace', direction: 'source' },
+    child: { key: 'Enter', direction: 'target' },
+    parent: { key: 'Backspace', direction: 'source' },
+    forward: { key: 'BracketRight', direction: 'target' },
+    backward: { key: 'BracketLeft', direction: 'source' }
 };
 
 // Resolve template tokens in a label string, matching the buildPreview() output in LabelBuilder.svelte.
