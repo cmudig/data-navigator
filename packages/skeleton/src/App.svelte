@@ -17,6 +17,7 @@
     import Step3_Testing from './app/steps/Step3_Testing.svelte';
     import Step4_Export from './app/steps/Step4_Export.svelte';
     import HelpModal from './app/components/HelpModal.svelte';
+    import IntroModal from './app/components/IntroModal.svelte';
 
     const stepComponents = [
         Step0_Upload,
@@ -135,6 +136,15 @@
     // ── Help modal ────────────────────────────────────────────────────────────
     let showHelp = $state(false);
     let helpButtonEl: HTMLButtonElement | undefined = $state();
+
+    // ── Intro modal ───────────────────────────────────────────────────────────
+    const INTRO_KEY = 'dn-skeleton-intro-seen';
+    let showIntro = $state(localStorage.getItem(INTRO_KEY) !== 'true');
+
+    function openIntroFromHelp() {
+        showHelp = false;
+        showIntro = true;
+    }
 
     // ── Save / Load ───────────────────────────────────────────────────────────
     let loadFileInput: HTMLInputElement;
@@ -321,8 +331,15 @@
     </div>
 </main>
 
+{#if showIntro}
+    <IntroModal onclose={() => { showIntro = false; }} />
+{/if}
+
 {#if showHelp}
-    <HelpModal onclose={() => { showHelp = false; helpButtonEl?.focus(); }} />
+    <HelpModal
+        onclose={() => { showHelp = false; helpButtonEl?.focus(); }}
+        onOpenIntro={openIntroFromHelp}
+    />
 {/if}
 
 {#if showEntryGate}
