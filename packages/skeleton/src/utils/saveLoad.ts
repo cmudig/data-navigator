@@ -105,6 +105,7 @@ const DEFAULT_RENDER: SkeletonNode['renderProperties'] = {
 
 const DEFAULT_SEMANTICS: SkeletonNode['semantics'] = {
     label: '',
+    template: '',
     name: 'data point',
     includeParentName: false,
     includeIndex: false,
@@ -157,7 +158,12 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
             {
                 ...n,
                 renderProperties: { ...DEFAULT_RENDER, ...n.renderProperties },
-                semantics: { ...DEFAULT_SEMANTICS, ...n.semantics }
+                // Migrate old save files: if template is absent, seed it from label
+                semantics: {
+                    ...DEFAULT_SEMANTICS,
+                    ...n.semantics,
+                    template: n.semantics.template || n.semantics.label || ''
+                }
             }
         ])
     );

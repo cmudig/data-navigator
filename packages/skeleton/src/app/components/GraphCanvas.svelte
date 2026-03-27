@@ -379,7 +379,7 @@
             isEntry: isFirst,
             isCluster: false,
             source: 'manual',
-            semantics: { label: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false, omitKeyNames: false },
+            semantics: { label: `Node ${nodes.size + 1}`, template: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false, omitKeyNames: false },
             data: {},
             renderProperties: defaultRenderProperties(),
         };

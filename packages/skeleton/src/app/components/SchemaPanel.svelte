@@ -7,6 +7,7 @@
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import { defaultRenderProperties } from '../../store/nodeFactory';
+    import { resolveLabel } from '../../utils/dnAdapter';
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
     const NAV_SLOTS = [
@@ -323,9 +324,10 @@
     }
 
     // ─── Label config mutations ───────────────────────────────────────────────
-    function templateToSemantics(t: LabelTemplate): SkeletonNode['semantics'] {
-        return {
-            label: t.template,
+    function templateToSemantics(t: LabelTemplate, data?: Record<string, unknown>): SkeletonNode['semantics'] {
+        const base: SkeletonNode['semantics'] = {
+            template: t.template,
+            label: t.template, // fallback: template string until data is available
             name: t.name,
             includeIndex: t.includeIndex,
             includeParentName: t.includeParentName,
@@ -334,23 +336,28 @@
             includeParentNames: t.includeParentNames,
             includeParentDivisions: t.includeParentDivisions,
         };
+        if (data !== undefined) {
+            // Resolve eagerly so semantics.label is the actual display string, not the raw template
+            base.label = resolveLabel({ semantics: base, data, label: '', id: '' } as SkeletonNode);
+        }
+        return base;
     }
 
     function updateLabelConfig(patch: Partial<LabelConfig>) {
         appState.update(s => {
             const newLabelConfig = { ...s.schemaState.labelConfig, ...patch };
             const newNodes = new Map(s.nodes);
-            // Patch affected schema nodes in the same update
+            // Patch affected schema nodes in the same update — pass n.data for eager resolution
             if (patch.level0) {
                 newNodes.forEach((n, id) => {
                     if (n.source === 'schema' && n.dnLevel === 0)
-                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.level0!) });
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.level0!, n.data) });
                 });
             }
             if (patch.leaves) {
                 newNodes.forEach((n, id) => {
                     if (n.source === 'schema' && n.dnLevel === 3)
-                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.leaves!) });
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.leaves!, n.data) });
                 });
             }
             return {
@@ -371,7 +378,7 @@
             const newNodes = new Map(s.nodes);
             newNodes.forEach((n, id) => {
                 if (n.source === 'schema' && n.dnLevel === 1 && n.dimensionKey === dimKey)
-                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl, n.data) });
             });
             return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
         });
@@ -387,7 +394,7 @@
             const newNodes = new Map(s.nodes);
             newNodes.forEach((n, id) => {
                 if (n.source === 'schema' && n.dnLevel === 2 && n.dimensionKey === dimKey)
-                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl, n.data) });
             });
             return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
         });
@@ -468,11 +475,12 @@
         const opts: Record<string, unknown> = {
             data: stampedData,
             idKey: '_dn_id',
+            renderIdKey: '_dn_id', // leaf renderId = node id (matches elementData keys)
             dimensions: {
                 values: dimensionValues,
                 parentOptions: {
-                    // Optional level-0 root node
-                    ...(s.level0Enabled ? { addLevel0: { id: s.level0Id || 'root', edges: [] } } : {}),
+                    // Optional level-0 root node — renderId must be explicit so renderer can find elementData
+                    ...(s.level0Enabled ? { addLevel0: { id: s.level0Id || 'root', renderId: s.level0Id || 'root', edges: [] } } : {}),
                     // Level-1 navigation: sibling order, extents, nav rules between dimension nodes
                     level1Options: {
                         order: included.map(d => dimNodeId(d.key)),
@@ -579,28 +587,25 @@
         dnNode: any,
         labelConfig: LabelConfig | null
     ): SkeletonNode['semantics'] {
-        const fallback: SkeletonNode['semantics'] = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false, omitKeyNames: false };
+        const fallback: SkeletonNode['semantics'] = { label: nodeId, template: nodeId, name: 'node', includeParentName: false, includeIndex: false, omitKeyNames: false };
         if (!labelConfig) return fallback;
         const lc = labelConfig;
         const level: number | undefined = dnNode?.dimensionLevel;
-        const dimKey: string | undefined = dnNode?.dimensionKey;
+        const dimKey: string | undefined = dnNode?.derivedNode as string | undefined;
+        const data: Record<string, unknown> = dnNode?.data ?? {};
 
         if (level === 0) {
-            const t = lc.level0;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
+            return templateToSemantics(lc.level0, data);
         }
         if (level === 1 && dimKey && lc.perDimension[dimKey]) {
-            const t = lc.perDimension[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames };
+            return templateToSemantics(lc.perDimension[dimKey], data);
         }
         if (level === 2 && dimKey && lc.perDivision[dimKey]) {
-            const t = lc.perDivision[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
+            return templateToSemantics(lc.perDivision[dimKey], data);
         }
         // level3 leaves and categorical level2 nodes (no perDivision entry)
         if (lc.leaves && (level === undefined || level === 3)) {
-            const t = lc.leaves;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeParentNames: t.includeParentNames, includeParentDivisions: t.includeParentDivisions };
+            return templateToSemantics(lc.leaves, data);
         }
         return fallback;
     }
@@ -759,7 +764,7 @@
                     if (existing.source === 'schema') {
                         newNodes.set(nodeId, {
                             ...existing,
-                            dimensionKey: dnNode?.dimensionKey as string | undefined,
+                            dimensionKey: dnNode?.derivedNode as string | undefined,
                             semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
                         });
                     }
@@ -768,7 +773,7 @@
                 const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 let label = nodeId;
                 if (dnNode) {
-                    const key = dnNode.dimensionKey;
+                    const key = dnNode.derivedNode;
                     if (dnNode.dimensionLevel === 1 && key) label = key;
                     else if (dnNode.dimensionLevel === 2) {
                         // Use the range/category label from schemaSnap (correct for numerical bins)
@@ -796,7 +801,7 @@
                     isCluster: false,
                     source: 'schema',
                     dnLevel,
-                    dimensionKey: dnNode?.dimensionKey as string | undefined,
+                    dimensionKey: dnNode?.derivedNode as string | undefined,
                     semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
                     data: dnNode?.data ?? {},
                     renderProperties: defaultRenderProperties(),

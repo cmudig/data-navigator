@@ -69,15 +69,89 @@ const DIRECTION_KEY_MAP: Record<string, DNNavRule> = {
     exit: { key: 'Escape', direction: 'target' }
 };
 
-// Resolve {key:"f"} / {value:"f"} template tokens in a label string.
-function resolveLabel(node: SkeletonNode): string {
+// Resolve template tokens in a label string, matching the buildPreview() output in LabelBuilder.svelte.
+// Exported so SchemaPanel (and any other site that creates/updates SkeletonNodes) can resolve eagerly.
+export function resolveLabel(node: SkeletonNode): string {
     const { semantics, data } = node;
-    let label = semantics.label
-        .replace(/\{key:"([^"]+)"\}/g, (_, f: string) => (semantics.omitKeyNames ? '' : f))
-        .replace(/\{value:"([^"]+)"\}/g, (_, f: string) => String(data[f] ?? ''))
-        .trim();
 
-    if (semantics.name) label = label ? `${label}. ${semantics.name}` : semantics.name;
+    // Helper: collect all leaf data rows from division (data.values) or dimension (data.divisions)
+    const getLeafRows = (): Record<string, unknown>[] => {
+        if (data.values && typeof data.values === 'object')
+            return Object.values(data.values as Record<string, Record<string, unknown>>);
+        if (data.divisions && typeof data.divisions === 'object')
+            return Object.values(data.divisions as Record<string, { values?: Record<string, unknown> }>).flatMap(d =>
+                Object.values(d.values ?? {})
+            ) as Record<string, unknown>[];
+        return [];
+    };
+
+    // Read from semantics.template (the formatter model); fall back to label for legacy nodes
+    let label = semantics.template ?? semantics.label;
+
+    // --- Aggregate tokens (resolve before key/value tokens) ---
+    // {count} — leaf count
+    label = label.replace(/\{count\}/g, () => {
+        if (data.values && typeof data.values === 'object') return String(Object.keys(data.values as object).length);
+        if (data.divisions && typeof data.divisions === 'object')
+            return String(
+                Object.values(data.divisions as Record<string, { values?: object }>).reduce(
+                    (sum, d) => sum + Object.keys(d.values ?? {}).length,
+                    0
+                )
+            );
+        return '0';
+    });
+
+    // {subcount} — division count (dimension nodes only)
+    label = label.replace(/\{subcount\}/g, () =>
+        data.divisions && typeof data.divisions === 'object'
+            ? String(Object.keys(data.divisions as object).length)
+            : '0'
+    );
+
+    // {min:"f"}, {max:"f"}, {sum:"f"}, {avg:"f"}
+    label = label.replace(/\{(min|max|sum|avg):"([^"]+)"\}/g, (_, agg: string, field: string) => {
+        const rows = getLeafRows();
+        const vals = rows.map(r => Number((r as Record<string, unknown>)[field])).filter(v => !isNaN(v));
+        if (vals.length === 0) return '';
+        if (agg === 'min') return String(Math.min(...vals));
+        if (agg === 'max') return String(Math.max(...vals));
+        if (agg === 'sum') return String(vals.reduce((a, b) => a + b, 0));
+        if (agg === 'avg') return String(Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)));
+        return '';
+    });
+
+    // {trend:"x":"y"}, {r2:"x":"y"} — leave as readable placeholders
+    label = label.replace(/\{trend:"[^"]+":"[^"]+"\}/g, '[trend]');
+    label = label.replace(/\{r2:"[^"]+":"[^"]+"\}/g, '[r²]');
+
+    // --- {key:"f"} tokens ---
+    if (semantics.omitKeyNames) {
+        label = label.replace(/\{key:"[^"]+"\}:\s*/g, '');
+        label = label.replace(/\{key:"[^"]+"\}/g, '');
+    } else {
+        label = label.replace(/\{key:"([^"]+)"\}/g, (_, f: string) => f);
+    }
+
+    // --- {value:"f"} tokens ---
+    label = label.replace(/\{value:"([^"]+)"\}/g, (_, f: string) => {
+        // Numerical division range: compute from numericalExtents
+        if (f === 'range' && Array.isArray(data.numericalExtents) && data.numericalExtents.length === 2) {
+            return `${data.numericalExtents[0]}–${data.numericalExtents[1]}`;
+        }
+        // Dimension node: data[f] may be undefined when f IS the dimension key name
+        if (data[f] === undefined && data.dimensionKey === f) return f;
+        return String(data[f] ?? '');
+    });
+
+    label = label.trim().replace(/[.,\s]+$/, '');
+
+    // --- Name suffix (match preview: "Base Name." or "Name.") ---
+    if (semantics.name) {
+        const capName = semantics.name.charAt(0).toUpperCase() + semantics.name.slice(1);
+        label = label ? `${label} ${capName}.` : `${capName}.`;
+    }
+
     return label || node.label || node.id;
 }
 
@@ -111,7 +185,8 @@ export function toStructure(state: StructureInput): DNStructure | null {
 
     for (const [id, skNode] of skNodes) {
         const renderId = skNode.renderId ?? id;
-        const label = resolveLabel(skNode);
+        // semantics.label is already the resolved string (set eagerly in SchemaPanel/PropertiesPanel)
+        const label = skNode.semantics.label || skNode.label || id;
 
         nodes[id] = {
             id,

@@ -3,6 +3,7 @@
     import type { RenderConfig, SchemaState } from '../../store/appState';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import LabelBuilder from './prep/LabelBuilder.svelte';
+    import { resolveLabel } from '../../utils/dnAdapter';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let nodes = $state<Map<string, SkeletonNode>>(new Map());
@@ -213,12 +214,12 @@
             const n = s.nodes.get(id);
             if (!n) return s;
             markManualEdit(n);
+            const newSemantics = { ...n.semantics, ...patch };
+            // Re-resolve label eagerly so semantics.label is always the actual display string
+            newSemantics.label = resolveLabel({ ...n, semantics: newSemantics } as SkeletonNode);
             return {
                 ...s,
-                nodes: new Map(s.nodes).set(id, {
-                    ...n,
-                    semantics: { ...n.semantics, ...patch },
-                }),
+                nodes: new Map(s.nodes).set(id, { ...n, semantics: newSemantics }),
             };
         });
     }
@@ -226,7 +227,7 @@
     // Svelte-friendly: update semantics via LabelBuilder onchange
     function updateNodeSemanticsFromTemplate(tmpl: import('../../store/appState').LabelTemplate) {
         updateNodeSemantics({
-            label: tmpl.template,
+            template: tmpl.template, // store the formatter model; label is re-resolved by updateNodeSemantics
             name: tmpl.name,
             includeIndex: tmpl.includeIndex,
             includeParentName: tmpl.includeParentName,
@@ -255,9 +256,9 @@
 
     // ── Semantic preview ──────────────────────────────────────────────────────
     function buildSemanticOutput(node: SkeletonNode): string {
-        // 1. Resolve label template
+        // 1. Resolve label template — read from semantics.template (formatter model)
         // Aggregate tokens resolve from node.data when available, else show [placeholder]
-        let resolved = node.semantics.label;
+        let resolved = node.semantics.template ?? node.semantics.label;
         resolved = resolved.replace(/\{count\}/g, () => {
             const v = node.data['count'];
             return v !== undefined ? String(v) : '[count]';
@@ -273,7 +274,8 @@
         resolved = resolved.replace(/\{trend:"[^"]+":"[^"]+"\}/g, () => '[trend]');
         resolved = resolved.replace(/\{r2:"[^"]+":"[^"]+"\}/g, () => '[r²]');
         if (node.semantics.omitKeyNames) {
-            resolved = resolved.replace(/\{key:"([^"]+)"\}/g, '');
+            resolved = resolved.replace(/\{key:"[^"]+"\}:\s*/g, '');
+            resolved = resolved.replace(/\{key:"[^"]+"\}/g, '');
         } else {
             resolved = resolved.replace(/\{key:"([^"]+)"\}/g, (_, key) => key);
         }
@@ -412,7 +414,7 @@
             const newNodes = new Map(s.nodes);
             ids.forEach(id => {
                 const n = newNodes.get(id);
-                if (n) newNodes.set(id, { ...n, semantics: { ...n.semantics, label } });
+                if (n) newNodes.set(id, { ...n, semantics: { ...n.semantics, template: label, label } });
             });
             return { ...s, nodes: newNodes };
         });

@@ -20,7 +20,8 @@ export type SkeletonNode = {
     pathData?: string;
     pathBounds?: { x: number; y: number; width: number; height: number };
     semantics: {
-        label: string; // maps to DN's node.semantics.label; supports {key:"f"}/{value:"f"} templates
+        label: string; // resolved display string — single source of truth for the final label
+        template: string; // formatter model string; supports {key:"f"}/{value:"f"} and aggregate tokens
         name: string; // noun appended after label, e.g. "data point", "node"
         includeParentName: boolean; // append "in [parent]" to output
         includeIndex: boolean; // append "X of Y" to output

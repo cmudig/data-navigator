@@ -151,9 +151,13 @@
     }
 
     function handleNavigate(node: Record<string, unknown>) {
-        const id    = node.id as string;
-        const rId   = (node.renderId as string) ?? id;
-        const label = (node.semantics as { label?: string })?.label ?? id;
+        const id  = node.id as string;
+        // Use || (not ??) so both "" (leaf default) and undefined (root) fall back to id
+        const rId = ((node.renderId as string) || id);
+        // Read the pre-resolved label from elementData — raw DN nodes have no semantics
+        const label = dnStructure?.elementData?.[rId]?.semantics?.label
+            ?? (node.semantics as { label?: string })?.label
+            ?? id;
 
         // Remove previously rendered node (on-demand lifecycle)
         if (renderedNodeId && renderedNodeId !== rId) {
@@ -161,8 +165,11 @@
         }
         renderedNodeId = rId;
 
-        // Render new node on-demand
-        try { dnRenderer?.render?.(node as Parameters<NonNullable<typeof dnRenderer>['render']>[0]); } catch { /* ignore */ }
+        // Render new node on-demand — ensure renderId is correct on the node object
+        const nodeForRenderer = (node.renderId as string) === rId
+            ? node
+            : { ...node, renderId: rId };
+        try { dnRenderer?.render?.(nodeForRenderer as Parameters<NonNullable<typeof dnRenderer>['render']>[0]); } catch { /* ignore */ }
 
         // Focus it in keyboard mode
         if (navMode === 'keyboard') {
@@ -204,14 +211,22 @@
     }
 
     function handleSelect(node: Record<string, unknown>) {
-        const label = (node.semantics as { label?: string })?.label ?? (node.id as string);
+        const id  = node.id as string;
+        const rId = ((node.renderId as string) || id);
+        const label = dnStructure?.elementData?.[rId]?.semantics?.label
+            ?? (node.semantics as { label?: string })?.label
+            ?? id;
         focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
         focusedNodeLabel = label;
         logEvent({ kind: 'select', nodeLabel: label });
     }
 
     function handleHover(node: Record<string, unknown>) {
-        const label = (node.semantics as { label?: string })?.label ?? (node.id as string);
+        const id  = node.id as string;
+        const rId = ((node.renderId as string) || id);
+        const label = dnStructure?.elementData?.[rId]?.semantics?.label
+            ?? (node.semantics as { label?: string })?.label
+            ?? id;
         logEvent({ kind: 'hover', nodeLabel: label });
     }
 
@@ -221,9 +236,13 @@
         if (!entryNode) return;
         handleNavigate(entryNode);
         if (navMode === 'keyboard') {
-            dnInput.focus((entryNode.renderId as string) ?? (entryNode.id as string));
+            const entryRId = ((entryNode.renderId as string) || (entryNode.id as string));
+            dnInput.focus(entryRId);
         }
-        logEvent({ kind: 'enter', nodeLabel: (entryNode.semantics as { label?: string })?.label });
+        const entryRId = ((entryNode.renderId as string) || (entryNode.id as string));
+        const entryLabel = dnStructure?.elementData?.[entryRId]?.semantics?.label
+            ?? (entryNode.semantics as { label?: string })?.label;
+        logEvent({ kind: 'enter', nodeLabel: entryLabel });
     }
 
     function handleKeydown(e: KeyboardEvent) {
