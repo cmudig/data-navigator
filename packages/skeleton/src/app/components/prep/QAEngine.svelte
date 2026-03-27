@@ -83,11 +83,11 @@
 
     // ── Nav slot constants (mirrors SchemaPanel.NAV_SLOTS / DRILL_OUT_KEYS) ─────
     const NAV_SLOTS_QA = [
-        { forwardName: 'up',      forwardKey: 'ArrowUp',    backwardName: 'down',     backwardKey: 'ArrowDown'  },
-        { forwardName: 'left',    forwardKey: 'ArrowLeft',  backwardName: 'right',    backwardKey: 'ArrowRight' },
-        { forwardName: 'forward', forwardKey: '[',          backwardName: 'backward', backwardKey: ']'          },
+        { forwardName: 'up',       forwardKey: 'ArrowUp',      backwardName: 'down',    backwardKey: 'ArrowDown'    },
+        { forwardName: 'left',     forwardKey: 'ArrowLeft',    backwardName: 'right',   backwardKey: 'ArrowRight'   },
+        { forwardName: 'backward', forwardKey: 'BracketLeft',  backwardName: 'forward', backwardKey: 'BracketRight' },
     ] as const;
-    const DRILL_OUT_KEYS_QA = ['w', 'j', '\\'] as const;
+    const DRILL_OUT_KEYS_QA = ['KeyW', 'KeyJ', 'Backslash'] as const;
 
     function makeValidId(s: string): string {
         return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');

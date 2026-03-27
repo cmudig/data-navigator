@@ -208,17 +208,17 @@
         return map;
     });
 
-    // Compute which edges have a reverse-direction counterpart (for bezier curves)
+    // Compute which edges render as two curved arrows (forward + backward arcs).
+    // navigationRuleNames.length > 1 detects this correctly for visual rendering:
+    //   - Schema edges always carry 2 rules → always render as paired arcs.
+    //   - Manual edges with "Add pairs" enabled → 2 rules → paired arcs.
+    //   - Manual edges without "Add pairs" → 1 rule → single straight arrow.
+    // NOTE: having 2 rules does NOT mean both nodes hold the edge — that is determined
+    // at the node level by addEdgeToNode() in the DN library. See SkeletonEdge in types.ts.
     const pairedEdgeIds = $derived.by((): Set<string> => {
         const paired = new Set<string>();
-        const reverseKey = new Map<string, string>();
         edges.forEach((edge) => {
-            reverseKey.set(`${edge.targetId}→${edge.sourceId}`, edge.id);
-        });
-        edges.forEach((edge) => {
-            if (reverseKey.has(`${edge.sourceId}→${edge.targetId}`)) {
-                paired.add(edge.id);
-            }
+            if ((edge.navigationRuleNames?.length ?? 0) > 1) paired.add(edge.id);
         });
         return paired;
     });
@@ -379,7 +379,7 @@
             isEntry: isFirst,
             isCluster: false,
             source: 'manual',
-            semantics: { label: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false, omitKeyNames: false },
+            semantics: { label: `Node ${nodes.size + 1}`, template: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false, omitKeyNames: false },
             data: {},
             renderProperties: defaultRenderProperties(),
         };
@@ -398,12 +398,17 @@
     function addEdgeBetween(sourceId: string, targetId: string) {
         appState.update(s => {
             const newEdges = new Map(s.edges);
-            const fwdId = crypto.randomUUID();
-            newEdges.set(fwdId, { id: fwdId, sourceId, targetId, direction: 'down', label: '', dnProperties: {} });
-            if (addEdgePairs) {
-                const bwdId = crypto.randomUUID();
-                newEdges.set(bwdId, { id: bwdId, sourceId: targetId, targetId: sourceId, direction: 'up', label: '', dnProperties: {} });
-            }
+            const id = crypto.randomUUID();
+            // A "paired" (bidirectional) edge is ONE edge with 2 nav rules — not 2 separate edges.
+            // toStructure() in dnAdapter.ts adds a 2-rule edge to both the source and target
+            // node edge lists, enabling traversal in either direction from either endpoint.
+            newEdges.set(id, {
+                id, sourceId, targetId,
+                direction: 'down',
+                label: '',
+                dnProperties: {},
+                navigationRuleNames: addEdgePairs ? ['down', 'up'] : ['down'],
+            });
             return { ...s, edges: newEdges };
         });
         logAction(addEdgePairs ? 'Added edge pair' : 'Added edge');
@@ -1251,6 +1256,10 @@
         {/if}
 
         <!-- Layer 2: Edges -->
+        <!-- TODO(perf): bidirectional edges render 5 SVG elements each (2 paths + 2 hit
+             targets + 1 label). Investigate whether $derived.by() computations
+             (pairedEdgeIds, hiddenEdgeIds, nodeList) re-run more often than necessary.
+             Consider element batching or virtualization for graphs with many nodes/edges. -->
         <g class="edge-layer">
             {#each [...edges.values()] as edge (edge.id)}
                 {@const src = nodes.get(edge.sourceId)}
@@ -1295,8 +1304,21 @@
                             />
                         {/if}
                         {#if isPaired}
+                            {@const cpx_bwd = mx - (dy / len) * 30}
+                            {@const cpy_bwd = my + (dx / len) * 30}
+                            <!-- Forward arrow: src → tgt (offset to one side) -->
                             <path
                                 d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
+                                fill="none"
+                                color={edgeCol}
+                                stroke={edgeCol}
+                                stroke-width={isSel ? 2.5 : 1.5}
+                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
+                            />
+                            <!-- Reverse arrow: tgt → src (offset to opposite side).
+                                 Both arrows belong to this one bidirectional edge. -->
+                            <path
+                                d="M {tc.x} {tc.y} Q {cpx_bwd} {cpy_bwd} {sc.x} {sc.y}"
                                 fill="none"
                                 color={edgeCol}
                                 stroke={edgeCol}

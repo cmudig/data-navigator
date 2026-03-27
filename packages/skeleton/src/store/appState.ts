@@ -249,9 +249,12 @@ export interface ScaffoldConfig {
     yField?: string; // column name for y channel (quantitative value)
     colorField?: string; // column name for color/series channel (stacked, clustered, line)
 
-    // Visual sort order for the x axis — independent of navigation order set in Prep.
+    // Visual sort order for the categorical axis — independent of navigation order set in Prep.
     // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
     sortX?: 'none' | 'ascending' | 'descending';
+
+    // Bar chart orientation (bar / stacked-bar / clustered-bar only). Default: 'vertical'.
+    barOrientation?: 'vertical' | 'horizontal';
 
     // Group shape outlines for level 0/1/2 nodes — computed from leaf node positions
     groupShapes?: GroupShapeConfig;
@@ -287,6 +290,10 @@ export interface AppState {
     // Scaffold mode (Step 2 — Editor)
     scaffoldConfig: ScaffoldConfig | null; // null until first scaffold setup
     scaffoldModeActive: boolean; // true when scaffold toolbar panel is open
+    // Raw DN structure from SchemaPanel — stored as the canonical navigation structure.
+    // The testing page reads this directly rather than reconstructing via toStructure(),
+    // which cannot reproduce the per-node edge membership set by the DN library.
+    dnStructure: Record<string, unknown> | null;
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -365,7 +372,8 @@ export const DEFAULT_APP_STATE: AppState = {
     prepState: null,
     hasManualNodeEdits: false,
     scaffoldConfig: null,
-    scaffoldModeActive: false
+    scaffoldModeActive: false,
+    dnStructure: null
 };
 
 export const appState = writable<AppState>({ ...DEFAULT_APP_STATE });

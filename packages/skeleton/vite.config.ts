@@ -9,11 +9,21 @@ export default defineConfig({
     plugins: [svelte()],
     base: '/data-navigator/skeleton/',
     resolve: {
-        alias: {
-            'data-navigator': resolve(__dirname, '../../packages/data-navigator/src/index.ts'),
-            '@data-navigator/inspector/style.css': resolve(__dirname, '../../packages/inspector/style.css'),
-            '@data-navigator/inspector': resolve(__dirname, '../../packages/inspector/src/index.js')
-        }
+        alias: [
+            {
+                find: 'data-navigator/text-chat.css',
+                replacement: resolve(__dirname, '../../packages/data-navigator/text-chat.css')
+            },
+            { find: 'data-navigator', replacement: resolve(__dirname, '../../packages/data-navigator/src/index.ts') },
+            {
+                find: '@data-navigator/inspector/style.css',
+                replacement: resolve(__dirname, '../../packages/inspector/style.css')
+            },
+            {
+                find: '@data-navigator/inspector',
+                replacement: resolve(__dirname, '../../packages/inspector/src/index.js')
+            }
+        ]
     },
     build: {
         rollupOptions: {

@@ -19,6 +19,7 @@ export function defaultRenderProperties(): SkeletonNode['renderProperties'] {
 export function defaultSemantics(): SkeletonNode['semantics'] {
     return {
         label: '',
+        template: '',
         name: 'data point',
         includeParentName: false,
         includeIndex: false,

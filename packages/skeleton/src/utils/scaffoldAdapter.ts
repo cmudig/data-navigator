@@ -241,22 +241,45 @@ export function positionNodesFromVegaScales(
     const leafNodes = nodes.filter(n => n.dnLevel === 3);
 
     if (config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar') {
-        const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
-        const yZero = yScale(0) ?? config.plotHeight;
+        if (config.barOrientation === 'horizontal') {
+            // For horizontal bars: y is the band scale (categorical), x is linear (quantitative)
+            type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
+            const yBandScale = view.scale('y') as BandScaleH | undefined;
+            const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
+            if (!yBandScale || !xLinScale) return updates;
+            const bh = yBandScale.bandwidth ? yBandScale.bandwidth() : 20;
+            const xZero = xLinScale(0) ?? 0;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const numVal = Number(node.data[yField] ?? 0);
+                const scaledY = yBandScale(catVal);
+                if (scaledY === undefined || isNaN(scaledY as number)) continue;
+                const barRight = xLinScale(numVal);
+                updates.set(node.id, {
+                    x: (xZero as number) + config.paddingLeft + config.offsetX,
+                    y: (scaledY as number) + config.paddingTop + config.offsetY,
+                    width: Math.max(1, (barRight as number) - (xZero as number)),
+                    height: bh
+                });
+            }
+        } else {
+            const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
+            const yZero = yScale(0) ?? config.plotHeight;
 
-        for (const node of leafNodes) {
-            const catVal = node.data[xField];
-            const numVal = Number(node.data[yField] ?? 0);
-            const scaledX = xScale(catVal);
-            if (scaledX === undefined || isNaN(scaledX as number)) continue;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const numVal = Number(node.data[yField] ?? 0);
+                const scaledX = xScale(catVal);
+                if (scaledX === undefined || isNaN(scaledX as number)) continue;
 
-            const barTop = yScale(numVal);
-            updates.set(node.id, {
-                x: (scaledX as number) + config.paddingLeft + config.offsetX,
-                y: barTop + config.paddingTop + config.offsetY,
-                width: bw,
-                height: Math.max(1, (yZero as number) - barTop)
-            });
+                const barTop = yScale(numVal);
+                updates.set(node.id, {
+                    x: (scaledX as number) + config.paddingLeft + config.offsetX,
+                    y: barTop + config.paddingTop + config.offsetY,
+                    width: bw,
+                    height: Math.max(1, (yZero as number) - barTop)
+                });
+            }
         }
     } else if (config.chartType === 'scatter') {
         const pointR = Math.sqrt((config.markParams.pointSize ?? 100) / Math.PI);

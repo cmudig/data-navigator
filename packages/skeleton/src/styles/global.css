@@ -138,6 +138,13 @@ button {
     padding: calc(var(--dn-space) * 3);
 }
 
+.workspace-canvas--mild {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    padding: calc(var(--dn-space) * 2);
+}
+
 .workspace-canvas--fill {
     overflow: hidden;
     display: flex;

@@ -83,22 +83,21 @@ function buildBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const xField = config.xField ?? 'x';
     const yField = config.yField ?? 'value';
     const mp = config.markParams;
+    const horizontal = config.barOrientation === 'horizontal';
+    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
         mark: { type: 'bar', color: '#6366f1' },
-        encoding: {
-            x: {
-                field: xField,
-                type: 'ordinal',
-                sort: vegaSortX(config),
-                scale: {
-                    paddingInner: mp.barInnerPadding ?? 0.1,
-                    paddingOuter: mp.barOuterPadding ?? 0.05
-                }
-            },
-            y: { field: yField, type: 'quantitative' }
-        }
+        encoding: horizontal
+            ? {
+                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  x: { field: yField, type: 'quantitative' }
+              }
+            : {
+                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  y: { field: yField, type: 'quantitative' }
+              }
     };
 }
 
@@ -107,23 +106,23 @@ function buildStackedBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec 
     const yField = config.yField ?? 'value';
     const colorField = config.colorField ?? 'series';
     const mp = config.markParams;
+    const horizontal = config.barOrientation === 'horizontal';
+    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
         mark: { type: 'bar' },
-        encoding: {
-            x: {
-                field: xField,
-                type: 'ordinal',
-                sort: vegaSortX(config),
-                scale: {
-                    paddingInner: mp.barInnerPadding ?? 0.1,
-                    paddingOuter: mp.barOuterPadding ?? 0.05
-                }
-            },
-            y: { field: yField, type: 'quantitative', stack: 'zero' },
-            color: { field: colorField, type: 'nominal' }
-        }
+        encoding: horizontal
+            ? {
+                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  x: { field: yField, type: 'quantitative', stack: 'zero' },
+                  color: { field: colorField, type: 'nominal' }
+              }
+            : {
+                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  y: { field: yField, type: 'quantitative', stack: 'zero' },
+                  color: { field: colorField, type: 'nominal' }
+              }
     };
 }
 
@@ -132,24 +131,26 @@ function buildClusteredBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpe
     const yField = config.yField ?? 'value';
     const colorField = config.colorField ?? 'series';
     const mp = config.markParams;
+    const horizontal = config.barOrientation === 'horizontal';
+    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
+    const offsetScale = { paddingInner: mp.groupPadding ?? 0.05 };
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
         mark: { type: 'bar' },
-        encoding: {
-            x: {
-                field: xField,
-                type: 'ordinal',
-                sort: vegaSortX(config),
-                scale: {
-                    paddingInner: mp.barInnerPadding ?? 0.1,
-                    paddingOuter: mp.barOuterPadding ?? 0.05
-                }
-            },
-            xOffset: { field: colorField, type: 'nominal', scale: { paddingInner: mp.groupPadding ?? 0.05 } },
-            y: { field: yField, type: 'quantitative' },
-            color: { field: colorField, type: 'nominal' }
-        }
+        encoding: horizontal
+            ? {
+                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  yOffset: { field: colorField, type: 'nominal', scale: offsetScale },
+                  x: { field: yField, type: 'quantitative' },
+                  color: { field: colorField, type: 'nominal' }
+              }
+            : {
+                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
+                  xOffset: { field: colorField, type: 'nominal', scale: offsetScale },
+                  y: { field: yField, type: 'quantitative' },
+                  color: { field: colorField, type: 'nominal' }
+              }
     };
 }
 

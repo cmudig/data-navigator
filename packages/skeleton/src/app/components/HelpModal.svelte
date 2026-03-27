@@ -1,6 +1,6 @@
 <script lang="ts">
-    type Props = { onclose: () => void };
-    const { onclose }: Props = $props();
+    type Props = { onclose: () => void; onOpenIntro?: () => void };
+    const { onclose, onOpenIntro }: Props = $props();
 
     let dialogEl: HTMLElement | undefined = $state();
     let activeTab = $state(0);
@@ -86,6 +86,13 @@
 
         <!-- Preamble: always-visible intro -->
         <div class="modal-preamble">
+            {#if onOpenIntro}
+                <div class="preamble-intro-link">
+                    <button class="btn-ghost btn-sm" type="button" onclick={onOpenIntro}>
+                        ← View the "What is Skeleton?" intro again
+                    </button>
+                </div>
+            {/if}
             <p>
                 Interactive visualizations are powerful — but only if you can access them. <strong>Skeleton</strong> helps you build a navigable, interactive structure on
                 top of your visualization, so that folks who use assistive technologies can harness that power too.
@@ -100,6 +107,9 @@
             <p>
                 And learn more about accessible navigation strategies and techniques in our <a href="https://dig.cmu.edu/data-navigator/" target="_blank" rel="noopener noreferrer">docs for Data Navigator</a>.
             </p>
+            <div class="preamble-scaffold-callout">
+                <strong>Tip: the Scaffold tool</strong> — available in Step 2 (Editor) via a toggle button at the top of the step — automatically positions your navigation nodes based on your data. It renders a Vega-Lite visualization behind the scenes and uses its coordinate system to place nodes precisely on your canvas, with controls for fine-tuning position, padding, and group shapes. If you have structured chart data (bar, scatter, line, and more), try it first.
+            </div>
         </div>
 
         <!-- Tab list -->
@@ -646,6 +656,21 @@
         display: flex;
         flex-direction: column;
         gap: calc(var(--dn-space) * 1);
+    }
+
+    .preamble-intro-link {
+        margin-bottom: calc(var(--dn-space) * 0.5);
+    }
+
+    .preamble-scaffold-callout {
+        background: var(--dn-accent-soft);
+        border: 1px solid var(--dn-accent-light);
+        border-radius: calc(var(--dn-radius) - 2px);
+        padding: calc(var(--dn-space) * 1.25) calc(var(--dn-space) * 1.5);
+        font-size: 0.875rem;
+        line-height: 1.6;
+        color: var(--dn-text);
+        margin-top: calc(var(--dn-space) * 0.5);
     }
 
     .modal-preamble p {

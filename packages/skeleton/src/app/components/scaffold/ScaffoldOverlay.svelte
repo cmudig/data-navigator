@@ -154,11 +154,15 @@
 
         appState.update(st => {
             const nextNodes = new Map(st.nodes);
-            for (const [id, pathData] of paths) {
+            for (const [id, { pathData, bbox }] of paths) {
                 const n = nextNodes.get(id);
                 if (n) {
                     nextNodes.set(id, {
                         ...n,
+                        x: bbox.x,
+                        y: bbox.y,
+                        width: bbox.width,
+                        height: bbox.height,
                         pathData,
                         renderProperties: { ...n.renderProperties, shape: 'path' }
                     });

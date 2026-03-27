@@ -7,14 +7,15 @@
     import { logAction, logActionDebounced } from '../../store/historyStore';
     import type { SkeletonNode, SkeletonEdge } from '../../store/types';
     import { defaultRenderProperties } from '../../store/nodeFactory';
+    import { resolveLabel } from '../../utils/dnAdapter';
 
     // ─── Nav slot defaults ────────────────────────────────────────────────────
     const NAV_SLOTS = [
-        { forwardName: 'up',      forwardKey: 'ArrowUp',    backwardName: 'down',     backwardKey: 'ArrowDown'  },
-        { forwardName: 'left',    forwardKey: 'ArrowLeft',  backwardName: 'right',    backwardKey: 'ArrowRight' },
-        { forwardName: 'forward', forwardKey: '[',          backwardName: 'backward', backwardKey: ']'          },
+        { forwardName: 'up',       forwardKey: 'ArrowUp',      backwardName: 'down',    backwardKey: 'ArrowDown'    },
+        { forwardName: 'left',     forwardKey: 'ArrowLeft',    backwardName: 'right',   backwardKey: 'ArrowRight'   },
+        { forwardName: 'backward', forwardKey: 'BracketLeft',  backwardName: 'forward', backwardKey: 'BracketRight' },
     ] as const;
-    const DRILL_OUT_KEYS = ['w', 'j', '\\'] as const;
+    const DRILL_OUT_KEYS = ['KeyW', 'KeyJ', 'Backslash'] as const;
 
     // ─── Store state mirrors ──────────────────────────────────────────────────
     let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
@@ -323,9 +324,10 @@
     }
 
     // ─── Label config mutations ───────────────────────────────────────────────
-    function templateToSemantics(t: LabelTemplate): SkeletonNode['semantics'] {
-        return {
-            label: t.template,
+    function templateToSemantics(t: LabelTemplate, data?: Record<string, unknown>): SkeletonNode['semantics'] {
+        const base: SkeletonNode['semantics'] = {
+            template: t.template,
+            label: t.template, // fallback: template string until data is available
             name: t.name,
             includeIndex: t.includeIndex,
             includeParentName: t.includeParentName,
@@ -334,23 +336,28 @@
             includeParentNames: t.includeParentNames,
             includeParentDivisions: t.includeParentDivisions,
         };
+        if (data !== undefined) {
+            // Resolve eagerly so semantics.label is the actual display string, not the raw template
+            base.label = resolveLabel({ semantics: base, data, label: '', id: '' } as SkeletonNode);
+        }
+        return base;
     }
 
     function updateLabelConfig(patch: Partial<LabelConfig>) {
         appState.update(s => {
             const newLabelConfig = { ...s.schemaState.labelConfig, ...patch };
             const newNodes = new Map(s.nodes);
-            // Patch affected schema nodes in the same update
+            // Patch affected schema nodes in the same update — pass n.data for eager resolution
             if (patch.level0) {
                 newNodes.forEach((n, id) => {
                     if (n.source === 'schema' && n.dnLevel === 0)
-                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.level0!) });
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.level0!, n.data) });
                 });
             }
             if (patch.leaves) {
                 newNodes.forEach((n, id) => {
                     if (n.source === 'schema' && n.dnLevel === 3)
-                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.leaves!) });
+                        newNodes.set(id, { ...n, semantics: templateToSemantics(patch.leaves!, n.data) });
                 });
             }
             return {
@@ -371,7 +378,7 @@
             const newNodes = new Map(s.nodes);
             newNodes.forEach((n, id) => {
                 if (n.source === 'schema' && n.dnLevel === 1 && n.dimensionKey === dimKey)
-                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl, n.data) });
             });
             return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
         });
@@ -387,7 +394,7 @@
             const newNodes = new Map(s.nodes);
             newNodes.forEach((n, id) => {
                 if (n.source === 'schema' && n.dnLevel === 2 && n.dimensionKey === dimKey)
-                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl) });
+                    newNodes.set(id, { ...n, semantics: templateToSemantics(tmpl, n.data) });
             });
             return { ...s, schemaState: { ...s.schemaState, labelConfig: newLabelConfig }, nodes: newNodes };
         });
@@ -400,8 +407,14 @@
             .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
         if (included.length === 0) return null;
 
-        // Stamp a copy of the data with stable row IDs so we don't mutate uploadedData
-        const stampedData = data.map((d, i) => ({ ...d, '_dn_id': `row_${i}` }));
+        // Stamp a copy of the data with stable row IDs so we don't mutate uploadedData.
+        // Use the user's designated ID column (isId from Prep) when available, so that
+        // node IDs reflect real data values (e.g. "apples") rather than synthetic "row_0".
+        const idCol = prepState?.variables.find(v => v.isId && !v.removed)?.key;
+        const stampedData = data.map((d, i) => ({
+            ...d,
+            '_dn_id': idCol ? String(d[idCol] ?? `row_${i}`) : `row_${i}`,
+        }));
 
         const dimensionValues = included.map(dim => {
             // Build lookup: originalValue → user-edited ID (for passing custom IDs back to DN)
@@ -459,14 +472,44 @@
             return datum;
         });
 
+        // Build explicit nav rules so DN uses our keys instead of auto-assigning
+        // spare keys for unrecognized names like 'drill in' / 'drill out to X'.
+        const navRules: Record<string, { key: string; direction: 'source' | 'target' }> = {};
+        for (const dim of included) {
+            if (dim.forwardName && dim.forwardKey)
+                navRules[dim.forwardName] = { key: dim.forwardKey, direction: 'source' };
+            if (dim.backwardName && dim.backwardKey)
+                navRules[dim.backwardName] = { key: dim.backwardKey, direction: 'target' };
+            if (dim.drillInName && dim.drillInKey)
+                navRules[dim.drillInName] ??= { key: dim.drillInKey, direction: 'target' };
+            if (dim.drillOutName && dim.drillOutKey)
+                navRules[dim.drillOutName] = { key: dim.drillOutKey, direction: 'source' };
+        }
+        // Level-1 sibling nav (between dimension nodes)
+        const l1fwd = s.level1NavForwardName || 'left';
+        const l1bwd = s.level1NavBackwardName || 'right';
+        navRules[l1fwd] ??= { key: s.level1NavForwardKey || 'ArrowLeft', direction: 'source' };
+        navRules[l1bwd] ??= { key: s.level1NavBackwardKey || 'ArrowRight', direction: 'target' };
+        // Root ↔ dim (when level0 enabled) — reuse first dim's drill names so
+        // 'parent'/'child' never appear as rule names in the testing page.
+        if (s.level0Enabled && included.length > 0) {
+            const rootIn  = included[0].drillInName  || 'drill in';
+            const rootOut = included[0].drillOutName || 'drill out';
+            navRules[rootIn]  ??= { key: included[0].drillInKey  || 'Enter',     direction: 'target' };
+            navRules[rootOut] ??= { key: included[0].drillOutKey || 'Backspace',  direction: 'source' };
+        }
+        navRules['exit'] = { key: 'Escape', direction: 'target' };
+
         const opts: Record<string, unknown> = {
             data: stampedData,
             idKey: '_dn_id',
+            renderIdKey: '_dn_id', // leaf renderId = node id (matches elementData keys)
+            navigationRules: navRules,
             dimensions: {
                 values: dimensionValues,
                 parentOptions: {
-                    // Optional level-0 root node
-                    ...(s.level0Enabled ? { addLevel0: { id: s.level0Id || 'root', edges: [] } } : {}),
+                    // Optional level-0 root node — renderId must be explicit so renderer can find elementData
+                    ...(s.level0Enabled ? { addLevel0: { id: s.level0Id || 'root', renderId: s.level0Id || 'root', edges: [] } } : {}),
                     // Level-1 navigation: sibling order, extents, nav rules between dimension nodes
                     level1Options: {
                         order: included.map(d => dimNodeId(d.key)),
@@ -476,7 +519,10 @@
                                 s.level1NavForwardName || 'left',
                                 s.level1NavBackwardName || 'right',
                             ],
-                            parent_child: ['parent', 'child'],
+                            parent_child: [
+                                included[0]?.drillInName  || 'drill in',
+                                included[0]?.drillOutName || 'drill out',
+                            ],
                         },
                     },
                 },
@@ -573,28 +619,25 @@
         dnNode: any,
         labelConfig: LabelConfig | null
     ): SkeletonNode['semantics'] {
-        const fallback: SkeletonNode['semantics'] = { label: nodeId, name: 'node', includeParentName: false, includeIndex: false, omitKeyNames: false };
+        const fallback: SkeletonNode['semantics'] = { label: nodeId, template: nodeId, name: 'node', includeParentName: false, includeIndex: false, omitKeyNames: false };
         if (!labelConfig) return fallback;
         const lc = labelConfig;
         const level: number | undefined = dnNode?.dimensionLevel;
-        const dimKey: string | undefined = dnNode?.dimensionKey;
+        const dimKey: string | undefined = dnNode?.derivedNode as string | undefined;
+        const data: Record<string, unknown> = dnNode?.data ?? {};
 
         if (level === 0) {
-            const t = lc.level0;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
+            return templateToSemantics(lc.level0, data);
         }
         if (level === 1 && dimKey && lc.perDimension[dimKey]) {
-            const t = lc.perDimension[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames };
+            return templateToSemantics(lc.perDimension[dimKey], data);
         }
         if (level === 2 && dimKey && lc.perDivision[dimKey]) {
-            const t = lc.perDivision[dimKey];
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeDimensionName: t.includeDimensionName };
+            return templateToSemantics(lc.perDivision[dimKey], data);
         }
         // level3 leaves and categorical level2 nodes (no perDivision entry)
         if (lc.leaves && (level === undefined || level === 3)) {
-            const t = lc.leaves;
-            return { label: t.template, name: t.name, includeParentName: t.includeParentName, includeIndex: t.includeIndex, omitKeyNames: t.omitKeyNames, includeParentNames: t.includeParentNames, includeParentDivisions: t.includeParentDivisions };
+            return templateToSemantics(lc.leaves, data);
         }
         return fallback;
     }
@@ -753,7 +796,7 @@
                     if (existing.source === 'schema') {
                         newNodes.set(nodeId, {
                             ...existing,
-                            dimensionKey: dnNode?.dimensionKey as string | undefined,
+                            dimensionKey: dnNode?.derivedNode as string | undefined,
                             semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
                         });
                     }
@@ -762,7 +805,7 @@
                 const pos = positions.get(nodeId) ?? { x: padX, y: padY };
                 let label = nodeId;
                 if (dnNode) {
-                    const key = dnNode.dimensionKey;
+                    const key = dnNode.derivedNode;
                     if (dnNode.dimensionLevel === 1 && key) label = key;
                     else if (dnNode.dimensionLevel === 2) {
                         // Use the range/category label from schemaSnap (correct for numerical bins)
@@ -790,7 +833,7 @@
                     isCluster: false,
                     source: 'schema',
                     dnLevel,
-                    dimensionKey: dnNode?.dimensionKey as string | undefined,
+                    dimensionKey: dnNode?.derivedNode as string | undefined,
                     semantics: getSemanticsForNode(nodeId, dnNode, schemaSnap.labelConfig ?? null),
                     data: dnNode?.data ?? {},
                     renderProperties: defaultRenderProperties(),
@@ -810,17 +853,10 @@
                 const tgtSchema = s.nodes.get(edge.targetId)?.source === 'schema';
                 if (!srcSchema && !tgtSchema) newEdges.set(id, edge);
             });
-            const addedPairs = new Set<string>();
-            let edgeIdx = 0;
-            const addEdge = (srcId: string, tgtId: string, label: string = '', direction: SkeletonEdge['direction'] = 'down', ruleNames?: string[]) => {
-                const key = `${srcId}→${tgtId}`;
-                if (addedPairs.has(key) || !newNodes.has(srcId) || !newNodes.has(tgtId)) return;
-                addedPairs.add(key);
-                const id = `schema_edge_${edgeIdx++}`;
-                newEdges.set(id, { id, sourceId: srcId, targetId: tgtId, direction, label, dnProperties: {}, navigationRuleNames: ruleNames });
-            };
-            // Build all edges directly from structure.edges — DN has already computed every
-            // edge correctly (drill, sibling, bridgedCousins, circular, etc.).
+            const addedEdges = new Set<string>();
+            // DN edge model: a single edge carries all nav rules. All edges have 2 rules
+            // (forward + backward); which NODES hold the edge determines traversal direction.
+            // Preserve DN edge IDs directly so the editor and testing views share the same IDs.
             const ruleToDirection = (rule: string): SkeletonEdge['direction'] => {
                 const r = rule.toLowerCase();
                 if (r.includes('up') || r.includes('drill out') || r.includes('backward')) return 'up';
@@ -828,17 +864,18 @@
                 if (r.includes('left')) return 'left';
                 return 'right';
             };
-            Object.values(structure.edges as Record<string, any>).forEach((dnEdge: any) => {
+            // Build all edges directly from structure.edges — DN has already computed every
+            // edge correctly (drill, sibling, bridgedCousins, circular, etc.).
+            // Use Object.entries to preserve the DN edge ID as the skeleton edge ID.
+            Object.entries(structure.edges as Record<string, any>).forEach(([dnEdgeId, dnEdge]: [string, any]) => {
                 const src: unknown = dnEdge.source;
                 const tgt: unknown = dnEdge.target;
                 if (typeof src !== 'string' || typeof tgt !== 'string') return;
+                if (addedEdges.has(dnEdgeId) || !newNodes.has(src) || !newNodes.has(tgt)) return;
+                addedEdges.add(dnEdgeId);
                 const rules: string[] = dnEdge.navigationRules ?? [];
-                const fwdRule = rules[0] ?? '';
-                const bwdRule = rules[1] ?? '';
-                addEdge(src, tgt, fwdRule, ruleToDirection(fwdRule), fwdRule ? [fwdRule] : undefined);
-                if (bwdRule) {
-                    addEdge(tgt, src, bwdRule, ruleToDirection(bwdRule), [bwdRule]);
-                }
+                const ruleNames = rules.filter(Boolean);
+                newEdges.set(dnEdgeId, { id: dnEdgeId, sourceId: src, targetId: tgt, direction: ruleToDirection(rules[0] ?? ''), label: rules[0] ?? '', dnProperties: {}, navigationRuleNames: ruleNames.length > 0 ? ruleNames : undefined });
             });
 
             const newEntryId = schemaSnap.level0Enabled && schemaSnap.level0Id
@@ -854,7 +891,7 @@
     // The schema graph viewer (Inspector) is independent of the GraphCanvas coordinate space.
 
     $effect(() => {
-        if (!uploadedData || schema.collapsed) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (!uploadedData || schema.collapsed) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // Track all reactive schema fields BEFORE any early return so that Svelte 5 always
         // records the correct dependency set for this effect. If we returned early before
@@ -870,7 +907,7 @@
         const included = _dims.filter(d => d.included)
             .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
 
-        if (included.length === 0) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (included.length === 0) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // If this re-run was triggered by syncDivisionsFromDN updating the schema, skip the
         // rebuild. The DN structure hasn't changed — only the division IDs were populated as
@@ -883,7 +920,7 @@
         }
 
         const result = buildDNStructure(uploadedData, schema);
-        if (!result) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; return; }
+        if (!result) { dnResult = null; _dnHasResult = false; _dnTick = ++_dnCounter; appState.update(s => ({ ...s, dnStructure: null })); return; }
 
         // Defer side-effects — both have no-op guards so repeated calls are cheap.
         const capturedInc = [...included];
@@ -895,11 +932,13 @@
             queueMicrotask(() => initCanvasNodesFromSchema(result, capturedSchema));
         });
 
-        // Expose the DN structure for the schema graph viewer (Inspector).
-        // The Inspector renders its own abstract layout — no x/y bleed into GraphCanvas.
+        // Expose the DN structure for the schema graph viewer (Inspector) and for the
+        // testing page, which reads appState.dnStructure directly to avoid reconstructing
+        // the per-node edge membership that the DN library sets via addEdgeToNode().
         dnResult = result;
         _dnHasResult = true;
         _dnTick = ++_dnCounter;
+        appState.update(s => ({ ...s, dnStructure: result as Record<string, unknown> }));
     });
 
     // ─── Inspector graph (schema structure visualization) ─────────────────────
@@ -934,6 +973,9 @@
               )
             : result.nodes;
         const filteredStructure = hideLeafs ? { ...result, nodes: filteredNodes } : result;
+
+        console.log('[Schema] Inspector input — nodes:', Object.keys(filteredStructure.nodes as object).length, 'edges:', Object.keys((filteredStructure as any).edges ?? {}).length);
+        console.log('[Schema] Inspector input (full):', filteredStructure);
 
         try {
             _inspector = Inspector({
