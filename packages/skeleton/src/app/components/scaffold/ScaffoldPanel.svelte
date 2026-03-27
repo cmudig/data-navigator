@@ -554,7 +554,7 @@
                                         onchange={(e) => toggleBonusRect('dimension', dimKey, e.currentTarget.checked, (config?.offsetX ?? 0) + 10, (config?.offsetY ?? 0) + 10)}
                                     />
                                     <span class="bonus-rect-label">{dimNode.label}</span>
-                                    <span class="bonus-rect-hint">bonus rect</span>
+                                    <span class="bonus-rect-hint">add a bonus rect</span>
                                 </label>
                                 {#if br?.enabled}
                                     <div class="bonus-rect-inputs">
@@ -640,7 +640,7 @@
                                             onchange={(e) => toggleBonusRect('division', divNode.id, e.currentTarget.checked, divNode.x, divNode.y)}
                                         />
                                         <span class="bonus-rect-label">{divNode.label}</span>
-                                        <span class="bonus-rect-hint">bonus rect</span>
+                                        <span class="bonus-rect-hint">add a bonus rect</span>
                                     </label>
                                     {#if br?.enabled}
                                         <div class="bonus-rect-inputs">
