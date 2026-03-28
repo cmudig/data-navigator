@@ -58,6 +58,7 @@
         getFields?: (prep: PrepState) => string[];
         getSampleData?: (data: Row[] | null, prep: PrepState) => Row;
         defaultValue?: unknown; // overrides generic defaultValue() when no saved answer exists
+        placeholder?: string;  // for text / textarea inputs — adds HTML placeholder attribute
         maxSelect?: number; // multiselect only — limits selection count
         expandableInfo?: { buttonLabel: string; content: string };
         suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
@@ -271,68 +272,174 @@
     }
 
     // ── Guide visuals helper ──────────────────────────────────────────────────
-    // Returns an array of { variant, showRoot? } objects for the current question.
+    // Returns an array of { variant, showRoot?, label? } objects for the current question.
     // Called reactively via currentVisuals derived value below.
     function getGuideVisuals(
         questionId: string,
-        sch: SchemaState
-    ): { variant: string; showRoot?: boolean }[] {
+        sch: SchemaState,
+        prep: PrepState
+    ): { variant: string; showRoot?: boolean; label?: string }[] {
         const hasRoot = sch.level0Enabled;
         const dims = sch.dimensions.filter(d => d.included);
-        const hasNumerical = dims.some(d => d.type === 'numerical');
         const hasDivisions = dims.some(d => d.type === 'numerical' && d.subdivisions > 1);
 
-        const chartFam: 'scatter' | 'stack' = hasNumerical ? 'scatter' : 'stack';
+        // Chart family is based on the selected chart type answer, not on dimension type.
+        // This way scatter chart users always see scatter examples regardless of dim type.
+        const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+        const chartType = (ch1Ans['chart-type'] as string | undefined) ?? '';
+        const isScatterChart = chartType === 'scatter';
+        const chartFam: 'scatter' | 'stack' = isScatterChart ? 'scatter' : 'stack';
 
-        const staticMap: Record<string, { variant: string; showRoot?: boolean }[]> = {
-            'root-node':            [{ variant: 'stack' }, { variant: 'tree-root', showRoot: false }],
+        const staticMap: Record<string, { variant: string; showRoot?: boolean; label?: string }[]> = {
+            'root-node':            [{ variant: 'stack-root' }, { variant: 'tree-root', showRoot: false }],
             'chart-type':           [],
             'chart-type-custom':    [],
             'confirm-id-variable':  [],
             'id-creator-prompt':    [],
             'dataset-description':  [{ variant: `${chartFam}-root` }, { variant: 'tree-root', showRoot: hasRoot }],
-            'root-label':           [{ variant: 'tree-root', showRoot: hasRoot }],
+            // interactive-elements: only show structure — no generic example chart needed
             'interactive-elements': [{ variant: 'tree-root', showRoot: hasRoot }],
             'root-announcement':    [{ variant: 'tree-root', showRoot: hasRoot }],
-            'choose-dimensions':    hasNumerical
-                ? [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-row' }, { variant: 'scatter-dim-cat' }, { variant: 'tree-dim', showRoot: hasRoot }]
+            // choose-dimensions: 2 example charts (both dim types for that chart family) + structure
+            'choose-dimensions': isScatterChart
+                ? [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-cat' }, { variant: 'tree-dim', showRoot: hasRoot }]
                 : [{ variant: 'stack-dim-cat' }, { variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }],
+            // dim-order is special-cased below to generate per-dim visuals
             'dim-order':            [{ variant: 'tree-dim', showRoot: hasRoot }],
             'nav-between-dims':     [{ variant: 'tree-dim', showRoot: hasRoot }],
             'top-level-extents':    [{ variant: 'tree-dim', showRoot: hasRoot }],
-            'cross-group-nav':      [{ variant: 'tree-dim', showRoot: hasRoot }],
+            // cross-group-nav: add leaf chart to illustrate "individual data point" concept
+            'cross-group-nav':      [{ variant: `${chartFam}-leaf` }, { variant: 'tree-dim', showRoot: hasRoot }],
             'leaf-label':           [{ variant: `${chartFam}-leaf` }, { variant: 'tree-leaf', showRoot: hasRoot }],
             'leaf-interactive':     [],
         };
 
-        if (questionId in staticMap) return staticMap[questionId];
+        if (questionId in staticMap) {
+            // Special-case dim-order: generate one chart visual per dimension based on type + position
+            if (questionId === 'dim-order') {
+                const orderedDims = sch.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+                let catIdx = 0, numIdx = 0;
+                const dimVisuals = orderedDims.map(d => {
+                    if (d.type === 'categorical') {
+                        // Positions 0,1 → stack variants; position 2+ → scatter-dim-cat (freeform clusters)
+                        const v = catIdx === 0 ? 'stack-dim-cat' : catIdx === 1 ? 'stack-dim-col' : 'scatter-dim-cat';
+                        catIdx++;
+                        return { variant: v };
+                    } else {
+                        // Positions 0,1 → scatter-dim-num/row; position 2+ → scatter-dim-cat (size encoding)
+                        const v = numIdx === 0 ? 'scatter-dim-num' : numIdx === 1 ? 'scatter-dim-row' : 'scatter-dim-cat';
+                        numIdx++;
+                        return { variant: v };
+                    }
+                });
+                return [...dimVisuals, { variant: 'tree-dim', showRoot: hasRoot }];
+            }
+            return staticMap[questionId];
+        }
 
-        if (questionId.startsWith('dim-type-'))
-            return hasNumerical
-                ? [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-cat' }]
-                : [{ variant: 'stack-dim-cat' }, { variant: 'stack-dim-col' }];
-        if (questionId.startsWith('dim-subdivisions-'))
-            return [{ variant: 'scatter-dim-num' }, { variant: hasDivisions ? 'tree-div' : 'tree-dim', showRoot: hasRoot }];
+        // --- Per-dimension dynamic patterns ---
+
+        if (questionId.startsWith('dim-type-')) {
+            const dimKey = questionId.slice('dim-type-'.length);
+            const dim = sch.dimensions.find(d => d.key === dimKey);
+            if (dim?.type === 'numerical') {
+                // Only the 2 grid-based scatter variants for numerical confirmation.
+                // Never scatter-dim-cat here — that shows categorical cluster outlines, not grids.
+                return [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-row' }];
+            } else {
+                // Categorical confirmation: cluster outlines for scatter, rows+columns for stacked.
+                return isScatterChart
+                    ? [{ variant: 'scatter-dim-cat' }]
+                    : [{ variant: 'stack-dim-cat' }, { variant: 'stack-dim-col' }];
+            }
+        }
+
+        if (questionId.startsWith('dim-subdivisions-')) {
+            // Always numerical dims (only numerical dims have subdivisions).
+            // Labeled chart columns show navigation direction; tree shows division level.
+            return [
+                { variant: 'scatter-div-num', label: 'This navs left/right' },
+                { variant: 'scatter-div-row', label: 'This navs up/down' },
+                { variant: hasDivisions ? 'tree-div' : 'tree-dim', showRoot: hasRoot },
+            ];
+        }
+
         if (questionId.startsWith('dim-sort-'))
-            return hasNumerical
+            return isScatterChart
                 ? [{ variant: 'scatter-dim-row' }, { variant: 'tree-dim', showRoot: hasRoot }]
                 : [{ variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }];
 
-        // Label chapter
-        if (questionId.startsWith('dim-') && questionId.endsWith('-label'))
-            return hasNumerical
-                ? [{ variant: 'scatter-dim-num' }, { variant: 'tree-dim', showRoot: hasRoot }]
-                : [{ variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }];
-        if (questionId.startsWith('division-') && questionId.endsWith('-label'))
-            return hasNumerical
-                ? [{ variant: 'scatter-div-num' }, { variant: 'scatter-div-row' }, { variant: 'scatter-div-cat' }, { variant: 'tree-div', showRoot: hasRoot }]
-                : [{ variant: 'stack-div-row' }, { variant: 'stack-div-col' }, { variant: 'tree-div', showRoot: hasRoot }];
+        // Navigation chapter questions (real IDs — replacing dead dim-forward-*/dim-extent-* patterns)
+        if (questionId.startsWith('nav-within-')) {
+            const dimKey = questionId.slice('nav-within-'.length);
+            const dim = sch.dimensions.find(d => d.key === dimKey);
+            // Compute the same position-based dim variant used on dim-label/dim-order questions,
+            // then map to the matching division variant (stack-dim-1 → stack-div-1, etc.).
+            // Always show the division chart + tree-div: this question is always about navigation
+            // within/between the groups of a dimension, regardless of numerical or categorical type.
+            const DIM_TO_DIV: Record<string, string> = {
+                'stack-dim-cat':   'stack-div-row',
+                'stack-dim-col':   'stack-div-col',
+                'scatter-dim-num': 'scatter-div-num',
+                'scatter-dim-row': 'scatter-div-row',
+                'scatter-dim-cat': 'scatter-div-cat',
+            };
+            let dimChartVar = 'stack-dim-cat';
+            if (dim) {
+                const orderedDims = sch.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+                if (dim.type === 'numerical') {
+                    const numIdx = orderedDims.filter(d => d.type === 'numerical').findIndex(d => d.key === dim.key);
+                    dimChartVar = numIdx === 0 ? 'scatter-dim-num' : numIdx === 1 ? 'scatter-dim-row' : 'scatter-dim-cat';
+                } else {
+                    const catIdx = orderedDims.filter(d => d.type === 'categorical').findIndex(d => d.key === dim.key);
+                    dimChartVar = catIdx === 0 ? 'stack-dim-cat' : catIdx === 1 ? 'stack-dim-col' : 'scatter-dim-cat';
+                }
+            }
+            return [
+                { variant: DIM_TO_DIV[dimChartVar] ?? 'stack-div-row' },
+                { variant: 'tree-div', showRoot: hasRoot },
+            ];
+        }
+        if (questionId.startsWith('dim-endpoint-data-'))
+            return [{ variant: hasDivisions ? 'tree-div' : 'tree-dim', showRoot: hasRoot }];
+        if (questionId.startsWith('nav-replacement-'))
+            return [{ variant: 'tree-dim', showRoot: hasRoot }];
+
+        // Label chapter — IDs are dim-label-{key} and div-label-{key}
+        if (questionId.startsWith('dim-label-') || questionId.startsWith('dim-interactive-')) {
+            const dimKey = questionId.startsWith('dim-label-')
+                ? questionId.slice('dim-label-'.length)
+                : questionId.slice('dim-interactive-'.length);
+            const dim = sch.dimensions.find(d => d.key === dimKey);
+            // Position-based variant: each dim gets a distinct chart so repeated questions
+            // don't all show the same example. Follows the same rule as dim-order visuals:
+            // cat → stack-1, stack-2, scatter-3; num → scatter-1, scatter-2, scatter-3.
+            let chartVar = 'stack-dim-cat';
+            if (dim) {
+                const orderedDims = sch.dimensions
+                    .filter(d => d.included)
+                    .sort((a, b) => (a.navIndex ?? 99) - (b.navIndex ?? 99));
+                if (dim.type === 'numerical') {
+                    const numIdx = orderedDims.filter(d => d.type === 'numerical').findIndex(d => d.key === dim.key);
+                    chartVar = numIdx === 0 ? 'scatter-dim-num' : numIdx === 1 ? 'scatter-dim-row' : 'scatter-dim-cat';
+                } else {
+                    const catIdx = orderedDims.filter(d => d.type === 'categorical').findIndex(d => d.key === dim.key);
+                    chartVar = catIdx === 0 ? 'stack-dim-cat' : catIdx === 1 ? 'stack-dim-col' : 'scatter-dim-cat';
+                }
+            }
+            return [{ variant: chartVar }, { variant: 'tree-dim', showRoot: hasRoot }];
+        }
+        if (questionId.startsWith('div-label-')) {
+            const divChart = isScatterChart ? 'scatter-div-num' : 'stack-div-col';
+            return [{ variant: divChart }, { variant: 'tree-div', showRoot: hasRoot }];
+        }
+
         if (questionId.endsWith('-interactive'))
             return [];
-
-        // Navigation chapter per-dim questions
-        if (questionId.startsWith('dim-forward-') || questionId.startsWith('dim-extent-'))
-            return [{ variant: 'tree-div', showRoot: hasRoot }];
 
         return [];
     }
@@ -411,26 +518,8 @@
                         question: 'What does your chart or dataset represent, in clear, concise language?',
                         hint: 'Example: "Monthly sales figures for each product and region." This becomes the opening description that screen readers use to introduce the data.',
                         inputType: 'text',
+                        placeholder: 'Your answer here...',
                         onAnswer: (_value, _p, _s, _d) => ({}),
-                    });
-
-                    // Q1.3 — Root label (optional rename; internal only)
-                    questions.push({
-                        id: 'root-label',
-                        question: 'We call this starting point the "root" node. Do you want to give it another name?',
-                        hint: 'This name is only used for building the structure — it is not something that end users will encounter. You can leave it as "root" if you\'d like.',
-                        inputType: 'text',
-                        defaultValue: 'root',
-                        onAnswer: (value, _p, _s, _d) => ({
-                            schemaPatch: (sch) => ({ ...sch, level0Id: makeValidId((value as string) || 'root') }),
-                            prepPatch: (p) => ({
-                                ...p,
-                                labelConfig: {
-                                    ...p.labelConfig,
-                                    level0: { ...p.labelConfig.level0, name: (value as string) || 'root' },
-                                },
-                            }),
-                        }),
                     });
 
                     // Q1.5 — Interactive elements checkbox
@@ -439,6 +528,7 @@
                         question: 'Does your visualization contain interactive elements that users can select, click, or otherwise interact with?',
                         hint: 'This will be mentioned in the opening description so screen reader users know what to expect before they start exploring.',
                         inputType: 'radio',
+                        defaultValue: 'no',
                         options: [
                             { value: 'yes', label: 'Yes — users can interact with elements in this chart' },
                             { value: 'no',  label: 'No — this is a display-only visualization' },
@@ -996,46 +1086,18 @@
                             schemaPatch: (sch) => ({
                                 ...sch,
                                 dimensions: sch.dimensions.map(d =>
-                                    d.key === dim.key ? { ...d, extents: value as DimensionSchema['extents'] } : d
+                                    d.key === dim.key ? {
+                                        ...d,
+                                        extents: value as DimensionSchema['extents'],
+                                        // Auto-set division extents to match the data-point extent.
+                                        // bridgedCousins only applies to data-points (skip empty buckets),
+                                        // so map it to 'circular' for divisions (same wrap-around intent).
+                                        divisionExtents: (value === 'bridgedCousins' ? 'circular' : value) as 'circular' | 'terminal',
+                                    } : d
                                 ),
                             }),
                         }),
                     });
-
-                    // Q3.E — Division endpoint behavior (only for non-reduced dims)
-                    if (!reduced) {
-                        const savedDataExtent = ch3Ans[`dim-endpoint-data-${dim.key}`] as string | undefined;
-                        questions.push({
-                            id: `dim-endpoint-divs-${dim.key}`,
-                            question: `When the user reaches the last division in "${dim.key}", how do you want to navigate?`,
-                            hint: 'This controls what happens after the user reaches the last division in this dimension.',
-                            inputType: 'radio',
-                            options: [
-                                {
-                                    value: 'circular',
-                                    label: 'Loop back to the first division',
-                                    description: 'After the last division, navigation wraps to the first.',
-                                    notice: (savedDataExtent === 'circular' || savedDataExtent === 'bridgedCousins') ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
-                                },
-                                {
-                                    value: 'terminal',
-                                    label: 'Stop at the last division',
-                                    description: 'Navigation stops at the final division.',
-                                    notice: savedDataExtent === 'terminal' ? { type: 'suggest' as const, message: '★ Suggested' } : undefined,
-                                },
-                            ],
-                            onAnswer: (value, _p, _s, _d) => ({
-                                schemaPatch: (sch) => ({
-                                    ...sch,
-                                    dimensions: sch.dimensions.map(d =>
-                                        d.key === dim.key
-                                            ? { ...d, divisionExtents: value as 'circular' | 'terminal' }
-                                            : d
-                                    ),
-                                }),
-                            }),
-                        });
-                    }
                 }
 
                 // Nav replacement questions — for dims whose preset was displaced by a conflict resolution
@@ -1144,6 +1206,11 @@
                     { value: 'no',  label: 'No — these are display only' },
                 ];
 
+                // Propagate the top-level interactive-elements answer as the default for all
+                // node-level interactive questions, so users only need to override exceptions.
+                const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
+                const interactiveDefault = (ch1Ans['interactive-elements'] as string | undefined) ?? 'no';
+
                 const questions: QAQuestionDef[] = [];
 
                 // ── Phases 1 + 2 merged: per-dimension (+ per-division) questions ─
@@ -1194,6 +1261,7 @@
                         question: `Are "${dim.key}" dimension header elements interactive? For example, can users select or click on them?`,
                         hint: 'If yes, screen readers will announce "button" after the label for these dimension headers. This comes from the element\'s role — not the label text.',
                         inputType: 'radio',
+                        defaultValue: interactiveDefault,
                         options: INTERACTIVE_OPTIONS,
                         onAnswer: (value, _p, _s, _d) => ({
                             prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
@@ -1243,6 +1311,7 @@
                             question: `Are "${dim.key}" division elements interactive? For example, can users select or click on them?`,
                             hint: 'If yes, screen readers will announce "button" after the label for these division elements. This comes from the element\'s role — not the label text.',
                             inputType: 'radio',
+                            defaultValue: interactiveDefault,
                             options: INTERACTIVE_OPTIONS,
                             onAnswer: (value, _p, _s, _d) => ({
                                 prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
@@ -1300,6 +1369,7 @@
                     question: 'Are individual data points interactive? For example, can users select, click, or otherwise interact with them?',
                     hint: 'If yes, these elements will be given an interactive role (like a button) so screen readers announce them as actionable. Screen readers will say "button" after the label — this comes from the role, not from the label text itself.',
                     inputType: 'radio',
+                    defaultValue: interactiveDefault,
                     options: INTERACTIVE_OPTIONS,
                     onAnswer: (value, _p, _s, _d) => ({
                         prepPatch: (p) => value === 'yes' ? appendInteractiveToRoot(p, _s) : p,
@@ -1380,9 +1450,20 @@
         return currentQuestion.getTrendXFields(prep);
     });
 
-    const currentVisuals = $derived.by((): { variant: string; showRoot?: boolean }[] => {
-        if (!currentQuestion || !schema) return [];
-        return getGuideVisuals(currentQuestion.id, schema);
+    const currentVisuals = $derived.by((): { variant: string; showRoot?: boolean; label?: string }[] => {
+        if (!currentQuestion || !schema || !prep) return [];
+        return getGuideVisuals(currentQuestion.id, schema, prep);
+    });
+
+    // Questions where showing the uploaded chart image is not useful
+    const CHART_IMAGE_HIDDEN_IDS = new Set([
+        'chart-type', 'chart-type-custom', 'confirm-id-variable', 'id-creator-prompt',
+    ]);
+
+    const currentChartImage = $derived.by((): string | null => {
+        if (!currentQuestion) return null;
+        if (CHART_IMAGE_HIDDEN_IDS.has(currentQuestion.id)) return null;
+        return $appState.imageDataUrl ?? null;
     });
 
     // ── Pending answer (local; committed to store on Next) ────────────────────
@@ -1643,6 +1724,8 @@
                 dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
                 parentDimNoun={currentQuestion.parentDimNoun}
                 visuals={currentVisuals}
+                chartImage={currentChartImage}
+                placeholder={currentQuestion.placeholder}
             />
             {/key}
         {:else}

@@ -53,27 +53,6 @@
     {:else if variant === 'stack-dim-cat'}
         <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <rect width="250" height="173" fill="white"/>
-            <rect x="24.2915" y="36.4209" width="39.4737" height="34.9035" fill="#8FA8E5"/>
-            <rect x="182.186" y="66.7725" width="39.4737" height="25.2924" fill="#8FA8E5"/>
-            <rect x="24.2915" y="76.3828" width="39.4737" height="34.9035" fill="#6780C0"/>
-            <rect x="182.186" y="96.6172" width="39.4737" height="24.7866" fill="#6780C0"/>
-            <rect x="24.2915" y="116.345" width="39.4737" height="34.9035" fill="#34519C"/>
-            <rect x="182.186" y="125.956" width="39.4737" height="25.2924" fill="#34519C"/>
-            <rect x="76.9229" y="131.521" width="39.4737" height="19.7281" fill="#34519C"/>
-            <rect x="129.555" y="103.193" width="39.4737" height="48.0556" fill="#34519C"/>
-            <rect x="76.9229" y="68.7959" width="39.4737" height="57.1608" fill="#6780C0"/>
-            <rect x="129.555" y="51.5967" width="39.4737" height="46.0322" fill="#6780C0"/>
-            <rect x="76.9229" y="47.5498" width="39.4737" height="16.1871" fill="#8FA8E5"/>
-            <rect x="129.555" y="18.2109" width="39.4737" height="28.3275" fill="#8FA8E5"/>
-            <path d="M67.814 32.3746H19.231V156.307H225.709V62.2196H177.632L173.077 13.1523H124.494L120.446 42.9974H71.8625L67.814 32.3746Z" stroke="#1E3369" stroke-width="2"/>
-            <path d="M67.814 32.3746H19.231V156.307H225.709V62.2196H177.632L173.077 13.1523H124.494L120.446 42.9974H71.8625L67.814 32.3746Z" stroke="#1E3369" stroke-width="2"/>
-            <path d="M67.814 73.8539H19.231V156.307H225.709V94.5937H177.632L173.077 49.0674H124.494L120.446 66.2662H71.8625L67.814 73.8539Z" stroke="#1E3369" stroke-width="2"/>
-            <path d="M67.814 113.815H19.231V156.306H225.709V123.932H177.632L173.077 100.157H124.494L120.446 128.485H71.8625L67.814 113.815Z" stroke="#1E3369" stroke-width="2"/>
-        </svg>
-
-    {:else if variant === 'stack-dim-col'}
-        <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <rect width="250" height="173" fill="white"/>
             <rect x="21.292" y="33.4209" width="45.4737" height="40.9035" fill="#6780C0" stroke="#1E3369" stroke-width="6"/>
             <rect x="179.187" y="62.7598" width="45.4737" height="31.2924" fill="#6780C0" stroke="#1E3369" stroke-width="6"/>
             <rect x="21.292" y="73.3828" width="45.4737" height="40.9035" fill="#6780C0" stroke="#1E3369" stroke-width="6"/>
@@ -100,7 +79,7 @@
             <rect x="127.555" y="16.7158" width="43.4737" height="32.3275" fill="#8FA7E5" stroke="white" stroke-width="4"/>
         </svg>
 
-    {:else if variant === 'stack-div-row'}
+    {:else if variant === 'stack-dim-col'}
         <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <rect width="250" height="173" fill="white"/>
             <rect x="24.2915" y="36.4209" width="39.4737" height="34.9035" fill="#8FA8E5"/>
@@ -115,11 +94,13 @@
             <rect x="129.555" y="51.5967" width="39.4737" height="46.0322" fill="#6780C0"/>
             <rect x="76.9229" y="47.5498" width="39.4737" height="16.1871" fill="#8FA8E5"/>
             <rect x="129.555" y="18.2109" width="39.4737" height="28.3275" fill="#8FA8E5"/>
-            <path d="M225.709 124.5V94.5937H177.632L173.077 49.0674H124.494L120.446 66.2662H71.8625L67.814 73.8539H19.231V114.5" stroke="#1E3369" stroke-width="2"/>
-            <path d="M19.231 113.815H67.814L71.8625 128.485H120.446L124.494 100.157H173.077L177.632 123.932H225.709" stroke="#1E3369" stroke-width="2" stroke-linecap="square"/>
+            <path d="M67.814 32.3746H19.231V156.307H225.709V62.2196H177.632L173.077 13.1523H124.494L120.446 42.9974H71.8625L67.814 32.3746Z" stroke="#1E3369" stroke-width="2"/>
+            <path d="M67.814 32.3746H19.231V156.307H225.709V62.2196H177.632L173.077 13.1523H124.494L120.446 42.9974H71.8625L67.814 32.3746Z" stroke="#1E3369" stroke-width="2"/>
+            <path d="M67.814 73.8539H19.231V156.307H225.709V94.5937H177.632L173.077 49.0674H124.494L120.446 66.2662H71.8625L67.814 73.8539Z" stroke="#1E3369" stroke-width="2"/>
+            <path d="M67.814 113.815H19.231V156.306H225.709V123.932H177.632L173.077 100.157H124.494L120.446 128.485H71.8625L67.814 113.815Z" stroke="#1E3369" stroke-width="2"/>
         </svg>
 
-    {:else if variant === 'stack-div-col'}
+    {:else if variant === 'stack-div-row'}
         <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <rect width="250" height="173" fill="white"/>
             <rect x="126.555" y="100.193" width="45.4737" height="54.0556" fill="#6780C0" stroke="#1E3369" stroke-width="6"/>
@@ -137,6 +118,25 @@
             <rect x="127.555" y="50.1025" width="43.4737" height="50.0322" fill="#6780C0" stroke="white" stroke-width="4"/>
             <rect x="74.9233" y="46.0557" width="43.4737" height="20.1871" fill="#8FA7E5" stroke="white" stroke-width="4"/>
             <rect x="127.555" y="16.7158" width="43.4737" height="32.3275" fill="#8FA7E5" stroke="white" stroke-width="4"/>
+        </svg>
+
+    {:else if variant === 'stack-div-col'}
+        <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <rect width="250" height="173" fill="white"/>
+            <rect x="24.2915" y="36.4209" width="39.4737" height="34.9035" fill="#8FA8E5"/>
+            <rect x="182.186" y="66.7725" width="39.4737" height="25.2924" fill="#8FA8E5"/>
+            <rect x="24.2915" y="76.3828" width="39.4737" height="34.9035" fill="#6780C0"/>
+            <rect x="182.186" y="96.6172" width="39.4737" height="24.7866" fill="#6780C0"/>
+            <rect x="24.2915" y="116.345" width="39.4737" height="34.9035" fill="#34519C"/>
+            <rect x="182.186" y="125.956" width="39.4737" height="25.2924" fill="#34519C"/>
+            <rect x="76.9229" y="131.521" width="39.4737" height="19.7281" fill="#34519C"/>
+            <rect x="129.555" y="103.193" width="39.4737" height="48.0556" fill="#34519C"/>
+            <rect x="76.9229" y="68.7959" width="39.4737" height="57.1608" fill="#6780C0"/>
+            <rect x="129.555" y="51.5967" width="39.4737" height="46.0322" fill="#6780C0"/>
+            <rect x="76.9229" y="47.5498" width="39.4737" height="16.1871" fill="#8FA8E5"/>
+            <rect x="129.555" y="18.2109" width="39.4737" height="28.3275" fill="#8FA8E5"/>
+            <path d="M225.709 124.5V94.5937H177.632L173.077 49.0674H124.494L120.446 66.2662H71.8625L67.814 73.8539H19.231V114.5" stroke="#1E3369" stroke-width="2"/>
+            <path d="M19.231 113.815H67.814L71.8625 128.485H120.446L124.494 100.157H173.077L177.632 123.932H225.709" stroke="#1E3369" stroke-width="2" stroke-linecap="square"/>
         </svg>
 
     {:else if variant === 'stack-leaf'}

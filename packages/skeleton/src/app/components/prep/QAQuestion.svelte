@@ -57,7 +57,11 @@
         // smart suggestion box
         suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
         // contextual visual guide graphics
-        visuals?: { variant: string; showRoot?: boolean }[];
+        visuals?: { variant: string; showRoot?: boolean; label?: string }[];
+        // user's uploaded chart image (shown as first column when present)
+        chartImage?: string | null;
+        // placeholder for text / textarea inputs
+        placeholder?: string;
     }
 
     let {
@@ -85,7 +89,19 @@
         expandableInfo,
         suggestionBox,
         visuals,
+        chartImage = null,
+        placeholder = undefined,
     }: Props = $props();
+
+    // ── Guide column derived state ────────────────────────────────────────────
+    const treeVisuals = $derived(visuals?.filter(v => v.variant.startsWith('tree-')) ?? []);
+    const labeledChartVisuals = $derived(visuals?.filter(v => !v.variant.startsWith('tree-') && v.label) ?? []);
+    const unlabeledChartVisuals = $derived(visuals?.filter(v => !v.variant.startsWith('tree-') && !v.label) ?? []);
+    const hasImage = $derived(!!chartImage);
+    const hasExampleCharts = $derived(unlabeledChartVisuals.length > 0 || labeledChartVisuals.length > 0);
+    const hasStructure = $derived(treeVisuals.length > 0);
+    // Show category headers when ≥2 of the 3 column types are present
+    const showCategoryHeaders = $derived([hasImage, hasExampleCharts, hasStructure].filter(Boolean).length >= 2);
 
     let expandInfo = $state(false);
 
@@ -150,19 +166,59 @@
 <div class="qa-question">
     <p class="qa-question-text">{question}</p>
 
-    {#if (visuals && visuals.length > 0) || hint}
-        <div class="qa-guide-row" class:qa-guide-row--has-visuals={visuals && visuals.length > 0}>
-            {#if visuals && visuals.length > 0}
-                <div class="qa-guide-visuals" aria-hidden="true">
-                    {#each visuals as v (v.variant)}
-                        <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-                        <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+    {#if (visuals && visuals.length > 0) || chartImage || hint}
+        <div class="qa-guide-area">
+
+            {#if (visuals && visuals.length > 0) || chartImage}
+                <div class="qa-guide-cols" aria-hidden="true">
+
+                    <!-- Column 1: user's uploaded chart -->
+                    {#if chartImage}
+                        <div class="qa-guide-col">
+                            {#if showCategoryHeaders}<span class="qa-guide-col-header">Your chart</span>{/if}
+                            <img src={chartImage} alt="" class="qa-chart-image" />
+                        </div>
+                    {/if}
+
+                    <!-- Column group: unlabeled example charts (all in one col-group) -->
+                    {#if unlabeledChartVisuals.length > 0}
+                        <div class="qa-guide-col">
+                            {#if showCategoryHeaders}<span class="qa-guide-col-header">Example chart</span>{/if}
+                            <div class="qa-guide-col-items">
+                                {#each unlabeledChartVisuals as v (v.variant)}
+                                    <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                                    <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- Individually labeled charts (each gets its own column with its own header) -->
+                    {#each labeledChartVisuals as v (v.variant)}
+                        <div class="qa-guide-col">
+                            <span class="qa-guide-col-header">{v.label}</span>
+                            <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                            <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                        </div>
                     {/each}
+
+                    <!-- Structure tree column (always last) -->
+                    {#if treeVisuals.length > 0}
+                        <div class="qa-guide-col">
+                            {#if showCategoryHeaders}<span class="qa-guide-col-header">Example structure</span>{/if}
+                            <div class="qa-guide-col-items">
+                                {#each treeVisuals as v (v.variant)}
+                                    <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                                    <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
                 </div>
             {/if}
-            {#if hint}
-                <p class="qa-hint">{hint}</p>
-            {/if}
+
+            {#if hint}<p class="qa-hint">{hint}</p>{/if}
         </div>
     {/if}
 
@@ -195,6 +251,7 @@
                 type="text"
                 class="qa-input"
                 value={typeof value === 'string' ? value : ''}
+                placeholder={placeholder ?? ''}
                 oninput={(e) => onchange((e.target as HTMLInputElement).value)}
             />
 
@@ -204,6 +261,7 @@
                 id="qa-textarea-input"
                 class="qa-textarea"
                 rows={4}
+                placeholder={placeholder ?? ''}
                 oninput={(e) => onchange((e.target as HTMLTextAreaElement).value)}
             >{typeof value === 'string' ? value : ''}</textarea>
 
@@ -353,19 +411,50 @@
         line-height: 1.4;
     }
 
-    /* ── Guide row (visuals stacked above hint) ── */
+    /* ── Guide area (columns + hint) ── */
 
-    .qa-guide-row {
+    .qa-guide-area {
         display: flex;
         flex-direction: column;
         gap: calc(var(--dn-space) * 0.875);
     }
 
-    .qa-guide-visuals {
+    .qa-guide-cols {
         display: flex;
-        gap: calc(var(--dn-space) * 0.5);
         flex-wrap: wrap;
+        gap: calc(var(--dn-space) * 1);
         align-items: flex-start;
+    }
+
+    .qa-guide-col {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.375);
+        flex-shrink: 0;
+    }
+
+    .qa-guide-col-header {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--dn-text-muted);
+        white-space: nowrap;
+    }
+
+    .qa-guide-col-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: calc(var(--dn-space) * 0.5);
+        align-items: flex-start;
+    }
+
+    .qa-chart-image {
+        max-width: 250px;
+        max-height: 173px;
+        object-fit: contain;
+        border-radius: 4px;
+        display: block;
     }
 
     .qa-hint {
