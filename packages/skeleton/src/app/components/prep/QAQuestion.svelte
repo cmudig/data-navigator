@@ -172,22 +172,26 @@
     {#if inputType === 'info'}
         {#if hint}<p class="qa-hint">{hint}</p>{/if}
 
-        {#if visuals && visuals.length > 0}
-            <!-- Info screen: 4-column grid — row 1: charts, row 2: structure diagrams -->
-            <div class="qa-info-grid" aria-hidden="true">
-                {#each visuals as v (v.variant)}
-                    <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-                    <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
-                {/each}
-            </div>
-        {/if}
+        {#if (visuals && visuals.length > 0) || (captions && captions.length > 0)}
+            <div class="qa-info-wrap">
+                {#if visuals && visuals.length > 0}
+                    <!-- Info screen: 4-column grid — row 1: charts, row 2: structure diagrams -->
+                    <div class="qa-info-grid" aria-hidden="true">
+                        {#each visuals as v (v.variant)}
+                            <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                            <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                        {/each}
+                    </div>
+                {/if}
 
-        {#if captions && captions.length > 0}
-            <!-- Row 3: brief text caption per column -->
-            <div class="qa-info-captions">
-                {#each captions as caption}
-                    <p class="qa-info-caption">{caption}</p>
-                {/each}
+                {#if captions && captions.length > 0}
+                    <!-- Row 3: brief text caption per column -->
+                    <div class="qa-info-captions">
+                        {#each captions as caption}
+                            <p class="qa-info-caption">{caption}</p>
+                        {/each}
+                    </div>
+                {/if}
             </div>
         {/if}
 
@@ -230,7 +234,7 @@
                     <!-- Structure tree column (always last) -->
                     {#if treeVisuals.length > 0}
                         <div class="qa-guide-col">
-                            {#if showCategoryHeaders}<span class="qa-guide-col-header">Example structure</span>{/if}
+                            {#if showCategoryHeaders}<span class="qa-guide-col-header">Structure we are editing</span>{/if}
                             <div class="qa-guide-col-items">
                                 {#each treeVisuals as v (v.variant)}
                                     <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
@@ -438,35 +442,36 @@
         line-height: 1.4;
     }
 
-    /* ── Info screen: 4-column grid (2 rows: charts, then structures) ── */
+    /* ── Info screen: centered, responsive 4-column grid ── */
 
-    .qa-info-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 200px);
+    .qa-info-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
         gap: calc(var(--dn-space) * 0.75);
     }
 
-    /* Scale SVGs to fit within each 200×150 cell.
-       width:auto + height:auto + max-width + max-height lets the browser
-       pick the limiting dimension while preserving aspect ratio:
-       - Chart SVGs (250×173): limited by max-width → renders at 200×138px
-       - Structure SVGs (173×173): limited by max-height → renders at 150×150px */
+    .qa-info-grid,
+    .qa-info-captions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 200px));
+        gap: calc(var(--dn-space) * 0.75);
+        width: 100%;
+        max-width: calc(4 * 200px + 3 * (var(--dn-space) * 0.75));
+    }
+
+    /* SVGs fill their column; height scales to maintain aspect ratio.
+       max-height caps structure diagrams so they don't grow too tall. */
     .qa-info-grid :global(figure) {
         margin: 0;
     }
 
     .qa-info-grid :global(svg) {
         display: block;
-        width: auto;
+        width: 100%;
         height: auto;
-        max-width: 200px;
         max-height: 150px;
-    }
-
-    .qa-info-captions {
-        display: grid;
-        grid-template-columns: repeat(4, 200px);
-        gap: calc(var(--dn-space) * 0.75);
     }
 
     .qa-info-caption {
