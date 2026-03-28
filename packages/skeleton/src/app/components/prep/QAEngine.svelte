@@ -51,7 +51,7 @@
         id: string;
         question: string;
         hint?: string;
-        inputType: 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'radio' | 'label-builder' | 'drag-order';
+        inputType: 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'radio' | 'label-builder' | 'drag-order' | 'info';
         options?: QAOption[];
         getDynamicOptions?: (prep: PrepState, schema: SchemaState, data: Row[] | null) => QAOption[];
         nodeType?: 'level0' | 'level1' | 'level2' | 'level3';
@@ -59,6 +59,7 @@
         getSampleData?: (data: Row[] | null, prep: PrepState) => Row;
         defaultValue?: unknown; // overrides generic defaultValue() when no saved answer exists
         placeholder?: string;  // for text / textarea inputs — adds HTML placeholder attribute
+        captions?: string[];   // for 'info' inputType — text row beneath the grid
         maxSelect?: number; // multiselect only — limits selection count
         expandableInfo?: { buttonLabel: string; content: string };
         suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
@@ -291,6 +292,11 @@
         const chartFam: 'scatter' | 'stack' = isScatterChart ? 'scatter' : 'stack';
 
         const staticMap: Record<string, { variant: string; showRoot?: boolean; label?: string }[]> = {
+            // welcome intro: 4 chart variants (row 1) + 4 structure variants (row 2) for the info grid
+            'welcome': [
+                { variant: 'stack-root' }, { variant: 'stack-dim-col' }, { variant: 'stack-div-col' }, { variant: 'stack-leaf' },
+                { variant: 'tree-root' }, { variant: 'tree-dim' }, { variant: 'tree-div' }, { variant: 'tree-leaf' },
+            ],
             'root-node':            [{ variant: 'stack-root' }, { variant: 'tree-root', showRoot: false }],
             'chart-type':           [],
             'chart-type-custom':    [],
@@ -454,22 +460,37 @@
             getQuestions: (prep, _schema, _data): QAQuestionDef[] => {
                 const ch1Ans = prep.qaProgress.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
 
-                // Q1.1 — Root node: the first question asked
+                // Welcome intro — informational panel, no input
                 const questions: QAQuestionDef[] = [
                     {
-                        id: 'root-node',
-                        question: 'Does your visualization have an overview or a single starting point that everything else branches from?',
-                        hint: 'What is this? This question will make the first thing users navigate to an overview or high-level point, before diving in to other parts of the graphic. A starting point or overview might be something like the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
-                        inputType: 'radio',
-                        options: [
-                            { value: 'yes', label: 'Yes — I want to start with an overview', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
-                            { value: 'no',  label: 'No — let users start at the first data dimension directly', description: 'Navigation begins at the first dimension in the data without a big picture. Recommended if you already have a high-level description elsewhere or only plan to have a single dimension to navigate through (such as in a regular bar chart).' },
+                        id: 'welcome',
+                        question: 'Welcome to Skeleton!',
+                        hint: 'Skeleton helps you make data visualizations navigable for people who use assistive technologies, using an "overview first, details on demand" approach. What is the goal of this tool? To take your data and/or image and turn it into a structured navigation experience. This page is "prep." In prep, you\'ll craft an overview for your chart, then prepare groupings (dimensions) users can browse through, and finally handle how all of your groups and data points are labeled. (People who use screen readers require more than just structure, they\'ll need alternative text, too). After "prep," you\'ll refine your structure of "nodes" and "edges" and make sure they align with how your graphic actually looks.',
+                        inputType: 'info',
+                        captions: [
+                            'The root is your chart\'s entry point — a single overview users land on before exploring any dimension. Sometimes this is a title, sometimes the whole chart.',
+                            'Next, users navigate dimensions, or high-level groups. You will set these up by creating groupings (like regions or years), which gives users a path to travel through your graphic.',
+                            'But users can also "drill in" to the divisions of your dimensions. These are like sub-ranges, buckets, or collections. In a chart, this might be the "line" in a line chart, or the "stack" of a stacked bar.',
+                            'Lastly, users will be able to navigate the lowest-levels of your visualization, the "leaf" level. These are often just individual data points, and how you structure your dimensions determines how users can move among these (using left, right, up, down, and more).',
                         ],
-                        onAnswer: (value, _p, _s, _d) => ({
-                            schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
-                        }),
+                        onAnswer: (_v, _p, _s, _d) => ({}),
                     },
                 ];
+
+                // Q1.1 — Root node: the first question asked
+                questions.push({
+                    id: 'root-node',
+                    question: 'Does your visualization have an overview or a single starting point that everything else branches from?',
+                    hint: 'What is this? This question will make the first thing users navigate to an overview or high-level point, before diving in to other parts of the graphic. A starting point or overview might be something like the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
+                    inputType: 'radio',
+                    options: [
+                        { value: 'yes', label: 'Yes — I want to start with an overview', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
+                        { value: 'no',  label: 'No — let users start at the first data dimension directly', description: 'Navigation begins at the first dimension in the data without a big picture. Recommended if you already have a high-level description elsewhere or only plan to have a single dimension to navigate through (such as in a regular bar chart).' },
+                    ],
+                    onAnswer: (value, _p, _s, _d) => ({
+                        schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
+                    }),
+                });
 
                 // Q1.4 — Chart type dropdown (always shown; hint adapts to root-node choice)
                 questions.push({
@@ -1726,6 +1747,7 @@
                 visuals={currentVisuals}
                 chartImage={currentChartImage}
                 placeholder={currentQuestion.placeholder}
+                captions={currentQuestion.captions}
             />
             {/key}
         {:else}

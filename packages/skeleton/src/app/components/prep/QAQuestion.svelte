@@ -29,7 +29,7 @@
     interface Props {
         question: string;
         hint?: string;
-        inputType: 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'radio' | 'label-builder' | 'drag-order';
+        inputType: 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'radio' | 'label-builder' | 'drag-order' | 'info';
         options?: SelectOption[];
         value: unknown;
         onchange: (v: unknown) => void;
@@ -62,6 +62,8 @@
         chartImage?: string | null;
         // placeholder for text / textarea inputs
         placeholder?: string;
+        // caption labels for info-grid third row (one per column)
+        captions?: string[];
     }
 
     let {
@@ -91,6 +93,7 @@
         visuals,
         chartImage = null,
         placeholder = undefined,
+        captions = undefined,
     }: Props = $props();
 
     // ── Guide column derived state ────────────────────────────────────────────
@@ -166,7 +169,29 @@
 <div class="qa-question">
     <p class="qa-question-text">{question}</p>
 
-    {#if (visuals && visuals.length > 0) || chartImage || hint}
+    {#if inputType === 'info'}
+        {#if hint}<p class="qa-hint">{hint}</p>{/if}
+
+        {#if visuals && visuals.length > 0}
+            <!-- Info screen: 4-column grid — row 1: charts, row 2: structure diagrams -->
+            <div class="qa-info-grid" aria-hidden="true">
+                {#each visuals as v (v.variant)}
+                    <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                    <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                {/each}
+            </div>
+        {/if}
+
+        {#if captions && captions.length > 0}
+            <!-- Row 3: brief text caption per column -->
+            <div class="qa-info-captions">
+                {#each captions as caption}
+                    <p class="qa-info-caption">{caption}</p>
+                {/each}
+            </div>
+        {/if}
+
+    {:else if (visuals && visuals.length > 0) || chartImage || hint}
         <div class="qa-guide-area">
 
             {#if (visuals && visuals.length > 0) || chartImage}
@@ -243,6 +268,7 @@
         </div>
     {/if}
 
+    {#if inputType !== 'info'}
     <div class="qa-input-area" aria-label="Answer input">
         {#if inputType === 'text'}
             <label class="visually-hidden" for="qa-text-input">Your answer</label>
@@ -394,6 +420,7 @@
             </ul>
         {/if}
     </div>
+    {/if}
 </div>
 
 <style>
@@ -409,6 +436,44 @@
         font-weight: 600;
         color: var(--dn-text);
         line-height: 1.4;
+    }
+
+    /* ── Info screen: 4-column grid (2 rows: charts, then structures) ── */
+
+    .qa-info-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 200px);
+        gap: calc(var(--dn-space) * 0.75);
+    }
+
+    /* Scale SVGs to fit within each 200×150 cell.
+       width:auto + height:auto + max-width + max-height lets the browser
+       pick the limiting dimension while preserving aspect ratio:
+       - Chart SVGs (250×173): limited by max-width → renders at 200×138px
+       - Structure SVGs (173×173): limited by max-height → renders at 150×150px */
+    .qa-info-grid :global(figure) {
+        margin: 0;
+    }
+
+    .qa-info-grid :global(svg) {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 200px;
+        max-height: 150px;
+    }
+
+    .qa-info-captions {
+        display: grid;
+        grid-template-columns: repeat(4, 200px);
+        gap: calc(var(--dn-space) * 0.75);
+    }
+
+    .qa-info-caption {
+        margin: 0;
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        line-height: 1.45;
     }
 
     /* ── Guide area (columns + hint) ── */
