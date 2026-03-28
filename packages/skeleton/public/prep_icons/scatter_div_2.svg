@@ -1,0 +1,19 @@
+<svg width="250" height="173" viewBox="0 0 250 173" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="250" height="173" fill="white"/>
+<circle cx="113.5" cy="103.5" r="10.5" fill="#6780C0"/>
+<circle cx="134.5" cy="124.5" r="10.5" fill="#6780C0"/>
+<circle cx="134.5" cy="93.5" r="10.5" fill="#6780C0"/>
+<circle cx="158.5" cy="104.5" r="10.5" fill="#6780C0"/>
+<circle cx="206.5" cy="72.5" r="10.5" fill="#8FA7E5"/>
+<circle cx="62.5" cy="92.5" r="10.5" fill="#34519C"/>
+<circle cx="49.5" cy="145.5" r="10.5" fill="#34519C"/>
+<circle cx="86.5" cy="140.5" r="10.5" fill="#34519C"/>
+<circle cx="65.5" cy="125.5" r="10.5" fill="#34519C"/>
+<circle cx="175.5" cy="72.5" r="10.5" fill="#8FA7E5"/>
+<circle cx="175.5" cy="129.5" r="10.5" fill="#6780C0"/>
+<circle cx="199.5" cy="31.5" r="10.5" fill="#8FA7E5"/>
+<circle cx="38.5" cy="113.5" r="10.5" fill="#34519C"/>
+<line x1="17.5" y1="19" x2="17.5" y2="159" stroke="#6780C0"/>
+<line x1="230" y1="159.5" x2="17" y2="159.5" stroke="#6780C0"/>
+<rect x="18" y="54" width="212" height="35" stroke="#1E3369" stroke-width="2"/>
+</svg>

@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { LabelTemplate } from '../../../store/appState';
     import LabelBuilder from './LabelBuilder.svelte';
+    import GuideGraphic from './GuideGraphic.svelte';
 
     interface SelectOption {
         value: string;
@@ -55,6 +56,8 @@
         expandableInfo?: { buttonLabel: string; content: string };
         // smart suggestion box
         suggestionBox?: { message: string; applyLabel: string; applyValue: unknown };
+        // contextual visual guide graphics
+        visuals?: { variant: string; showRoot?: boolean }[];
     }
 
     let {
@@ -81,6 +84,7 @@
         maxSelect,
         expandableInfo,
         suggestionBox,
+        visuals,
     }: Props = $props();
 
     let expandInfo = $state(false);
@@ -146,8 +150,20 @@
 <div class="qa-question">
     <p class="qa-question-text">{question}</p>
 
-    {#if hint}
-        <p class="qa-hint">{hint}</p>
+    {#if (visuals && visuals.length > 0) || hint}
+        <div class="qa-guide-row" class:qa-guide-row--has-visuals={visuals && visuals.length > 0}>
+            {#if visuals && visuals.length > 0}
+                <div class="qa-guide-visuals" aria-hidden="true">
+                    {#each visuals as v (v.variant)}
+                        <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+                        <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
+                    {/each}
+                </div>
+            {/if}
+            {#if hint}
+                <p class="qa-hint">{hint}</p>
+            {/if}
+        </div>
     {/if}
 
     {#if expandableInfo}
@@ -335,6 +351,21 @@
         font-weight: 600;
         color: var(--dn-text);
         line-height: 1.4;
+    }
+
+    /* ── Guide row (visuals stacked above hint) ── */
+
+    .qa-guide-row {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--dn-space) * 0.875);
+    }
+
+    .qa-guide-visuals {
+        display: flex;
+        gap: calc(var(--dn-space) * 0.5);
+        flex-wrap: wrap;
+        align-items: flex-start;
     }
 
     .qa-hint {

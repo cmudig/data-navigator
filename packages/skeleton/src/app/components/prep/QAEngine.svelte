@@ -270,6 +270,73 @@
         };
     }
 
+    // ── Guide visuals helper ──────────────────────────────────────────────────
+    // Returns an array of { variant, showRoot? } objects for the current question.
+    // Called reactively via currentVisuals derived value below.
+    function getGuideVisuals(
+        questionId: string,
+        sch: SchemaState
+    ): { variant: string; showRoot?: boolean }[] {
+        const hasRoot = sch.level0Enabled;
+        const dims = sch.dimensions.filter(d => d.included);
+        const hasNumerical = dims.some(d => d.type === 'numerical');
+        const hasDivisions = dims.some(d => d.type === 'numerical' && d.subdivisions > 1);
+
+        const chartFam: 'scatter' | 'stack' = hasNumerical ? 'scatter' : 'stack';
+
+        const staticMap: Record<string, { variant: string; showRoot?: boolean }[]> = {
+            'root-node':            [{ variant: 'stack' }, { variant: 'tree-root', showRoot: false }],
+            'chart-type':           [],
+            'chart-type-custom':    [],
+            'confirm-id-variable':  [],
+            'id-creator-prompt':    [],
+            'dataset-description':  [{ variant: `${chartFam}-root` }, { variant: 'tree-root', showRoot: hasRoot }],
+            'root-label':           [{ variant: 'tree-root', showRoot: hasRoot }],
+            'interactive-elements': [{ variant: 'tree-root', showRoot: hasRoot }],
+            'root-announcement':    [{ variant: 'tree-root', showRoot: hasRoot }],
+            'choose-dimensions':    hasNumerical
+                ? [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-row' }, { variant: 'scatter-dim-cat' }, { variant: 'tree-dim', showRoot: hasRoot }]
+                : [{ variant: 'stack-dim-cat' }, { variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }],
+            'dim-order':            [{ variant: 'tree-dim', showRoot: hasRoot }],
+            'nav-between-dims':     [{ variant: 'tree-dim', showRoot: hasRoot }],
+            'top-level-extents':    [{ variant: 'tree-dim', showRoot: hasRoot }],
+            'cross-group-nav':      [{ variant: 'tree-dim', showRoot: hasRoot }],
+            'leaf-label':           [{ variant: `${chartFam}-leaf` }, { variant: 'tree-leaf', showRoot: hasRoot }],
+            'leaf-interactive':     [],
+        };
+
+        if (questionId in staticMap) return staticMap[questionId];
+
+        if (questionId.startsWith('dim-type-'))
+            return hasNumerical
+                ? [{ variant: 'scatter-dim-num' }, { variant: 'scatter-dim-cat' }]
+                : [{ variant: 'stack-dim-cat' }, { variant: 'stack-dim-col' }];
+        if (questionId.startsWith('dim-subdivisions-'))
+            return [{ variant: 'scatter-dim-num' }, { variant: hasDivisions ? 'tree-div' : 'tree-dim', showRoot: hasRoot }];
+        if (questionId.startsWith('dim-sort-'))
+            return hasNumerical
+                ? [{ variant: 'scatter-dim-row' }, { variant: 'tree-dim', showRoot: hasRoot }]
+                : [{ variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }];
+
+        // Label chapter
+        if (questionId.startsWith('dim-') && questionId.endsWith('-label'))
+            return hasNumerical
+                ? [{ variant: 'scatter-dim-num' }, { variant: 'tree-dim', showRoot: hasRoot }]
+                : [{ variant: 'stack-dim-col' }, { variant: 'tree-dim', showRoot: hasRoot }];
+        if (questionId.startsWith('division-') && questionId.endsWith('-label'))
+            return hasNumerical
+                ? [{ variant: 'scatter-div-num' }, { variant: 'scatter-div-row' }, { variant: 'scatter-div-cat' }, { variant: 'tree-div', showRoot: hasRoot }]
+                : [{ variant: 'stack-div-row' }, { variant: 'stack-div-col' }, { variant: 'tree-div', showRoot: hasRoot }];
+        if (questionId.endsWith('-interactive'))
+            return [];
+
+        // Navigation chapter per-dim questions
+        if (questionId.startsWith('dim-forward-') || questionId.startsWith('dim-extent-'))
+            return [{ variant: 'tree-div', showRoot: hasRoot }];
+
+        return [];
+    }
+
     // ── Chapter definitions (Tasks 11–14) ────────────────────────────────────
     const CHAPTERS: QAChapterDef[] = [
 
@@ -429,8 +496,8 @@
                 const chartTypeForHint = (ch1Ans['chart-type'] as string | undefined) ?? '';
                 const chartLabelForHint = chartTypeForHint ? (CHART_TYPE_LABELS[chartTypeForHint] ?? '') : '';
                 const chooseDimHint = chartLabelForHint
-                    ? `Dimensions become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}.`
-                    : 'Dimensions become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values.';
+                    ? `Dimensions become the main paths through your data. Pick no more than 3. Variables marked ★ Suggested are recommended for a ${chartLabelForHint}. The diagrams show how numeric dimensions group data into vertical stripes, and how categorical dimensions group them into labeled clusters.`
+                    : 'Dimensions become the main paths through your data. Pick no more than 3. Skip variables that are only used for IDs, labels, or raw signal values. The diagrams show how numeric dimensions group data into vertical stripes, and how categorical dimensions group them into labeled clusters.';
 
                 const ch2Ans = prep.qaProgress.chapters.find(c => c.id === 'dimensions')?.answers ?? {};
                 const idConfirmAnswer = ch2Ans['confirm-id-variable'] as string | undefined;
@@ -605,8 +672,8 @@
                         id: `dim-type-${dim.key}`,
                         question: `We think "${dim.key}" contains ${dim.type === 'categorical' ? 'categorical' : 'numerical'} values. Does that sound right?`,
                         hint: dim.type === 'categorical'
-                            ? 'Categorical means the values are labels or names — like "North", "South", "East".'
-                            : 'Numerical means the values are numbers — like prices, counts, or measurements.',
+                            ? 'Categorical means the values are labels or names — like "North", "South", "East". The two diagrams show the difference: vertical stripes indicate numeric ranges, polygon outlines indicate labeled categories.'
+                            : 'Numerical means the values are numbers — like prices, counts, or measurements. The two diagrams show the difference: vertical stripes indicate numeric ranges, polygon outlines indicate labeled categories.',
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes, that\'s right' },
@@ -1313,6 +1380,11 @@
         return currentQuestion.getTrendXFields(prep);
     });
 
+    const currentVisuals = $derived.by((): { variant: string; showRoot?: boolean }[] => {
+        if (!currentQuestion || !schema) return [];
+        return getGuideVisuals(currentQuestion.id, schema);
+    });
+
     // ── Pending answer (local; committed to store on Next) ────────────────────
     let pendingValue = $state<unknown>('');
 
@@ -1570,6 +1642,7 @@
                 rawData={data ?? []}
                 dimensionKey={currentQuestion.nodeType === 'level1' ? currentQuestion.getFields?.(prep!) ?.[0] : undefined}
                 parentDimNoun={currentQuestion.parentDimNoun}
+                visuals={currentVisuals}
             />
             {/key}
         {:else}
