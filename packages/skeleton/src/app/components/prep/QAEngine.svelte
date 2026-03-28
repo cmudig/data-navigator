@@ -284,12 +284,12 @@
                 const questions: QAQuestionDef[] = [
                     {
                         id: 'root-node',
-                        question: 'Does your visualization have a single starting point that everything else branches from?',
-                        hint: 'This could be the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
+                        question: 'Does your visualization have an overview or a single starting point that everything else branches from?',
+                        hint: 'What is this? This question will make the first thing users navigate to an overview or high-level point, before diving in to other parts of the graphic. A starting point or overview might something like the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
                         inputType: 'radio',
                         options: [
-                            { value: 'yes', label: 'Yes — there is a clear entry point', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
-                            { value: 'no',  label: 'No — let users start at the first dimension directly', description: 'Navigation begins at the first dimension without a parent node. Recommended if you already have a high-level description elsewhere.' },
+                            { value: 'yes', label: 'Yes — I want to start with an overview', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
+                            { value: 'no',  label: 'No — let users start at the first data dimension directly', description: 'Navigation begins at the first dimension in the data without a big picture. Recommended if you already have a high-level description elsewhere or only plan to have a single dimension to navigate through (such as in a regular bar chart).' },
                         ],
                         onAnswer: (value, _p, _s, _d) => ({
                             schemaPatch: (sch) => ({ ...sch, level0Enabled: value === 'yes' }),
