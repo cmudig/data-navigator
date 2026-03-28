@@ -1,16 +1,18 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
-    import type { ScaffoldConfig, SyntheticDataConfig, PrepState } from '../../../store/appState';
+    import type { ScaffoldConfig, SyntheticDataConfig, PrepState, SchemaState, VariableMeta } from '../../../store/appState';
     import type { SkeletonNode } from '../../../store/types';
     import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
     import { latestView } from '../../../store/scaffoldRuntime';
     import { logAction, logActionDebounced } from '../../../store/historyStore';
     import type { GroupShapeConfig, BonusRect } from '../../../store/appState';
+    import { detectFieldsForChartType } from '../../../utils/prepAdapter';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     let config = $state<ScaffoldConfig | null>(null);
     let prepState = $state<PrepState | null>(null);
+    let schemaState = $state<SchemaState | null>(null);
     let committedScaffoldNodes = $state<SkeletonNode[]>([]);
     let allNodes = $state<SkeletonNode[]>([]);
     let uploadedData = $state<Record<string, unknown>[] | null>(null);
@@ -18,6 +20,7 @@
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
         prepState = s.prepState;
+        schemaState = s.schemaState;
         committedScaffoldNodes = [...s.nodes.values()].filter(n => n.source === 'scaffold');
         allNodes = [...s.nodes.values()];
         uploadedData = s.uploadedData;
@@ -114,6 +117,51 @@
                 : s.scaffoldConfig
         }));
         logActionDebounced('Scaffold config changed');
+    }
+
+    // ── Chart type change ─────────────────────────────────────────────────────
+    function handleChartTypeChange(newType: string) {
+        const navAnswers = prepState?.qaProgress?.chapters.find(c => c.id === 'navigation')?.answers ?? {};
+
+        // Build allColumns from user-confirmed variable types in insertion order.
+        // Falls back to row-scan (CSV) or syntheticConfig fields when prep hasn't been run.
+        let allColumns: { key: string; type: 'categorical' | 'numerical' }[] =
+            (prepState?.variables ?? [])
+                .filter((v: VariableMeta) => !v.removed)
+                .map((v: VariableMeta) => ({ key: v.key, type: v.type }));
+
+        if (allColumns.length === 0 && config?.dataMode === 'csv' && uploadedData?.[0]) {
+            const row = uploadedData[0];
+            allColumns = Object.keys(row).map(k => ({
+                key: k,
+                type: (typeof row[k] === 'number' ? 'numerical' : 'categorical') as 'categorical' | 'numerical'
+            }));
+        } else if (allColumns.length === 0 && config?.syntheticConfig) {
+            const sc = config.syntheticConfig;
+            allColumns = [
+                { key: sc.xField, type: 'categorical' },
+                { key: sc.yField, type: 'numerical' },
+                ...(sc.colorField ? [{ key: sc.colorField, type: 'categorical' as const }] : [])
+            ];
+        }
+
+        // Build enriched dims from included schema dimensions with wizard nav-direction answers
+        let dims: { key: string; type: 'categorical' | 'numerical'; navIndex?: number | null; navPreset?: string }[] = [];
+        if (schemaState) {
+            const includedDims = schemaState.dimensions.filter(d => d.included);
+            dims = (includedDims.length > 0 ? includedDims : schemaState.dimensions).map(d => ({
+                key: d.key,
+                type: d.type,
+                navIndex: d.navIndex,
+                navPreset: typeof navAnswers[`nav-within-${d.key}`] === 'string'
+                    ? (navAnswers[`nav-within-${d.key}`] as string)
+                    : undefined
+            }));
+        }
+
+        const detected = detectFieldsForChartType(newType, dims, allColumns);
+        patchConfig({ chartType: newType, ...detected });
+        logAction(`Chart type changed to ${newType}`);
     }
 
     // ── Group shape helpers ───────────────────────────────────────────────────
@@ -239,6 +287,27 @@
             {config.dataMode === 'synthetic' ? 'No data' : 'CSV data'}
         </span>
     </div>
+
+    <!-- Chart type override -->
+    <section class="param-section">
+        <h3 class="section-heading">Chart type</h3>
+        <div class="param-grid">
+            <label class="param-row">
+                <span class="param-label">Type</span>
+                <select class="param-select"
+                    value={config.chartType}
+                    onchange={(e) => handleChartTypeChange(e.currentTarget.value)}
+                >
+                    <option value="bar">Bar</option>
+                    <option value="stacked-bar">Stacked bar</option>
+                    <option value="clustered-bar">Clustered bar</option>
+                    <option value="scatter">Scatter</option>
+                    <option value="line">Line</option>
+                    <option value="area">Area</option>
+                </select>
+            </label>
+        </div>
+    </section>
 
     <!-- Chart position & size -->
     <section class="param-section">

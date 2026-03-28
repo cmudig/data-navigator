@@ -9,9 +9,10 @@
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig } from '../../../store/appState';
-    import { buildVegaSpec } from '../../../utils/vegaBuilder';
+    import { buildVegaSpec, buildSyntheticData } from '../../../utils/vegaBuilder';
     import { get } from 'svelte/store';
     import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
+    import { detectFieldsForChartType } from '../../../utils/prepAdapter';
     import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
     import { setScaffoldView } from '../../../store/scaffoldRuntime';
     import { computeGroupPaths } from '../../../utils/groupShapes';
@@ -55,39 +56,62 @@
         renderError = null;
 
         try {
-            // If field mappings are missing, auto-detect them
-            if (!cfg.xField || !cfg.yField) {
+            // If any field mappings are missing, auto-detect them using chart-type-aware logic
+            if (!cfg.xField || !cfg.yField || !cfg.colorField) {
                 const s = get(appState);
-                let xField = cfg.xField;
-                let yField = cfg.yField;
+                const prepState = s.prepState;
+                const navAnswers = prepState?.qaProgress.chapters.find(c => c.id === 'navigation')?.answers ?? {};
 
-                // First try: included schemaState dimensions
-                const includedDims = s.schemaState.dimensions.filter(d => d.included);
-                xField = xField ?? includedDims.find(d => d.type === 'categorical')?.key;
-                yField = yField ?? includedDims.find(d => d.type === 'numerical')?.key;
+                // Build allColumns fallback: user-confirmed types in insertion order.
+                // Falls back to scanning the first data row when no prep has been run.
+                let allColumns: { key: string; type: 'categorical' | 'numerical' }[] =
+                    (prepState?.variables ?? [])
+                        .filter((v: { removed: boolean }) => !v.removed)
+                        .map((v: { key: string; type: 'categorical' | 'numerical' }) => ({ key: v.key, type: v.type }));
 
-                // Fallback: all schemaState dimensions (included or not)
-                if (!xField || !yField) {
-                    const allDims = s.schemaState.dimensions;
-                    xField = xField ?? allDims.find(d => d.type === 'categorical')?.key;
-                    yField = yField ?? allDims.find(d => d.type === 'numerical')?.key;
-                }
-
-                // Last resort: scan first data row for string vs number columns
-                if ((!xField || !yField) && s.uploadedData?.[0]) {
+                if (allColumns.length === 0 && s.uploadedData?.[0]) {
                     const row = s.uploadedData[0];
-                    xField = xField ?? Object.keys(row).find(k => typeof row[k] === 'string');
-                    yField = yField ?? Object.keys(row).find(k => typeof row[k] === 'number');
+                    allColumns = Object.keys(row).map(k => ({
+                        key: k,
+                        type: (typeof row[k] === 'number' ? 'numerical' : 'categorical') as 'categorical' | 'numerical'
+                    }));
                 }
 
-                if (xField !== cfg.xField || yField !== cfg.yField) {
-                    cfg = { ...cfg, xField, yField };
+                // Build enriched dims from schema, adding wizard nav-direction answers
+                const buildDims = (dimList: typeof s.schemaState.dimensions) =>
+                    dimList.map(d => ({
+                        key: d.key,
+                        type: d.type,
+                        navIndex: d.navIndex,
+                        navPreset: typeof navAnswers[`nav-within-${d.key}`] === 'string'
+                            ? (navAnswers[`nav-within-${d.key}`] as string)
+                            : undefined
+                    }));
+
+                let dims = buildDims(s.schemaState.dimensions.filter(d => d.included));
+                if (dims.length === 0) {
+                    dims = buildDims(s.schemaState.dimensions);
+                }
+
+                const detected = detectFieldsForChartType(cfg.chartType, dims, allColumns);
+                const xField = cfg.xField ?? detected.xField;
+                const yField = cfg.yField ?? detected.yField;
+                const colorField = cfg.colorField ?? detected.colorField;
+
+                if (xField !== cfg.xField || yField !== cfg.yField || colorField !== cfg.colorField) {
+                    cfg = { ...cfg, xField, yField, colorField };
                     appState.update(st => ({ ...st, scaffoldConfig: cfg }));
                 }
             }
 
-            const data = uploadedData ?? [];
-            const spec = buildVegaSpec(cfg, data);
+            const rawData = uploadedData ?? [];
+            // Resolve synthetic data so positionNodesFromVegaScales has real rows
+            // for stacked-bar stack-offset computation.
+            const resolvedData = cfg.dataMode === 'synthetic' && cfg.syntheticConfig
+                ? buildSyntheticData(cfg.syntheticConfig)
+                : rawData;
+
+            const spec = buildVegaSpec(cfg, rawData);
             const { view, cleanup } = await renderToHidden(spec);
 
             currentCleanup = cleanup;
@@ -97,7 +121,7 @@
             // Reposition existing leaf nodes using Vega scale functions
             const s = get(appState);
             const allNodes = [...s.nodes.values()];
-            const posUpdates = positionNodesFromVegaScales(view, allNodes, cfg);
+            const posUpdates = positionNodesFromVegaScales(view, allNodes, cfg, resolvedData);
             if (posUpdates.size > 0) {
                 appState.update(st => {
                     const nextNodes = new Map(st.nodes);

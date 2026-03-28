@@ -1,6 +1,78 @@
 import type { PrepState, SchemaState, ScaffoldConfig } from '../store/appState';
 
 /**
+ * Extract the wizard nav-direction answer ('leftright' | 'updown' | 'brackets') for a dimension.
+ * Stored in the 'navigation' chapter answers as 'nav-within-${dimKey}'.
+ */
+function getNavPreset(prep: PrepState, dimKey: string): string | undefined {
+    const ch = prep.qaProgress.chapters.find(c => c.id === 'navigation')?.answers ?? {};
+    const val = ch[`nav-within-${dimKey}`];
+    return typeof val === 'string' ? val : undefined;
+}
+
+/**
+ * Detect appropriate xField / yField / colorField for a given chart type.
+ *
+ * Heuristic priority order (stacked-bar / clustered-bar):
+ *   1. Nav-direction wizard answer: categorical with navPreset='leftright' → x-axis
+ *      (user chose left/right spatial navigation = left/right visual axis)
+ *   2. User-confirmed dim type: numerical → y; remaining categorical → color
+ *   3. Data column scan (allColumns, insertion order): fills any still-undefined field
+ *      from the first unused column of the right type. Covers BOTH categoricals and
+ *      numericals — needed when a user only declared 1 dimension in prep.
+ *
+ * Other chart types use simpler rules; the full heuristic system will be extended
+ * to them as each is validated (scatter / line / area are next).
+ */
+export function detectFieldsForChartType(
+    chartType: string,
+    dims: {
+        key: string;
+        type: 'categorical' | 'numerical';
+        navIndex?: number | null;
+        navPreset?: string; // wizard answer: 'leftright' | 'updown' | 'brackets'
+    }[],
+    allColumns?: { key: string; type: 'categorical' | 'numerical' }[]
+): { xField?: string; yField?: string; colorField?: string } {
+    const cats = dims.filter(d => d.type === 'categorical').map(d => d.key);
+    const nums = dims.filter(d => d.type === 'numerical').map(d => d.key);
+
+    if (chartType === 'scatter') {
+        return { xField: nums[0], yField: nums[1], colorField: cats[0] };
+    }
+
+    if (chartType === 'stacked-bar' || chartType === 'clustered-bar') {
+        const assigned = new Set<string>();
+
+        // Step 1: xField — categorical configured with left/right wizard nav
+        let xField: string | undefined =
+            dims.find(d => d.type === 'categorical' && d.navPreset === 'leftright')?.key ??
+            dims.find(d => d.type === 'categorical')?.key ?? // fallback: first cat dim
+            allColumns?.find(c => c.type === 'categorical')?.key; // fallback: first cat column
+        if (xField) assigned.add(xField);
+
+        // Step 2: yField — numerical dim, then column scan
+        let yField: string | undefined =
+            dims.find(d => d.type === 'numerical')?.key ??
+            allColumns?.find(c => c.type === 'numerical' && !assigned.has(c.key))?.key;
+        if (yField) assigned.add(yField);
+
+        // Step 3: colorField — remaining categorical dim, then column scan
+        const colorField: string | undefined =
+            dims.find(d => d.type === 'categorical' && !assigned.has(d.key))?.key ??
+            allColumns?.find(c => c.type === 'categorical' && !assigned.has(c.key))?.key;
+
+        return { xField, yField, colorField };
+    }
+
+    if (chartType === 'line' || chartType === 'area') {
+        return { xField: cats[0], yField: nums[0], colorField: cats[1] };
+    }
+    // bar (and any unknown type)
+    return { xField: cats[0], yField: nums[0] };
+}
+
+/**
  * Final-sync: re-derive key schemaState fields from saved Q/A answers.
  *
  * Called once at step transition (Prep → Editor). Most schemaState fields are
@@ -51,10 +123,24 @@ export function seedScaffoldConfig(
     if (existing) {
         if (existing.xField && existing.yField) return existing;
         if (hasData && schemaState) {
-            const includedDims = schemaState.dimensions.filter(d => d.included);
-            const xField = existing.xField ?? includedDims.find(d => d.type === 'categorical')?.key;
-            const yField = existing.yField ?? includedDims.find(d => d.type === 'numerical')?.key;
-            if (xField || yField) return { ...existing, xField, yField };
+            const includedDims = schemaState.dimensions
+                .filter(d => d.included)
+                .map(d => ({
+                    key: d.key,
+                    type: d.type,
+                    navIndex: d.navIndex,
+                    navPreset: getNavPreset(prep, d.key)
+                }));
+            const allColumns = prep.variables.filter(v => !v.removed).map(v => ({ key: v.key, type: v.type }));
+            const detected = detectFieldsForChartType(
+                (existing.chartType as string) ?? 'bar',
+                includedDims,
+                allColumns
+            );
+            const xField = existing.xField ?? detected.xField;
+            const yField = existing.yField ?? detected.yField;
+            const colorField = existing.colorField ?? detected.colorField;
+            if (xField || yField) return { ...existing, xField, yField, colorField };
         }
         return existing;
     }
@@ -94,11 +180,25 @@ export function seedScaffoldConfig(
     // Auto-detect field names from schema dimensions when using CSV data
     let xField: string | undefined;
     let yField: string | undefined;
+    let colorField: string | undefined;
     if (hasData && schemaState) {
-        const includedDims = schemaState.dimensions.filter(d => d.included);
-        xField = includedDims.find(d => d.type === 'categorical')?.key;
-        yField = includedDims.find(d => d.type === 'numerical')?.key;
+        const includedDims = schemaState.dimensions
+            .filter(d => d.included)
+            .map(d => ({
+                key: d.key,
+                type: d.type,
+                navIndex: d.navIndex,
+                navPreset: getNavPreset(prep, d.key)
+            }));
+        const allColumns = prep.variables.filter(v => !v.removed).map(v => ({ key: v.key, type: v.type }));
+        const detected = detectFieldsForChartType(chartType, includedDims, allColumns);
+        xField = detected.xField;
+        yField = detected.yField;
+        colorField = detected.colorField;
     }
+
+    const needsSeries =
+        chartType === 'stacked-bar' || chartType === 'clustered-bar' || chartType === 'line' || chartType === 'area';
 
     return {
         chartType,
@@ -114,17 +214,15 @@ export function seedScaffoldConfig(
         dataMode: hasData ? 'csv' : 'synthetic',
         xField,
         yField,
+        colorField,
         syntheticConfig: hasData
             ? undefined
             : {
                   categories: ['A', 'B', 'C', 'D'],
-                  seriesNames:
-                      chartType === 'stacked-bar' || chartType === 'clustered-bar'
-                          ? ['Series 1', 'Series 2']
-                          : undefined,
+                  seriesNames: needsSeries ? ['Series 1', 'Series 2'] : undefined,
                   xField: 'category',
                   yField: 'value',
-                  colorField: chartType === 'stacked-bar' || chartType === 'clustered-bar' ? 'series' : undefined
+                  colorField: needsSeries ? 'series' : undefined
               }
     };
 }

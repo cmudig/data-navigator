@@ -8,7 +8,7 @@
 
 import type { ScaffoldConfig } from '../store/appState';
 import type { SkeletonNode, SkeletonEdge } from '../store/types';
-import type { VegaLiteSpec } from './vegaBuilder';
+import type { VegaLiteSpec, Row } from './vegaBuilder';
 import { defaultRenderProperties, defaultSemantics } from '../store/nodeFactory';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -221,11 +221,15 @@ function translatePathData(d: string, dx: number, dy: number): string {
  * because view.scale() uses the internal scale functions, not DOM layout.
  *
  * Supports: bar, stacked-bar, clustered-bar, scatter.
+ *
+ * @param data - The resolved data rows (same rows passed to buildVegaSpec).
+ *               Required for stacked-bar to compute per-segment cumulative offsets.
  */
 export function positionNodesFromVegaScales(
     view: import('vega').View,
     nodes: SkeletonNode[],
-    config: ScaffoldConfig
+    config: ScaffoldConfig,
+    data: Row[] = []
 ): Map<string, { x: number; y: number; width: number; height: number }> {
     const updates = new Map<string, { x: number; y: number; width: number; height: number }>();
     const xField = config.xField;
@@ -240,9 +244,8 @@ export function positionNodesFromVegaScales(
 
     const leafNodes = nodes.filter(n => n.dnLevel === 3);
 
-    if (config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar') {
+    if (config.chartType === 'bar' || config.chartType === 'clustered-bar') {
         if (config.barOrientation === 'horizontal') {
-            // For horizontal bars: y is the band scale (categorical), x is linear (quantitative)
             type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
             const yBandScale = view.scale('y') as BandScaleH | undefined;
             const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
@@ -265,19 +268,127 @@ export function positionNodesFromVegaScales(
         } else {
             const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
             const yZero = yScale(0) ?? config.plotHeight;
-
             for (const node of leafNodes) {
                 const catVal = node.data[xField];
                 const numVal = Number(node.data[yField] ?? 0);
                 const scaledX = xScale(catVal);
                 if (scaledX === undefined || isNaN(scaledX as number)) continue;
-
                 const barTop = yScale(numVal);
                 updates.set(node.id, {
                     x: (scaledX as number) + config.paddingLeft + config.offsetX,
                     y: barTop + config.paddingTop + config.offsetY,
                     width: bw,
                     height: Math.max(1, (yZero as number) - barTop)
+                });
+            }
+        }
+    } else if (config.chartType === 'stacked-bar') {
+        // Stacked bars: each segment's y position depends on the cumulative sum of
+        // all segments below it. We compute stack offsets from the data ourselves so
+        // we don't need to reach into Vega's internal transform state.
+        const colorField = config.colorField;
+        if (!colorField) {
+            // No series field — fall back to plain-bar positioning
+            if (config.barOrientation === 'horizontal') {
+                type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
+                const yBandScale = view.scale('y') as BandScaleH | undefined;
+                const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
+                if (!yBandScale || !xLinScale) return updates;
+                const bh = yBandScale.bandwidth ? yBandScale.bandwidth() : 20;
+                const xZero = xLinScale(0) ?? 0;
+                for (const node of leafNodes) {
+                    const catVal = node.data[xField];
+                    const numVal = Number(node.data[yField] ?? 0);
+                    const scaledY = yBandScale(catVal);
+                    if (scaledY === undefined || isNaN(scaledY as number)) continue;
+                    const barRight = xLinScale(numVal);
+                    updates.set(node.id, {
+                        x: (xZero as number) + config.paddingLeft + config.offsetX,
+                        y: (scaledY as number) + config.paddingTop + config.offsetY,
+                        width: Math.max(1, (barRight as number) - (xZero as number)),
+                        height: bh
+                    });
+                }
+            } else {
+                const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
+                const yZero = yScale(0) ?? config.plotHeight;
+                for (const node of leafNodes) {
+                    const catVal = node.data[xField];
+                    const numVal = Number(node.data[yField] ?? 0);
+                    const scaledX = xScale(catVal);
+                    if (scaledX === undefined || isNaN(scaledX as number)) continue;
+                    const barTop = yScale(numVal);
+                    updates.set(node.id, {
+                        x: (scaledX as number) + config.paddingLeft + config.offsetX,
+                        y: barTop + config.paddingTop + config.offsetY,
+                        width: bw,
+                        height: Math.max(1, (yZero as number) - barTop)
+                    });
+                }
+            }
+            return updates;
+        }
+
+        // Build a stack-offset map: Map<catVal, Map<colorVal, {y0, y1}>>
+        // Groups rows by xField; preserves data insertion order within each group
+        // (Vega-Lite stacks in data order by default — do NOT sort here).
+        const stackMap = new Map<unknown, Map<unknown, { y0: number; y1: number }>>();
+        const groupedData = new Map<unknown, Row[]>();
+        for (const row of data) {
+            const cat = row[xField];
+            if (!groupedData.has(cat)) groupedData.set(cat, []);
+            groupedData.get(cat)!.push(row);
+        }
+        for (const [cat, rows] of groupedData) {
+            const seriesMap = new Map<unknown, { y0: number; y1: number }>();
+            let cumulative = 0;
+            for (const row of rows) {
+                const val = Number(row[yField] ?? 0);
+                seriesMap.set(row[colorField], { y0: cumulative, y1: cumulative + val });
+                cumulative += val;
+            }
+            stackMap.set(cat, seriesMap);
+        }
+
+        if (config.barOrientation === 'horizontal') {
+            type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
+            const yBandScale = view.scale('y') as BandScaleH | undefined;
+            const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
+            if (!yBandScale || !xLinScale) return updates;
+            const bh = yBandScale.bandwidth ? yBandScale.bandwidth() : 20;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const colorVal = node.data[colorField];
+                const offsets = stackMap.get(catVal)?.get(colorVal);
+                if (!offsets) continue;
+                const scaledY = yBandScale(catVal);
+                if (scaledY === undefined || isNaN(scaledY as number)) continue;
+                const x0 = xLinScale(offsets.y0) as number;
+                const x1 = xLinScale(offsets.y1) as number;
+                updates.set(node.id, {
+                    x: x0 + config.paddingLeft + config.offsetX,
+                    y: (scaledY as number) + config.paddingTop + config.offsetY,
+                    width: Math.max(1, x1 - x0),
+                    height: bh
+                });
+            }
+        } else {
+            const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const colorVal = node.data[colorField];
+                const offsets = stackMap.get(catVal)?.get(colorVal);
+                if (!offsets) continue;
+                const scaledX = xScale(catVal);
+                if (scaledX === undefined || isNaN(scaledX as number)) continue;
+                // y1 is the stack top (higher value = lower pixel Y in screen coords)
+                const pixY1 = yScale(offsets.y1);
+                const pixY0 = yScale(offsets.y0);
+                updates.set(node.id, {
+                    x: (scaledX as number) + config.paddingLeft + config.offsetX,
+                    y: pixY1 + config.paddingTop + config.offsetY,
+                    width: bw,
+                    height: Math.max(1, pixY0 - pixY1)
                 });
             }
         }

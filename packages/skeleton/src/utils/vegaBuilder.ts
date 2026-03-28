@@ -245,3 +245,46 @@ export function buildVegaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec
             return buildBarSpec(config, data);
     }
 }
+
+/*
+ * ── FUTURE CHART TYPE CHANNEL REQUIREMENTS ────────────────────────────────────
+ *
+ * When adding new chart types, each will need the following Vega-Lite channels,
+ * auto-detect logic in detectFieldsForChartType (prepAdapter.ts), and possibly
+ * new ScaffoldConfig fields.
+ *
+ * CHART TYPE      REQUIRED CHANNELS                     AUTO-DETECT FROM           SCAFFOLDCONFIG CHANGES NEEDED
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ * pie / donut     theta (NUM), color (CAT)               first NUM → thetaField     Add thetaField; x/y not used.
+ *                                                        first CAT → colorField     positionNodesFromVegaScales:
+ *                                                                                   arc marks need arc centroid math
+ *                                                                                   (no band/linear scales); use SVG extraction.
+ *
+ * heatmap         x (ordinal CAT), y (ordinal CAT),      first CAT → xField         No new fields needed.
+ *                 color (quant NUM)                      second CAT → yField        positionNodesFromVegaScales:
+ *                                                        first NUM → colorField     both x/y are band scales;
+ *                                                                                   positioning is straightforward (like clustered-bar).
+ *                                                                                   Note: colorField encodes value, not series.
+ *
+ * treemap         size (NUM), category hierarchy         first NUM → sizeField      Add sizeField + optional parentField.
+ *                 (1–2 CAT levels for outer/inner)       first CAT → outer group    Vega-Lite has NO treemap mark — requires
+ *                                                        second CAT → inner group   a raw Vega spec with a treemap transform,
+ *                                                                                   or a pre-computed layout. SVG extraction
+ *                                                                                   is the only viable positioning path.
+ *
+ * ── SMARTER PREP → SCAFFOLD FIELD MAPPING (pre-work for the above) ────────────
+ *
+ * Before implementing pie/heatmap/treemap scaffolding, the prep Q/A flow and
+ * dimension suggestions (dimensionSuggestions.ts) need to surface:
+ *
+ * - pie/donut:   Single-level structure (1 CAT as labels, 1 NUM as angle/size).
+ *                No x/y axis concept. Scaffold should skip axis padding UI.
+ *
+ * - heatmap:     Exactly 2 CAT dimensions (forming a grid) + 1 NUM (fill color).
+ *                Both categorical axes are ordinal — detect via 2 included CAT dims.
+ *
+ * - treemap:     Hierarchical data: either parent-child rows with an explicit
+ *                parent key, or 2 CAT dimensions (outer group + inner group) + 1 NUM.
+ *                Requires raw Vega (not Vega-Lite) for the layout transform.
+ *                positionNodesFromVegaScales cannot be used; fall back to extractMarksFromSVG.
+ */
