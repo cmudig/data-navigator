@@ -352,7 +352,7 @@
                     {
                         id: 'root-node',
                         question: 'Does your visualization have an overview or a single starting point that everything else branches from?',
-                        hint: 'What is this? This question will make the first thing users navigate to an overview or high-level point, before diving in to other parts of the graphic. A starting point or overview might something like the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
+                        hint: 'What is this? This question will make the first thing users navigate to an overview or high-level point, before diving in to other parts of the graphic. A starting point or overview might be something like the chart itself, the chart\'s title, or some other high level view. Think of this starting point like a home page — a place where navigation begins before drilling into any specific dimension.',
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes — I want to start with an overview', description: 'Great for guided, hierarchical navigation. Recommended for most datasets.', notice: { type: 'suggest' as const, message: '★ Suggested' } },
@@ -408,7 +408,7 @@
                     // Q1.2 — Dataset description (alt text for the root node)
                     questions.push({
                         id: 'dataset-description',
-                        question: 'What does this chart or dataset represent, in clear, concise language?',
+                        question: 'What does your chart or dataset represent, in clear, concise language?',
                         hint: 'Example: "Monthly sales figures for each product and region." This becomes the opening description that screen readers use to introduce the data.',
                         inputType: 'text',
                         onAnswer: (_value, _p, _s, _d) => ({}),
@@ -436,7 +436,7 @@
                     // Q1.5 — Interactive elements checkbox
                     questions.push({
                         id: 'interactive-elements',
-                        question: 'Does this visualization contain interactive elements that users can select, click, or otherwise interact with?',
+                        question: 'Does your visualization contain interactive elements that users can select, click, or otherwise interact with?',
                         hint: 'This will be mentioned in the opening description so screen reader users know what to expect before they start exploring.',
                         inputType: 'radio',
                         options: [
@@ -672,8 +672,8 @@
                         id: `dim-type-${dim.key}`,
                         question: `We think "${dim.key}" contains ${dim.type === 'categorical' ? 'categorical' : 'numerical'} values. Does that sound right?`,
                         hint: dim.type === 'categorical'
-                            ? 'Categorical means the values are labels or names — like "North", "South", "East". The two diagrams show the difference: vertical stripes indicate numeric ranges, polygon outlines indicate labeled categories.'
-                            : 'Numerical means the values are numbers — like prices, counts, or measurements. The two diagrams show the difference: vertical stripes indicate numeric ranges, polygon outlines indicate labeled categories.',
+                            ? 'Categorical means the values are labels or names — like "North", "South", "East". Categorical dimensions create a navigation experience based on discrete things, like nouns. Users will navigate from one thing to another. Some categorical dimensions are unique across data points, others represent groupings that data points share. Both are valid! We will group and create hierarchies for navigation automatically.'
+                            : 'Numerical means the values are numbers — like prices, counts, or measurements. Numerical dimensions create a navigation experience based on values: we divide the chart space into equal visual divisions and navigation happens in numerical order (least to most or most to least). Note that some numerical dimensions (for example, years or months) might best be treated as a "categorical" dimension instead: the values are already divided and ordered meaningfully, we don\'t need to divide and sort the values any further.',
                         inputType: 'radio',
                         options: [
                             { value: 'yes', label: 'Yes, that\'s right' },
@@ -768,8 +768,8 @@
                 if (includedDims.length >= 2) {
                     questions.push({
                         id: 'dim-order',
-                        question: 'In what order should your dimensions be layered? Use the up/down buttons to reorder.',
-                        hint: 'The first dimension is what a user encounters first. Dimensions appear to a user in the following order as they navigate:',
+                        question: 'In what order should your dimensions be discovered? Use the up/down buttons to reorder.',
+                        hint: 'The first dimension is the high-level data grouping that a user encounters first. Generally, you want to show the most important information grouping first. If all information is equal, some like to show x-axis dimensions first and then other dimensions second (since x tends to be commonly encoded as an independent variable). Others will choose y dimensions first, since the y axis is "above" the x and often the dependent variable. Choose what makes the most sense for a user\'s experience of the data. Dimensions appear to a user in the following order as they navigate:',
                         inputType: 'drag-order',
                         options: includedDims.map(d => ({ value: d.key, label: d.key })),
                         defaultValue: includedDims.map(d => d.key),
@@ -825,7 +825,7 @@
                     questions.push({
                         id: 'nav-between-dims',
                         question: 'How should keyboard users move between top-level dimensions in your visualization?',
-                        hint: "The 'top level' is where your dimensions live — e.g., 'date', 'value', and 'region'. Choosing a key layout here doesn't prevent using those same keys within a dimension.",
+                        hint: "The 'top level' is where your dimensions live — e.g., 'date', 'value', and 'region'. Choosing a key layout here doesn't prevent using those same keys within a dimension. In our diagram above, the left-most dimension is first. But the diagram is abstract, so not all dimensions make sense to navigate left to right. Some charts might make more sense moving up and down (like between a y-axis dimension that is first and 'above' and an x-axis that is second and 'below'). Try to pick a direction here that corresponds visually. Screen reader users can always reach the 'next' dimension by navigating down or to the right. But sighted assistive technology users will expect movement to correspond to what they see.",
                         inputType: 'radio',
                         options: NAV_PRESET_OPTIONS_HIGH,
                         onAnswer: (value, _p, _s, _d) => {
@@ -1095,7 +1095,7 @@
                     questions.push({
                         id: 'cross-group-nav',
                         question: 'When a user is looking at an individual data point, can they jump directly to the same position in a neighboring dimension?',
-                        hint: 'Example: If your data is grouped by region AND by year, "jump to same position" means: while viewing "2020, North", the user can press a key to jump to "2020, South" — without going back up and drilling down again. This works best when dimensions have matching items in the same position.',
+                        hint: 'Typically, navigation always stays inside a dimension - never leaving. However, sometimes freely jumping between dimensions makes sense for the data structure. For example: If your data is grouped by region AND by year (two categories), "jump to same position" means: while viewing "2020, North" (within "year"), the user can press a key to jump to "2020, South" (jumping across "region") — without going back up and drilling down again. This works best when dimensions have matching items in the same position.',
                         inputType: 'radio',
                         getDynamicOptions: (p, _s, _d) => {
                             const chartType = p.qaProgress.chapters
