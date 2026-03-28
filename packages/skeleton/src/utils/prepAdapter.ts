@@ -38,7 +38,26 @@ export function detectFieldsForChartType(
     const nums = dims.filter(d => d.type === 'numerical').map(d => d.key);
 
     if (chartType === 'scatter') {
-        return { xField: nums[0], yField: nums[1], colorField: cats[0] };
+        const assigned = new Set<string>();
+
+        // Step 1: xField — numerical with left/right nav
+        let xField: string | undefined =
+            dims.find(d => d.type === 'numerical' && d.navPreset === 'leftright')?.key ??
+            dims.find(d => d.type === 'numerical')?.key ??
+            allColumns?.find(c => c.type === 'numerical')?.key;
+        if (xField) assigned.add(xField);
+
+        // Step 2: yField — first unused numerical (no navPreset assumption)
+        let yField: string | undefined =
+            dims.find(d => d.type === 'numerical' && !assigned.has(d.key))?.key ??
+            allColumns?.find(c => c.type === 'numerical' && !assigned.has(c.key))?.key;
+        if (yField) assigned.add(yField);
+
+        // Step 3: colorField — first categorical (no navPreset assumption)
+        const colorField: string | undefined =
+            dims.find(d => d.type === 'categorical')?.key ?? allColumns?.find(c => c.type === 'categorical')?.key;
+
+        return { xField, yField, colorField };
     }
 
     if (chartType === 'stacked-bar' || chartType === 'clustered-bar') {

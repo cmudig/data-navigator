@@ -174,24 +174,37 @@ export interface BonusRect {
     height: number;
 }
 
+/**
+ * Per-dimension outline configuration. Covers the dimension node's own path
+ * AND the strategy for all of its division nodes.
+ * When absent for a given dimensionKey, groupShapes.ts fills in type-based defaults.
+ */
+export interface DimensionGroupConfig {
+    strategy: 'convexHull' | 'unionOfAll';
+    padding: number;
+    divisionStrategy: 'convexHull' | 'unionOfAll' | 'rangeBounds' | 'rangeRect';
+    divisionPadding: number;
+}
+
 export interface GroupShapeConfig {
     // Root node (level 0)
     rootEnabled: boolean;
     rootStrategy: 'convexHull' | 'unionOfAll' | 'boundingRect';
-    rootPadding: number; // px
+    rootPadding: number; // px — ignored when rootBoundingRectOverride is set
+    // Manual override: when set, used directly instead of auto-computing from leaves.
+    // Set by drag handles or x/y/w/h inputs. Clear to revert to auto.
+    rootBoundingRectOverride?: { x: number; y: number; width: number; height: number };
 
-    // Dimension nodes (level 1) — single shared strategy
+    // Global enable toggles for dimension / division levels
     dimensionEnabled: boolean;
-    dimensionStrategy: 'convexHull' | 'unionOfAll';
-    dimensionPadding: number; // px
-    // keyed by dimensionKey (the field name, e.g. 'fruit')
-    dimensionBonusRects: Record<string, BonusRect>;
-
-    // Division nodes (level 2) — single shared strategy
     divisionEnabled: boolean;
-    divisionStrategy: 'convexHull' | 'unionOfAll';
-    divisionPadding: number; // px
-    // keyed by division node id
+
+    // Per-dimension config — key is dimensionKey (field name, e.g. 'species').
+    // Falls back to type-based defaults when absent for a key.
+    perDimension: Record<string, DimensionGroupConfig>;
+
+    // Bonus rects — keyed by dimensionKey (dimension) and division node id (division)
+    dimensionBonusRects: Record<string, BonusRect>;
     divisionBonusRects: Record<string, BonusRect>;
 }
 
@@ -203,7 +216,8 @@ export interface ScaffoldMarkParams {
     barOuterPadding?: number; // 0–1
     groupPadding?: number; // clustered-bar only: spacing between cluster groups
     // Scatter / line points
-    pointSize?: number; // mark area in px², maps to Vega-Lite size
+    pointSize?: number; // mark area in px², maps to Vega-Lite size (default 30)
+    pointSizeField?: string; // if set, Vega uses this column for size encoding (scatter only)
     // Line / area
     strokeWidth?: number; // px
     showPoints?: boolean; // render point marks at each data point
@@ -252,6 +266,15 @@ export interface ScaffoldConfig {
     // Visual sort order for the categorical axis — independent of navigation order set in Prep.
     // 'none' = data insertion order, 'ascending' = A→Z / low→high, 'descending' = Z→A / high→low
     sortX?: 'none' | 'ascending' | 'descending';
+
+    // Scatter axis domain overrides — when set, Vega uses these as the scale extent instead of
+    // computing from the data. Useful when the image's axis range differs from the data extent
+    // (e.g. the chart is padded to 4.0–8.5 but data only spans 4.3–7.9). zero is always false
+    // for scatter regardless of these settings.
+    xDomainMin?: number;
+    xDomainMax?: number;
+    yDomainMin?: number;
+    yDomainMax?: number;
 
     // Bar chart orientation (bar / stacked-bar / clustered-bar only). Default: 'vertical'.
     barOrientation?: 'vertical' | 'horizontal';

@@ -160,13 +160,30 @@ function buildScatterSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const colorField = config.colorField;
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
+
+    // zero: false — scatter axes should start from data extent, not 0.
+    // Domain overrides let users match an image's axis range when it differs from the data extent.
+    const xScale: Record<string, unknown> = { zero: false };
+    if (config.xDomainMin != null || config.xDomainMax != null) {
+        xScale.domain = [config.xDomainMin ?? null, config.xDomainMax ?? null];
+    }
+    const yScale: Record<string, unknown> = { zero: false };
+    if (config.yDomainMin != null || config.yDomainMax != null) {
+        yScale.domain = [config.yDomainMin ?? null, config.yDomainMax ?? null];
+    }
+
+    // Size: data-driven field OR static value (default 30)
+    const sizeEnc = mp.pointSizeField ? { size: { field: mp.pointSizeField, type: 'quantitative' } } : {};
+    const markSize = mp.pointSizeField ? undefined : (mp.pointSize ?? 30);
+
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        mark: { type: 'point', size: mp.pointSize ?? 100, color: '#6366f1' },
+        mark: { type: 'point', ...(markSize != null ? { size: markSize } : {}), color: '#6366f1' },
         encoding: {
-            x: { field: xField, type: 'quantitative' },
-            y: { field: yField, type: 'quantitative' },
+            x: { field: xField, type: 'quantitative', scale: xScale },
+            y: { field: yField, type: 'quantitative', scale: yScale },
+            ...sizeEnc,
             ...colorEnc
         }
     };

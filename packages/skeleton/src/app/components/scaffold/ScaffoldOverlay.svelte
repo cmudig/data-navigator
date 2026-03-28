@@ -8,7 +8,7 @@
      */
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
-    import type { ScaffoldConfig } from '../../../store/appState';
+    import type { ScaffoldConfig, SchemaState } from '../../../store/appState';
     import { buildVegaSpec, buildSyntheticData } from '../../../utils/vegaBuilder';
     import { get } from 'svelte/store';
     import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
@@ -24,10 +24,12 @@
     // changes) creates a new proxy object → dirtied signal → Vega $effect re-runs → loop.
     let config = $state.raw<ScaffoldConfig | null>(null);
     let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
+    let schemaState = $state.raw<SchemaState | null>(null);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
         uploadedData = s.uploadedData;
+        schemaState = s.schemaState;
     });
     onDestroy(_unsub);
 
@@ -164,7 +166,6 @@
     // Also triggered explicitly from doRender() after leaf positions update.
 
     function applyGroupPaths() {
-        console.log('[scaffold] applyGroupPaths');
         const cfg = get(appState).scaffoldConfig;
         if (!cfg?.groupShapes) return;
         const gs = cfg.groupShapes;
@@ -173,8 +174,22 @@
         const s = get(appState);
         const allNodes = [...s.nodes.values()];
         const allEdges = [...s.edges.values()];
-        const paths = computeGroupPaths(allNodes, allEdges, cfg);
+
+        // Build dimTypes from schemaState for type-aware defaults in computeGroupPaths
+        const dimTypes: Record<string, 'categorical' | 'numerical'> = {};
+        for (const dim of (s.schemaState?.dimensions ?? [])) {
+            dimTypes[dim.key] = dim.type;
+        }
+
+        const paths = computeGroupPaths(allNodes, allEdges, cfg, dimTypes);
         if (paths.size === 0) return;
+
+        // Seed rootBoundingRectOverride on first compute so drag handles have a rect
+        const rootNode = allNodes.find(n => n.dnLevel === 0);
+        const rootResult = rootNode ? paths.get(rootNode.id) : undefined;
+        const needsRootSeed = rootResult
+            && gs.rootStrategy === 'boundingRect'
+            && !gs.rootBoundingRectOverride;
 
         appState.update(st => {
             const nextNodes = new Map(st.nodes);
@@ -192,21 +207,37 @@
                     });
                 }
             }
+            // Seed root bounding rect override from the auto-computed bbox
+            if (needsRootSeed && st.scaffoldConfig?.groupShapes) {
+                return {
+                    ...st,
+                    nodes: nextNodes,
+                    scaffoldConfig: {
+                        ...st.scaffoldConfig,
+                        groupShapes: {
+                            ...st.scaffoldConfig.groupShapes,
+                            rootBoundingRectOverride: rootResult!.bbox
+                        }
+                    }
+                };
+            }
             return { ...st, nodes: nextNodes };
         });
     }
 
     $effect(() => {
-        // React to groupShapes config changes (strategy, padding, bonus rects)
+        // React to groupShapes config changes (strategy, padding, bonus rects, per-dim config)
         const gs = config?.groupShapes;
-        // Access reactive properties to create dependency
         if (!gs) return;
         gs.rootEnabled; gs.rootStrategy; gs.rootPadding;
-        gs.dimensionEnabled; gs.dimensionStrategy; gs.dimensionPadding;
-        gs.divisionEnabled; gs.divisionStrategy; gs.divisionPadding;
-        // Bonus rects tracked via their records — changes propagate here
+        gs.dimensionEnabled;
+        gs.divisionEnabled;
+        // Stringify to catch nested changes in perDimension and bonus rects
+        JSON.stringify(gs.perDimension);
         JSON.stringify(gs.dimensionBonusRects);
         JSON.stringify(gs.divisionBonusRects);
+        // rootBoundingRectOverride changes (from drag handles or panel inputs)
+        JSON.stringify(gs.rootBoundingRectOverride);
 
         applyGroupPaths();
     });
@@ -251,6 +282,37 @@
     }
 
     function onWindowMousemove(e: MouseEvent) {
+        // Handle root bounding rect corner drag
+        if (activeRootRectDrag) {
+            const { corner, startClientX, startClientY, startRect: sr } = activeRootRectDrag;
+            const dx = e.clientX - startClientX;
+            const dy = e.clientY - startClientY;
+            let { x, y, width, height } = sr;
+            if (corner === 'tl') {
+                x = sr.x + dx; y = sr.y + dy;
+                width = Math.max(10, sr.width - dx); height = Math.max(10, sr.height - dy);
+            } else if (corner === 'tr') {
+                y = sr.y + dy;
+                width = Math.max(10, sr.width + dx); height = Math.max(10, sr.height - dy);
+            } else if (corner === 'bl') {
+                x = sr.x + dx;
+                width = Math.max(10, sr.width - dx); height = Math.max(10, sr.height + dy);
+            } else { // br
+                width = Math.max(10, sr.width + dx); height = Math.max(10, sr.height + dy);
+            }
+            appState.update(s => {
+                if (!s.scaffoldConfig?.groupShapes) return s;
+                return {
+                    ...s,
+                    scaffoldConfig: {
+                        ...s.scaffoldConfig,
+                        groupShapes: { ...s.scaffoldConfig.groupShapes, rootBoundingRectOverride: { x, y, width, height } }
+                    }
+                };
+            });
+            return;
+        }
+
         // Handle bonus rect drag
         if (activeBonusDrag) {
             const { level, key, mode, startClientX, startClientY, startRect } = activeBonusDrag;
@@ -358,6 +420,27 @@
         }
     }
 
+    // ── Root bounding rect drag ───────────────────────────────────────────────
+    type RootRectDrag = {
+        corner: 'tl' | 'tr' | 'bl' | 'br';
+        startClientX: number;
+        startClientY: number;
+        startRect: { x: number; y: number; width: number; height: number };
+    };
+    let activeRootRectDrag = $state<RootRectDrag | null>(null);
+
+    function onRootRectCornerMousedown(e: MouseEvent, corner: 'tl' | 'tr' | 'bl' | 'br') {
+        e.stopPropagation();
+        const rr = config?.groupShapes?.rootBoundingRectOverride;
+        if (!rr) return;
+        activeRootRectDrag = {
+            corner,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startRect: { ...rr }
+        };
+    }
+
     // ── Bonus rect drag ───────────────────────────────────────────────────────
     type BonusRectDrag = {
         level: 'dimension' | 'division';
@@ -388,6 +471,7 @@
     function onWindowMouseup() {
         activeDrag = null;
         activeBonusDrag = null;
+        activeRootRectDrag = null;
     }
 
     // ── Derived geometry ──────────────────────────────────────────────────────
@@ -554,6 +638,43 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'resize-br')}
     />
+
+    <!-- Root bounding rect resize handles (4 corners) -->
+    {#if config?.groupShapes?.rootEnabled && config.groupShapes.rootStrategy === 'boundingRect' && config.groupShapes.rootBoundingRectOverride}
+        {@const rr = config.groupShapes.rootBoundingRectOverride}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x - HANDLE_SIZE / 2} y={rr.y - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nwse-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'tl')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x + rr.width - HANDLE_SIZE / 2} y={rr.y - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nesw-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'tr')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x - HANDLE_SIZE / 2} y={rr.y + rr.height - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nesw-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'bl')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x + rr.width - HANDLE_SIZE / 2} y={rr.y + rr.height - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nwse-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'br')}
+        />
+    {/if}
 
     <!-- Bonus rect ghost nodes (dimension + division) -->
     {#if config?.groupShapes}
