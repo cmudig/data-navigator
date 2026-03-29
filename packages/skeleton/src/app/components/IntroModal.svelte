@@ -284,7 +284,7 @@
                         <p class="skeleton-intro-text">
                             Each node you create becomes a visible outline drawn on top of your chart — a navigation stop that both sighted and non-sighted users can see and reach. Edges connect nodes, defining the paths between them. Together they form the accessible <em>skeleton</em> of your visualization. Here are four ways to structure the same stacked bar chart:
                         </p>
-                        <div class="skeleton-diagrams" aria-hidden="true">
+                        <div class="skeleton-diagrams">
 
                             <div class="skeleton-diagram-item">
                                 <div class="step-card-diagram">

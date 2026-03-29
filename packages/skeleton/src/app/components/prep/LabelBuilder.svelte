@@ -462,25 +462,17 @@
     </p>
 
     {#if fields.length > 0}
-        <div class="lb-pills-area" aria-label="Available fields — click to add to label">
+        <fieldset class="lb-fields-area">
+            <legend class="visually-hidden">Fields — check to include in label</legend>
             {#each fields as field (field)}
                 {@const selected = selectedFields.has(field)}
                 {@const suggestion = suggestedFields.find(s => s.key === field)}
-                <button
-                    class="lb-pill"
-                    class:lb-pill-selected={selected}
-                    onclick={() => toggleField(field)}
-                    aria-pressed={selected}
-                    aria-label={selected
-                        ? `Remove "${field}" from label`
-                        : value.omitKeyNames
-                            ? `Add value of "${field}" to label`
-                            : `Add "${field}" name and value to label`}
-                >
-                    {#if selected}<span class="lb-pill-check" aria-hidden="true">✓</span>{/if}{field}{#if suggestion}<span class="lb-pill-suggested" aria-label={suggestion.rank ? `Suggested: ${suggestion.rank}` : 'Suggested'}>★{suggestion.rank ? ` ${suggestion.rank}` : ''}</span>{/if}
-                </button>
+                <label class="lb-field">
+                    <input type="checkbox" checked={selected} onchange={() => toggleField(field)} />
+                    {field}{#if suggestion}<span class="lb-field-suggested" aria-label={suggestion.rank ? `Suggested: ${suggestion.rank}` : 'Suggested'}>★{suggestion.rank ? ` ${suggestion.rank}` : ''}</span>{/if}
+                </label>
             {/each}
-        </div>
+        </fieldset>
     {/if}
 
     {#if showAggregates}
@@ -489,31 +481,19 @@
 
             <!-- Count of children (no field selector needed) -->
             <div class="lb-agg-row">
-                <button
-                    class="lb-agg-pill"
-                    class:lb-agg-pill-active={countInTemplate}
-                    onclick={toggleCount}
-                    aria-pressed={countInTemplate}
-                    aria-label={countInTemplate ? 'Remove count of children from label' : 'Add count of children to label'}
-                >
-                    <span class="lb-agg-pill-icon" aria-hidden="true">{countInTemplate ? '✓' : '+'}</span>
+                <label class="lb-agg-check">
+                    <input type="checkbox" checked={countInTemplate} onchange={toggleCount} />
                     Count of children
-                </button>
+                </label>
             </div>
 
             {#if aggregateFields.length > 0}
                 <!-- Min and Max (combined) -->
                 <div class="lb-agg-row">
-                    <button
-                        class="lb-agg-pill"
-                        class:lb-agg-pill-active={hasMinMax}
-                        onclick={toggleMinMax}
-                        aria-pressed={hasMinMax}
-                        aria-label={hasMinMax ? 'Remove min and max from label' : `Add min and max of ${minMaxField} to label`}
-                    >
-                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasMinMax ? '✓' : '+'}</span>
+                    <label class="lb-agg-check">
+                        <input type="checkbox" checked={hasMinMax} onchange={toggleMinMax} />
                         Min and Max of
-                    </button>
+                    </label>
                     <label class="lb-agg-field-label">
                         <span class="visually-hidden">Field for min and max</span>
                         <select
@@ -529,16 +509,10 @@
 
                 <!-- Sum -->
                 <div class="lb-agg-row">
-                    <button
-                        class="lb-agg-pill"
-                        class:lb-agg-pill-active={hasSumInTemplate}
-                        onclick={toggleSum}
-                        aria-pressed={hasSumInTemplate}
-                        aria-label={hasSumInTemplate ? 'Remove sum from label' : `Add sum of ${sumField} to label`}
-                    >
-                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasSumInTemplate ? '✓' : '+'}</span>
+                    <label class="lb-agg-check">
+                        <input type="checkbox" checked={hasSumInTemplate} onchange={toggleSum} />
                         Sum of
-                    </button>
+                    </label>
                     <label class="lb-agg-field-label">
                         <span class="visually-hidden">Field for sum</span>
                         <select
@@ -554,16 +528,10 @@
 
                 <!-- Average -->
                 <div class="lb-agg-row">
-                    <button
-                        class="lb-agg-pill"
-                        class:lb-agg-pill-active={hasAvgInTemplate}
-                        onclick={toggleAvg}
-                        aria-pressed={hasAvgInTemplate}
-                        aria-label={hasAvgInTemplate ? 'Remove average from label' : `Add average of ${avgField} to label`}
-                    >
-                        <span class="lb-agg-pill-icon" aria-hidden="true">{hasAvgInTemplate ? '✓' : '+'}</span>
+                    <label class="lb-agg-check">
+                        <input type="checkbox" checked={hasAvgInTemplate} onchange={toggleAvg} />
                         Average of
-                    </button>
+                    </label>
                     <label class="lb-agg-field-label">
                         <span class="visually-hidden">Field for average</span>
                         <select
@@ -599,26 +567,14 @@
                         </label>
                     </div>
                     <div class="lb-agg-trend-toggles">
-                        <button
-                            class="lb-agg-pill"
-                            class:lb-agg-pill-active={hasTrendInTemplate}
-                            onclick={toggleTrend}
-                            aria-pressed={hasTrendInTemplate}
-                            aria-label={hasTrendInTemplate ? 'Remove trend direction from label' : 'Add trend direction to label'}
-                        >
-                            <span class="lb-agg-pill-icon" aria-hidden="true">{hasTrendInTemplate ? '✓' : '+'}</span>
+                        <label class="lb-agg-check">
+                            <input type="checkbox" checked={hasTrendInTemplate} onchange={toggleTrend} />
                             Trend direction
-                        </button>
-                        <button
-                            class="lb-agg-pill"
-                            class:lb-agg-pill-active={hasR2InTemplate}
-                            onclick={toggleR2}
-                            aria-pressed={hasR2InTemplate}
-                            aria-label={hasR2InTemplate ? 'Remove R² from label' : 'Add R² to label'}
-                        >
-                            <span class="lb-agg-pill-icon" aria-hidden="true">{hasR2InTemplate ? '✓' : '+'}</span>
+                        </label>
+                        <label class="lb-agg-check">
+                            <input type="checkbox" checked={hasR2InTemplate} onchange={toggleR2} />
                             R² value
-                        </button>
+                        </label>
                     </div>
                 </div>
             {/if}
@@ -793,61 +749,38 @@
         line-height: 1.5;
     }
 
-    /* ── Field pills (one per field, inserts name+value or value-only) ── */
+    /* ── Field checkboxes (one per field, inserts name+value or value-only) ── */
 
-    .lb-pills-area {
+    .lb-fields-area {
         display: flex;
         flex-wrap: wrap;
         gap: calc(var(--dn-space) * 0.5);
+        border: none;
+        padding: 0;
+        margin: 0;
     }
 
-    .lb-pill {
+    .lb-field {
         display: inline-flex;
         align-items: center;
-        padding: 4px 14px;
-        border-radius: 20px;
+        gap: 8px;
         font-size: 0.8125rem;
         font-family: var(--dn-font-mono);
         cursor: pointer;
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border: 1px solid var(--dn-accent-light);
-        min-height: 0;
-        min-width: 0;
-        transition: background 0.1s, border-color 0.1s, color 0.1s;
     }
 
-    .lb-pill:hover {
-        background: var(--dn-accent);
-        color: #fff;
-        border-color: var(--dn-accent);
+    .lb-field input[type='checkbox'] {
+        width: 24px;
+        height: 24px;
+        accent-color: var(--dn-accent);
+        cursor: pointer;
+        flex-shrink: 0;
     }
 
-    .lb-pill-selected {
-        background: var(--dn-accent);
-        color: #fff;
-        border-color: var(--dn-accent);
-    }
-
-    .lb-pill-selected:hover {
-        background: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
-        border-color: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
-    }
-
-    .lb-pill-check {
-        margin-right: 5px;
-        font-size: 0.75rem;
-    }
-
-    .lb-pill-suggested {
-        margin-left: 5px;
+    .lb-field-suggested {
         font-size: 0.7rem;
         font-family: var(--dn-font);
         opacity: 0.85;
-    }
-
-    .lb-pill-selected .lb-pill-suggested {
-        opacity: 0.9;
     }
 
     /* ── Aggregate section ── */
@@ -878,44 +811,22 @@
         flex-wrap: wrap;
     }
 
-    .lb-agg-pill {
+    .lb-agg-check {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        padding: 4px 12px;
-        border-radius: 20px;
+        gap: 8px;
         font-size: 0.8125rem;
         font-family: var(--dn-font);
         cursor: pointer;
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border: 1px solid var(--dn-accent-light);
-        min-height: 0;
-        min-width: 0;
-        transition: background 0.1s, border-color 0.1s, color 0.1s;
         white-space: nowrap;
     }
 
-    .lb-agg-pill:hover {
-        background: var(--dn-accent);
-        color: #fff;
-        border-color: var(--dn-accent);
-    }
-
-    .lb-agg-pill-active {
-        background: var(--dn-accent);
-        color: #fff;
-        border-color: var(--dn-accent);
-    }
-
-    .lb-agg-pill-active:hover {
-        background: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
-        border-color: var(--dn-accent-dark, color-mix(in srgb, var(--dn-accent) 80%, #000));
-    }
-
-    .lb-agg-pill-icon {
-        font-size: 0.75rem;
-        font-weight: 700;
+    .lb-agg-check input[type='checkbox'] {
+        width: 24px;
+        height: 24px;
+        accent-color: var(--dn-accent);
+        cursor: pointer;
+        flex-shrink: 0;
     }
 
     .lb-agg-field-label {

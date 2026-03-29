@@ -176,7 +176,7 @@
             <div class="qa-info-wrap">
                 {#if visuals && visuals.length > 0}
                     <!-- Info screen: 4-column grid — row 1: charts, row 2: structure diagrams -->
-                    <div class="qa-info-grid" aria-hidden="true">
+                    <div class="qa-info-grid">
                         {#each visuals as v (v.variant)}
                             <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
                             <GuideGraphic variant={v.variant as any} showRoot={v.showRoot ?? true} />
@@ -199,13 +199,13 @@
         <div class="qa-guide-area">
 
             {#if (visuals && visuals.length > 0) || chartImage}
-                <div class="qa-guide-cols" aria-hidden="true">
+                <div class="qa-guide-cols">
 
                     <!-- Column 1: user's uploaded chart -->
                     {#if chartImage}
                         <div class="qa-guide-col">
                             {#if showCategoryHeaders}<span class="qa-guide-col-header">Your chart</span>{/if}
-                            <img src={chartImage} alt="" class="qa-chart-image" />
+                            <img src={chartImage} alt="Your uploaded chart, shown as a reference alongside this question" class="qa-chart-image" />
                         </div>
                     {/if}
 

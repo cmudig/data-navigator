@@ -12,9 +12,49 @@
     }
 
     let { variant, showRoot = true }: Props = $props();
+
+    const descriptions: Record<GuideVariant, string> = {
+        'stack':
+            'A stacked bar chart with four groups of bars. Each group has three colored segments stacked vertically — light blue on top, medium blue in the middle, dark blue at the bottom. No sections are highlighted.',
+        'stack-root':
+            'The same stacked bar chart, with a thin rectangular outline enclosing the entire chart area. This represents the root node — a single entry point for the whole visualization.',
+        'stack-dim-cat':
+            'The stacked bar chart where every individual bar segment has a thick dark border. Each colored segment in each bar group is its own navigable dimension category.',
+        'stack-dim-col':
+            'The stacked bar chart with three jagged outlines, each tracing one color layer across all four bar groups as a continuous region. Each color series spans the full chart as a dimension.',
+        'stack-div-row':
+            'The stacked bar chart where all three segments of one bar group (one column) are highlighted with thick borders, grouping that column together as a single division.',
+        'stack-div-col':
+            'The stacked bar chart with two horizontal outlines, each connecting bar segments at the same color level across all columns. Each horizontal color level is a division spanning the full chart width.',
+        'stack-leaf':
+            'The stacked bar chart with one individual bar segment highlighted with a thick border and white inner stroke. This is a single leaf data point — the most granular navigable unit.',
+        'scatter-dim-num':
+            'A scatter plot with colored dots distributed across X and Y axes. Four vertical rectangular outlines divide the chart into equal-width columns, grouping points in each numeric range as a dimension.',
+        'scatter-dim-row':
+            'The same scatter plot with four horizontal rectangular outlines dividing the chart into equal rows. Each row groups data points within a value range as a dimension.',
+        'scatter-dim-cat':
+            'The same scatter plot with three rectangular outlines of varying sizes, each enclosing all dots of one color. Each outlined region groups one color category as a dimension.',
+        'scatter-div-num':
+            'The same scatter plot with one vertical rectangular outline isolating a single numeric range column. This is one division within a numeric dimension.',
+        'scatter-div-row':
+            'The same scatter plot with one horizontal rectangular outline isolating a single band of data points. This is one division within a row dimension.',
+        'scatter-div-cat':
+            'The same scatter plot with one rectangular outline enclosing one color cluster of dots. This is one division within a categorical dimension.',
+        'scatter-leaf':
+            'The same scatter plot with one dot highlighted with a thick border and white inner ring. This is a single leaf data point — one individual observation.',
+        'tree-root':
+            'A tree diagram with a dark-filled circle at the top (the root node), branching downward through two levels of lighter nodes. A rounded-rectangle highlight encloses just the root node.',
+        'tree-dim':
+            'The same tree diagram with a rounded-rectangle highlight enclosing the second level — two nodes representing dimensions. The root node above is visible but not highlighted.',
+        'tree-div':
+            'The same tree diagram with a rounded-rectangle highlight enclosing the third level — three nodes representing divisions.',
+        'tree-leaf':
+            'The same tree diagram with a rounded-rectangle highlight enclosing the bottom level — four dark-filled nodes representing individual leaf data points.'
+    };
 </script>
 
 <figure class="guide-graphic" class:hide-root={!showRoot}>
+    <figcaption class="visually-hidden">{descriptions[variant]}</figcaption>
     {#if variant === 'stack'}
         <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <rect width="250" height="173" fill="white"/>
