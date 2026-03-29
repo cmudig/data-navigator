@@ -2,6 +2,7 @@
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
     import type { ScaffoldConfig, SyntheticDataConfig, PrepState, SchemaState, VariableMeta, GroupShapeConfig, DimensionGroupConfig, BonusRect } from '../../../store/appState';
+    import { defaultGroupShapeConfig } from '../../../store/appState';
     import type { SkeletonNode } from '../../../store/types';
     import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
     import { latestView } from '../../../store/scaffoldRuntime';
@@ -175,17 +176,6 @@
     }
 
     // ── Group shape helpers ───────────────────────────────────────────────────
-
-    function defaultGroupShapeConfig(): GroupShapeConfig {
-        return {
-            rootEnabled: true, rootStrategy: 'boundingRect', rootPadding: 16,
-            dimensionEnabled: false,
-            divisionEnabled: false,
-            perDimension: {},
-            dimensionBonusRects: {},
-            divisionBonusRects: {}
-        };
-    }
 
     function patchGroupShapes(patch: Partial<GroupShapeConfig>) {
         appState.update(s => {
@@ -561,8 +551,8 @@
             {#if config.chartType === 'scatter'}
                 <label class="param-row">
                     <span class="param-label">Point size</span>
-                    <input type="number" class="param-input" step="10" min="1" max="500"
-                        value={config.markParams.pointSize ?? 30}
+                    <input type="number" class="param-input" step="100" min="1"
+                        value={config.markParams.pointSize ?? 300}
                         oninput={(e) => { const v = Number(e.currentTarget.value); if (!isNaN(v) && v > 0) patchMarkParams({ pointSize: v }); }}
                     />
                 </label>
@@ -771,56 +761,14 @@
                                         <span class="param-val">px</span>
                                     </label>
                                 </div>
-                                <div class="bonus-rect-list gs-indent">
-                                    <div class="bonus-rect-item">
-                                        <label class="bonus-rect-toggle">
-                                            <input type="checkbox"
-                                                checked={dimBr?.enabled ?? false}
-                                                onchange={(e) => toggleBonusRect('dimension', dimKey, e.currentTarget.checked, (config?.offsetX ?? 0) + 10, (config?.offsetY ?? 0) + 10)}
-                                            />
-                                            <span class="bonus-rect-label">{dimNode.label}</span>
-                                            <span class="bonus-rect-hint">bonus rect</span>
-                                        </label>
-                                        {#if dimBr?.enabled}
-                                            <div class="bonus-rect-inputs">
-                                                <label class="param-row">
-                                                    <span class="param-label xs">X</span>
-                                                    <input type="number" class="param-input sm" step="1"
-                                                        value={dimBr.x}
-                                                        oninput={(e) => patchBonusRect('dimension', dimKey, { x: +e.currentTarget.value })}
-                                                    />
-                                                </label>
-                                                <label class="param-row">
-                                                    <span class="param-label xs">Y</span>
-                                                    <input type="number" class="param-input sm" step="1"
-                                                        value={dimBr.y}
-                                                        oninput={(e) => patchBonusRect('dimension', dimKey, { y: +e.currentTarget.value })}
-                                                    />
-                                                </label>
-                                                <label class="param-row">
-                                                    <span class="param-label xs">W</span>
-                                                    <input type="number" class="param-input sm" step="1" min="1"
-                                                        value={dimBr.width}
-                                                        oninput={(e) => patchBonusRect('dimension', dimKey, { width: +e.currentTarget.value })}
-                                                    />
-                                                </label>
-                                                <label class="param-row">
-                                                    <span class="param-label xs">H</span>
-                                                    <input type="number" class="param-input sm" step="1" min="1"
-                                                        value={dimBr.height}
-                                                        oninput={(e) => patchBonusRect('dimension', dimKey, { height: +e.currentTarget.value })}
-                                                    />
-                                                </label>
-                                            </div>
-                                        {/if}
-                                    </div>
-                                </div>
                             {/if}
                             {#if gs.divisionEnabled}
+                                <p class="divisions-heading gs-indent">Divisions:</p>
                                 <div class="param-grid gs-indent">
                                     <label class="param-row">
-                                        <span class="param-label">Div style</span>
+                                        <span class="param-label">Style</span>
                                         <select class="param-select"
+                                            aria-label="Divisions: Style"
                                             value={dimCfg.divisionStrategy}
                                             onchange={(e) => patchDimConfig(dimKey, { divisionStrategy: e.currentTarget.value as DimensionGroupConfig['divisionStrategy'] })}
                                         >
@@ -833,65 +781,117 @@
                                         </select>
                                     </label>
                                     <label class="param-row">
-                                        <span class="param-label">Div padding</span>
+                                        <span class="param-label">Padding</span>
                                         <input type="number" class="param-input" min="0" step="2"
+                                            aria-label="Divisions: Padding"
                                             value={dimCfg.divisionPadding}
                                             oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v)) patchDimConfig(dimKey, { divisionPadding: v }); }}
                                         />
                                         <span class="param-val">px</span>
                                     </label>
                                 </div>
-                                {#if divs.length > 0}
-                                    <div class="bonus-rect-list gs-indent">
-                                        {#each divs as divNode (divNode.id)}
-                                            {@const divBr = gs.divisionBonusRects[divNode.id]}
+                                {#if divs.length === 0}
+                                    <p class="section-hint gs-indent">No division nodes found. Apply scaffold first.</p>
+                                {/if}
+                            {/if}
+                            {#if gs.dimensionEnabled || (gs.divisionEnabled && divs.length > 0)}
+                                <details class="bonus-rect-disclosure gs-indent">
+                                    <summary>add extra geometries</summary>
+                                    <div class="bonus-rect-list">
+                                        {#if gs.dimensionEnabled}
                                             <div class="bonus-rect-item">
                                                 <label class="bonus-rect-toggle">
                                                     <input type="checkbox"
-                                                        checked={divBr?.enabled ?? false}
-                                                        onchange={(e) => toggleBonusRect('division', divNode.id, e.currentTarget.checked, divNode.x, divNode.y)}
+                                                        checked={dimBr?.enabled ?? false}
+                                                        onchange={(e) => toggleBonusRect('dimension', dimKey, e.currentTarget.checked, (config?.offsetX ?? 0) + 10, (config?.offsetY ?? 0) + 10)}
                                                     />
-                                                    <span class="bonus-rect-label">{divNode.label}</span>
+                                                    <span class="bonus-rect-label">{dimNode.label}</span>
                                                     <span class="bonus-rect-hint">bonus rect</span>
                                                 </label>
-                                                {#if divBr?.enabled}
+                                                {#if dimBr?.enabled}
                                                     <div class="bonus-rect-inputs">
                                                         <label class="param-row">
                                                             <span class="param-label xs">X</span>
                                                             <input type="number" class="param-input sm" step="1"
-                                                                value={divBr.x}
-                                                                oninput={(e) => patchBonusRect('division', divNode.id, { x: +e.currentTarget.value })}
+                                                                value={dimBr.x}
+                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { x: +e.currentTarget.value })}
                                                             />
                                                         </label>
                                                         <label class="param-row">
                                                             <span class="param-label xs">Y</span>
                                                             <input type="number" class="param-input sm" step="1"
-                                                                value={divBr.y}
-                                                                oninput={(e) => patchBonusRect('division', divNode.id, { y: +e.currentTarget.value })}
+                                                                value={dimBr.y}
+                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { y: +e.currentTarget.value })}
                                                             />
                                                         </label>
                                                         <label class="param-row">
                                                             <span class="param-label xs">W</span>
                                                             <input type="number" class="param-input sm" step="1" min="1"
-                                                                value={divBr.width}
-                                                                oninput={(e) => patchBonusRect('division', divNode.id, { width: +e.currentTarget.value })}
+                                                                value={dimBr.width}
+                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { width: +e.currentTarget.value })}
                                                             />
                                                         </label>
                                                         <label class="param-row">
                                                             <span class="param-label xs">H</span>
                                                             <input type="number" class="param-input sm" step="1" min="1"
-                                                                value={divBr.height}
-                                                                oninput={(e) => patchBonusRect('division', divNode.id, { height: +e.currentTarget.value })}
+                                                                value={dimBr.height}
+                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { height: +e.currentTarget.value })}
                                                             />
                                                         </label>
                                                     </div>
                                                 {/if}
                                             </div>
-                                        {/each}
+                                        {/if}
+                                        {#if gs.divisionEnabled && divs.length > 0}
+                                            <p class="bonus-rect-sublabel">divisions:</p>
+                                            {#each divs as divNode (divNode.id)}
+                                                {@const divBr = gs.divisionBonusRects[divNode.id]}
+                                                <div class="bonus-rect-item">
+                                                    <label class="bonus-rect-toggle">
+                                                        <input type="checkbox"
+                                                            checked={divBr?.enabled ?? false}
+                                                            onchange={(e) => toggleBonusRect('division', divNode.id, e.currentTarget.checked, divNode.x, divNode.y)}
+                                                        />
+                                                        <span class="bonus-rect-label">{divNode.label}</span>
+                                                        <span class="bonus-rect-hint">bonus rect</span>
+                                                    </label>
+                                                    {#if divBr?.enabled}
+                                                        <div class="bonus-rect-inputs">
+                                                            <label class="param-row">
+                                                                <span class="param-label xs">X</span>
+                                                                <input type="number" class="param-input sm" step="1"
+                                                                    value={divBr.x}
+                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { x: +e.currentTarget.value })}
+                                                                />
+                                                            </label>
+                                                            <label class="param-row">
+                                                                <span class="param-label xs">Y</span>
+                                                                <input type="number" class="param-input sm" step="1"
+                                                                    value={divBr.y}
+                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { y: +e.currentTarget.value })}
+                                                                />
+                                                            </label>
+                                                            <label class="param-row">
+                                                                <span class="param-label xs">W</span>
+                                                                <input type="number" class="param-input sm" step="1" min="1"
+                                                                    value={divBr.width}
+                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { width: +e.currentTarget.value })}
+                                                                />
+                                                            </label>
+                                                            <label class="param-row">
+                                                                <span class="param-label xs">H</span>
+                                                                <input type="number" class="param-input sm" step="1" min="1"
+                                                                    value={divBr.height}
+                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { height: +e.currentTarget.value })}
+                                                                />
+                                                            </label>
+                                                        </div>
+                                                    {/if}
+                                                </div>
+                                            {/each}
+                                        {/if}
                                     </div>
-                                {:else}
-                                    <p class="section-hint gs-indent">No division nodes found. Apply scaffold first.</p>
-                                {/if}
+                                </details>
                             {/if}
                         </div>
                     {/each}
@@ -1138,9 +1138,18 @@
         margin-left: calc(var(--dn-space) * 1.5);
     }
 
-    .bonus-rect-list {
-        margin-left: calc(var(--dn-space) * 1.5);
+    .bonus-rect-disclosure {
         margin-top: calc(var(--dn-space) * 0.75);
+    }
+    .bonus-rect-disclosure > summary {
+        font-size: 0.8rem;
+        color: var(--dn-text-muted);
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .bonus-rect-list {
+        margin-top: calc(var(--dn-space) * 0.5);
         display: flex;
         flex-direction: column;
         gap: calc(var(--dn-space) * 0.5);
@@ -1164,6 +1173,12 @@
         flex: 1;
         font-size: 0.8125rem;
     }
+    .bonus-rect-sublabel {
+        font-size: 0.75rem;
+        color: var(--dn-text-muted);
+        margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.25);
+    }
+
     .bonus-rect-hint {
         font-size: 0.7rem;
         color: var(--dn-text-muted);
@@ -1186,6 +1201,13 @@
 
     .param-input.sm {
         width: 54px;
+    }
+
+    .divisions-heading {
+        margin-bottom: 0;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--dn-text-muted);
     }
 
     .dim-heading {
