@@ -91,6 +91,7 @@ export interface ToolOptions {
     level2BackfillColor: string;
     showLevel3Nodes: boolean;
     level3BackfillColor: string;
+    nodeFillOpacity: number; // global fill opacity for all nodes 0–1
 }
 
 export interface VariableMeta {
@@ -209,6 +210,23 @@ export interface GroupShapeConfig {
 }
 
 // --- Scaffold mode types ---
+
+/**
+ * Default GroupShapeConfig — all three levels enabled, root as bounding rect.
+ * Exported so ScaffoldPanel and prepAdapter can share the same defaults.
+ */
+export function defaultGroupShapeConfig(): GroupShapeConfig {
+    return {
+        rootEnabled: true,
+        rootStrategy: 'boundingRect',
+        rootPadding: 16,
+        dimensionEnabled: true,
+        divisionEnabled: true,
+        perDimension: {},
+        dimensionBonusRects: {},
+        divisionBonusRects: {}
+    };
+}
 
 export interface ScaffoldMarkParams {
     // Bar / stacked-bar / clustered-bar
@@ -390,7 +408,8 @@ export const DEFAULT_APP_STATE: AppState = {
         level1BackfillColor: '#ffffff',
         level2BackfillColor: '#ffffff',
         showLevel3Nodes: true,
-        level3BackfillColor: '#ffffff'
+        level3BackfillColor: '#ffffff',
+        nodeFillOpacity: 0.25
     },
     prepState: null,
     hasManualNodeEdits: false,

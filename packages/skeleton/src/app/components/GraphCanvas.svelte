@@ -1099,6 +1099,19 @@
                 <!-- Nodes -->
                 <p class="tool-opt-heading">Nodes</p>
                 <p class="tool-opt-subtext">Fill is in the properties panel. Backfill color shown here does not appear in the rendered output.</p>
+                <div class="tool-opt-slider-row">
+                    <label for="tool-node-fill-opacity">
+                        Fill opacity
+                        <span class="tool-opt-note" aria-hidden="true">{toolOptions.nodeFillOpacity.toFixed(2)}</span>
+                    </label>
+                    <input
+                        id="tool-node-fill-opacity"
+                        type="range"
+                        min="0" max="1" step="0.05"
+                        value={toolOptions.nodeFillOpacity}
+                        oninput={(e) => setToolOption('nodeFillOpacity', parseFloat(e.currentTarget.value))}
+                    />
+                </div>
                 <table class="tool-opt-table">
                     <tbody>
                         <tr>
@@ -1444,7 +1457,7 @@
                                 {cx} {cy}
                                 rx={node.width / 2} ry={node.height / 2}
                                 fill={bfColor}
-                                fill-opacity="0.4"
+                                fill-opacity={toolOptions.nodeFillOpacity}
                                 stroke="none"
                                 pointer-events="none"
                             />
@@ -1453,7 +1466,7 @@
                                 x={node.x} y={node.y}
                                 width={node.width} height={node.height}
                                 fill={bfColor}
-                                fill-opacity="0.4"
+                                fill-opacity={toolOptions.nodeFillOpacity}
                                 stroke="none"
                                 rx="4"
                                 pointer-events="none"
@@ -1464,7 +1477,7 @@
                     <!-- Main shape -->
                     {#if node.renderProperties.shape === 'ellipse'}
                         {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
                         {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
                         {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
                         {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
@@ -1480,7 +1493,7 @@
                         />
                     {:else if node.renderProperties.shape === 'path'}
                         {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
                         {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
                         {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
                         {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
@@ -1495,7 +1508,7 @@
                         />
                     {:else}
                         {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? node.renderProperties.opacity : 0}
+                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
                         {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
                         {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
                         {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
@@ -2016,6 +2029,24 @@
         padding: 0;
         line-height: 1.3;
         white-space: normal;
+    }
+
+    .tool-opt-slider-row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-bottom: 4px;
+    }
+    .tool-opt-slider-row label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8125rem;
+        color: var(--dn-text);
+    }
+    .tool-opt-slider-row input[type="range"] {
+        width: 100%;
+        margin: 0;
     }
 
     .tool-opt-table {
