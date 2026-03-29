@@ -230,8 +230,11 @@ export function positionNodesFromVegaScales(
     nodes: SkeletonNode[],
     config: ScaffoldConfig,
     data: Row[] = []
-): Map<string, { x: number; y: number; width: number; height: number }> {
-    const updates = new Map<string, { x: number; y: number; width: number; height: number }>();
+): Map<string, { x: number; y: number; width: number; height: number; pathData?: string; shape?: 'path' }> {
+    const updates = new Map<
+        string,
+        { x: number; y: number; width: number; height: number; pathData?: string; shape?: 'path' }
+    >();
     const xField = config.xField;
     const yField = config.yField;
     if (!xField || !yField) return updates;
@@ -393,17 +396,21 @@ export function positionNodesFromVegaScales(
             }
         }
     } else if (config.chartType === 'scatter') {
-        const pointR = Math.sqrt((config.markParams.pointSize ?? 100) / Math.PI);
+        const pointR = Math.sqrt((config.markParams.pointSize ?? 300) / Math.PI);
         for (const node of leafNodes) {
             const xVal = Number(node.data[xField] ?? 0);
             const yVal = Number(node.data[yField] ?? 0);
             const px = xScale(xVal) as number;
-            const py = yScale(yVal);
+            const py = yScale(yVal) as number;
+            const cx = px + config.paddingLeft + config.offsetX;
+            const cy = py + config.paddingTop + config.offsetY;
             updates.set(node.id, {
-                x: px + config.paddingLeft + config.offsetX - pointR,
-                y: py + config.paddingTop + config.offsetY - pointR,
+                x: cx - pointR,
+                y: cy - pointR,
                 width: pointR * 2,
-                height: pointR * 2
+                height: pointR * 2,
+                pathData: `M ${cx - pointR},${cy} A ${pointR},${pointR},0,0,1,${cx + pointR},${cy} A ${pointR},${pointR},0,0,1,${cx - pointR},${cy} Z`,
+                shape: 'path'
             });
         }
     }
@@ -532,8 +539,19 @@ function buildLineAreaNodes(
 }
 
 function makeScaffoldNode(mark: ExtractedMark, config: ScaffoldConfig, index: number): SkeletonNode {
-    const shape = mark.type === 'ellipse' ? 'ellipse' : mark.type === 'path' ? 'path' : 'rect';
+    let shape: 'rect' | 'ellipse' | 'path' =
+        mark.type === 'ellipse' ? 'ellipse' : mark.type === 'path' ? 'path' : 'rect';
+    let pathData = mark.pathData;
     const id = makeId();
+
+    // Convert scatter circles to SVG arc paths for consistent rendering
+    if (config.chartType === 'scatter' && shape === 'ellipse') {
+        shape = 'path';
+        const cx = mark.x + mark.width / 2;
+        const cy = mark.y + mark.height / 2;
+        const r = mark.width / 2;
+        pathData = `M ${cx - r},${cy} A ${r},${r},0,0,1,${cx + r},${cy} A ${r},${r},0,0,1,${cx - r},${cy} Z`;
+    }
 
     const node: SkeletonNode = {
         id,
@@ -559,8 +577,8 @@ function makeScaffoldNode(mark: ExtractedMark, config: ScaffoldConfig, index: nu
         }
     };
 
-    if (shape === 'path' && mark.pathData) {
-        node.pathData = mark.pathData;
+    if (shape === 'path' && pathData) {
+        node.pathData = pathData;
         node.pathBounds = { x: mark.x, y: mark.y, width: mark.width, height: mark.height };
     }
 

@@ -1,4 +1,5 @@
 import type { PrepState, SchemaState, ScaffoldConfig } from '../store/appState';
+import { defaultGroupShapeConfig } from '../store/appState';
 
 /**
  * Extract the wizard nav-direction answer ('leftright' | 'updown' | 'brackets') for a dimension.
@@ -242,6 +243,7 @@ export function seedScaffoldConfig(
                   xField: 'category',
                   yField: 'value',
                   colorField: needsSeries ? 'series' : undefined
-              }
+              },
+        groupShapes: defaultGroupShapeConfig()
     };
 }

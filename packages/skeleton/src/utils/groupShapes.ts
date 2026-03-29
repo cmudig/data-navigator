@@ -19,47 +19,75 @@ import {
     offsetLinePath
 } from 'data-navigator';
 import type { Rect, Point, Circle } from 'data-navigator';
-import type { SkeletonNode, SkeletonEdge } from '../store/types';
+import type { SkeletonNode } from '../store/types';
 import type { ScaffoldConfig, GroupShapeConfig, DimensionGroupConfig, BonusRect } from '../store/appState';
 
-// ── Adjacency traversal ───────────────────────────────────────────────────────
+/**
+ * Pixel-space extents for a numerical division, pre-computed by applying the
+ * Vega scale to the data-space numericalExtents from the DN structure.
+ *
+ * pixelLo: smaller pixel coordinate — left edge (x-axis) or top edge (y-axis)
+ * pixelHi: larger pixel coordinate — right edge (x-axis) or bottom edge (y-axis)
+ *
+ * Built in ScaffoldOverlay.applyGroupPaths and passed into computeGroupPaths
+ * so that groupShapes.ts stays free of Vega dependencies.
+ */
+export interface DivisionExtents {
+    dataMin: number;
+    dataMax: number;
+    pixelLo: number;
+    pixelHi: number;
+}
 
-/** Build a Map<sourceId, targetId[]> from all edges for fast BFS. */
-function buildAdjacency(edges: SkeletonEdge[]): Map<string, string[]> {
-    const adj = new Map<string, string[]>();
-    for (const edge of edges) {
-        if (!adj.has(edge.sourceId)) adj.set(edge.sourceId, []);
-        adj.get(edge.sourceId)!.push(edge.targetId);
+// ── Leaf collection ───────────────────────────────────────────────────────────
+
+/**
+ * Collect all level-3 leaf nodes belonging to a specific division node.
+ *
+ * Uses data-value matching rather than edge traversal. Scaffold leaf nodes
+ * (level 3) are created with random UUIDs and have no structural edges to
+ * schema division nodes (level 2), so BFS over edges would always return zero
+ * leaves. Data-value matching works for both chart types:
+ *
+ * - Categorical: leaf.data[dimKey] === divNode.data[dimKey]
+ * - Numerical:   prefer authoritative extents from DivisionExtents (read from
+ *                dnStructure by the caller); fall back to divNode.data.numericalExtents
+ */
+function collectLeavesForDivision(
+    divNode: SkeletonNode,
+    allLeaves: SkeletonNode[],
+    extents?: DivisionExtents
+): SkeletonNode[] {
+    const dimKey = divNode.dimensionKey ?? '';
+    if (!dimKey) return [];
+
+    // Categorical: data[dimKey] holds the category value
+    const catValue = divNode.data[dimKey];
+    if (catValue !== undefined && catValue !== null) {
+        const strVal = String(catValue);
+        return allLeaves.filter(leaf => String(leaf.data[dimKey]) === strVal);
     }
-    return adj;
+
+    // Numerical: prefer authoritative extents passed from dnStructure; fall back to node data
+    const rMin = extents?.dataMin ?? (divNode.data.numericalExtents as [number, number] | undefined)?.[0];
+    const rMax = extents?.dataMax ?? (divNode.data.numericalExtents as [number, number] | undefined)?.[1];
+
+    if (rMin !== undefined && rMax !== undefined) {
+        return allLeaves.filter(leaf => {
+            const v = Number(leaf.data[dimKey]);
+            return !isNaN(v) && v >= rMin && v <= rMax;
+        });
+    }
+
+    return [];
 }
 
 /**
- * BFS from `startId` to collect all level-3 leaf node descendants.
- * Avoids cycles via a visited set.
+ * Collect all level-3 leaf nodes that belong to a given dimension.
+ * A leaf belongs to a dimension if its data row contains the dimension's key.
  */
-function collectLeaves(
-    startId: string,
-    nodeMap: Map<string, SkeletonNode>,
-    adj: Map<string, string[]>
-): SkeletonNode[] {
-    const leaves: SkeletonNode[] = [];
-    const visited = new Set<string>();
-    const queue: string[] = [startId];
-    while (queue.length > 0) {
-        const id = queue.shift()!;
-        if (visited.has(id)) continue;
-        visited.add(id);
-        const node = nodeMap.get(id);
-        if (!node) continue;
-        if (node.dnLevel === 3) {
-            leaves.push(node);
-        } else {
-            const children = adj.get(id) ?? [];
-            queue.push(...children);
-        }
-    }
-    return leaves;
+function collectLeavesForDimension(dimKey: string, allLeaves: SkeletonNode[]): SkeletonNode[] {
+    return allLeaves.filter(leaf => leaf.data[dimKey] !== undefined);
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -73,7 +101,7 @@ function nodeToCircle(n: SkeletonNode, r: number): Circle {
 }
 
 function pointRadius(config: ScaffoldConfig): number {
-    return Math.sqrt((config.markParams.pointSize ?? 30) / Math.PI);
+    return Math.sqrt((config.markParams.pointSize ?? 300) / Math.PI);
 }
 
 /** True when the leaf nodes span multiple distinct x-positions (series grouping). */
@@ -149,15 +177,24 @@ function applyLineSeriesStrategy(leaves: SkeletonNode[], pad: number): string {
  * Range bounds / range rect — for numerical divisions on a scatter axis.
  * Produces spanning lines (rangeBounds) or a filled rectangle (rangeRect)
  * across the full chart height or width.
+ *
+ * When pixelExtents are provided (pre-computed from dnStructure + Vega scale by
+ * the caller), they are used directly. This gives geometrically exact bin
+ * boundaries. Falls back to inferring from leaf center positions when absent.
+ *
+ * pixelLo/pixelHi convention:
+ *   x-axis: lo = left edge, hi = right edge  (both increase left→right)
+ *   y-axis: lo = top edge,  hi = bottom edge (pixel y increases downward, so
+ *           lo corresponds to the LARGER data value)
  */
 function applyRangeStrategy(
     strategy: 'rangeBounds' | 'rangeRect',
     leaves: SkeletonNode[],
     dimKey: string,
-    config: ScaffoldConfig
+    config: ScaffoldConfig,
+    pixelExtents?: { pixelLo: number; pixelHi: number }
 ): string {
-    if (leaves.length === 0) return '';
-    const centers = leaves.map(n => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 }));
+    if (leaves.length === 0 && !pixelExtents) return '';
 
     const plotLeft = config.offsetX + config.paddingLeft;
     const plotRight = plotLeft + (config.plotWidth - config.paddingLeft - config.paddingRight);
@@ -167,21 +204,19 @@ function applyRangeStrategy(
     const isXDim = dimKey === config.xField;
 
     if (isXDim) {
-        // Numerical x-axis dimension — range bounds run vertically
-        const rMin = Math.min(...centers.map(c => c.x));
-        const rMax = Math.max(...centers.map(c => c.x));
+        const rLo = pixelExtents?.pixelLo ?? Math.min(...leaves.map(n => n.x + n.width / 2));
+        const rHi = pixelExtents?.pixelHi ?? Math.max(...leaves.map(n => n.x + n.width / 2));
         if (strategy === 'rangeBounds') {
-            return `M${rMin},${plotTop}L${rMin},${plotBottom} M${rMax},${plotTop}L${rMax},${plotBottom}`;
+            return `M${rLo},${plotTop}L${rLo},${plotBottom} M${rHi},${plotTop}L${rHi},${plotBottom}`;
         }
-        return `M${rMin},${plotTop}L${rMax},${plotTop}L${rMax},${plotBottom}L${rMin},${plotBottom}Z`;
+        return `M${rLo},${plotTop}L${rHi},${plotTop}L${rHi},${plotBottom}L${rLo},${plotBottom}Z`;
     } else {
-        // Numerical y-axis dimension — range bounds run horizontally
-        const rMin = Math.min(...centers.map(c => c.y));
-        const rMax = Math.max(...centers.map(c => c.y));
+        const rLo = pixelExtents?.pixelLo ?? Math.min(...leaves.map(n => n.y + n.height / 2));
+        const rHi = pixelExtents?.pixelHi ?? Math.max(...leaves.map(n => n.y + n.height / 2));
         if (strategy === 'rangeBounds') {
-            return `M${plotLeft},${rMin}L${plotRight},${rMin} M${plotLeft},${rMax}L${plotRight},${rMax}`;
+            return `M${plotLeft},${rLo}L${plotRight},${rLo} M${plotLeft},${rHi}L${plotRight},${rHi}`;
         }
-        return `M${plotLeft},${rMin}L${plotRight},${rMin}L${plotRight},${rMax}L${plotLeft},${rMax}Z`;
+        return `M${plotLeft},${rLo}L${plotRight},${rLo}L${plotRight},${rHi}L${plotLeft},${rHi}Z`;
     }
 }
 
@@ -254,21 +289,23 @@ export function getDimConfig(
  * Computation order: divisions first, then dimensions (so dimension 'unionOfAll'
  * can re-use division paths), then root.
  *
+ * Leaf collection uses data-value matching (not edge BFS) because scaffold leaf
+ * nodes have random UUIDs with no structural edges to schema division nodes.
+ *
  * @param dimTypes  Optional map of dimensionKey → 'categorical'|'numerical'.
  *                  Used to select type-appropriate defaults for unconfigured dims.
  */
 export function computeGroupPaths(
     nodes: SkeletonNode[],
-    edges: SkeletonEdge[],
     config: ScaffoldConfig,
-    dimTypes?: Record<string, 'categorical' | 'numerical'>
+    dimTypes?: Record<string, 'categorical' | 'numerical'>,
+    divisionExtentsMap?: Map<string, DivisionExtents>
 ): Map<string, GroupPathResult> {
     const result = new Map<string, GroupPathResult>();
     const gs = config.groupShapes;
     if (!gs) return result;
 
-    const nodeMap = new Map<string, SkeletonNode>(nodes.map(n => [n.id, n]));
-    const adj = buildAdjacency(edges);
+    const allLeaves = nodes.filter(n => n.dnLevel === 3);
 
     const isLineArea = config.chartType === 'line' || config.chartType === 'area';
     const isScatter = config.chartType === 'scatter';
@@ -283,8 +320,9 @@ export function computeGroupPaths(
     if (gs.divisionEnabled) {
         const divNodes = nodes.filter(n => n.dnLevel === 2);
         for (const divNode of divNodes) {
-            const leaves = collectLeaves(divNode.id, nodeMap, adj);
-            if (leaves.length === 0) continue;
+            const divExt = divisionExtentsMap?.get(divNode.id);
+            const leaves = collectLeavesForDivision(divNode, allLeaves, divExt);
+            if (leaves.length === 0 && !divExt) continue;
 
             const dimKey = divNode.dimensionKey ?? '';
             const dimType = dimTypes?.[dimKey] ?? 'categorical';
@@ -293,7 +331,7 @@ export function computeGroupPaths(
             let pathD = '';
             if (isScatter) {
                 if (dc.divisionStrategy === 'rangeBounds' || dc.divisionStrategy === 'rangeRect') {
-                    pathD = applyRangeStrategy(dc.divisionStrategy, leaves, dimKey, config);
+                    pathD = applyRangeStrategy(dc.divisionStrategy, leaves, dimKey, config, divExt);
                 } else {
                     pathD = applyCircleStrategy(
                         dc.divisionStrategy,
@@ -321,7 +359,31 @@ export function computeGroupPaths(
 
             // Append bonus rect if enabled (keyed by division node id)
             const br = gs.divisionBonusRects[divNode.id];
-            let bbox = leafBbox(leaves);
+            // When pixel extents are available (numerical range strategy), the bbox
+            // spans the full plot height (x-dim) or width (y-dim) within the bin.
+            let bbox: ReturnType<typeof leafBbox>;
+            if (divExt && (dc.divisionStrategy === 'rangeBounds' || dc.divisionStrategy === 'rangeRect')) {
+                const plotLeft = config.offsetX + config.paddingLeft;
+                const plotRight = plotLeft + (config.plotWidth - config.paddingLeft - config.paddingRight);
+                const plotTop = config.offsetY + config.paddingTop;
+                const plotBottom = plotTop + (config.plotHeight - config.paddingTop - config.paddingBottom);
+                const isXDim = dimKey === config.xField;
+                bbox = isXDim
+                    ? {
+                          x: divExt.pixelLo,
+                          y: plotTop,
+                          width: divExt.pixelHi - divExt.pixelLo,
+                          height: plotBottom - plotTop
+                      }
+                    : {
+                          x: plotLeft,
+                          y: divExt.pixelLo,
+                          width: plotRight - plotLeft,
+                          height: divExt.pixelHi - divExt.pixelLo
+                      };
+            } else {
+                bbox = leafBbox(leaves);
+            }
             if (br?.enabled && pathD) {
                 pathD = appendBonusRect(pathD, br);
                 bbox = extendBboxForBonusRect(bbox, br);
@@ -339,10 +401,10 @@ export function computeGroupPaths(
     if (gs.dimensionEnabled) {
         const dimNodes = nodes.filter(n => n.dnLevel === 1);
         for (const dimNode of dimNodes) {
-            const leaves = collectLeaves(dimNode.id, nodeMap, adj);
+            const dimKey = dimNode.dimensionKey ?? '';
+            const leaves = collectLeavesForDimension(dimKey, allLeaves);
             if (leaves.length === 0) continue;
 
-            const dimKey = dimNode.dimensionKey ?? '';
             const dimType = dimTypes?.[dimKey] ?? 'categorical';
             const dc = getDimConfig(gs, dimKey, dimType);
 

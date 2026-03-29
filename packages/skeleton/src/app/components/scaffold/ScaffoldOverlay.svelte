@@ -16,18 +16,21 @@
     import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
     import { setScaffoldView } from '../../../store/scaffoldRuntime';
     import { computeGroupPaths } from '../../../utils/groupShapes';
-    import type { BonusRect } from '../../../store/appState';
+    import type { DivisionExtents } from '../../../utils/groupShapes';
+    import type { BonusRect, GroupShapeConfig } from '../../../store/appState';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     // $state.raw prevents Svelte 5 from wrapping these in a reactive proxy on each
     // subscriber assignment. Without .raw, every appState.update() (even node-only
     // changes) creates a new proxy object → dirtied signal → Vega $effect re-runs → loop.
     let config = $state.raw<ScaffoldConfig | null>(null);
+    let gs = $state.raw<GroupShapeConfig | null>(null);
     let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
     let schemaState = $state.raw<SchemaState | null>(null);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
+        gs = s.scaffoldConfig?.groupShapes ?? null;
         uploadedData = s.uploadedData;
         schemaState = s.schemaState;
     });
@@ -129,7 +132,12 @@
                     const nextNodes = new Map(st.nodes);
                     for (const [id, pos] of posUpdates) {
                         const n = nextNodes.get(id);
-                        if (n) nextNodes.set(id, { ...n, ...pos });
+                        if (n) {
+                            let updated = { ...n, x: pos.x, y: pos.y, width: pos.width, height: pos.height };
+                            if (pos.pathData !== undefined) updated = { ...updated, pathData: pos.pathData };
+                            if (pos.shape !== undefined) updated = { ...updated, renderProperties: { ...n.renderProperties, shape: pos.shape } };
+                            nextNodes.set(id, updated);
+                        }
                     }
                     return { ...st, nodes: nextNodes };
                 });
@@ -165,15 +173,16 @@
     // Separate effect: recomputes group paths whenever groupShapes config changes.
     // Also triggered explicitly from doRender() after leaf positions update.
 
+    let computedRootBbox = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+
     function applyGroupPaths() {
         const cfg = get(appState).scaffoldConfig;
         if (!cfg?.groupShapes) return;
-        const gs = cfg.groupShapes;
-        if (!gs.rootEnabled && !gs.dimensionEnabled && !gs.divisionEnabled) return;
+        const gsCfg = cfg.groupShapes;
+        if (!gsCfg.rootEnabled && !gsCfg.dimensionEnabled && !gsCfg.divisionEnabled) return;
 
         const s = get(appState);
         const allNodes = [...s.nodes.values()];
-        const allEdges = [...s.edges.values()];
 
         // Build dimTypes from schemaState for type-aware defaults in computeGroupPaths
         const dimTypes: Record<string, 'categorical' | 'numerical'> = {};
@@ -181,18 +190,63 @@
             dimTypes[dim.key] = dim.type;
         }
 
-        const paths = computeGroupPaths(allNodes, allEdges, cfg, dimTypes);
-        if (paths.size === 0) return;
+        // Build pixel-extents map for numerical divisions.
+        // Reads numericalExtents from the authoritative dnStructure (same source as the
+        // inspector), then converts data-space values → pixel positions via Vega scales.
+        // This gives computeGroupPaths exact bin-boundary coordinates instead of
+        // inferring them from the positions of leaf data points.
+        const divisionExtentsMap = new Map<string, DivisionExtents>();
+        if (currentView) {
+            const dnStr = s.dnStructure as { nodes?: Record<string, { data?: Record<string, unknown> }> } | null;
+            type AnyScale = ((v: unknown) => number) & { bandwidth?: () => number };
+            const xScale = currentView.scale('x') as AnyScale | undefined;
+            const yScale = currentView.scale('y') as AnyScale | undefined;
 
-        // Seed rootBoundingRectOverride on first compute so drag handles have a rect
-        const rootNode = allNodes.find(n => n.dnLevel === 0);
-        const rootResult = rootNode ? paths.get(rootNode.id) : undefined;
-        const needsRootSeed = rootResult
-            && gs.rootStrategy === 'boundingRect'
-            && !gs.rootBoundingRectOverride;
+            for (const node of allNodes) {
+                if (node.dnLevel !== 2) continue;
+                const dimKey = node.dimensionKey;
+                if (!dimKey || dimTypes[dimKey] !== 'numerical') continue;
+
+                const extents = dnStr?.nodes?.[node.id]?.data?.numericalExtents as [number, number] | undefined;
+                if (!extents) continue;
+
+                const [dataMin, dataMax] = extents;
+                const isXDim = dimKey === cfg.xField;
+
+                if (isXDim && xScale) {
+                    const lo = (xScale(dataMin) as number) + cfg.paddingLeft + cfg.offsetX;
+                    const hi = (xScale(dataMax) as number) + cfg.paddingLeft + cfg.offsetX;
+                    divisionExtentsMap.set(node.id, { dataMin, dataMax, pixelLo: lo, pixelHi: hi });
+                } else if (!isXDim && yScale) {
+                    // y-axis is inverted: higher data value → smaller pixel y (top of chart)
+                    const lo = (yScale(dataMax) as number) + cfg.paddingTop + cfg.offsetY;
+                    const hi = (yScale(dataMin) as number) + cfg.paddingTop + cfg.offsetY;
+                    divisionExtentsMap.set(node.id, { dataMin, dataMax, pixelLo: lo, pixelHi: hi });
+                }
+            }
+        }
+
+        const paths = computeGroupPaths(allNodes, cfg, dimTypes, divisionExtentsMap);
+
+        // Update computedRootBbox so drag handles work before user overrides anything
+        const rootEntry = [...paths.entries()].find(([id]) => allNodes.find(n => n.id === id)?.dnLevel === 0);
+        if (rootEntry) computedRootBbox = rootEntry[1].bbox;
 
         appState.update(st => {
             const nextNodes = new Map(st.nodes);
+            // Clear level 0/1/2 path nodes that are no longer in the computed set (disabled levels)
+            for (const [id, n] of nextNodes) {
+                if ((n.dnLevel === 0 || n.dnLevel === 1 || n.dnLevel === 2)
+                    && n.renderProperties.shape === 'path'
+                    && !paths.has(id)) {
+                    nextNodes.set(id, {
+                        ...n,
+                        pathData: undefined,
+                        renderProperties: { ...n.renderProperties, shape: 'rect' }
+                    });
+                }
+            }
+            // Apply computed paths
             for (const [id, { pathData, bbox }] of paths) {
                 const n = nextNodes.get(id);
                 if (n) {
@@ -207,27 +261,14 @@
                     });
                 }
             }
-            // Seed root bounding rect override from the auto-computed bbox
-            if (needsRootSeed && st.scaffoldConfig?.groupShapes) {
-                return {
-                    ...st,
-                    nodes: nextNodes,
-                    scaffoldConfig: {
-                        ...st.scaffoldConfig,
-                        groupShapes: {
-                            ...st.scaffoldConfig.groupShapes,
-                            rootBoundingRectOverride: rootResult!.bbox
-                        }
-                    }
-                };
-            }
             return { ...st, nodes: nextNodes };
         });
     }
 
     $effect(() => {
-        // React to groupShapes config changes (strategy, padding, bonus rects, per-dim config)
-        const gs = config?.groupShapes;
+        // React to groupShapes config changes (strategy, padding, bonus rects, per-dim config).
+        // Uses `gs` ($state.raw, reference-equality) so layout-only changes (offsetX etc.)
+        // that spread config but keep the same groupShapes object do NOT re-fire this effect.
         if (!gs) return;
         gs.rootEnabled; gs.rootStrategy; gs.rootPadding;
         gs.dimensionEnabled;
@@ -431,7 +472,7 @@
 
     function onRootRectCornerMousedown(e: MouseEvent, corner: 'tl' | 'tr' | 'bl' | 'br') {
         e.stopPropagation();
-        const rr = config?.groupShapes?.rootBoundingRectOverride;
+        const rr = config?.groupShapes?.rootBoundingRectOverride ?? computedRootBbox;
         if (!rr) return;
         activeRootRectDrag = {
             corner,
@@ -640,8 +681,8 @@
     />
 
     <!-- Root bounding rect resize handles (4 corners) -->
-    {#if config?.groupShapes?.rootEnabled && config.groupShapes.rootStrategy === 'boundingRect' && config.groupShapes.rootBoundingRectOverride}
-        {@const rr = config.groupShapes.rootBoundingRectOverride}
+    {#if config?.groupShapes?.rootEnabled && config.groupShapes.rootStrategy === 'boundingRect' && (config.groupShapes.rootBoundingRectOverride ?? computedRootBbox)}
+        {@const rr = config.groupShapes.rootBoundingRectOverride ?? computedRootBbox!}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <rect class="drag-handle resize-handle"
             x={rr.x - HANDLE_SIZE / 2} y={rr.y - HANDLE_SIZE / 2}

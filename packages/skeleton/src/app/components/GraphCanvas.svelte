@@ -915,9 +915,9 @@
         if (mode !== 'addEdge') edgeSourceId = null;
     }
 
-    // ── Resize tooltip ────────────────────────────────────────────────────────
+    // ── Resize tooltip (disabled) ──────────────────────────────────────────────
 
-    const tooltipNode = $derived(
+    /* const tooltipNode = $derived(
         !readonly && selectedNodeIds.size === 1
             ? (nodes.get([...selectedNodeIds][0]) ?? null)
             : null
@@ -976,7 +976,7 @@
             if (!n) return s;
             return { ...s, nodes: new Map(s.nodes).set(nodeId, { ...n, height: px }) };
         });
-    }
+    } */
 </script>
 
 <!-- aria-live for screen-reader announcements -->
@@ -1645,8 +1645,8 @@
     </g>
 </svg>
 
-<!-- Resize tooltip: shown when a single node is selected in edit mode -->
-{#if tooltipNode}
+<!-- Resize tooltip disabled -->
+<!-- {#if tooltipNode}
     {@const tn = tooltipNode}
     <div
         class="resize-tooltip"
@@ -1708,7 +1708,7 @@
         </div>
         <span class="rtip-unit">{renderConfig.positionUnit}</span>
     </div>
-{/if}
+{/if} -->
 
 <style>
     .canvas-toolbar {
@@ -1874,7 +1874,7 @@
         fill: var(--dn-accent-soft);
     }
 
-    /* ── Resize tooltip ── */
+    /* ── Resize tooltip (disabled) ──
     .resize-tooltip {
         position: absolute;
         transform: translate(-50%, calc(-100% - 10px));
@@ -1962,7 +1962,7 @@
         text-align: center;
         font-family: var(--dn-font-mono);
         letter-spacing: 0.03em;
-    }
+    } */
 
     /* ── Tool options dropdown ── */
     .tool-options-wrapper {
