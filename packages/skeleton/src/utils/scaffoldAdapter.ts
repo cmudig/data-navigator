@@ -413,6 +413,30 @@ export function positionNodesFromVegaScales(
                 shape: 'path'
             });
         }
+    } else if (config.chartType === 'line' || config.chartType === 'area') {
+        const pointR = Math.sqrt((config.markParams.pointSize ?? 300) / Math.PI);
+        for (const node of leafNodes) {
+            const xRaw = node.data[xField];
+            const yVal = Number(node.data[yField] ?? 0);
+            // Ordinal x (point/band scale): pass the raw value directly.
+            // Linear x: parse as number. Discriminate by whether bandwidth() exists,
+            // not its value — point scales have bandwidth() === 0 (falsy).
+            const hasOrdinalX = typeof (xScale as { bandwidth?: () => number }).bandwidth === 'function';
+            const xVal = hasOrdinalX ? xRaw : Number(xRaw ?? 0);
+            const bw = hasOrdinalX ? (xScale as { bandwidth: () => number }).bandwidth() / 2 : 0;
+            const px = (xScale(xVal) as number) + bw;
+            const py = yScale(yVal) as number;
+            const cx = px + config.paddingLeft + config.offsetX;
+            const cy = py + config.paddingTop + config.offsetY;
+            updates.set(node.id, {
+                x: cx - pointR,
+                y: cy - pointR,
+                width: pointR * 2,
+                height: pointR * 2,
+                pathData: `M ${cx - pointR},${cy} A ${pointR},${pointR},0,0,1,${cx + pointR},${cy} A ${pointR},${pointR},0,0,1,${cx - pointR},${cy} Z`,
+                shape: 'path'
+            });
+        }
     }
 
     return updates;
@@ -430,7 +454,7 @@ function makeId(): string {
  * Output per chart type:
  * - bar, scatter: one rect/ellipse node per mark
  * - stacked-bar, clustered-bar: one rect node per segment
- * - line, area: one path node per series (parent) + one ellipse per data point (child)
+ * - line, area: one ellipse node per data point (line path marks are ignored)
  */
 export function marksToNodes(
     marks: ExtractedMark[],
@@ -457,85 +481,15 @@ function buildLineAreaNodes(
     marks: ExtractedMark[],
     config: ScaffoldConfig
 ): { nodes: SkeletonNode[]; edges: SkeletonEdge[] } {
-    const nodes: SkeletonNode[] = [];
-    const edges: SkeletonEdge[] = [];
-
-    // Separate path marks (series) from point marks (data points)
-    const pathMarks = marks.filter(m => m.type === 'path');
+    // Line/area paths are visual connectors — only data point marks matter for navigation.
     const pointMarks = marks.filter(m => m.type !== 'path');
-
-    // Group point marks by seriesKey
-    const pointsBySeries = new Map<string, ExtractedMark[]>();
-    for (const pm of pointMarks) {
-        const key = pm.seriesKey ?? '__default__';
-        if (!pointsBySeries.has(key)) pointsBySeries.set(key, []);
-        pointsBySeries.get(key)!.push(pm);
-    }
-
-    if (pathMarks.length > 0) {
-        // Create one path node per series path
-        for (let si = 0; si < pathMarks.length; si++) {
-            const pm = pathMarks[si];
-            const seriesNodeId = makeId();
-            const seriesNode: SkeletonNode = {
-                id: seriesNodeId,
-                label: pm.seriesKey ? `Series: ${pm.seriesKey}` : `Series ${si + 1}`,
-                source: 'scaffold',
-                dnLevel: 2,
-                x: pm.x,
-                y: pm.y,
-                width: pm.width,
-                height: pm.height,
-                pathData: pm.pathData,
-                pathBounds: { x: pm.x, y: pm.y, width: pm.width, height: pm.height },
-                isEntry: false,
-                isCluster: false,
-                semantics: { ...defaultSemantics(), name: 'series' },
-                data: { series: pm.seriesKey ?? si },
-                renderProperties: {
-                    ...defaultRenderProperties(),
-                    shape: 'path',
-                    fill: '#6366f1',
-                    fillEnabled: true,
-                    opacity: 0.3,
-                    strokeWidth: 2,
-                    strokeColor: '#6366f1'
-                }
-            };
-            nodes.push(seriesNode);
-
-            // Find point marks for this series
-            const seriesKey = pm.seriesKey ?? '__default__';
-            const pts = pointsBySeries.get(seriesKey) ?? [];
-            for (let pi = 0; pi < pts.length; pi++) {
-                const pt = pts[pi];
-                const pointNodeId = makeId();
-                const pointNode = makeScaffoldNode(pt, config, pi);
-                pointNode.id = pointNodeId;
-                pointNode.dnLevel = 3;
-                pointNode.semantics = { ...defaultSemantics(), name: 'data point' };
-                nodes.push(pointNode);
-
-                // Edge: series → point (down)
-                edges.push({
-                    id: makeId(),
-                    sourceId: seriesNodeId,
-                    targetId: pointNodeId,
-                    direction: 'down',
-                    label: 'contains',
-                    dnProperties: {}
-                });
-            }
-        }
-    } else {
-        // No path marks extracted (e.g. area without visible path SVG element)
-        // Fall back to just creating point nodes
-        for (let i = 0; i < pointMarks.length; i++) {
-            nodes.push(makeScaffoldNode(pointMarks[i], config, i));
-        }
-    }
-
-    return { nodes, edges };
+    const nodes: SkeletonNode[] = pointMarks.map((pt, i) => {
+        const node = makeScaffoldNode(pt, config, i);
+        node.dnLevel = 3;
+        node.semantics = { ...defaultSemantics(), name: 'data point' };
+        return node;
+    });
+    return { nodes, edges: [] };
 }
 
 function makeScaffoldNode(mark: ExtractedMark, config: ScaffoldConfig, index: number): SkeletonNode {

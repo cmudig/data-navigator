@@ -196,19 +196,15 @@ function buildLineSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
     const sharedEncoding = {
-        x: { field: xField, type: 'ordinal' },
+        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
         y: { field: yField, type: 'quantitative' },
         ...colorEnc
     };
-    const layers: unknown[] = [{ mark: { type: 'line', strokeWidth: mp.strokeWidth ?? 2 } }];
-    if (mp.showPoints !== false) {
-        layers.push({ mark: { type: 'point', size: mp.pointSize ?? 50 } });
-    }
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        encoding: sharedEncoding,
-        layer: layers
+        mark: { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? 300 } },
+        encoding: sharedEncoding
     };
 }
 
@@ -219,21 +215,20 @@ function buildAreaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
     const sharedEncoding = {
-        x: { field: xField, type: 'ordinal' },
+        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
         y: { field: yField, type: 'quantitative' },
         ...colorEnc
     };
-    const layers: unknown[] = [
-        { mark: { type: 'area', fillOpacity: mp.fillOpacity ?? 0.4, strokeWidth: mp.strokeWidth ?? 1.5 } }
-    ];
-    if (mp.showPoints) {
-        layers.push({ mark: { type: 'point', size: mp.pointSize ?? 50 } });
-    }
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        encoding: sharedEncoding,
-        layer: layers
+        mark: {
+            type: 'area',
+            fillOpacity: mp.fillOpacity ?? 0.4,
+            strokeWidth: mp.strokeWidth ?? 1.5,
+            point: { size: mp.pointSize ?? 300 }
+        },
+        encoding: sharedEncoding
     };
 }
 
