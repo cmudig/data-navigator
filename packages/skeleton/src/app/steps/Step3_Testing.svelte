@@ -80,6 +80,13 @@
     const canvasWidth  = $derived(imageWidth  ?? 800);
     const canvasHeight = $derived(imageHeight ?? 600);
 
+    let canvasScalerWidth = $state(0);
+    const canvasScale = $derived(
+        canvasScalerWidth > 0 && canvasWidth > 0
+            ? Math.min(1, canvasScalerWidth / canvasWidth)
+            : 1
+    );
+
     const dnStructure = $derived.by<DNStructure | null>(() => {
         if (nodes.size === 0) return null;
         // Always call toStructure() to get elementData (spatial positions for the
@@ -490,9 +497,14 @@
             </div>
 
             <div
+                class="canvas-scaler"
+                bind:clientWidth={canvasScalerWidth}
+                style="height: {canvasHeight * canvasScale}px;"
+            >
+            <div
                 id="dn-test-canvas-root"
                 class="canvas-root"
-                style="width:{canvasWidth}px; height:{canvasHeight}px;"
+                style="width:{canvasWidth}px; height:{canvasHeight}px; --canvas-scale:{canvasScale}; transform: scale({canvasScale}); transform-origin: top left;"
             >
                 {#if imageDataUrl}
                     <img
@@ -584,6 +596,7 @@
 
                 <!-- DN wrapper + nodes appended by renderer.initialize() -->
             </div>
+            </div><!-- /.canvas-scaler -->
 
             <!-- Screen reader announcement (above canvas) -->
             {#if focusedNodeLabel || focusedNodeData || focusedNodeDirections.length > 0}
@@ -846,9 +859,19 @@
         width: 1%;
     }
 
-    .canvas-root {
+    /* Wrapper that measures available width and sizes to the scaled visual height */
+    .canvas-scaler {
+        width: 100%;
         position: relative;
         flex-shrink: 0;
+        /* overflow: visible so focus outlines on edge nodes aren't clipped */
+    }
+
+    .canvas-root {
+        /* Absolute so the scaler (not canvas-root) controls layout height */
+        position: absolute;
+        top: 0;
+        left: 0;
         border: 1px solid var(--dn-border);
         border-radius: 4px;
         overflow: visible;
@@ -1155,8 +1178,9 @@
     :global(#dn-test-canvas-root .dn-node.nav-focused) {
         opacity: 1;
         pointer-events: auto;
-        outline: 2px solid var(--dn-accent);
-        outline-offset: 2px;
+        /* Divide by --canvas-scale so the outline stays ~2px wide visually at any zoom */
+        outline: calc(2px / var(--canvas-scale, 1)) solid var(--dn-accent);
+        outline-offset: calc(2px / var(--canvas-scale, 1));
     }
 
     :global(#dn-test-canvas-root .dn-node-svg) {
