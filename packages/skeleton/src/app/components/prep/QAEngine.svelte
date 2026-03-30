@@ -133,7 +133,8 @@
     }
 
     // Compute the best available example label for a dimension (for leaf parentDimensions).
-    // Tier 1: apply saved label template to sample data.
+    // For dims with divisions (numerical buckets or categorical groups), shows a division label example.
+    // Tier 1: apply saved division label template to sample data.
     // Tier 2: fall back to raw first value / first range.
     function computeExampleLabel(dim: DimensionSchema, prep: PrepState, d: Row[] | null): string {
         if (dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, d)) {
@@ -146,6 +147,15 @@
             // Fallback: raw first range
             const sampleRow = buildDivisionSampleRow(dim, d);
             return String(sampleRow['range'] ?? '(example)');
+        } else if (dim.type === 'categorical' && !isReducedDimension(dim, d)) {
+            const savedTemplate = prep.labelConfig.perDivision[dim.key]?.template;
+            const vals = (d ?? []).map(r => r[dim.key]).filter(x => x != null);
+            const firstVal = [...new Set(vals.map(String))][0] ?? '(example)';
+            if (savedTemplate) {
+                const resolved = resolveTemplateToString(savedTemplate, { [dim.key]: firstVal });
+                if (resolved) return resolved;
+            }
+            return firstVal;
         } else {
             const savedTemplate = prep.labelConfig.perDimension[dim.key]?.template;
             if (savedTemplate) {
@@ -726,6 +736,43 @@
                 }
 
                 // Q2.0b — ID creator prompt (only if user rejected auto-detected ID)
+                const idCreatorAnswer = ch2Ans['id-creator-prompt'] as string | undefined;
+                const idCreatorOnAnswer = (value: unknown, _p: PrepState, _s: SchemaState, d: Row[] | null): StoreUpdate => {
+                    if (value !== 'yes') return {};
+                    // Stamp _id: 1, 2, 3… onto each row as a side effect
+                    if (d && d.length > 0) {
+                        queueMicrotask(() => {
+                            appState.update(s => {
+                                if (s.uploadedData) {
+                                    return {
+                                        ...s,
+                                        uploadedData: s.uploadedData.map((row, i) => ({ _id: i + 1, ...row })),
+                                    };
+                                }
+                                if (s.prepState?.customData) {
+                                    return {
+                                        ...s,
+                                        prepState: {
+                                            ...s.prepState,
+                                            customData: s.prepState.customData.map((row, i) => ({ _id: i + 1, ...row })),
+                                        },
+                                    };
+                                }
+                                return s;
+                            });
+                            logAction('Prep: stamped _id column onto data');
+                        });
+                    }
+                    return {
+                        prepPatch: (p) => ({
+                            ...p,
+                            variables: [
+                                { key: '_id', type: 'numerical' as const, isId: true, isDimension: false, removed: false },
+                                ...p.variables.filter(v => v.key !== '_id').map(v => ({ ...v, isId: false })),
+                            ],
+                        }),
+                    };
+                };
                 if (idConfirmAnswer === 'no') {
                     // Insert after confirm-id-variable, before choose-dimensions
                     questions.splice(1, 0, {
@@ -737,42 +784,22 @@
                             { value: 'yes', label: 'Yes, add a sequential ID column' },
                             { value: 'no', label: 'No, use randomly generated IDs' },
                         ],
-                        onAnswer: (value, _p, _s, d) => {
-                            if (value !== 'yes') return {};
-                            // Stamp _id: 1, 2, 3… onto each row as a side effect
-                            if (d && d.length > 0) {
-                                queueMicrotask(() => {
-                                    appState.update(s => {
-                                        if (s.uploadedData) {
-                                            return {
-                                                ...s,
-                                                uploadedData: s.uploadedData.map((row, i) => ({ _id: i + 1, ...row })),
-                                            };
-                                        }
-                                        if (s.prepState?.customData) {
-                                            return {
-                                                ...s,
-                                                prepState: {
-                                                    ...s.prepState,
-                                                    customData: s.prepState.customData.map((row, i) => ({ _id: i + 1, ...row })),
-                                                },
-                                            };
-                                        }
-                                        return s;
-                                    });
-                                    logAction('Prep: stamped _id column onto data');
-                                });
-                            }
-                            return {
-                                prepPatch: (p) => ({
-                                    ...p,
-                                    variables: [
-                                        { key: '_id', type: 'numerical' as const, isId: true, isDimension: false, removed: false },
-                                        ...p.variables.filter(v => v.key !== '_id').map(v => ({ ...v, isId: false })),
-                                    ],
-                                }),
-                            };
-                        },
+                        onAnswer: idCreatorOnAnswer,
+                    });
+                }
+
+                // Q2.0c — No ID detected at all: offer to create one
+                if (!idVar && idConfirmAnswer === undefined && idCreatorAnswer === undefined) {
+                    questions.unshift({
+                        id: 'id-creator-prompt',
+                        question: 'Your data doesn\'t seem to have a unique identifier column. Would you like to create one?',
+                        hint: 'Choosing "Yes" will add a column called "_id" with sequential values (1, 2, 3…). If you choose "No", temporary IDs will be auto-generated — this works fine but the IDs won\'t be human-readable.',
+                        inputType: 'radio',
+                        options: [
+                            { value: 'yes', label: 'Yes, add a sequential ID column', suggested: true },
+                            { value: 'no', label: 'No, use auto-generated IDs' },
+                        ],
+                        onAnswer: idCreatorOnAnswer,
                     });
                 }
 
@@ -1244,7 +1271,10 @@
                     const countForFirst = (data ?? []).filter(row => String(row[dim.key]) === firstUniqueVal).length;
 
                     // Q4.A — Dimension header label
-                    const dimHasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, data);
+                    const dimHasDivisions = !isReducedDimension(dim, data) && (
+                        (dim.type === 'numerical' && dim.subdivisions > 1) ||
+                        dim.type === 'categorical'
+                    );
                     questions.push({
                         id: `dim-label-${dim.key}`,
                         question: `Let's set up a label for "${dim.key}" — what a screen reader says when a user arrives at this dimension.`,
@@ -1289,43 +1319,83 @@
                         }),
                     });
 
-                    // Q4.B — Division label + interactive (only for numerical dims with meaningful divisions)
-                    if (dim.type === 'numerical' && dim.subdivisions > 1 && !isReducedDimension(dim, data)) {
-                        const divSampleRow = buildDivisionSampleRow(dim, data);
-                        const exampleRange = String(divSampleRow['range'] ?? '(example range)');
-
+                    // Q4.B — Division label + interactive (numerical dims with meaningful divisions,
+                    //         and categorical dims whose values repeat across rows)
+                    if (dimHasDivisions) {
                         const parentDimNoun = prep.labelConfig.perDimension[dim.key]?.name ?? 'group';
 
-                        questions.push({
-                            id: `div-label-${dim.key}`,
-                            question: `For "${dim.key}" divisions, what should a screen reader say when a user arrives at a specific range or subset?`,
-                            hint: `This template applies to each division (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each division with "${dim.key}:".`,
-                            inputType: 'label-builder',
-                            nodeType: 'level2',
-                            getFields: (_p) => ['range'],
-                            getSampleData: (_d, _p) => ({ range: exampleRange }),
-                            defaultValue: {
-                                template: '{key:"range"}: {value:"range"}', name: 'subgroup',
-                                includeIndex: false, includeParentName: false, omitKeyNames: false,
-                                includeDimensionName: false, includeParentNames: [],
-                            } as LabelTemplate,
-                            dimensionName: dim.key,
-                            parentDimNoun,
-                            suggestedFields: [{ key: 'range' }],
-                            getAggregateFields: (p, _d) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
-                            getTrendXFields: (p) => p.variables.filter(v => !v.removed).map(v => v.key),
-                            suggestedAggField: dim.key,
-                            expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
-                            onAnswer: (value, _p, _s, _d) => ({
-                                prepPatch: (p) => ({
-                                    ...p,
-                                    labelConfig: {
-                                        ...p.labelConfig,
-                                        perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
-                                    },
-                                }),
-                            }),
-                        });
+                        const divLabelQuestion: QAQuestionDef = dim.type === 'categorical'
+                            ? (() => {
+                                const catVals = [...new Set(
+                                    (data ?? []).map(row => String(row[dim.key])).filter(Boolean)
+                                )];
+                                const exampleCatVal = catVals[0] ?? '(example)';
+                                return {
+                                    id: `div-label-${dim.key}`,
+                                    question: `For "${dim.key}" category groups, what should a screen reader say when a user arrives at a specific category?`,
+                                    hint: `This template applies to each category within "${dim.key}". The {value:"${dim.key}"} placeholder is replaced with the actual category value (e.g., "${exampleCatVal}") for each group.`,
+                                    inputType: 'label-builder' as const,
+                                    nodeType: 'level2' as const,
+                                    getFields: (_p: PrepState) => [dim.key],
+                                    getSampleData: (_d: Row[] | null, _p: PrepState) => ({ [dim.key]: exampleCatVal }),
+                                    defaultValue: {
+                                        template: `{value:"${dim.key}"}`, name: 'group',
+                                        includeIndex: false, includeParentName: false, omitKeyNames: false,
+                                        includeDimensionName: false, includeParentNames: [],
+                                    } as LabelTemplate,
+                                    dimensionName: dim.key,
+                                    parentDimNoun,
+                                    suggestedFields: [{ key: dim.key }],
+                                    getAggregateFields: (p: PrepState, _d: Row[] | null) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                                    getTrendXFields: (p: PrepState) => p.variables.filter(v => !v.removed).map(v => v.key),
+                                    expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
+                                    onAnswer: (value: unknown, _p: PrepState, _s: SchemaState, _d: Row[] | null) => ({
+                                        prepPatch: (p: PrepState) => ({
+                                            ...p,
+                                            labelConfig: {
+                                                ...p.labelConfig,
+                                                perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
+                                            },
+                                        }),
+                                    }),
+                                };
+                            })()
+                            : (() => {
+                                const divSampleRow = buildDivisionSampleRow(dim, data);
+                                const exampleRange = String(divSampleRow['range'] ?? '(example range)');
+                                return {
+                                    id: `div-label-${dim.key}`,
+                                    question: `For "${dim.key}" divisions, what should a screen reader say when a user arrives at a specific range or subset?`,
+                                    hint: `This template applies to each division (numeric range) within "${dim.key}". The {value:"range"} placeholder is replaced with the actual range label (e.g., '10–20') for each bucket. You can also check "Include dimension name" below to prefix each division with "${dim.key}:".`,
+                                    inputType: 'label-builder' as const,
+                                    nodeType: 'level2' as const,
+                                    getFields: (_p: PrepState) => ['range'],
+                                    getSampleData: (_d: Row[] | null, _p: PrepState) => ({ range: exampleRange }),
+                                    defaultValue: {
+                                        template: '{key:"range"}: {value:"range"}', name: 'subgroup',
+                                        includeIndex: false, includeParentName: false, omitKeyNames: false,
+                                        includeDimensionName: false, includeParentNames: [],
+                                    } as LabelTemplate,
+                                    dimensionName: dim.key,
+                                    parentDimNoun,
+                                    suggestedFields: [{ key: 'range' }],
+                                    getAggregateFields: (p: PrepState, _d: Row[] | null) => p.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key),
+                                    getTrendXFields: (p: PrepState) => p.variables.filter(v => !v.removed).map(v => v.key),
+                                    suggestedAggField: dim.key,
+                                    expandableInfo: { buttonLabel: 'Help me build a good label', content: LABEL_HELP_TEXT },
+                                    onAnswer: (value: unknown, _p: PrepState, _s: SchemaState, _d: Row[] | null) => ({
+                                        prepPatch: (p: PrepState) => ({
+                                            ...p,
+                                            labelConfig: {
+                                                ...p.labelConfig,
+                                                perDivision: { ...p.labelConfig.perDivision, [dim.key]: value as LabelTemplate },
+                                            },
+                                        }),
+                                    }),
+                                };
+                            })();
+
+                        questions.push(divLabelQuestion);
 
                         questions.push({
                             id: `div-interactive-${dim.key}`,
@@ -1345,7 +1415,10 @@
                 // Build per-dimension parent checkboxes for the leaf label builder
                 const leafParentDimensions: ParentDimension[] = dims.map(dim => {
                     const reduced = isReducedDimension(dim, data);
-                    const hasDivisions = dim.type === 'numerical' && dim.subdivisions > 1 && !reduced;
+                    const hasDivisions = !reduced && (
+                        (dim.type === 'numerical' && dim.subdivisions > 1) ||
+                        dim.type === 'categorical'
+                    );
                     return {
                         key: dim.key,
                         isReduced: reduced,
@@ -1354,7 +1427,7 @@
                         divNoun: hasDivisions
                             ? (prep.labelConfig.perDivision[dim.key]?.name ?? 'subgroup')
                             : undefined,
-                        divTotal: hasDivisions ? dim.subdivisions : undefined,
+                        divTotal: hasDivisions && dim.type !== 'categorical' ? dim.subdivisions : undefined,
                     };
                 });
 

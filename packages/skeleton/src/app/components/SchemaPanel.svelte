@@ -202,14 +202,21 @@
     );
     // ParentDimension[] for level3 leaf LabelBuilder
     const leafParentDimensions = $derived(
-        schema.dimensions.filter(d => d.included).map(d => ({
-            key: d.key,
-            isReduced: d.divisionExtents === null,
-            dimNoun: schema.labelConfig.perDimension[d.key]?.name ?? 'group',
-            hasDivisions: d.type === 'numerical' && (d.subdivisions ?? 1) > 1,
-            divNoun: schema.labelConfig.perDivision[d.key]?.name ?? 'subgroup',
-            divTotal: d.subdivisions ?? 1,
-        }))
+        schema.dimensions.filter(d => d.included).map(d => {
+            const isReduced = d.divisionExtents === null;
+            const hasDivisions = !isReduced && (
+                (d.type === 'numerical' && (d.subdivisions ?? 1) > 1) ||
+                d.type === 'categorical'
+            );
+            return {
+                key: d.key,
+                isReduced,
+                dimNoun: schema.labelConfig.perDimension[d.key]?.name ?? 'group',
+                hasDivisions,
+                divNoun: schema.labelConfig.perDivision[d.key]?.name ?? 'subgroup',
+                divTotal: hasDivisions && d.type !== 'categorical' ? (d.subdivisions ?? 1) : undefined,
+            };
+        })
     );
 
     // ─── Mutations ────────────────────────────────────────────────────────────
