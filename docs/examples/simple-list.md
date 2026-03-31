@@ -8,12 +8,7 @@ This example shows a simple linked-list navigation structure on a Bokeh stacked 
 
 <div v-show="showControls">
 
-| Command             | Key                                         |
-| ------------------- | ------------------------------------------- |
-| Enter the structure | Activate the "Enter navigation area" button |
-| Exit                | <kbd>Esc</kbd>                              |
-| Previous data point | <kbd>←</kbd>                                |
-| Next data point     | <kbd>→</kbd>                                |
+<div id="commands-root"></div>
 
 </div>
 
@@ -239,7 +234,13 @@ onMounted(async () => {
                 height: 0
             },
             entryButton: { include: true, callbacks: { click: enter } },
-            exitElement: { include: true }
+            exitElement: { include: true },
+            commandsElement: {
+                include: true,
+                rootId: 'commands-root',
+                navigationRules: structure.navigationRules,
+                commands: (genericCommands => [{label: 'Activate the "Enter navigation area" button', description: 'Enter the structure'}, ...genericCommands]),
+            }
         });
         rendering.initialize();
 
