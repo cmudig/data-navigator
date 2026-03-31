@@ -753,6 +753,10 @@
         font-size: 0.875rem;
     }
 
+    :global(.inspector-panel .dn-inspector-tooltip) {
+        display: none;
+    }
+
     .inspector-header {
         display: flex;
         align-items: center;
@@ -1179,7 +1183,7 @@
         opacity: 1;
         pointer-events: auto;
         /* Divide by --canvas-scale so the outline stays ~2px wide visually at any zoom */
-        outline: calc(2px / var(--canvas-scale, 1)) solid var(--dn-accent);
+        /* outline: calc(2px / var(--canvas-scale, 1)) solid var(--dn-accent); */
         outline-offset: calc(2px / var(--canvas-scale, 1));
     }
 
@@ -1190,8 +1194,8 @@
 
     :global(#dn-test-canvas-root .dn-node-path) {
         fill: none;
-        stroke: var(--dn-accent);
-        stroke-width: 2px;
+        stroke: #333;
+        stroke-width: calc(3px / var(--canvas-scale, 1));
     }
 
     :global(#dn-test-canvas-root .dn-exit-position) {
