@@ -15,10 +15,9 @@
 
 ## Follow-up work (big picture stuff):
 
-- Build UI tool for creating DN structure visually
-- Models to help with UI tool?
+- Refactor and de-slop skeleton's app
+- modularize the scaffolding tool, make it a package
 - Keyboard instructions (added to rendering)
-- Mobile screen reader-friendly prototype
 - Build examples:
     - Visualizations:
         - Maps/spatial
@@ -32,14 +31,9 @@
         - ??
     - "Patterns:"
         - Serial (bar)
-        - Simple Nested (scatter aka vega-lite example we currently have)
-        - Grouped (bar/line)
-        - Binned (histogram/continuous scale line/scatter)
-        - Multi-tree (existing example with highcharts)
-        - ??
+        - Cross nav (stack, line, etc)
+        - Within-nav (scatter)
+        - Triple-nav (scatter with groups)
     - Input modalities
         - Voice
         - Hand gesture
-        - Click + focus handling (with on-demand rendering?)
-- Run user studies on previous examples
-    - Put user study results on the webpage itself perhaps?
