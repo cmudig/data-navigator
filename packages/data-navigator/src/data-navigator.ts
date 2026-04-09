@@ -25,6 +25,7 @@ export type RenderingOptions = {
     defaults?: RenderObject;
     entryButton?: EntryObject;
     exitElement?: ExitObject;
+    commandsElement?: CommandsObject;
 };
 
 export type DimensionOptions = {
@@ -178,6 +179,20 @@ export type EntryObject = {
 export type ExitObject = {
     include: boolean;
     callbacks?: ExitCallbacks;
+};
+
+export type CommandsObject = {
+    include: boolean;
+    rootId?: string;
+    navigationRules?: NavigationRules;
+    commands?: Array<CommandObject> | ((genericCommands: Array<CommandObject>) => Array<CommandObject>);
+    columns?: Array<{ label: string; id: string }>;
+    title?: string;
+};
+
+export type CommandObject = {
+    label: string;
+    description: string;
 };
 
 export type SemanticsObject = {
