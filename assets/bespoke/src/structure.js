@@ -1,10 +1,10 @@
 // All spatial coordinates use scale 1/8 of the original 4096×2821 SVG space.
-// Displayed SVG is 512×353 px, so original coords ÷ 8 = CSS pixel position.
+// Displayed image is 512×353 px, so original coords ÷ 8 = CSS pixel position.
 //
 // Navigation model:
-//   Region level  — left/right between the three columns (circular).
-//   Formation level — up/down within a column; left/right to the nearest
-//     formation in the adjacent column (by vertical center), wrapping circularly.
+//   Region level   — left/right between the three columns (circular).
+//   Formation level — up/down within a column; left/right per the explicit
+//     adjacency map below (mix of cross-column and within-column pairs).
 
 export const callbacks = { onExit: null };
 
@@ -43,13 +43,7 @@ export const structure = {
         'trade-river': {
             id: 'trade-river',
             renderId: 'trade-river',
-            edges: [
-                'gswnw-trade-river',
-                'trade-river-pierce',
-                'trade-river-miller-creek',
-                'kewaunee-trade-river-wrap',
-                'any-exit'
-            ],
+            edges: ['gswnw-trade-river', 'trade-river-pierce', 'trade-river-miller-creek', 'any-exit'],
             data: {},
             semantics: { label: 'Trade River. Till unit. W/NW glacial sediment.' },
             spatialProperties: { x: 42, y: 89, width: 53, height: 32 }
@@ -61,8 +55,8 @@ export const structure = {
                 'gswnw-pierce-out',
                 'trade-river-pierce',
                 'pierce-marathon',
-                'pierce-river-falls',
-                'walworth-pierce-wrap',
+                'pierce-marathon-lr',
+                'walworth-pierce-lr',
                 'any-exit'
             ],
             data: {},
@@ -75,8 +69,8 @@ export const structure = {
             edges: [
                 'gswnw-marathon-out',
                 'pierce-marathon',
-                'marathon-river-falls-cross',
-                'walworth-marathon-wrap',
+                'pierce-marathon-lr',
+                'marathon-river-falls-lr',
                 'any-exit'
             ],
             data: {},
@@ -90,7 +84,7 @@ export const structure = {
                 'gsnne-miller-creek',
                 'miller-creek-copper-falls',
                 'trade-river-miller-creek',
-                'miller-creek-kewaunee',
+                'miller-creek-copper-falls-r',
                 'any-exit'
             ],
             data: {},
@@ -104,8 +98,8 @@ export const structure = {
                 'gsnne-copper-falls-out',
                 'miller-creek-copper-falls',
                 'copper-falls-river-falls',
-                'trade-river-copper-falls-cross',
-                'copper-falls-holy-hill',
+                'river-falls-copper-falls-lr',
+                'copper-falls-kewaunee-lr',
                 'any-exit'
             ],
             data: {},
@@ -118,8 +112,8 @@ export const structure = {
             edges: [
                 'gsnne-river-falls-out',
                 'copper-falls-river-falls',
-                'pierce-river-falls',
-                'river-falls-zenda',
+                'marathon-river-falls-lr',
+                'river-falls-copper-falls-lr',
                 'any-exit'
             ],
             data: {},
@@ -129,13 +123,7 @@ export const structure = {
         kewaunee: {
             id: 'kewaunee',
             renderId: 'kewaunee',
-            edges: [
-                'gsnee-kewaunee',
-                'kewaunee-oak-creek',
-                'miller-creek-kewaunee',
-                'kewaunee-trade-river-wrap',
-                'any-exit'
-            ],
+            edges: ['gsnee-kewaunee', 'kewaunee-oak-creek', 'copper-falls-kewaunee-lr', 'kewaunee-zenda-r', 'any-exit'],
             data: {},
             semantics: { label: 'Kewaunee. Till unit. NE/E glacial sediment.' },
             spatialProperties: { x: 306, y: 76, width: 94, height: 32 }
@@ -147,8 +135,8 @@ export const structure = {
                 'gsnee-oak-creek-out',
                 'kewaunee-oak-creek',
                 'oak-creek-holy-hill',
-                'copper-falls-oak-creek-cross',
-                'oak-creek-trade-river-wrap',
+                'holy-hill-oak-creek-lr',
+                'oak-creek-zenda-r',
                 'any-exit'
             ],
             data: {},
@@ -162,8 +150,8 @@ export const structure = {
                 'gsnee-holy-hill-out',
                 'oak-creek-holy-hill',
                 'holy-hill-zenda',
-                'copper-falls-holy-hill',
-                'holy-hill-trade-river-wrap',
+                'copper-falls-holy-hill-l',
+                'holy-hill-oak-creek-lr',
                 'any-exit'
             ],
             data: {},
@@ -183,8 +171,8 @@ export const structure = {
                 'gsnee-zenda-out',
                 'holy-hill-zenda',
                 'zenda-walworth',
-                'river-falls-zenda',
-                'zenda-pierce-wrap',
+                'holy-hill-zenda-l',
+                'zenda-pierce-r',
                 'any-exit'
             ],
             data: {},
@@ -194,13 +182,7 @@ export const structure = {
         walworth: {
             id: 'walworth',
             renderId: 'walworth',
-            edges: [
-                'gsnee-walworth-out',
-                'zenda-walworth',
-                'river-falls-walworth-cross',
-                'walworth-pierce-wrap',
-                'any-exit'
-            ],
+            edges: ['gsnee-walworth-out', 'zenda-walworth', 'walworth-pierce-lr', 'any-exit'],
             data: {},
             semantics: { label: 'Walworth. Till unit. NE/E glacial sediment.' },
             spatialProperties: { x: 404, y: 242, width: 53, height: 32 }
@@ -239,7 +221,7 @@ export const structure = {
             target: 'kewaunee',
             navigationRules: ['drill-in', 'drill-out']
         },
-        // Drill-out from non-first children (source direction returns parent)
+        // Drill-out from non-first children
         'gswnw-pierce-out': { source: 'glacial-sediment-w-nw', target: 'pierce', navigationRules: ['drill-out'] },
         'gswnw-marathon-out': { source: 'glacial-sediment-w-nw', target: 'marathon', navigationRules: ['drill-out'] },
         'gsnne-copper-falls-out': {
@@ -256,7 +238,7 @@ export const structure = {
         'gsnee-holy-hill-out': { source: 'glacial-sediment-ne-e', target: 'holy-hill', navigationRules: ['drill-out'] },
         'gsnee-zenda-out': { source: 'glacial-sediment-ne-e', target: 'zenda', navigationRules: ['drill-out'] },
         'gsnee-walworth-out': { source: 'glacial-sediment-ne-e', target: 'walworth', navigationRules: ['drill-out'] },
-        // Within-column up/down (top of column = up/source, bottom = down/target)
+        // Within-column up/down
         'trade-river-pierce': { source: 'trade-river', target: 'pierce', navigationRules: ['up', 'down'] },
         'pierce-marathon': { source: 'pierce', target: 'marathon', navigationRules: ['up', 'down'] },
         'miller-creek-copper-falls': {
@@ -269,31 +251,29 @@ export const structure = {
         'oak-creek-holy-hill': { source: 'oak-creek', target: 'holy-hill', navigationRules: ['up', 'down'] },
         'holy-hill-zenda': { source: 'holy-hill', target: 'zenda', navigationRules: ['up', 'down'] },
         'zenda-walworth': { source: 'zenda', target: 'walworth', navigationRules: ['up', 'down'] },
-        // Cross-column left/right: each formation targets its closest counterpart
-        // by vertical center in the adjacent column. Columns wrap circularly.
-        //
-        // Adjacent pairs (bidirectional): one edge handles both directions.
+        // Left/right navigation (explicit adjacency map)
+        //   r/l  = bidirectional; right only = at source pressing →; left only = at target pressing ←
         'trade-river-miller-creek': {
             source: 'trade-river',
             target: 'miller-creek',
             navigationRules: ['left', 'right']
-        },
-        'pierce-river-falls': { source: 'pierce', target: 'river-falls', navigationRules: ['left', 'right'] },
-        'miller-creek-kewaunee': { source: 'miller-creek', target: 'kewaunee', navigationRules: ['left', 'right'] },
-        'copper-falls-holy-hill': { source: 'copper-falls', target: 'holy-hill', navigationRules: ['left', 'right'] },
-        'river-falls-zenda': { source: 'river-falls', target: 'zenda', navigationRules: ['left', 'right'] },
-        // Wrap pairs (NE/E ↔ W/NW): bidirectional where both sides share the same closest target.
-        'kewaunee-trade-river-wrap': { source: 'kewaunee', target: 'trade-river', navigationRules: ['left', 'right'] },
-        'walworth-pierce-wrap': { source: 'walworth', target: 'pierce', navigationRules: ['left', 'right'] },
-        // One-directional cross edges: used when the reverse would land on a different target.
-        'marathon-river-falls-cross': { source: 'marathon', target: 'river-falls', navigationRules: ['right'] },
-        'oak-creek-trade-river-wrap': { source: 'oak-creek', target: 'trade-river', navigationRules: ['right'] },
-        'holy-hill-trade-river-wrap': { source: 'holy-hill', target: 'trade-river', navigationRules: ['right'] },
-        'zenda-pierce-wrap': { source: 'zenda', target: 'pierce', navigationRules: ['right'] },
-        'walworth-marathon-wrap': { source: 'walworth', target: 'marathon', navigationRules: ['left'] },
-        'trade-river-copper-falls-cross': { source: 'trade-river', target: 'copper-falls', navigationRules: ['left'] },
-        'copper-falls-oak-creek-cross': { source: 'copper-falls', target: 'oak-creek', navigationRules: ['left'] },
-        'river-falls-walworth-cross': { source: 'river-falls', target: 'walworth', navigationRules: ['left'] },
+        }, // r/l
+        'pierce-marathon-lr': { source: 'pierce', target: 'marathon', navigationRules: ['left', 'right'] }, // r/l
+        'marathon-river-falls-lr': { source: 'marathon', target: 'river-falls', navigationRules: ['left', 'right'] }, // r/l
+        'miller-creek-copper-falls-r': { source: 'miller-creek', target: 'copper-falls', navigationRules: ['right'] }, // right only
+        'river-falls-copper-falls-lr': {
+            source: 'river-falls',
+            target: 'copper-falls',
+            navigationRules: ['left', 'right']
+        }, // r/l
+        'copper-falls-kewaunee-lr': { source: 'copper-falls', target: 'kewaunee', navigationRules: ['left', 'right'] }, // r/l
+        'copper-falls-holy-hill-l': { source: 'copper-falls', target: 'holy-hill', navigationRules: ['left'] }, // left only (at holy-hill ← → copper-falls)
+        'kewaunee-zenda-r': { source: 'kewaunee', target: 'zenda', navigationRules: ['right'] }, // right only
+        'holy-hill-oak-creek-lr': { source: 'holy-hill', target: 'oak-creek', navigationRules: ['left', 'right'] }, // r/l
+        'oak-creek-zenda-r': { source: 'oak-creek', target: 'zenda', navigationRules: ['right'] }, // right only
+        'holy-hill-zenda-l': { source: 'holy-hill', target: 'zenda', navigationRules: ['left'] }, // left only (at zenda ← → holy-hill)
+        'zenda-pierce-r': { source: 'zenda', target: 'pierce', navigationRules: ['right'] }, // right only
+        'walworth-pierce-lr': { source: 'walworth', target: 'pierce', navigationRules: ['left', 'right'] }, // r/l
         // Exit
         'any-exit': {
             source: (d, c) => c,
