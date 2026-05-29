@@ -1,6 +1,6 @@
 # Bespoke Visualization Navigation
 
-This example shows how to add keyboard navigation to a bespoke SVG visualization — a stratigraphic chart of glacial till units in Wisconsin. The chart has no charting library; it is a hand-authored SVG. The navigation structure is defined manually (no dimensions API), with three top-level regions navigable left and right, and formations within each region navigable up and down. Left and right within a region cross to the nearest formation in the adjacent column, paired by vertical proximity.
+This example shows how to add keyboard navigation to a bespoke SVG visualization: a stratigraphic chart of glacial till units in Wisconsin. The chart has no charting library; it is a hand-authored SVG. The navigation structure is defined manually (no dimensions API), with three top-level regions navigable left and right, and formations within each region navigable up and down. Left and right within a region cross to the nearest formation in the adjacent column, paired by vertical proximity.
 
 ## Keyboard Controls
 
@@ -76,63 +76,63 @@ onMounted(async () => {
                 id: 'trade-river', renderId: 'trade-river',
                 edges: ['gswnw-trade-river', 'trade-river-pierce', 'trade-river-miller-creek', 'any-exit'],
                 data: {},
-                semantics: { label: 'Trade River. Till unit. W/NW glacial sediment.' },
+                semantics: { label: 'Trade River. Sediment from W/NW, deposited towards the end of the Wisconsin glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 42, y: 89, width: 53, height: 32 }
             },
             'pierce': {
                 id: 'pierce', renderId: 'pierce',
                 edges: ['gswnw-pierce-out', 'trade-river-pierce', 'pierce-marathon', 'pierce-marathon-lr', 'walworth-pierce-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'Pierce. Till unit. W/NW glacial sediment.' },
+                semantics: { label: 'Pierce. Sediment from W/NW, deposited by the Pre-Illinoian glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 13, y: 291, width: 53, height: 32 }
             },
             'marathon': {
                 id: 'marathon', renderId: 'marathon',
                 edges: ['gswnw-marathon-out', 'pierce-marathon', 'pierce-marathon-lr', 'marathon-river-falls-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'Marathon. Till unit. W/NW glacial sediment.' },
+                semantics: { label: 'Marathon. Sediment from W/NW, deposited by the Pre-Illinoian glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 70, y: 291, width: 53, height: 32 }
             },
             'miller-creek': {
                 id: 'miller-creek', renderId: 'miller-creek',
                 edges: ['gsnne-miller-creek', 'miller-creek-copper-falls', 'trade-river-miller-creek', 'miller-creek-copper-falls-r', 'any-exit'],
                 data: {},
-                semantics: { label: 'Miller Creek. Till unit. N/NE glacial sediment.' },
+                semantics: { label: 'Miller Creek. Top-most sediment from N/NE, deposited at the end of the Wisconsin glaciation during the Pleistocene Epoch and also deposited during the early Holocene Epoch.' },
                 spatialProperties: { x: 165, y: 52, width: 53, height: 32 }
             },
             'copper-falls': {
                 id: 'copper-falls', renderId: 'copper-falls',
                 edges: ['gsnne-copper-falls-out', 'miller-creek-copper-falls', 'copper-falls-river-falls', 'river-falls-copper-falls-lr', 'copper-falls-kewaunee-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'Copper Falls. Till unit. N/NE glacial sediment.' },
+                semantics: { label: 'Copper Falls. Sediment from N/NE, deposited from the middle of the Illinoian glaciation until the end of the Wisconsin glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 222, y: 76, width: 53, height: 176 }
             },
             'river-falls': {
                 id: 'river-falls', renderId: 'river-falls',
                 edges: ['gsnne-river-falls-out', 'copper-falls-river-falls', 'marathon-river-falls-lr', 'river-falls-copper-falls-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'River Falls. Till unit. N/NE glacial sediment.' },
+                semantics: { label: 'River Falls. Sediment from N/NE, deposited later by the Illinoian glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 166, y: 220, width: 53, height: 32 }
             },
             'kewaunee': {
                 id: 'kewaunee', renderId: 'kewaunee',
                 edges: ['gsnee-kewaunee', 'kewaunee-oak-creek', 'copper-falls-kewaunee-lr', 'kewaunee-zenda-r', 'any-exit'],
                 data: {},
-                semantics: { label: 'Kewaunee. Till unit. NE/E glacial sediment.' },
+                semantics: { label: 'Kewaunee. Sediment from NE/E, deposited at the end of the Wisconsin glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 306, y: 76, width: 94, height: 32 }
             },
             'oak-creek': {
                 id: 'oak-creek', renderId: 'oak-creek',
                 edges: ['gsnee-oak-creek-out', 'kewaunee-oak-creek', 'oak-creek-holy-hill', 'holy-hill-oak-creek-lr', 'oak-creek-zenda-r', 'any-exit'],
                 data: {},
-                semantics: { label: 'Oak Creek. Till unit. NE/E glacial sediment.' },
+                semantics: { label: 'Oak Creek. Sediment from NE/E, deposited in the middle of the Wisconsin glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 347, y: 113, width: 53, height: 32 }
             },
             'holy-hill': {
                 id: 'holy-hill', renderId: 'holy-hill',
                 edges: ['gsnee-holy-hill-out', 'oak-creek-holy-hill', 'holy-hill-zenda', 'copper-falls-holy-hill-l', 'holy-hill-oak-creek-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'Holy Hill. Till unit. NE/E glacial sediment. L-shaped region.' },
+                semantics: { label: 'Holy Hill. Sediment from NE/E, deposited from early until after the middle of the Wisconsin glaciation, during the Pleistocene Epoch. Oak Creek was deposited alongside during the later half.' },
                 spatialProperties: {
                     x: 305, y: 113, width: 95, height: 85,
                     path: 'M343.75,112.5V148.5H400.125V197.5H304.875V112.5H343.75Z'
@@ -142,14 +142,14 @@ onMounted(async () => {
                 id: 'zenda', renderId: 'zenda',
                 edges: ['gsnee-zenda-out', 'holy-hill-zenda', 'zenda-walworth', 'holy-hill-zenda-l', 'zenda-pierce-r', 'any-exit'],
                 data: {},
-                semantics: { label: 'Zenda. Till unit. NE/E glacial sediment.' },
+                semantics: { label: 'Zenda. Sediment from NE/E, deposited in during late Illinoian and early Wisconsin glaciations during the Pleistocene Epoch.' },
                 spatialProperties: { x: 404, y: 189, width: 53, height: 50 }
             },
             'walworth': {
                 id: 'walworth', renderId: 'walworth',
                 edges: ['gsnee-walworth-out', 'zenda-walworth', 'holy-hill-walworth-l', 'walworth-pierce-lr', 'any-exit'],
                 data: {},
-                semantics: { label: 'Walworth. Till unit. NE/E glacial sediment.' },
+                semantics: { label: 'Walworth. Sediment from NE/E, deposited in the middle of the Illinoian glaciation during the Pleistocene Epoch.' },
                 spatialProperties: { x: 404, y: 242, width: 53, height: 32 }
             }
         },
@@ -237,7 +237,7 @@ onMounted(async () => {
         suffixId: 'bespoke',
         root: {
             id: 'bespoke-wrapper',
-            description: 'Stratigraphic chart of glacial till units in Wisconsin. Three columns by sediment source direction, arranged by geological age.',
+            description: 'Stratigraphic chart of glacial sediment deposits in Wisconsin. Three columns by sediment source direction, arranged by geological age.',
             width: '100%',
             height: 0
         },
@@ -290,92 +290,92 @@ onMounted(async () => {
             'st-01': {
                 id: 'st-01', renderId: 'st-01',
                 edges: ['st-01-02', 'st-exit'],
-                data: { caption: 'Layer 1 of 13 — the youngest, topmost glacial deposit.' },
-                semantics: { label: 'Stratigraphic band 1 of 13, topmost layer.' },
+                data: { caption: '' },
+                semantics: { label: 'Layer 1 of 13. The youngest, topmost glacial deposit from the end of the Pleistocene into the Holocene Epoch. Only Miller Creek is present, deposited from the N/NE.' },
                 spatialProperties: { x: 6, y: 56, width: 459, height: 15 }
             },
             'st-02': {
                 id: 'st-02', renderId: 'st-02',
                 edges: ['st-01-02', 'st-02-03', 'st-exit'],
-                data: { caption: 'Layer 2 of 13 — a thin sediment band.' },
-                semantics: { label: 'Stratigraphic band 2 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Miller Creek and Copper Falls are deposited from the N/NE and Kewaunee is deposited from the NE/E. Close to the very end of the Wisconsin glaciation during the Pleistocene Epoch. Layer 2 of 13.' },
                 spatialProperties: { x: 6, y: 82, width: 459, height: 1 }
             },
             'st-03': {
                 id: 'st-03', renderId: 'st-03',
                 edges: ['st-02-03', 'st-03-04', 'st-exit'],
-                data: { caption: 'Layer 3 of 13 — a thin sediment band.' },
-                semantics: { label: 'Stratigraphic band 3 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Copper Falls is deposited from the N/NE and Kewaunee is deposited from the NE/E. Close to the end of the Wisconsin glaciation during the Pleistocene Epoch. Layer 3 of 13.' },
                 spatialProperties: { x: 6, y: 89, width: 459, height: 1 }
             },
             'st-04': {
                 id: 'st-04', renderId: 'st-04',
                 edges: ['st-03-04', 'st-04-05', 'st-exit'],
-                data: { caption: 'Layer 4 of 13.' },
-                semantics: { label: 'Stratigraphic band 4 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Trade River is deposited from the W/NW, Copper Falls is deposited from the N/NE, and Kewaunee is deposited from the NE/E. In the final quarter of the Wisconsin glaciation during the Pleistocene Epoch. Layer 4 of 13.' },
                 spatialProperties: { x: 6, y: 97, width: 459, height: 8 }
             },
             'st-05': {
                 id: 'st-05', renderId: 'st-05',
                 edges: ['st-04-05', 'st-05-06', 'st-exit'],
-                data: { caption: 'Layer 5 of 13.' },
-                semantics: { label: 'Stratigraphic band 5 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Trade River is deposited from the W/NW, Copper Falls is deposited from the N/NE, and Holy Hill and Oak Creek is deposited from the NE/E. In the later middle of the Wisconsin glaciation during the Pleistocene Epoch. Layer 5 of 13.' },
                 spatialProperties: { x: 6, y: 116, width: 459, height: 24 }
             },
             'st-06': {
                 id: 'st-06', renderId: 'st-06',
                 edges: ['st-05-06', 'st-06-07', 'st-exit'],
-                data: { caption: 'Layer 6 of 13 — the thickest deposit in this section.' },
-                semantics: { label: 'Stratigraphic band 6 of 13, thickest layer.' },
+                data: { caption: '' },
+                semantics: { label: 'Copper Falls is deposited from the N/NE and Holy Hill is deposited from the NE/E. In the earlier middle of the Wisconsin glaciation during the Pleistocene Epoch. Layer 6 of 13.' },
                 spatialProperties: { x: 6, y: 152, width: 459, height: 31 }
             },
             'st-07': {
                 id: 'st-07', renderId: 'st-07',
                 edges: ['st-06-07', 'st-07-08', 'st-exit'],
-                data: { caption: 'Layer 7 of 13 — a thin band.' },
-                semantics: { label: 'Stratigraphic band 7 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Copper Falls is deposited from the N/NE and Holy Hill and Zenda is deposited from the NE/E. Close to the start of the Wisconsin glaciation during the Pleistocene Epoch. Layer 7 of 13' },
                 spatialProperties: { x: 6, y: 194, width: 459, height: 1 }
             },
             'st-08': {
                 id: 'st-08', renderId: 'st-08',
                 edges: ['st-07-08', 'st-08-09', 'st-exit'],
-                data: { caption: 'Layer 8 of 13.' },
-                semantics: { label: 'Stratigraphic band 8 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Copper Falls is deposited from the N/NE and Zenda is deposited from the NE/E. At the start of the Wisconsin glaciation during the Pleistocene Epoch. Layer 8 of 13.' },
                 spatialProperties: { x: 6, y: 202, width: 459, height: 12 }
             },
             'st-09': {
                 id: 'st-09', renderId: 'st-09',
                 edges: ['st-08-09', 'st-09-10', 'st-exit'],
-                data: { caption: 'Layer 9 of 13.' },
-                semantics: { label: 'Stratigraphic band 9 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'River Falls and Copper Falls is deposited from the N/NE and Zenda is deposited from the NE/E. At the end of the Illinoian glaciation during the Pleistocene Epoch. Layer 9 of 13.' },
                 spatialProperties: { x: 6, y: 225, width: 459, height: 9 }
             },
             'st-10': {
                 id: 'st-10', renderId: 'st-10',
                 edges: ['st-09-10', 'st-10-11', 'st-exit'],
-                data: { caption: 'Layer 10 of 13 — a thin band.' },
-                semantics: { label: 'Stratigraphic band 10 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'River Falls and Copper Falls is deposited from the N/NE and Walworth is deposited from the NE/E. In the middle of the Illinoian glaciation during the Pleistocene Epoch. Layer 10 of 13.' },
                 spatialProperties: { x: 6, y: 246, width: 459, height: 1 }
             },
             'st-11': {
                 id: 'st-11', renderId: 'st-11',
                 edges: ['st-10-11', 'st-11-12', 'st-exit'],
-                data: { caption: 'Layer 11 of 13.' },
-                semantics: { label: 'Stratigraphic band 11 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'Walworth is deposited from the NE/E. Near the beginning of the Illinoian glaciation during the Pleistocene Epoch. Layer 11 of 13.' },
                 spatialProperties: { x: 6, y: 257, width: 459, height: 11 }
             },
             'st-12': {
                 id: 'st-12', renderId: 'st-12',
                 edges: ['st-11-12', 'st-12-13', 'st-exit'],
-                data: { caption: 'Layer 12 of 13.' },
-                semantics: { label: 'Stratigraphic band 12 of 13.' },
+                data: { caption: '' },
+                semantics: { label: 'No deposits. At the start of the Illinoian glaciation. Layer 12 of 13.' },
                 spatialProperties: { x: 6, y: 279, width: 459, height: 5 }
             },
             'st-13': {
                 id: 'st-13', renderId: 'st-13',
                 edges: ['st-12-13', 'st-exit'],
-                data: { caption: 'Layer 13 of 13 — the oldest, bottommost glacial deposit.' },
-                semantics: { label: 'Stratigraphic band 13 of 13, bottommost layer.' },
+                data: { caption: '' },
+                semantics: { label: 'Pierce and Marathon are deposited from the NE/E. At the end of the Pre-Illinoian glaciation during the Pleistocene Epoch. Layer 13 of 13, the bottommost layer.' },
                 spatialProperties: { x: 6, y: 295, width: 459, height: 22 }
             }
         },
@@ -486,19 +486,19 @@ onUnmounted(() => { if (cleanup) cleanup(); });
 
 ### About This Example
 
-This example demonstrates data-navigator on a bespoke visualization — no charting library involved. The chart is a JPEG image; data-navigator adds an accessible keyboard navigation layer on top of it via an absolutely-positioned HTML overlay inside the same wrapper element.
+This example demonstrates data-navigator on a bespoke visualization, no charting library involved. The chart is a JPEG image; data-navigator adds an accessible keyboard navigation layer on top of it via an absolutely-positioned HTML overlay inside the same wrapper element.
 
-The navigation structure is defined manually (Static mode — no dimensions API). There are two levels:
+The navigation structure is defined manually (it does not use the dimensions API). There are two levels:
 
-**Region level** — the three glacial sediment columns. Left and right navigate between them in a circular chain.
+**Region level**: the three glacial sediment columns. Left and right navigate between them in a circular chain.
 
-**Formation level** — the geological till units within each column. Up and down navigate within the column (top of screen = source, bottom = target). Left and right cross to the nearest formation in the adjacent column, determined by which formation has the closest vertical center. The columns wrap circularly at this level too.
+**Formation level**: the geological till units within each column. Up and down navigate within the column (top of screen = source, bottom = target). Left and right cross to the nearest formation in the adjacent column, determined by which formation has the closest vertical center. The columns wrap circularly at this level too.
 
-Because `left`/`right` carry different meaning depending on the current node (region vs. formation), each level has distinct edges — the disambiguation is structural, not conditional: region nodes simply have no cross-column edges in their array.
+Because `left`/`right` carry different meaning depending on the current node (region vs. formation), each level has distinct edges. The disambiguation is structural, not conditional: region nodes simply have no cross-column edges in their array. In the project _Benthic_ by researchers at MIT, this is referred to as navigation based on _visual congruence_ [[1](https://vis.csail.mit.edu/pubs/benthic/)].
 
 The `holy-hill` node uses the built-in `spatialProperties.path` feature. Setting a `path` string causes the rendering module to create an SVG overlay that traces the actual L-shape of that formation, so the focus indicator follows the non-rectangular boundary rather than a plain bounding box.
 
-All spatial coordinates are derived by applying a scale factor of `1/8` to the original source SVG (4096×2821). That SVG is not displayed — it was used only to extract the bounding boxes and path shapes of each region. The displayed JPEG is 512×353 px, so every `x`, `y`, `width`, and `height` value — and the path coordinates for `holy-hill` — are original SVG values divided by 8.
+<!-- All spatial coordinates are derived by applying a scale factor of `1/8` to the original source SVG (4096×2821). That SVG is not displayed it was used only to extract the bounding boxes and path shapes of each region. The displayed JPEG is 512×353 px, so every `x`, `y`, `width`, and `height` value and the path coordinates for `holy-hill` are original SVG values divided by 8. -->
 
 ## The Complete Code
 
@@ -506,7 +506,7 @@ This code is designed to work **without a bundler**. Run `npm install data-navig
 
 If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector } from '@data-navigator/inspector'`, and remove the import map and CDN script tags from the HTML.
 
-The structure is a manually defined two-level hierarchy — three region nodes at the top level, each containing geological formation nodes. `coordinator.js` wires everything together. `structure.js` defines the nodes, edges, and navigation rules. `rendering.js` sets up the accessible HTML overlay. `input.js` creates the keyboard handler.
+The structure is a manually defined two-level hierarchy: three region nodes at the top level, each containing geological formation nodes. `coordinator.js` wires everything together. `structure.js` defines the nodes, edges, and navigation rules. `rendering.js` sets up the accessible HTML overlay. `input.js` creates the keyboard handler.
 
 ::: code-group
 
@@ -585,8 +585,8 @@ function initiateLifecycle(nextNode) {
 // Displayed SVG is 512×353 px, so original coords ÷ 8 = CSS pixel position.
 //
 // Navigation model:
-//   Region level  — left/right between the three columns (circular).
-//   Formation level — up/down within a column; left/right to the nearest
+//   Region level: left/right between the three columns (circular).
+//   Formation level: up/down within a column; left/right to the nearest
 //     formation in the adjacent column (by vertical center), wrapping circularly.
 
 export const callbacks = { onExit: null };
@@ -978,7 +978,7 @@ The story for this project has been to make a complex, custom chart navigable us
 
 In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
 
-We describe the chart as if we are describing layers of sediment — starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data-navigator (we could just write an alt document or accompanying layer for this).
+We describe the chart as if we are describing layers of sediment, starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data-navigator (we could just write an alt document or accompanying layer for this).
 
 But instead, we wanted to couple navigation (screen reader accessible as well as keyboard accessible) to visual captions that change while you navigate. This makes it useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website.
 
