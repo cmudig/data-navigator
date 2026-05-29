@@ -1,6 +1,6 @@
 # Bespoke Visualization Navigation
 
-This example shows how to add keyboard navigation to a bespoke visualization: a stratigraphic chart of glacial till units in Wisconsin. The chart has no charting library; it is a JPEG image with a manually-defined navigation structure (no dimensions API). Three navigation experiences are demonstrated: exploring by sediment source (a two-level hierarchy), navigating through time (a linear story mode), and a combined demo where both modes share one chart.
+This example shows how to add keyboard navigation to a bespoke visualization: a Correlation of Mapped Formations diagram showing mapped formations of glacial sediment in Wisconsin. The chart has no charting library; it is a JPEG image with a manually-defined navigation structure (no dimensions API). Three navigation experiences are demonstrated: exploring by sediment source (a two-level hierarchy), navigating through time (a linear story mode), and a combined demo where both modes share one chart.
 
 ## Explore by Sediment Source
 
@@ -26,7 +26,7 @@ The three columns wrap circularly at both levels. At the formation level, left a
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Stratigraphic Chart</h3>
+        <h3>Correlation of Mapped Formations</h3>
         <div id="bespoke-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
@@ -60,7 +60,7 @@ But instead, we wanted to couple navigation (screen reader accessible as well as
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Stratigraphic Layers</h3>
+        <h3>Correlation of Mapped Formations</h3>
         <div id="story-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
@@ -94,7 +94,7 @@ Both navigation modes applied to one shared chart. Two entry buttons appear insi
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Stratigraphic Chart</h3>
+        <h3>Correlation of Mapped Formations</h3>
         <div id="unified-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
@@ -302,7 +302,7 @@ onMounted(async () => {
         suffixId: 'bespoke',
         root: {
             id: 'bespoke-wrapper',
-            description: 'Stratigraphic chart of glacial sediment deposits in Wisconsin. Three columns by sediment source direction, arranged by geological age.',
+            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment in Wisconsin. Three columns by sediment source direction, arranged by geological age.',
             width: '100%',
             height: 0
         },
@@ -493,7 +493,7 @@ onMounted(async () => {
         suffixId: 'story',
         root: {
             id: 'story-wrapper',
-            description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
+            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment through time in Wisconsin.',
             width: '100%',
             height: 0
         },
@@ -596,7 +596,7 @@ onMounted(async () => {
         suffixId: 'unified-source',
         root: {
             id: 'unified-wrapper',
-            description: 'Stratigraphic chart of glacial sediment deposits in Wisconsin. Three columns by sediment source direction.',
+            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment in Wisconsin. Three columns by sediment source direction.',
             width: '100%',
             height: 0
         },
@@ -662,7 +662,7 @@ onMounted(async () => {
         suffixId: 'unified-time',
         root: {
             id: 'unified-wrapper',
-            description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
+            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment through time in Wisconsin.',
             width: '100%',
             height: 0
         },
@@ -864,7 +864,8 @@ const timeRendering = dataNavigator.rendering({
     suffixId: 'time',
     root: {
         id: 'chart-wrapper',
-        description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
+        description:
+            'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment through time in Wisconsin.',
         width: '100%',
         height: 0
     },
@@ -1412,7 +1413,7 @@ export const storyStructure = {
     <body>
         <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
             <div>
-                <h3>Stratigraphic Chart</h3>
+                <h3>Correlation of Mapped Formations</h3>
                 <div id="chart-wrapper" style="position: relative; display: inline-block;">
                     <img src="bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;" />
                 </div>
