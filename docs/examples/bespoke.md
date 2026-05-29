@@ -279,7 +279,206 @@ onMounted(async () => {
         current = nextNode.id;
     };
 
-    cleanup = () => { if (rendering) rendering.clearStructure(); };
+
+    // ── Story demo: linear temporal navigation ─────────────────────────────
+    let storyExitHandler = null;
+    let storyCurrent = null;
+    let storyPrevious = null;
+
+    const storyStructure = {
+        nodes: {
+            'st-01': {
+                id: 'st-01', renderId: 'st-01',
+                edges: ['st-01-02', 'st-exit'],
+                data: { caption: 'Layer 1 of 13 — the youngest, topmost glacial deposit.' },
+                semantics: { label: 'Stratigraphic band 1 of 13, topmost layer.' },
+                spatialProperties: { x: 6, y: 56, width: 459, height: 15 }
+            },
+            'st-02': {
+                id: 'st-02', renderId: 'st-02',
+                edges: ['st-01-02', 'st-02-03', 'st-exit'],
+                data: { caption: 'Layer 2 of 13 — a thin sediment band.' },
+                semantics: { label: 'Stratigraphic band 2 of 13.' },
+                spatialProperties: { x: 6, y: 82, width: 459, height: 1 }
+            },
+            'st-03': {
+                id: 'st-03', renderId: 'st-03',
+                edges: ['st-02-03', 'st-03-04', 'st-exit'],
+                data: { caption: 'Layer 3 of 13 — a thin sediment band.' },
+                semantics: { label: 'Stratigraphic band 3 of 13.' },
+                spatialProperties: { x: 6, y: 89, width: 459, height: 1 }
+            },
+            'st-04': {
+                id: 'st-04', renderId: 'st-04',
+                edges: ['st-03-04', 'st-04-05', 'st-exit'],
+                data: { caption: 'Layer 4 of 13.' },
+                semantics: { label: 'Stratigraphic band 4 of 13.' },
+                spatialProperties: { x: 6, y: 97, width: 459, height: 8 }
+            },
+            'st-05': {
+                id: 'st-05', renderId: 'st-05',
+                edges: ['st-04-05', 'st-05-06', 'st-exit'],
+                data: { caption: 'Layer 5 of 13.' },
+                semantics: { label: 'Stratigraphic band 5 of 13.' },
+                spatialProperties: { x: 6, y: 116, width: 459, height: 24 }
+            },
+            'st-06': {
+                id: 'st-06', renderId: 'st-06',
+                edges: ['st-05-06', 'st-06-07', 'st-exit'],
+                data: { caption: 'Layer 6 of 13 — the thickest deposit in this section.' },
+                semantics: { label: 'Stratigraphic band 6 of 13, thickest layer.' },
+                spatialProperties: { x: 6, y: 152, width: 459, height: 31 }
+            },
+            'st-07': {
+                id: 'st-07', renderId: 'st-07',
+                edges: ['st-06-07', 'st-07-08', 'st-exit'],
+                data: { caption: 'Layer 7 of 13 — a thin band.' },
+                semantics: { label: 'Stratigraphic band 7 of 13.' },
+                spatialProperties: { x: 6, y: 194, width: 459, height: 1 }
+            },
+            'st-08': {
+                id: 'st-08', renderId: 'st-08',
+                edges: ['st-07-08', 'st-08-09', 'st-exit'],
+                data: { caption: 'Layer 8 of 13.' },
+                semantics: { label: 'Stratigraphic band 8 of 13.' },
+                spatialProperties: { x: 6, y: 202, width: 459, height: 12 }
+            },
+            'st-09': {
+                id: 'st-09', renderId: 'st-09',
+                edges: ['st-08-09', 'st-09-10', 'st-exit'],
+                data: { caption: 'Layer 9 of 13.' },
+                semantics: { label: 'Stratigraphic band 9 of 13.' },
+                spatialProperties: { x: 6, y: 225, width: 459, height: 9 }
+            },
+            'st-10': {
+                id: 'st-10', renderId: 'st-10',
+                edges: ['st-09-10', 'st-10-11', 'st-exit'],
+                data: { caption: 'Layer 10 of 13 — a thin band.' },
+                semantics: { label: 'Stratigraphic band 10 of 13.' },
+                spatialProperties: { x: 6, y: 246, width: 459, height: 1 }
+            },
+            'st-11': {
+                id: 'st-11', renderId: 'st-11',
+                edges: ['st-10-11', 'st-11-12', 'st-exit'],
+                data: { caption: 'Layer 11 of 13.' },
+                semantics: { label: 'Stratigraphic band 11 of 13.' },
+                spatialProperties: { x: 6, y: 257, width: 459, height: 11 }
+            },
+            'st-12': {
+                id: 'st-12', renderId: 'st-12',
+                edges: ['st-11-12', 'st-12-13', 'st-exit'],
+                data: { caption: 'Layer 12 of 13.' },
+                semantics: { label: 'Stratigraphic band 12 of 13.' },
+                spatialProperties: { x: 6, y: 279, width: 459, height: 5 }
+            },
+            'st-13': {
+                id: 'st-13', renderId: 'st-13',
+                edges: ['st-12-13', 'st-exit'],
+                data: { caption: 'Layer 13 of 13 — the oldest, bottommost glacial deposit.' },
+                semantics: { label: 'Stratigraphic band 13 of 13, bottommost layer.' },
+                spatialProperties: { x: 6, y: 295, width: 459, height: 22 }
+            }
+        },
+        edges: {
+            'st-01-02': { source: 'st-01', target: 'st-02', navigationRules: ['up', 'down'] },
+            'st-02-03': { source: 'st-02', target: 'st-03', navigationRules: ['up', 'down'] },
+            'st-03-04': { source: 'st-03', target: 'st-04', navigationRules: ['up', 'down'] },
+            'st-04-05': { source: 'st-04', target: 'st-05', navigationRules: ['up', 'down'] },
+            'st-05-06': { source: 'st-05', target: 'st-06', navigationRules: ['up', 'down'] },
+            'st-06-07': { source: 'st-06', target: 'st-07', navigationRules: ['up', 'down'] },
+            'st-07-08': { source: 'st-07', target: 'st-08', navigationRules: ['up', 'down'] },
+            'st-08-09': { source: 'st-08', target: 'st-09', navigationRules: ['up', 'down'] },
+            'st-09-10': { source: 'st-09', target: 'st-10', navigationRules: ['up', 'down'] },
+            'st-10-11': { source: 'st-10', target: 'st-11', navigationRules: ['up', 'down'] },
+            'st-11-12': { source: 'st-11', target: 'st-12', navigationRules: ['up', 'down'] },
+            'st-12-13': { source: 'st-12', target: 'st-13', navigationRules: ['up', 'down'] },
+            'st-exit': {
+                source: (d, c) => c,
+                target: () => { if (storyExitHandler) storyExitHandler(); return ''; },
+                navigationRules: ['exit']
+            }
+        },
+        navigationRules: {
+            up:   { key: 'ArrowUp',   direction: 'source' },
+            down: { key: 'ArrowDown', direction: 'target' },
+            exit: { key: 'Escape',    direction: 'target' }
+        }
+    };
+
+    const storyInspector = Inspector({
+        structure: storyStructure,
+        container: 'story-inspector',
+        size: 300,
+        colorBy: 'dimensionLevel',
+        edgeExclusions: ['st-exit'],
+        nodeInclusions: ['exit']
+    });
+
+    const storyCaptionEl = document.getElementById('story-caption');
+
+    let storyInput;
+
+    const storyEnter = () => {
+        const nextNode = storyInput.enter();
+        if (nextNode) storyLifecycle(nextNode);
+    };
+
+    const storyRendering = dataNavigator.rendering({
+        elementData: storyStructure.nodes,
+        defaults: { cssClass: 'dn-story-node' },
+        suffixId: 'story',
+        root: {
+            id: 'story-wrapper',
+            description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
+            width: '100%',
+            height: 0
+        },
+        entryButton: { include: true, callbacks: { click: storyEnter } },
+        exitElement: { include: true }
+    });
+    storyRendering.initialize();
+
+    storyExitHandler = () => {
+        storyRendering.exitElement.style.display = 'block';
+        storyInput.focus(storyRendering.exitElement.id);
+        if (storyCurrent) { storyRendering.remove(storyCurrent); storyCurrent = null; }
+        storyInspector.clear();
+        if (storyCaptionEl) storyCaptionEl.textContent = '';
+    };
+
+    storyInput = dataNavigator.input({
+        structure: storyStructure,
+        navigationRules: storyStructure.navigationRules,
+        entryPoint: 'st-01',
+        exitPoint: storyRendering.exitElement?.id
+    });
+
+    const storyMove = direction => {
+        const nextNode = storyInput.move(storyCurrent, direction);
+        if (nextNode) storyLifecycle(nextNode);
+    };
+
+    const storyLifecycle = nextNode => {
+        if (storyPrevious) storyRendering.remove(storyPrevious);
+        const element = storyRendering.render({ renderId: nextNode.renderId, datum: nextNode });
+        element.addEventListener('keydown', e => {
+            const direction = storyInput.keydownValidator(e);
+            if (direction) { e.preventDefault(); storyMove(direction); }
+        });
+        element.addEventListener('focus', () => {
+            storyInspector.highlight(nextNode.renderId);
+            if (storyCaptionEl) storyCaptionEl.textContent = nextNode.data.caption || nextNode.semantics.label;
+        });
+        element.addEventListener('blur', () => { storyInspector.clear(); });
+        storyInput.focus(nextNode.renderId);
+        storyPrevious = storyCurrent;
+        storyCurrent = nextNode.id;
+    };
+
+    cleanup = () => {
+        if (rendering) rendering.clearStructure();
+        if (storyRendering) storyRendering.clearStructure();
+    };
 });
 
 onUnmounted(() => { if (cleanup) cleanup(); });
@@ -773,29 +972,39 @@ export function createInput(structure, exitPointId) {
 
 You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/bespoke).
 
-<!--
+## Story Mode: Navigating Through Time
 
-The story for this project has been to make a complex, custom chart navigable using data navigator.
+The story for this project has been to make a complex, custom chart navigable using data-navigator.
 
 In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
 
-We describe the chart as if we are describing layers of sediment: starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data navigator (we could just write an alt document or accompanying layer for this).
+We describe the chart as if we are describing layers of sediment — starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data-navigator (we could just write an alt document or accompanying layer for this).
 
-But instead, we wanted to couple navigation (that is screen reader accessible as well as accessible via keyboard) to visual captions that change while you navigate. This makes it useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website somewhere.
+But instead, we wanted to couple navigation (screen reader accessible as well as keyboard accessible) to visual captions that change while you navigate. This makes it useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website.
 
-<svg width="4096" height="2821" viewBox="0 0 4096 2821" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="5" y="409" width="3751" height="199" stroke="black" stroke-width="10"/>
-<rect x="5" y="618" width="3751" height="47" stroke="black" stroke-width="10"/>
-<rect x="5" y="675" width="3751" height="47" stroke="black" stroke-width="10"/>
-<rect x="5" y="732" width="3751" height="147" stroke="black" stroke-width="10"/>
-<rect x="5" y="889" width="3751" height="275" stroke="black" stroke-width="10"/>
-<rect x="5" y="1174" width="3751" height="331" stroke="black" stroke-width="10"/>
-<rect x="5" y="1515" width="3751" height="58" stroke="black" stroke-width="10"/>
-<rect x="5" y="1576" width="3751" height="177" stroke="black" stroke-width="10"/>
-<rect x="5" y="1763" width="3751" height="152" stroke="black" stroke-width="10"/>
-<rect x="5" y="1925" width="3751" height="84" stroke="black" stroke-width="10"/>
-<rect x="5" y="2019" width="3751" height="166" stroke="black" stroke-width="10"/>
-<rect x="5" y="2195" width="3751" height="118" stroke="black" stroke-width="10"/>
-<rect x="5" y="2323" width="3751" height="254" stroke="black" stroke-width="10"/>
-</svg>
--->
+### Keyboard Controls
+
+| Command                              | Key                                         |
+| ------------------------------------ | ------------------------------------------- |
+| Enter the structure                  | Activate the "Enter navigation area" button |
+| Navigate forward (down through time) | <kbd>↓</kbd>                                |
+| Navigate backward (up through time)  | <kbd>↑</kbd>                                |
+| Exit                                 | <kbd>Esc</kbd>                              |
+
+### Chart + Caption
+
+<div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
+    <div>
+        <h3>Stratigraphic Layers</h3>
+        <div id="story-wrapper" style="position: relative; display: inline-block;">
+            <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
+        </div>
+        <div id="story-caption" role="status" aria-live="polite" style="margin-top: 0.75rem; min-height: 3em; max-width: 512px; padding: 0.75rem; background: var(--vp-c-bg-soft); border-radius: 6px; border: 1px solid var(--vp-c-divider);">
+            Navigate through the layers to explore the geological history of Wisconsin.
+        </div>
+    </div>
+    <div>
+        <h3>Structure Inspector</h3>
+        <div id="story-inspector" style="min-height: 350px;"></div>
+    </div>
+</div>
