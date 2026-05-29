@@ -182,7 +182,7 @@ export const structure = {
         walworth: {
             id: 'walworth',
             renderId: 'walworth',
-            edges: ['gsnee-walworth-out', 'zenda-walworth', 'walworth-pierce-lr', 'any-exit'],
+            edges: ['gsnee-walworth-out', 'zenda-walworth', 'holy-hill-walworth-l', 'walworth-pierce-lr', 'any-exit'],
             data: {},
             semantics: { label: 'Walworth. Till unit. NE/E glacial sediment.' },
             spatialProperties: { x: 404, y: 242, width: 53, height: 32 }
@@ -273,6 +273,7 @@ export const structure = {
         'oak-creek-zenda-r': { source: 'oak-creek', target: 'zenda', navigationRules: ['right'] }, // right only
         'holy-hill-zenda-l': { source: 'holy-hill', target: 'zenda', navigationRules: ['left'] }, // left only (at zenda ← → holy-hill)
         'zenda-pierce-r': { source: 'zenda', target: 'pierce', navigationRules: ['right'] }, // right only
+        'holy-hill-walworth-l': { source: 'holy-hill', target: 'walworth', navigationRules: ['left'] }, // left only (at walworth ← → holy-hill)
         'walworth-pierce-lr': { source: 'walworth', target: 'pierce', navigationRules: ['left', 'right'] }, // r/l
         // Exit
         'any-exit': {

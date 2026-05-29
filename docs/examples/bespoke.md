@@ -147,7 +147,7 @@ onMounted(async () => {
             },
             'walworth': {
                 id: 'walworth', renderId: 'walworth',
-                edges: ['gsnee-walworth-out', 'zenda-walworth', 'walworth-pierce-lr', 'any-exit'],
+                edges: ['gsnee-walworth-out', 'zenda-walworth', 'holy-hill-walworth-l', 'walworth-pierce-lr', 'any-exit'],
                 data: {},
                 semantics: { label: 'Walworth. Till unit. NE/E glacial sediment.' },
                 spatialProperties: { x: 404, y: 242, width: 53, height: 32 }
@@ -194,6 +194,7 @@ onMounted(async () => {
             'oak-creek-zenda-r':           { source: 'oak-creek',    target: 'zenda',          navigationRules: ['right'] },         // right only
             'holy-hill-zenda-l':           { source: 'holy-hill',    target: 'zenda',          navigationRules: ['left'] },          // left only (at zenda ← → holy-hill)
             'zenda-pierce-r':              { source: 'zenda',        target: 'pierce',         navigationRules: ['right'] },         // right only
+            'holy-hill-walworth-l':        { source: 'holy-hill',    target: 'walworth',       navigationRules: ['left'] },          // left only (at walworth ← → holy-hill)
             'walworth-pierce-lr':          { source: 'walworth',     target: 'pierce',         navigationRules: ['left', 'right'] }, // r/l
             // Exit
             'any-exit': {
@@ -565,7 +566,7 @@ export const structure = {
         walworth: {
             id: 'walworth',
             renderId: 'walworth',
-            edges: ['gsnee-walworth-out', 'zenda-walworth', 'walworth-pierce-lr', 'any-exit'],
+            edges: ['gsnee-walworth-out', 'zenda-walworth', 'holy-hill-walworth-l', 'walworth-pierce-lr', 'any-exit'],
             data: {},
             semantics: { label: 'Walworth. Till unit. NE/E glacial sediment.' },
             spatialProperties: { x: 404, y: 242, width: 53, height: 32 }
@@ -771,3 +772,30 @@ export function createInput(structure, exitPointId) {
 :::
 
 You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/bespoke).
+
+<!--
+
+The story for this project has been to make a complex, custom chart navigable using data navigator.
+
+In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
+
+We describe the chart as if we are describing layers of sediment: starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data navigator (we could just write an alt document or accompanying layer for this).
+
+But instead, we wanted to couple navigation (that is screen reader accessible as well as accessible via keyboard) to visual captions that change while you navigate. This makes it useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website somewhere.
+
+<svg width="4096" height="2821" viewBox="0 0 4096 2821" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="5" y="409" width="3751" height="199" stroke="black" stroke-width="10"/>
+<rect x="5" y="618" width="3751" height="47" stroke="black" stroke-width="10"/>
+<rect x="5" y="675" width="3751" height="47" stroke="black" stroke-width="10"/>
+<rect x="5" y="732" width="3751" height="147" stroke="black" stroke-width="10"/>
+<rect x="5" y="889" width="3751" height="275" stroke="black" stroke-width="10"/>
+<rect x="5" y="1174" width="3751" height="331" stroke="black" stroke-width="10"/>
+<rect x="5" y="1515" width="3751" height="58" stroke="black" stroke-width="10"/>
+<rect x="5" y="1576" width="3751" height="177" stroke="black" stroke-width="10"/>
+<rect x="5" y="1763" width="3751" height="152" stroke="black" stroke-width="10"/>
+<rect x="5" y="1925" width="3751" height="84" stroke="black" stroke-width="10"/>
+<rect x="5" y="2019" width="3751" height="166" stroke="black" stroke-width="10"/>
+<rect x="5" y="2195" width="3751" height="118" stroke="black" stroke-width="10"/>
+<rect x="5" y="2323" width="3751" height="254" stroke="black" stroke-width="10"/>
+</svg>
+-->
