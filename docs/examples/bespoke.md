@@ -1398,8 +1398,8 @@ export const storyStructure = {
         <script type="importmap">
             {
                 "imports": {
-                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                    "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
+                    "data-navigator": "https://cdn.jsdelivr.net/npm/data-navigator@2.4.1/dist/index.js",
+                    "@data-navigator/inspector": "https://cdn.jsdelivr.net/npm/@data-navigator/inspector@1.2.0/src/inspector.js",
                     "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
                     "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
                     "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
