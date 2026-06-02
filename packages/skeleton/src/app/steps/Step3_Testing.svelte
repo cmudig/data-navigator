@@ -52,6 +52,9 @@
     let focusedNodeData  = $state<Record<string, unknown> | null>(null);
     let focusedNodeLabel = $state<string>('');
 
+    interface NavDirection { rule: string; key: string; destLabel: string; }
+    let focusedNodeDirections = $state<NavDirection[]>([]);
+
     type EventKind = 'enter' | 'navigate' | 'exit' | 'select' | 'hover' | 'keypress';
     interface EventLogEntry {
         id: number; kind: EventKind; timestamp: number;
@@ -76,6 +79,13 @@
     // ─── Derived ────────────────────────────────────────────────────────────────
     const canvasWidth  = $derived(imageWidth  ?? 800);
     const canvasHeight = $derived(imageHeight ?? 600);
+
+    let canvasScalerWidth = $state(0);
+    const canvasScale = $derived(
+        canvasScalerWidth > 0 && canvasWidth > 0
+            ? Math.min(1, canvasScalerWidth / canvasWidth)
+            : 1
+    );
 
     const dnStructure = $derived.by<DNStructure | null>(() => {
         if (nodes.size === 0) return null;
@@ -185,7 +195,40 @@
         currentNodeId    = id;
         focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
         focusedNodeLabel = label;
-        console.log('[Step3] node.semantics.label:', (node.semantics as { label?: string })?.label);
+
+        // Build per-direction navigation targets. Mirror input.ts: first valid edge
+        // per rule wins (input.ts breaks after the first match, so later edges for
+        // the same rule — e.g. the far side of a circular sibling ring — are never
+        // reached and must not appear here either).
+        const edgeIds = (node.edges as string[] | undefined) ?? [];
+        const dirs: NavDirection[] = [];
+        const seenRules = new Set<string>();
+        const edgeMap = dnStructure?.edges as Record<string, { source: string; target: string; navigationRules: string[] }> | undefined;
+        const navRuleMap = dnStructure?.navigationRules as Record<string, { key: string; direction: string }> | undefined;
+        const nodeMap = dnStructure?.nodes as Record<string, { renderId?: string }> | undefined;
+        for (const edgeId of edgeIds) {
+            const edge = edgeMap?.[edgeId];
+            if (!edge) continue;
+            for (const ruleName of edge.navigationRules) {
+                if (seenRules.has(ruleName)) continue; // first match wins
+                const navRule = navRuleMap?.[ruleName];
+                if (!navRule) continue;
+                // DN logic: resolvedNodes[navRule.direction] is the destination,
+                // but only when that node is NOT the current focus.
+                // direction='target' → dest = edge.target (valid when current = source)
+                // direction='source' → dest = edge.source (valid when current = target)
+                let destId: string | null = null;
+                if (navRule.direction === 'target' && edge.target !== id) destId = edge.target;
+                else if (navRule.direction === 'source' && edge.source !== id) destId = edge.source;
+                if (!destId) continue;
+                seenRules.add(ruleName);
+                const destRenderId = (nodeMap?.[destId]?.renderId as string) || destId;
+                const destLabel = dnStructure?.elementData?.[destRenderId]?.semantics?.label ?? destId;
+                dirs.push({ rule: ruleName, key: navRule.key, destLabel });
+            }
+        }
+        focusedNodeDirections = dirs;
+
         setFocusedElement(id, rId);
         dnInspector?.highlight(rId);
         logEvent({ kind: 'navigate', nodeLabel: label });
@@ -200,6 +243,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
         setFocusedElement(null);
         dnInspector?.clear();
         if (dnRenderer?.exitElement) {
@@ -277,6 +321,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
         eventLog         = [];
         setFocusedElement(null);
         dnInspector?.clear();
@@ -340,6 +385,7 @@
         currentNodeId    = null;
         focusedNodeData  = null;
         focusedNodeLabel = '';
+        focusedNodeDirections = [];
 
         const canvasEl = document.getElementById('dn-test-canvas-root');
         if (canvasEl) {
@@ -450,35 +496,15 @@
                 </label>
             </div>
 
-            <!-- Screen reader announcement (above canvas) -->
-            {#if focusedNodeLabel || focusedNodeData}
-                <div class="sr-announcement">
-                    <div class="sr-section">
-                        <span class="sr-label">Label (crafted):</span>
-                        <span class="sr-value">{focusedNodeLabel || '—'}</span>
-                    </div>
-                    {#if focusedNodeData && Object.keys(focusedNodeData).length > 0}
-                        <details>
-                            <summary>Data for current node</summary>
-                            <table class="output-table">
-                                <tbody>
-                                    {#each Object.entries(focusedNodeData) as [key, val]}
-                                        <tr>
-                                            <th scope="row">{key}</th>
-                                            <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
-                                        </tr>
-                                    {/each}
-                                </tbody>
-                            </table>
-                        </details>
-                    {/if}
-                </div>
-            {/if}
-
+            <div
+                class="canvas-scaler"
+                bind:clientWidth={canvasScalerWidth}
+                style="height: {canvasHeight * canvasScale}px;"
+            >
             <div
                 id="dn-test-canvas-root"
                 class="canvas-root"
-                style="width:{canvasWidth}px; height:{canvasHeight}px;"
+                style="width:{canvasWidth}px; height:{canvasHeight}px; --canvas-scale:{canvasScale}; transform: scale({canvasScale}); transform-origin: top left;"
             >
                 {#if imageDataUrl}
                     <img
@@ -570,6 +596,48 @@
 
                 <!-- DN wrapper + nodes appended by renderer.initialize() -->
             </div>
+            </div><!-- /.canvas-scaler -->
+
+            <!-- Screen reader announcement (above canvas) -->
+            {#if focusedNodeLabel || focusedNodeData || focusedNodeDirections.length > 0}
+                <div class="sr-announcement">
+                    <div class="sr-section">
+                        <span class="sr-label">Screen reader announcement:</span>
+                        <span class="sr-value">{focusedNodeLabel || '—'}</span>
+                    </div>
+                    {#if focusedNodeDirections.length > 0 || (focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0)}
+                        <details>
+                            <summary>Info for current node</summary>
+                            {#if focusedNodeDirections.length > 0}
+                                <h4 class="sr-subheading">Navigation</h4>
+                                <table class="output-table">
+                                    <tbody>
+                                        {#each focusedNodeDirections as dir}
+                                            <tr>
+                                                <th scope="row">{dir.rule} (<kbd>{dir.key}</kbd>)</th>
+                                                <td>→ {dir.destLabel}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            {/if}
+                            {#if focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0}
+                                <h4 class="sr-subheading">Node data</h4>
+                                <table class="output-table">
+                                    <tbody>
+                                        {#each Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')) as [key, val]}
+                                            <tr>
+                                                <th scope="row">{key}</th>
+                                                <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            {/if}
+                        </details>
+                    {/if}
+                </div>
+            {/if}
 
     {#if nodes.size === 0}
         <p class="empty-hint">Build your node graph in the Editor step, then return here to test.</p>
@@ -646,7 +714,7 @@
 </aside>
 
 <style>
-    /* ─── Canvas controls (show nodes/edges, above sr-announcement) ─────────── */
+    /* ─── Canvas controls (show nodes/edges, above canvas) ─────────── */
     .canvas-controls {
         display: flex;
         gap: 10px;
@@ -683,6 +751,10 @@
         background: var(--dn-surface);
         height: 100%;
         font-size: 0.875rem;
+    }
+
+    :global(.inspector-panel .dn-inspector-tooltip) {
+        display: none;
     }
 
     .inspector-header {
@@ -723,11 +795,11 @@
         font-size: 0.875rem;
     }
 
-    /* ─── Screen reader announcement (above canvas) ──────────────────────────── */
+    /* ─── Screen reader announcement (below canvas) ──────────────────────────── */
     .sr-announcement {
         width: 100%;
         padding: 8px 10px;
-        background: var(--dn-surface);
+        /* background: var(--dn-surface); */
         border: 1px solid var(--dn-border);
         border-radius: 4px;
         display: flex;
@@ -740,6 +812,11 @@
         gap: 6px;
         align-items: baseline;
         flex-wrap: wrap;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        padding: 6px;
+        border-radius: 4px;
+        color: #166534;
     }
 
     .sr-label {
@@ -747,15 +824,22 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--dn-text-muted);
         white-space: nowrap;
         flex-shrink: 0;
     }
 
     .sr-value {
         font-size: 0.8rem;
-        color: var(--dn-text);
         line-height: 1.4;
+    }
+
+    .sr-subheading {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--dn-muted);
+        margin: 8px 0 2px;
     }
 
     .output-table {
@@ -779,12 +863,32 @@
         width: 1%;
     }
 
-    .canvas-root {
+    /* Wrapper that measures available width and sizes to the scaled visual height */
+    .canvas-scaler {
+        width: 100%;
         position: relative;
         flex-shrink: 0;
+        /* overflow: visible so focus outlines on edge nodes aren't clipped */
+    }
+
+    .canvas-root {
+        /* Absolute so the scaler (not canvas-root) controls layout height */
+        position: absolute;
+        top: 0;
+        left: 0;
         border: 1px solid var(--dn-border);
         border-radius: 4px;
         overflow: visible;
+    }
+
+    .output-table kbd {
+        font-size: 0.72rem;
+        padding: 1px 5px;
+        margin: 0px 2px;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: 3px;
+        color: var(--dn-text);
     }
 
     .canvas-bg {
@@ -1078,8 +1182,9 @@
     :global(#dn-test-canvas-root .dn-node.nav-focused) {
         opacity: 1;
         pointer-events: auto;
-        outline: 2px solid var(--dn-accent);
-        outline-offset: 2px;
+        /* Divide by --canvas-scale so the outline stays ~2px wide visually at any zoom */
+        /* outline: calc(2px / var(--canvas-scale, 1)) solid var(--dn-accent); */
+        outline-offset: calc(2px / var(--canvas-scale, 1));
     }
 
     :global(#dn-test-canvas-root .dn-node-svg) {
@@ -1089,8 +1194,8 @@
 
     :global(#dn-test-canvas-root .dn-node-path) {
         fill: none;
-        stroke: var(--dn-accent);
-        stroke-width: 2px;
+        stroke: #333;
+        stroke-width: calc(3px / var(--canvas-scale, 1));
     }
 
     :global(#dn-test-canvas-root .dn-exit-position) {

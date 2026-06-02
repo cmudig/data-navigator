@@ -3,7 +3,7 @@ import { appState } from './appState';
 import { serializeAppState, applySerializedState } from '../utils/saveLoad';
 import type { SerializedState } from '../utils/saveLoad';
 
-const MAX_HISTORY = 20;
+const MAX_HISTORY = 50;
 
 export interface HistoryEntry {
     label: string;

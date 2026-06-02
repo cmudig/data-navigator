@@ -1,30 +1,56 @@
 <script lang="ts">
+    import { get } from 'svelte/store';
     import { appState } from '../../store/appState';
 
+    // ─── Initialize from persisted store ──────────────────────────────────────
+    const _s = get(appState);
+
     // ─── Image upload ──────────────────────────────────────────────────────────
-    let imageDataUrl: string | null = $state(null);
-    let imageWidth: number | null = $state(null);
-    let imageHeight: number | null = $state(null);
+    let imageDataUrl: string | null = $state(_s.imageDataUrl);
+    let imageWidth: number | null = $state(_s.imageWidth);
+    let imageHeight: number | null = $state(_s.imageHeight);
     let imageStatus = $state('');
     let imageDragging = $state(false);
     let imageFileInput: HTMLInputElement;
 
     // ─── Data upload ───────────────────────────────────────────────────────────
-    let uploadedData: Record<string, unknown>[] | null = $state.raw(null);
-    let uploadedDataRaw: { filename: string; content: string } | null = $state.raw(null);
+    let uploadedData: Record<string, unknown>[] | null = $state.raw(_s.uploadedData);
+    let uploadedDataRaw: { filename: string; content: string } | null = $state.raw(_s.uploadedDataRaw);
     let dataStatus = $state('');
     let dataDragging = $state(false);
     let dataFileInput: HTMLInputElement;
 
-    // ─── Example loaders ───────────────────────────────────────────────────────
+    // ─── Examples ─────────────────────────────────────────────────────────────
     const BASE = import.meta.env.BASE_URL;
 
-    async function useExampleImage() {
-        imageStatus = 'Loading example image…';
+    const EXAMPLES = [
+        { label: 'Bar Chart',         image: 'skeleton_starter.png', data: 'skeleton_starter.json' },
+        { label: 'Stacked Bar Chart', image: 'stack.png',            data: 'stack.json' },
+        { label: 'Line Chart',        image: 'line.png',             data: 'line.json' },
+        { label: 'Scatter Plot',      image: 'scatter.png',          data: 'scatter.json' },
+    ] as const;
+
+    async function loadExample(imageFile: string, dataFile: string) {
+        imageStatus = 'Loading example…';
+        dataStatus  = 'Loading example…';
         try {
-            const res = await fetch(`${BASE}skeleton_starter.png`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const blob = await res.blob();
+            const [imgRes, dataRes] = await Promise.all([
+                fetch(`${BASE}${imageFile}`),
+                fetch(`${BASE}${dataFile}`),
+            ]);
+            if (!imgRes.ok) throw new Error(`Image HTTP ${imgRes.status}`);
+            if (!dataRes.ok) throw new Error(`Data HTTP ${dataRes.status}`);
+
+            const [blob, content] = await Promise.all([imgRes.blob(), dataRes.text()]);
+
+            // Parse data
+            const data: Record<string, unknown>[] = JSON.parse(content);
+            const raw = { filename: dataFile, content };
+            uploadedData = data;
+            uploadedDataRaw = raw;
+            dataStatus = `Example dataset loaded (${data.length} row${data.length !== 1 ? 's' : ''}).`;
+
+            // Parse image via FileReader
             const reader = new FileReader();
             reader.onload = () => {
                 const dataUrl = reader.result as string;
@@ -34,42 +60,29 @@
                     imageWidth = img.naturalWidth || null;
                     imageHeight = img.naturalHeight || null;
                     imageStatus = `Example image loaded${imageWidth ? ` (${imageWidth}×${imageHeight})` : ''}.`;
-                    appState.update(s => ({ ...s, imageDataUrl, imageWidth, imageHeight }));
+                    appState.update(s => ({ ...s, imageDataUrl, imageWidth, imageHeight, uploadedData: data, uploadedDataRaw: raw }));
                 };
                 img.onerror = () => {
                     imageDataUrl = dataUrl;
                     imageWidth = null; imageHeight = null;
                     imageStatus = 'Example image loaded.';
-                    appState.update(s => ({ ...s, imageDataUrl, imageWidth: null, imageHeight: null }));
+                    appState.update(s => ({ ...s, imageDataUrl, imageWidth: null, imageHeight: null, uploadedData: data, uploadedDataRaw: raw }));
                 };
                 img.src = dataUrl;
             };
             reader.readAsDataURL(blob);
         } catch (e) {
-            imageStatus = `Error loading example image: ${(e as Error).message}`;
+            imageStatus = `Error loading example: ${(e as Error).message}`;
+            dataStatus  = '';
         }
     }
 
-    async function useExampleData(filename: 'skeleton_starter.json' | 'seattle-weather.csv') {
-        dataStatus = 'Loading example dataset…';
-        try {
-            const res = await fetch(`${BASE}${filename}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const content = await res.text();
-            let data: Record<string, unknown>[];
-            if (filename.endsWith('.json')) {
-                data = JSON.parse(content);
-            } else {
-                data = parseCSV(content);
-            }
-            const raw = { filename, content };
-            uploadedData = data;
-            uploadedDataRaw = raw;
-            dataStatus = `Example dataset loaded (${data.length} row${data.length !== 1 ? 's' : ''}).`;
-            appState.update(s => ({ ...s, uploadedData: data, uploadedDataRaw: raw }));
-        } catch (e) {
-            dataStatus = `Error loading example dataset: ${(e as Error).message}`;
-        }
+    function onExampleChange(e: Event) {
+        const val = (e.target as HTMLSelectElement).value;
+        if (!val) return;
+        const [imageFile, dataFile] = val.split('|');
+        loadExample(imageFile, dataFile);
+        (e.target as HTMLSelectElement).value = '';
     }
 
     // ─── Minimal CSV parser ───────────────────────────────────────────────────
@@ -323,11 +336,6 @@
                     </div>
                 {/if}
             </div>
-            {#if imageDataUrl === null}
-                <button class="btn-example" type="button" onclick={useExampleImage}>
-                    Use example image
-                </button>
-            {/if}
         </div>
 
         <!-- ── Data zone + example ──────────────────────────────────────────── -->
@@ -413,17 +421,18 @@
                     </div>
                 {/if}
             </div>
-            {#if uploadedData === null}
-                <div class="btn-example-group">
-                    <button class="btn-example" type="button" onclick={() => useExampleData('skeleton_starter.json')}>
-                        Use example dataset (JSON)
-                    </button>
-                    <button class="btn-example" type="button" onclick={() => useExampleData('seattle-weather.csv')}>
-                        Use example dataset (seattle-weather.csv)
-                    </button>
-                </div>
-            {/if}
         </div>
+    </div>
+
+    <!-- ── Examples dropdown ───────────────────────────────────────────────── -->
+    <div class="examples-row">
+        <label for="example-select" class="examples-label">Load an example</label>
+        <select id="example-select" class="examples-select" onchange={onExampleChange}>
+            <option value="">— choose an example —</option>
+            {#each EXAMPLES as ex}
+                <option value="{ex.image}|{ex.data}">{ex.label}</option>
+            {/each}
+        </select>
     </div>
 
     <!-- aria-live status regions (screen-reader announcements) -->
@@ -478,32 +487,44 @@
         gap: calc(var(--dn-space) * 1);
     }
 
-    .btn-example-group {
+    /* ── Examples dropdown ─────────────────────────────────────────────────── */
+
+    .examples-row {
         display: flex;
-        flex-direction: column;
-        gap: calc(var(--dn-space) * 0.5);
+        align-items: center;
+        gap: calc(var(--dn-space) * 1.5);
+        flex-wrap: wrap;
     }
 
-    .btn-example {
-        display: block;
-        width: 100%;
-        background: transparent;
-        border: 1px dashed var(--dn-border);
-        border-radius: var(--dn-radius);
-        color: var(--dn-accent-light);
-        font-family: var(--dn-font);
-        font-size: 0.8125rem;
+    .examples-label {
+        font-size: 0.875rem;
         font-weight: 500;
-        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1.5);
-        cursor: pointer;
-        text-align: center;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-        min-height: 36px;
+        color: var(--dn-text-muted);
+        white-space: nowrap;
     }
 
-    .btn-example:hover {
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
+    .examples-select {
+        flex: 1;
+        min-width: 180px;
+        max-width: 300px;
+        background: var(--dn-surface);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        color: var(--dn-text);
+        font-family: var(--dn-font);
+        font-size: 0.875rem;
+        padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+
+    .examples-select:focus-visible {
+        outline: 3px solid var(--dn-accent);
+        outline-offset: 2px;
+        border-color: var(--dn-accent);
+    }
+
+    .examples-select:hover {
         border-color: var(--dn-accent-light);
     }
 

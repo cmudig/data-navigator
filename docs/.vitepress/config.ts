@@ -166,7 +166,8 @@ export default defineConfig({
                     text: 'Advanced Examples',
                     items: [
                         { text: 'Interactive Elements', link: '/examples/interactive-elements' },
-                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' }
+                        { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
+                        { text: 'Bespoke Visualization', link: '/examples/bespoke' }
                     ]
                 }
             ],

@@ -8,7 +8,7 @@
 
 import type { ScaffoldConfig } from '../store/appState';
 import type { SkeletonNode, SkeletonEdge } from '../store/types';
-import type { VegaLiteSpec } from './vegaBuilder';
+import type { VegaLiteSpec, Row } from './vegaBuilder';
 import { defaultRenderProperties, defaultSemantics } from '../store/nodeFactory';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -221,13 +221,20 @@ function translatePathData(d: string, dx: number, dy: number): string {
  * because view.scale() uses the internal scale functions, not DOM layout.
  *
  * Supports: bar, stacked-bar, clustered-bar, scatter.
+ *
+ * @param data - The resolved data rows (same rows passed to buildVegaSpec).
+ *               Required for stacked-bar to compute per-segment cumulative offsets.
  */
 export function positionNodesFromVegaScales(
     view: import('vega').View,
     nodes: SkeletonNode[],
-    config: ScaffoldConfig
-): Map<string, { x: number; y: number; width: number; height: number }> {
-    const updates = new Map<string, { x: number; y: number; width: number; height: number }>();
+    config: ScaffoldConfig,
+    data: Row[] = []
+): Map<string, { x: number; y: number; width: number; height: number; pathData?: string; shape?: 'path' }> {
+    const updates = new Map<
+        string,
+        { x: number; y: number; width: number; height: number; pathData?: string; shape?: 'path' }
+    >();
     const xField = config.xField;
     const yField = config.yField;
     if (!xField || !yField) return updates;
@@ -240,9 +247,8 @@ export function positionNodesFromVegaScales(
 
     const leafNodes = nodes.filter(n => n.dnLevel === 3);
 
-    if (config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar') {
+    if (config.chartType === 'bar' || config.chartType === 'clustered-bar') {
         if (config.barOrientation === 'horizontal') {
-            // For horizontal bars: y is the band scale (categorical), x is linear (quantitative)
             type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
             const yBandScale = view.scale('y') as BandScaleH | undefined;
             const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
@@ -265,13 +271,11 @@ export function positionNodesFromVegaScales(
         } else {
             const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
             const yZero = yScale(0) ?? config.plotHeight;
-
             for (const node of leafNodes) {
                 const catVal = node.data[xField];
                 const numVal = Number(node.data[yField] ?? 0);
                 const scaledX = xScale(catVal);
                 if (scaledX === undefined || isNaN(scaledX as number)) continue;
-
                 const barTop = yScale(numVal);
                 updates.set(node.id, {
                     x: (scaledX as number) + config.paddingLeft + config.offsetX,
@@ -281,18 +285,156 @@ export function positionNodesFromVegaScales(
                 });
             }
         }
+    } else if (config.chartType === 'stacked-bar') {
+        // Stacked bars: each segment's y position depends on the cumulative sum of
+        // all segments below it. We compute stack offsets from the data ourselves so
+        // we don't need to reach into Vega's internal transform state.
+        const colorField = config.colorField;
+        if (!colorField) {
+            // No series field — fall back to plain-bar positioning
+            if (config.barOrientation === 'horizontal') {
+                type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
+                const yBandScale = view.scale('y') as BandScaleH | undefined;
+                const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
+                if (!yBandScale || !xLinScale) return updates;
+                const bh = yBandScale.bandwidth ? yBandScale.bandwidth() : 20;
+                const xZero = xLinScale(0) ?? 0;
+                for (const node of leafNodes) {
+                    const catVal = node.data[xField];
+                    const numVal = Number(node.data[yField] ?? 0);
+                    const scaledY = yBandScale(catVal);
+                    if (scaledY === undefined || isNaN(scaledY as number)) continue;
+                    const barRight = xLinScale(numVal);
+                    updates.set(node.id, {
+                        x: (xZero as number) + config.paddingLeft + config.offsetX,
+                        y: (scaledY as number) + config.paddingTop + config.offsetY,
+                        width: Math.max(1, (barRight as number) - (xZero as number)),
+                        height: bh
+                    });
+                }
+            } else {
+                const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
+                const yZero = yScale(0) ?? config.plotHeight;
+                for (const node of leafNodes) {
+                    const catVal = node.data[xField];
+                    const numVal = Number(node.data[yField] ?? 0);
+                    const scaledX = xScale(catVal);
+                    if (scaledX === undefined || isNaN(scaledX as number)) continue;
+                    const barTop = yScale(numVal);
+                    updates.set(node.id, {
+                        x: (scaledX as number) + config.paddingLeft + config.offsetX,
+                        y: barTop + config.paddingTop + config.offsetY,
+                        width: bw,
+                        height: Math.max(1, (yZero as number) - barTop)
+                    });
+                }
+            }
+            return updates;
+        }
+
+        // Build a stack-offset map: Map<catVal, Map<colorVal, {y0, y1}>>
+        // Groups rows by xField; preserves data insertion order within each group
+        // (Vega-Lite stacks in data order by default — do NOT sort here).
+        const stackMap = new Map<unknown, Map<unknown, { y0: number; y1: number }>>();
+        const groupedData = new Map<unknown, Row[]>();
+        for (const row of data) {
+            const cat = row[xField];
+            if (!groupedData.has(cat)) groupedData.set(cat, []);
+            groupedData.get(cat)!.push(row);
+        }
+        for (const [cat, rows] of groupedData) {
+            const seriesMap = new Map<unknown, { y0: number; y1: number }>();
+            let cumulative = 0;
+            for (const row of rows) {
+                const val = Number(row[yField] ?? 0);
+                seriesMap.set(row[colorField], { y0: cumulative, y1: cumulative + val });
+                cumulative += val;
+            }
+            stackMap.set(cat, seriesMap);
+        }
+
+        if (config.barOrientation === 'horizontal') {
+            type BandScaleH = ((v: unknown) => number) & { bandwidth?: () => number };
+            const yBandScale = view.scale('y') as BandScaleH | undefined;
+            const xLinScale = view.scale('x') as ((v: unknown) => number) | undefined;
+            if (!yBandScale || !xLinScale) return updates;
+            const bh = yBandScale.bandwidth ? yBandScale.bandwidth() : 20;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const colorVal = node.data[colorField];
+                const offsets = stackMap.get(catVal)?.get(colorVal);
+                if (!offsets) continue;
+                const scaledY = yBandScale(catVal);
+                if (scaledY === undefined || isNaN(scaledY as number)) continue;
+                const x0 = xLinScale(offsets.y0) as number;
+                const x1 = xLinScale(offsets.y1) as number;
+                updates.set(node.id, {
+                    x: x0 + config.paddingLeft + config.offsetX,
+                    y: (scaledY as number) + config.paddingTop + config.offsetY,
+                    width: Math.max(1, x1 - x0),
+                    height: bh
+                });
+            }
+        } else {
+            const bw = xScale.bandwidth ? xScale.bandwidth() : 20;
+            for (const node of leafNodes) {
+                const catVal = node.data[xField];
+                const colorVal = node.data[colorField];
+                const offsets = stackMap.get(catVal)?.get(colorVal);
+                if (!offsets) continue;
+                const scaledX = xScale(catVal);
+                if (scaledX === undefined || isNaN(scaledX as number)) continue;
+                // y1 is the stack top (higher value = lower pixel Y in screen coords)
+                const pixY1 = yScale(offsets.y1);
+                const pixY0 = yScale(offsets.y0);
+                updates.set(node.id, {
+                    x: (scaledX as number) + config.paddingLeft + config.offsetX,
+                    y: pixY1 + config.paddingTop + config.offsetY,
+                    width: bw,
+                    height: Math.max(1, pixY0 - pixY1)
+                });
+            }
+        }
     } else if (config.chartType === 'scatter') {
-        const pointR = Math.sqrt((config.markParams.pointSize ?? 100) / Math.PI);
+        const pointR = Math.sqrt((config.markParams.pointSize ?? 300) / Math.PI);
         for (const node of leafNodes) {
             const xVal = Number(node.data[xField] ?? 0);
             const yVal = Number(node.data[yField] ?? 0);
             const px = xScale(xVal) as number;
-            const py = yScale(yVal);
+            const py = yScale(yVal) as number;
+            const cx = px + config.paddingLeft + config.offsetX;
+            const cy = py + config.paddingTop + config.offsetY;
             updates.set(node.id, {
-                x: px + config.paddingLeft + config.offsetX - pointR,
-                y: py + config.paddingTop + config.offsetY - pointR,
+                x: cx - pointR,
+                y: cy - pointR,
                 width: pointR * 2,
-                height: pointR * 2
+                height: pointR * 2,
+                pathData: `M ${cx - pointR},${cy} A ${pointR},${pointR},0,0,1,${cx + pointR},${cy} A ${pointR},${pointR},0,0,1,${cx - pointR},${cy} Z`,
+                shape: 'path'
+            });
+        }
+    } else if (config.chartType === 'line' || config.chartType === 'area') {
+        const pointR = Math.sqrt((config.markParams.pointSize ?? 300) / Math.PI);
+        for (const node of leafNodes) {
+            const xRaw = node.data[xField];
+            const yVal = Number(node.data[yField] ?? 0);
+            // Ordinal x (point/band scale): pass the raw value directly.
+            // Linear x: parse as number. Discriminate by whether bandwidth() exists,
+            // not its value — point scales have bandwidth() === 0 (falsy).
+            const hasOrdinalX = typeof (xScale as { bandwidth?: () => number }).bandwidth === 'function';
+            const xVal = hasOrdinalX ? xRaw : Number(xRaw ?? 0);
+            const bw = hasOrdinalX ? (xScale as { bandwidth: () => number }).bandwidth() / 2 : 0;
+            const px = (xScale(xVal) as number) + bw;
+            const py = yScale(yVal) as number;
+            const cx = px + config.paddingLeft + config.offsetX;
+            const cy = py + config.paddingTop + config.offsetY;
+            updates.set(node.id, {
+                x: cx - pointR,
+                y: cy - pointR,
+                width: pointR * 2,
+                height: pointR * 2,
+                pathData: `M ${cx - pointR},${cy} A ${pointR},${pointR},0,0,1,${cx + pointR},${cy} A ${pointR},${pointR},0,0,1,${cx - pointR},${cy} Z`,
+                shape: 'path'
             });
         }
     }
@@ -312,7 +454,7 @@ function makeId(): string {
  * Output per chart type:
  * - bar, scatter: one rect/ellipse node per mark
  * - stacked-bar, clustered-bar: one rect node per segment
- * - line, area: one path node per series (parent) + one ellipse per data point (child)
+ * - line, area: one ellipse node per data point (line path marks are ignored)
  */
 export function marksToNodes(
     marks: ExtractedMark[],
@@ -339,90 +481,31 @@ function buildLineAreaNodes(
     marks: ExtractedMark[],
     config: ScaffoldConfig
 ): { nodes: SkeletonNode[]; edges: SkeletonEdge[] } {
-    const nodes: SkeletonNode[] = [];
-    const edges: SkeletonEdge[] = [];
-
-    // Separate path marks (series) from point marks (data points)
-    const pathMarks = marks.filter(m => m.type === 'path');
+    // Line/area paths are visual connectors — only data point marks matter for navigation.
     const pointMarks = marks.filter(m => m.type !== 'path');
-
-    // Group point marks by seriesKey
-    const pointsBySeries = new Map<string, ExtractedMark[]>();
-    for (const pm of pointMarks) {
-        const key = pm.seriesKey ?? '__default__';
-        if (!pointsBySeries.has(key)) pointsBySeries.set(key, []);
-        pointsBySeries.get(key)!.push(pm);
-    }
-
-    if (pathMarks.length > 0) {
-        // Create one path node per series path
-        for (let si = 0; si < pathMarks.length; si++) {
-            const pm = pathMarks[si];
-            const seriesNodeId = makeId();
-            const seriesNode: SkeletonNode = {
-                id: seriesNodeId,
-                label: pm.seriesKey ? `Series: ${pm.seriesKey}` : `Series ${si + 1}`,
-                source: 'scaffold',
-                dnLevel: 2,
-                x: pm.x,
-                y: pm.y,
-                width: pm.width,
-                height: pm.height,
-                pathData: pm.pathData,
-                pathBounds: { x: pm.x, y: pm.y, width: pm.width, height: pm.height },
-                isEntry: false,
-                isCluster: false,
-                semantics: { ...defaultSemantics(), name: 'series' },
-                data: { series: pm.seriesKey ?? si },
-                renderProperties: {
-                    ...defaultRenderProperties(),
-                    shape: 'path',
-                    fill: '#6366f1',
-                    fillEnabled: true,
-                    opacity: 0.3,
-                    strokeWidth: 2,
-                    strokeColor: '#6366f1'
-                }
-            };
-            nodes.push(seriesNode);
-
-            // Find point marks for this series
-            const seriesKey = pm.seriesKey ?? '__default__';
-            const pts = pointsBySeries.get(seriesKey) ?? [];
-            for (let pi = 0; pi < pts.length; pi++) {
-                const pt = pts[pi];
-                const pointNodeId = makeId();
-                const pointNode = makeScaffoldNode(pt, config, pi);
-                pointNode.id = pointNodeId;
-                pointNode.dnLevel = 3;
-                pointNode.semantics = { ...defaultSemantics(), name: 'data point' };
-                nodes.push(pointNode);
-
-                // Edge: series → point (down)
-                edges.push({
-                    id: makeId(),
-                    sourceId: seriesNodeId,
-                    targetId: pointNodeId,
-                    direction: 'down',
-                    label: 'contains',
-                    dnProperties: {}
-                });
-            }
-        }
-    } else {
-        // No path marks extracted (e.g. area without visible path SVG element)
-        // Fall back to just creating point nodes
-        for (let i = 0; i < pointMarks.length; i++) {
-            nodes.push(makeScaffoldNode(pointMarks[i], config, i));
-        }
-    }
-
-    return { nodes, edges };
+    const nodes: SkeletonNode[] = pointMarks.map((pt, i) => {
+        const node = makeScaffoldNode(pt, config, i);
+        node.dnLevel = 3;
+        node.semantics = { ...defaultSemantics(), name: 'data point' };
+        return node;
+    });
+    return { nodes, edges: [] };
 }
 
 function makeScaffoldNode(mark: ExtractedMark, config: ScaffoldConfig, index: number): SkeletonNode {
-    const shape = mark.type === 'ellipse' ? 'ellipse' : mark.type === 'path' ? 'path' : 'rect';
+    let shape: 'rect' | 'ellipse' | 'path' =
+        mark.type === 'ellipse' ? 'ellipse' : mark.type === 'path' ? 'path' : 'rect';
+    let pathData = mark.pathData;
     const id = makeId();
+
+    // Convert scatter circles to SVG arc paths for consistent rendering
+    if (config.chartType === 'scatter' && shape === 'ellipse') {
+        shape = 'path';
+        const cx = mark.x + mark.width / 2;
+        const cy = mark.y + mark.height / 2;
+        const r = mark.width / 2;
+        pathData = `M ${cx - r},${cy} A ${r},${r},0,0,1,${cx + r},${cy} A ${r},${r},0,0,1,${cx - r},${cy} Z`;
+    }
 
     const node: SkeletonNode = {
         id,
@@ -448,8 +531,8 @@ function makeScaffoldNode(mark: ExtractedMark, config: ScaffoldConfig, index: nu
         }
     };
 
-    if (shape === 'path' && mark.pathData) {
-        node.pathData = mark.pathData;
+    if (shape === 'path' && pathData) {
+        node.pathData = pathData;
         node.pathBounds = { x: mark.x, y: mark.y, width: mark.width, height: mark.height };
     }
 

@@ -8,25 +8,31 @@
      */
     import { onDestroy } from 'svelte';
     import { appState } from '../../../store/appState';
-    import type { ScaffoldConfig } from '../../../store/appState';
-    import { buildVegaSpec } from '../../../utils/vegaBuilder';
+    import type { ScaffoldConfig, SchemaState } from '../../../store/appState';
+    import { buildVegaSpec, buildSyntheticData } from '../../../utils/vegaBuilder';
     import { get } from 'svelte/store';
     import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
+    import { detectFieldsForChartType } from '../../../utils/prepAdapter';
     import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
     import { setScaffoldView } from '../../../store/scaffoldRuntime';
     import { computeGroupPaths } from '../../../utils/groupShapes';
-    import type { BonusRect } from '../../../store/appState';
+    import type { DivisionExtents } from '../../../utils/groupShapes';
+    import type { BonusRect, GroupShapeConfig } from '../../../store/appState';
 
     // ── Store sync ────────────────────────────────────────────────────────────
     // $state.raw prevents Svelte 5 from wrapping these in a reactive proxy on each
     // subscriber assignment. Without .raw, every appState.update() (even node-only
     // changes) creates a new proxy object → dirtied signal → Vega $effect re-runs → loop.
     let config = $state.raw<ScaffoldConfig | null>(null);
+    let gs = $state.raw<GroupShapeConfig | null>(null);
     let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
+    let schemaState = $state.raw<SchemaState | null>(null);
 
     const _unsub = appState.subscribe(s => {
         config = s.scaffoldConfig;
+        gs = s.scaffoldConfig?.groupShapes ?? null;
         uploadedData = s.uploadedData;
+        schemaState = s.schemaState;
     });
     onDestroy(_unsub);
 
@@ -55,39 +61,62 @@
         renderError = null;
 
         try {
-            // If field mappings are missing, auto-detect them
-            if (!cfg.xField || !cfg.yField) {
+            // If any field mappings are missing, auto-detect them using chart-type-aware logic
+            if (!cfg.xField || !cfg.yField || !cfg.colorField) {
                 const s = get(appState);
-                let xField = cfg.xField;
-                let yField = cfg.yField;
+                const prepState = s.prepState;
+                const navAnswers = prepState?.qaProgress.chapters.find(c => c.id === 'navigation')?.answers ?? {};
 
-                // First try: included schemaState dimensions
-                const includedDims = s.schemaState.dimensions.filter(d => d.included);
-                xField = xField ?? includedDims.find(d => d.type === 'categorical')?.key;
-                yField = yField ?? includedDims.find(d => d.type === 'numerical')?.key;
+                // Build allColumns fallback: user-confirmed types in insertion order.
+                // Falls back to scanning the first data row when no prep has been run.
+                let allColumns: { key: string; type: 'categorical' | 'numerical' }[] =
+                    (prepState?.variables ?? [])
+                        .filter((v: { removed: boolean }) => !v.removed)
+                        .map((v: { key: string; type: 'categorical' | 'numerical' }) => ({ key: v.key, type: v.type }));
 
-                // Fallback: all schemaState dimensions (included or not)
-                if (!xField || !yField) {
-                    const allDims = s.schemaState.dimensions;
-                    xField = xField ?? allDims.find(d => d.type === 'categorical')?.key;
-                    yField = yField ?? allDims.find(d => d.type === 'numerical')?.key;
-                }
-
-                // Last resort: scan first data row for string vs number columns
-                if ((!xField || !yField) && s.uploadedData?.[0]) {
+                if (allColumns.length === 0 && s.uploadedData?.[0]) {
                     const row = s.uploadedData[0];
-                    xField = xField ?? Object.keys(row).find(k => typeof row[k] === 'string');
-                    yField = yField ?? Object.keys(row).find(k => typeof row[k] === 'number');
+                    allColumns = Object.keys(row).map(k => ({
+                        key: k,
+                        type: (typeof row[k] === 'number' ? 'numerical' : 'categorical') as 'categorical' | 'numerical'
+                    }));
                 }
 
-                if (xField !== cfg.xField || yField !== cfg.yField) {
-                    cfg = { ...cfg, xField, yField };
+                // Build enriched dims from schema, adding wizard nav-direction answers
+                const buildDims = (dimList: typeof s.schemaState.dimensions) =>
+                    dimList.map(d => ({
+                        key: d.key,
+                        type: d.type,
+                        navIndex: d.navIndex,
+                        navPreset: typeof navAnswers[`nav-within-${d.key}`] === 'string'
+                            ? (navAnswers[`nav-within-${d.key}`] as string)
+                            : undefined
+                    }));
+
+                let dims = buildDims(s.schemaState.dimensions.filter(d => d.included));
+                if (dims.length === 0) {
+                    dims = buildDims(s.schemaState.dimensions);
+                }
+
+                const detected = detectFieldsForChartType(cfg.chartType, dims, allColumns);
+                const xField = cfg.xField ?? detected.xField;
+                const yField = cfg.yField ?? detected.yField;
+                const colorField = cfg.colorField ?? detected.colorField;
+
+                if (xField !== cfg.xField || yField !== cfg.yField || colorField !== cfg.colorField) {
+                    cfg = { ...cfg, xField, yField, colorField };
                     appState.update(st => ({ ...st, scaffoldConfig: cfg }));
                 }
             }
 
-            const data = uploadedData ?? [];
-            const spec = buildVegaSpec(cfg, data);
+            const rawData = uploadedData ?? [];
+            // Resolve synthetic data so positionNodesFromVegaScales has real rows
+            // for stacked-bar stack-offset computation.
+            const resolvedData = cfg.dataMode === 'synthetic' && cfg.syntheticConfig
+                ? buildSyntheticData(cfg.syntheticConfig)
+                : rawData;
+
+            const spec = buildVegaSpec(cfg, rawData);
             const { view, cleanup } = await renderToHidden(spec);
 
             currentCleanup = cleanup;
@@ -97,13 +126,18 @@
             // Reposition existing leaf nodes using Vega scale functions
             const s = get(appState);
             const allNodes = [...s.nodes.values()];
-            const posUpdates = positionNodesFromVegaScales(view, allNodes, cfg);
+            const posUpdates = positionNodesFromVegaScales(view, allNodes, cfg, resolvedData);
             if (posUpdates.size > 0) {
                 appState.update(st => {
                     const nextNodes = new Map(st.nodes);
                     for (const [id, pos] of posUpdates) {
                         const n = nextNodes.get(id);
-                        if (n) nextNodes.set(id, { ...n, ...pos });
+                        if (n) {
+                            let updated = { ...n, x: pos.x, y: pos.y, width: pos.width, height: pos.height };
+                            if (pos.pathData !== undefined) updated = { ...updated, pathData: pos.pathData };
+                            if (pos.shape !== undefined) updated = { ...updated, renderProperties: { ...n.renderProperties, shape: pos.shape } };
+                            nextNodes.set(id, updated);
+                        }
                     }
                     return { ...st, nodes: nextNodes };
                 });
@@ -139,21 +173,80 @@
     // Separate effect: recomputes group paths whenever groupShapes config changes.
     // Also triggered explicitly from doRender() after leaf positions update.
 
+    let computedRootBbox = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+
     function applyGroupPaths() {
-        console.log('[scaffold] applyGroupPaths');
         const cfg = get(appState).scaffoldConfig;
         if (!cfg?.groupShapes) return;
-        const gs = cfg.groupShapes;
-        if (!gs.rootEnabled && !gs.dimensionEnabled && !gs.divisionEnabled) return;
+        const gsCfg = cfg.groupShapes;
+        if (!gsCfg.rootEnabled && !gsCfg.dimensionEnabled && !gsCfg.divisionEnabled) return;
 
         const s = get(appState);
         const allNodes = [...s.nodes.values()];
-        const allEdges = [...s.edges.values()];
-        const paths = computeGroupPaths(allNodes, allEdges, cfg);
-        if (paths.size === 0) return;
+
+        // Build dimTypes from schemaState for type-aware defaults in computeGroupPaths
+        const dimTypes: Record<string, 'categorical' | 'numerical'> = {};
+        for (const dim of (s.schemaState?.dimensions ?? [])) {
+            dimTypes[dim.key] = dim.type;
+        }
+
+        // Build pixel-extents map for numerical divisions.
+        // Reads numericalExtents from the authoritative dnStructure (same source as the
+        // inspector), then converts data-space values → pixel positions via Vega scales.
+        // This gives computeGroupPaths exact bin-boundary coordinates instead of
+        // inferring them from the positions of leaf data points.
+        const divisionExtentsMap = new Map<string, DivisionExtents>();
+        if (currentView) {
+            const dnStr = s.dnStructure as { nodes?: Record<string, { data?: Record<string, unknown> }> } | null;
+            type AnyScale = ((v: unknown) => number) & { bandwidth?: () => number };
+            const xScale = currentView.scale('x') as AnyScale | undefined;
+            const yScale = currentView.scale('y') as AnyScale | undefined;
+
+            for (const node of allNodes) {
+                if (node.dnLevel !== 2) continue;
+                const dimKey = node.dimensionKey;
+                if (!dimKey || dimTypes[dimKey] !== 'numerical') continue;
+
+                const extents = dnStr?.nodes?.[node.id]?.data?.numericalExtents as [number, number] | undefined;
+                if (!extents) continue;
+
+                const [dataMin, dataMax] = extents;
+                const isXDim = dimKey === cfg.xField;
+
+                if (isXDim && xScale) {
+                    const lo = (xScale(dataMin) as number) + cfg.paddingLeft + cfg.offsetX;
+                    const hi = (xScale(dataMax) as number) + cfg.paddingLeft + cfg.offsetX;
+                    divisionExtentsMap.set(node.id, { dataMin, dataMax, pixelLo: lo, pixelHi: hi });
+                } else if (!isXDim && yScale) {
+                    // y-axis is inverted: higher data value → smaller pixel y (top of chart)
+                    const lo = (yScale(dataMax) as number) + cfg.paddingTop + cfg.offsetY;
+                    const hi = (yScale(dataMin) as number) + cfg.paddingTop + cfg.offsetY;
+                    divisionExtentsMap.set(node.id, { dataMin, dataMax, pixelLo: lo, pixelHi: hi });
+                }
+            }
+        }
+
+        const paths = computeGroupPaths(allNodes, cfg, dimTypes, divisionExtentsMap);
+
+        // Update computedRootBbox so drag handles work before user overrides anything
+        const rootEntry = [...paths.entries()].find(([id]) => allNodes.find(n => n.id === id)?.dnLevel === 0);
+        if (rootEntry) computedRootBbox = rootEntry[1].bbox;
 
         appState.update(st => {
             const nextNodes = new Map(st.nodes);
+            // Clear level 0/1/2 path nodes that are no longer in the computed set (disabled levels)
+            for (const [id, n] of nextNodes) {
+                if ((n.dnLevel === 0 || n.dnLevel === 1 || n.dnLevel === 2)
+                    && n.renderProperties.shape === 'path'
+                    && !paths.has(id)) {
+                    nextNodes.set(id, {
+                        ...n,
+                        pathData: undefined,
+                        renderProperties: { ...n.renderProperties, shape: 'rect' }
+                    });
+                }
+            }
+            // Apply computed paths
             for (const [id, { pathData, bbox }] of paths) {
                 const n = nextNodes.get(id);
                 if (n) {
@@ -173,16 +266,19 @@
     }
 
     $effect(() => {
-        // React to groupShapes config changes (strategy, padding, bonus rects)
-        const gs = config?.groupShapes;
-        // Access reactive properties to create dependency
+        // React to groupShapes config changes (strategy, padding, bonus rects, per-dim config).
+        // Uses `gs` ($state.raw, reference-equality) so layout-only changes (offsetX etc.)
+        // that spread config but keep the same groupShapes object do NOT re-fire this effect.
         if (!gs) return;
         gs.rootEnabled; gs.rootStrategy; gs.rootPadding;
-        gs.dimensionEnabled; gs.dimensionStrategy; gs.dimensionPadding;
-        gs.divisionEnabled; gs.divisionStrategy; gs.divisionPadding;
-        // Bonus rects tracked via their records — changes propagate here
+        gs.dimensionEnabled;
+        gs.divisionEnabled;
+        // Stringify to catch nested changes in perDimension and bonus rects
+        JSON.stringify(gs.perDimension);
         JSON.stringify(gs.dimensionBonusRects);
         JSON.stringify(gs.divisionBonusRects);
+        // rootBoundingRectOverride changes (from drag handles or panel inputs)
+        JSON.stringify(gs.rootBoundingRectOverride);
 
         applyGroupPaths();
     });
@@ -227,6 +323,37 @@
     }
 
     function onWindowMousemove(e: MouseEvent) {
+        // Handle root bounding rect corner drag
+        if (activeRootRectDrag) {
+            const { corner, startClientX, startClientY, startRect: sr } = activeRootRectDrag;
+            const dx = e.clientX - startClientX;
+            const dy = e.clientY - startClientY;
+            let { x, y, width, height } = sr;
+            if (corner === 'tl') {
+                x = sr.x + dx; y = sr.y + dy;
+                width = Math.max(10, sr.width - dx); height = Math.max(10, sr.height - dy);
+            } else if (corner === 'tr') {
+                y = sr.y + dy;
+                width = Math.max(10, sr.width + dx); height = Math.max(10, sr.height - dy);
+            } else if (corner === 'bl') {
+                x = sr.x + dx;
+                width = Math.max(10, sr.width - dx); height = Math.max(10, sr.height + dy);
+            } else { // br
+                width = Math.max(10, sr.width + dx); height = Math.max(10, sr.height + dy);
+            }
+            appState.update(s => {
+                if (!s.scaffoldConfig?.groupShapes) return s;
+                return {
+                    ...s,
+                    scaffoldConfig: {
+                        ...s.scaffoldConfig,
+                        groupShapes: { ...s.scaffoldConfig.groupShapes, rootBoundingRectOverride: { x, y, width, height } }
+                    }
+                };
+            });
+            return;
+        }
+
         // Handle bonus rect drag
         if (activeBonusDrag) {
             const { level, key, mode, startClientX, startClientY, startRect } = activeBonusDrag;
@@ -334,6 +461,27 @@
         }
     }
 
+    // ── Root bounding rect drag ───────────────────────────────────────────────
+    type RootRectDrag = {
+        corner: 'tl' | 'tr' | 'bl' | 'br';
+        startClientX: number;
+        startClientY: number;
+        startRect: { x: number; y: number; width: number; height: number };
+    };
+    let activeRootRectDrag = $state<RootRectDrag | null>(null);
+
+    function onRootRectCornerMousedown(e: MouseEvent, corner: 'tl' | 'tr' | 'bl' | 'br') {
+        e.stopPropagation();
+        const rr = config?.groupShapes?.rootBoundingRectOverride ?? computedRootBbox;
+        if (!rr) return;
+        activeRootRectDrag = {
+            corner,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startRect: { ...rr }
+        };
+    }
+
     // ── Bonus rect drag ───────────────────────────────────────────────────────
     type BonusRectDrag = {
         level: 'dimension' | 'division';
@@ -364,6 +512,7 @@
     function onWindowMouseup() {
         activeDrag = null;
         activeBonusDrag = null;
+        activeRootRectDrag = null;
     }
 
     // ── Derived geometry ──────────────────────────────────────────────────────
@@ -530,6 +679,43 @@
         role="presentation"
         onmousedown={(e) => onHandleMousedown(e, 'resize-br')}
     />
+
+    <!-- Root bounding rect resize handles (4 corners) -->
+    {#if config?.groupShapes?.rootEnabled && config.groupShapes.rootStrategy === 'boundingRect' && (config.groupShapes.rootBoundingRectOverride ?? computedRootBbox)}
+        {@const rr = config.groupShapes.rootBoundingRectOverride ?? computedRootBbox!}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x - HANDLE_SIZE / 2} y={rr.y - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nwse-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'tl')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x + rr.width - HANDLE_SIZE / 2} y={rr.y - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nesw-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'tr')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x - HANDLE_SIZE / 2} y={rr.y + rr.height - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nesw-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'bl')}
+        />
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <rect class="drag-handle resize-handle"
+            x={rr.x + rr.width - HANDLE_SIZE / 2} y={rr.y + rr.height - HANDLE_SIZE / 2}
+            width={HANDLE_SIZE} height={HANDLE_SIZE}
+            fill="#6366f1" stroke="white" stroke-width="1.5"
+            style="cursor: nwse-resize" role="presentation"
+            onmousedown={(e) => onRootRectCornerMousedown(e, 'br')}
+        />
+    {/if}
 
     <!-- Bonus rect ghost nodes (dimension + division) -->
     {#if config?.groupShapes}

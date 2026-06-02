@@ -160,13 +160,30 @@ function buildScatterSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const colorField = config.colorField;
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
+
+    // zero: false — scatter axes should start from data extent, not 0.
+    // Domain overrides let users match an image's axis range when it differs from the data extent.
+    const xScale: Record<string, unknown> = { zero: false };
+    if (config.xDomainMin != null || config.xDomainMax != null) {
+        xScale.domain = [config.xDomainMin ?? null, config.xDomainMax ?? null];
+    }
+    const yScale: Record<string, unknown> = { zero: false };
+    if (config.yDomainMin != null || config.yDomainMax != null) {
+        yScale.domain = [config.yDomainMin ?? null, config.yDomainMax ?? null];
+    }
+
+    // Size: data-driven field OR static value (default 30)
+    const sizeEnc = mp.pointSizeField ? { size: { field: mp.pointSizeField, type: 'quantitative' } } : {};
+    const markSize = mp.pointSizeField ? undefined : (mp.pointSize ?? 30);
+
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        mark: { type: 'point', size: mp.pointSize ?? 100, color: '#6366f1' },
+        mark: { type: 'point', ...(markSize != null ? { size: markSize } : {}), color: '#6366f1' },
         encoding: {
-            x: { field: xField, type: 'quantitative' },
-            y: { field: yField, type: 'quantitative' },
+            x: { field: xField, type: 'quantitative', scale: xScale },
+            y: { field: yField, type: 'quantitative', scale: yScale },
+            ...sizeEnc,
             ...colorEnc
         }
     };
@@ -179,19 +196,15 @@ function buildLineSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
     const sharedEncoding = {
-        x: { field: xField, type: 'ordinal' },
+        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
         y: { field: yField, type: 'quantitative' },
         ...colorEnc
     };
-    const layers: unknown[] = [{ mark: { type: 'line', strokeWidth: mp.strokeWidth ?? 2 } }];
-    if (mp.showPoints !== false) {
-        layers.push({ mark: { type: 'point', size: mp.pointSize ?? 50 } });
-    }
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        encoding: sharedEncoding,
-        layer: layers
+        mark: { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? 300 } },
+        encoding: sharedEncoding
     };
 }
 
@@ -202,21 +215,20 @@ function buildAreaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
     const mp = config.markParams;
     const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
     const sharedEncoding = {
-        x: { field: xField, type: 'ordinal' },
+        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
         y: { field: yField, type: 'quantitative' },
         ...colorEnc
     };
-    const layers: unknown[] = [
-        { mark: { type: 'area', fillOpacity: mp.fillOpacity ?? 0.4, strokeWidth: mp.strokeWidth ?? 1.5 } }
-    ];
-    if (mp.showPoints) {
-        layers.push({ mark: { type: 'point', size: mp.pointSize ?? 50 } });
-    }
     return {
         ...baseSpec(config),
         data: { values: getData(config, data) },
-        encoding: sharedEncoding,
-        layer: layers
+        mark: {
+            type: 'area',
+            fillOpacity: mp.fillOpacity ?? 0.4,
+            strokeWidth: mp.strokeWidth ?? 1.5,
+            point: { size: mp.pointSize ?? 300 }
+        },
+        encoding: sharedEncoding
     };
 }
 
@@ -245,3 +257,46 @@ export function buildVegaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec
             return buildBarSpec(config, data);
     }
 }
+
+/*
+ * ── FUTURE CHART TYPE CHANNEL REQUIREMENTS ────────────────────────────────────
+ *
+ * When adding new chart types, each will need the following Vega-Lite channels,
+ * auto-detect logic in detectFieldsForChartType (prepAdapter.ts), and possibly
+ * new ScaffoldConfig fields.
+ *
+ * CHART TYPE      REQUIRED CHANNELS                     AUTO-DETECT FROM           SCAFFOLDCONFIG CHANGES NEEDED
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ * pie / donut     theta (NUM), color (CAT)               first NUM → thetaField     Add thetaField; x/y not used.
+ *                                                        first CAT → colorField     positionNodesFromVegaScales:
+ *                                                                                   arc marks need arc centroid math
+ *                                                                                   (no band/linear scales); use SVG extraction.
+ *
+ * heatmap         x (ordinal CAT), y (ordinal CAT),      first CAT → xField         No new fields needed.
+ *                 color (quant NUM)                      second CAT → yField        positionNodesFromVegaScales:
+ *                                                        first NUM → colorField     both x/y are band scales;
+ *                                                                                   positioning is straightforward (like clustered-bar).
+ *                                                                                   Note: colorField encodes value, not series.
+ *
+ * treemap         size (NUM), category hierarchy         first NUM → sizeField      Add sizeField + optional parentField.
+ *                 (1–2 CAT levels for outer/inner)       first CAT → outer group    Vega-Lite has NO treemap mark — requires
+ *                                                        second CAT → inner group   a raw Vega spec with a treemap transform,
+ *                                                                                   or a pre-computed layout. SVG extraction
+ *                                                                                   is the only viable positioning path.
+ *
+ * ── SMARTER PREP → SCAFFOLD FIELD MAPPING (pre-work for the above) ────────────
+ *
+ * Before implementing pie/heatmap/treemap scaffolding, the prep Q/A flow and
+ * dimension suggestions (dimensionSuggestions.ts) need to surface:
+ *
+ * - pie/donut:   Single-level structure (1 CAT as labels, 1 NUM as angle/size).
+ *                No x/y axis concept. Scaffold should skip axis padding UI.
+ *
+ * - heatmap:     Exactly 2 CAT dimensions (forming a grid) + 1 NUM (fill color).
+ *                Both categorical axes are ordinal — detect via 2 included CAT dims.
+ *
+ * - treemap:     Hierarchical data: either parent-child rows with an explicit
+ *                parent key, or 2 CAT dimensions (outer group + inner group) + 1 NUM.
+ *                Requires raw Vega (not Vega-Lite) for the layout transform.
+ *                positionNodesFromVegaScales cannot be used; fall back to extractMarksFromSVG.
+ */

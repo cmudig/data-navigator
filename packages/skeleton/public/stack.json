@@ -1,0 +1,17 @@
+[
+    { "year": "2015", "browser": "Chrome", "share": 62 },
+    { "year": "2016", "browser": "Chrome", "share": 63 },
+    { "year": "2017", "browser": "Chrome", "share": 65 },
+    { "year": "2015", "browser": "Firefox", "share": 12 },
+    { "year": "2016", "browser": "Firefox", "share": 12 },
+    { "year": "2017", "browser": "Firefox", "share": 11 },
+    { "year": "2015", "browser": "Safari", "share": 11 },
+    { "year": "2016", "browser": "Safari", "share": 12 },
+    { "year": "2017", "browser": "Safari", "share": 12 },
+    { "year": "2015", "browser": "Edge", "share": 4 },
+    { "year": "2016", "browser": "Edge", "share": 4 },
+    { "year": "2017", "browser": "Edge", "share": 4 },
+    { "year": "2015", "browser": "Other", "share": 11 },
+    { "year": "2016", "browser": "Other", "share": 9 },
+    { "year": "2017", "browser": "Other", "share": 8 }
+]
