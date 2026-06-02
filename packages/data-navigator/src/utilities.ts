@@ -1,4 +1,5 @@
-import { DatumObject, DescriptionOptions } from './data-navigator';
+import { GenericNavigationRuleCommands } from './consts';
+import { CommandObject, DatumObject, DescriptionOptions, NavigationRules } from './data-navigator';
 
 export const describeNode = (d: DatumObject, descriptionOptions?: DescriptionOptions) => {
     const keys = Object.keys(d);
@@ -14,3 +15,12 @@ export const createValidId = (s: string): string => {
     // We start the string with an underscore, then replace all invalid characters with underscores
     return '_' + s.replace(/[^a-zA-Z0-9_-]+/g, '_');
 };
+
+export function getGenericCommandsFromNavRules(navigationRules?: NavigationRules): CommandObject[] {
+    if (!navigationRules) {
+        return [];
+    }
+    return Object.keys(navigationRules)
+        .map(navId => GenericNavigationRuleCommands[navId])
+        .filter(Boolean);
+}

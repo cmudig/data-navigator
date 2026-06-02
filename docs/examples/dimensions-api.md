@@ -10,17 +10,7 @@ This example uses the same dataset as the [Stacked Bar Chart](/examples/stacked-
 
 <div v-show="showControls">
 
-| Command                       | Key                                         |
-| ----------------------------- | ------------------------------------------- |
-| Enter the structure           | Activate the "Enter navigation area" button |
-| Exit                          | <kbd>Esc</kbd>                              |
-| Left (backward along date)    | <kbd>←</kbd>                                |
-| Right (forward along date)    | <kbd>→</kbd>                                |
-| Up (backward along category)  | <kbd>↑</kbd>                                |
-| Down (forward along category) | <kbd>↓</kbd>                                |
-| Drill down to child           | <kbd>Enter</kbd>                            |
-| Drill up to date parent       | <kbd>W</kbd>                                |
-| Drill up to category parent   | <kbd>J</kbd>                                |
+<div id="commands-root"></div>
 
 At the deepest level, left/right moves across categories and up/down moves across dates. Both dimensions wrap around circularly.
 
@@ -250,7 +240,22 @@ onMounted(async () => {
             height: 0
         },
         entryButton: { include: true, callbacks: { click: enter } },
-        exitElement: { include: true }
+        exitElement: { include: true },
+        commandsElement: {
+            include: true,
+            rootId: 'commands-root',
+            commands: [
+                { label: 'Activate the "Enter navigation area" button', description: 'Enter the structure' },
+                { label: 'Esc', description: 'Exit' },
+                { label: '←', description: 'Left (backward along date)' },
+                { label: '→', description: 'Right (forward along date)' },
+                { label: '↑', description: 'Up (backward along category)' },
+                { label: '↓', description: 'Down (forward along category)' },
+                { label: 'Enter', description: 'Drill down to child' },
+                { label: 'W', description: 'Drill up to date parent' },
+                { label: 'J', description: 'Drill up to category parent' }
+            ],
+        }
     });
     rendering.initialize();
 

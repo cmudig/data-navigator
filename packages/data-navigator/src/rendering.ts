@@ -1,5 +1,7 @@
+import { CommandsTable } from './commands-table';
 import { NodeElementDefaults } from './consts';
-import type { RenderingOptions, NodeObject } from './data-navigator';
+import type { RenderingOptions, NodeObject, CommandsObject } from './data-navigator';
+import { getGenericCommandsFromNavRules } from './utilities';
 
 export default (options: RenderingOptions) => {
     const setActiveDescendant = e => {
@@ -65,7 +67,9 @@ export default (options: RenderingOptions) => {
             renderer.wrapper.style.height = options.root.height;
         }
 
-        // TO-DO: build interaction instructions/menu
+        if (options.commandsElement?.include) {
+            renderer.initializeCommands(options.commandsElement);
+        }
 
         // build entry button
         if (options.entryButton && options.entryButton.include) {
@@ -223,5 +227,53 @@ export default (options: RenderingOptions) => {
             }
         });
     };
+    renderer.initializeCommands = (commandOptions: CommandsObject) => {
+        //  Find the element within which the commands table must be inserted
+        const root = document.getElementById(commandOptions?.rootId);
+
+        if (!root) {
+            console.error('Commands root element not found in document.');
+            return;
+        }
+
+        //  Consider explicit commands if given, otherwise try to build generic commands from nav rules
+        const optionsCommands = commandOptions.commands;
+
+        const genericCommandsFromRules = getGenericCommandsFromNavRules(commandOptions.navigationRules);
+
+        const commands = optionsCommands
+            ? typeof optionsCommands === 'function'
+                ? optionsCommands(genericCommandsFromRules)
+                : optionsCommands
+            : genericCommandsFromRules;
+
+        if (!customElements.get('commands-table')) {
+            customElements.define('commands-table', CommandsTable);
+        }
+
+        const commandsElement = document.createElement('commands-table') as CommandsTable;
+
+        //  Pass the title attribute to the custom element
+        if (commandOptions?.title) {
+            commandsElement.setAttribute('title', commandOptions.title);
+        }
+
+        //  Set the commands property on the custom element
+        commandsElement.commands = commands;
+
+        if (commandOptions.columns) {
+            //  Set the columns property on the custom element
+            commandsElement.columns = commandOptions.columns;
+        }
+
+        root.appendChild(commandsElement);
+
+        return commandsElement;
+    };
+
+    //  Expose util function and custom element that can be used to create the commands table
+    //  without setting options.commandsElement
+    renderer.getGenericCommandsFromNavRules = getGenericCommandsFromNavRules;
+    renderer.CommandsTable = CommandsTable;
     return renderer;
 };

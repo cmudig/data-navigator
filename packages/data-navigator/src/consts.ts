@@ -1,4 +1,4 @@
-import type { DatumObject, NavigationRules, RenderObject } from './data-navigator';
+import type { DatumObject, CommandObject, NavigationRules, RenderObject, NavId } from './data-navigator';
 
 export const SemanticKeys = {
     Escape: true,
@@ -171,3 +171,17 @@ export const NodeElementDefaults = {
         spatialProperties: undefined
     }
 } as RenderObject;
+
+export const GenericNavigationRuleCommands: Record<NavId, CommandObject> = {
+    enter: { label: 'Enter', description: 'Drill down' },
+    exit: { label: 'Esc', description: 'Exit' },
+    left: { label: '←', description: 'Previous data point' },
+    right: { label: '→', description: 'Next data point' },
+    up: { label: '↑', description: 'Previous data point' },
+    down: { label: '↓', description: 'Next data point' }
+};
+
+export const commandsTableDefaultColumns = [
+    { label: 'Command', id: 'description' },
+    { label: 'Key', id: 'label' }
+];

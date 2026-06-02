@@ -1,29 +1,19 @@
-# Simple List Navigation
+# Commands Instructions
 
-This example shows a simple linked-list navigation structure on a Bokeh stacked bar chart. Four data points are connected in a linear sequence — use left and right arrow keys to move between them. The chart redraws its focus indicator programmatically since Bokeh renders to canvas.
+This example shows how the rendering module can be used to automatically generate a commands instructions table for your data visualization. The commands can be explicitely set or generated from the navigations rules.
 
-## Keyboard Controls
+## Generation from navigation rules
 
 <button class="toggle-controls" :aria-expanded="showControls" @click="showControls = !showControls">{{ showControls ? 'Hide controls' : 'Show controls' }}</button>
 
 <div v-show="showControls">
-
-<div id="commands-root"></div>
-
+    <div id="commands-root"></div>
 </div>
 
-## Chart + Inspector
-
-<div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
-    <div>
-        <h3>Stacked Bar Chart (Bokeh)</h3>
-        <div id="chart-wrapper" style="position: relative;">
-            <div id="chart"></div>
-        </div>
-    </div>
-    <div>
-        <h3>Structure Inspector</h3>
-        <div id="simple-list-inspector" style="min-height: 350px;"></div>
+<div>
+    <h3>Bar Chart</h3>
+    <div id="chart-wrapper" style="position: relative;">
+        <div id="chart"></div>
     </div>
 </div>
 
@@ -49,7 +39,6 @@ onMounted(async () => {
         await waitFor(() => document.getElementById('chart'));
 
         const { default: dataNavigator } = await import('data-navigator');
-        const { Inspector, buildLabel } = await import('@data-navigator/inspector');
 
         const chartWidth = 300;
         const chartHeight = 300;
@@ -172,33 +161,9 @@ onMounted(async () => {
             }
         };
 
-        // Create the inspector (passive)
-        const inspector = Inspector({
-            structure,
-            container: 'simple-list-inspector',
-            size: 250,
-            colorBy: 'dimensionLevel',
-            edgeExclusions: ['any-exit'],
-            nodeInclusions: ['exit']
-        });
-
-        // State & tooltip
+        // State
         let current = null;
         let previous = null;
-
-        const showTooltip = (node) => {
-            const tooltip = document.getElementById('chart-tooltip');
-            if (tooltip && node.semantics?.label) {
-                tooltip.textContent = node.semantics.label;
-                tooltip.classList.remove('hidden');
-                tooltip.style.transform = `translate(${chartWidth + 10}px, ${chartHeight / 2 - 20}px)`;
-            }
-        };
-
-        const hideTooltip = () => {
-            const tooltip = document.getElementById('chart-tooltip');
-            if (tooltip) tooltip.classList.add('hidden');
-        };
 
         // Draw focus indicator on the Bokeh chart
         const drawFocusIndicator = (node) => {
@@ -239,9 +204,9 @@ onMounted(async () => {
                 include: true,
                 rootId: 'commands-root',
                 navigationRules: structure.navigationRules,
-                commands: (genericCommands => [{label: 'Activate the "Enter navigation area" button', description: 'Enter the structure'}, ...genericCommands]),
-            }
+            },
         });
+
         rendering.initialize();
 
         exitHandler = () => {
@@ -251,8 +216,6 @@ onMounted(async () => {
                 rendering.remove(current);
                 current = null;
             }
-            hideTooltip();
-            inspector.clear();
             drawChart(null);
         };
 
@@ -281,14 +244,7 @@ onMounted(async () => {
             });
 
             element.addEventListener('focus', () => {
-                showTooltip(nextNode);
                 drawFocusIndicator(nextNode);
-                inspector.highlight(nextNode.renderId);
-            });
-
-            element.addEventListener('blur', () => {
-                hideTooltip();
-                inspector.clear();
             });
 
             input.focus(nextNode.renderId);
@@ -311,45 +267,92 @@ onUnmounted(() => { if (cleanup) cleanup(); });
 
 ### About This Example
 
-This is the same chart and structure from the [Getting Started guide](/getting-started/first-chart), shown here with an [inspector](/examples/using-the-inspector) view. The structure is a simple linked list — four data points connected by left/right edges. The Bokeh chart renders to canvas, so the focus indicator is drawn programmatically by redrawing the chart with a thick outline on the focused bar.
+This is the same chart and structure from the [Getting Started guide](/getting-started/first-chart), shown here with a command table above that was generated automatically by modifying the rendering options.
 
-The [inspector's](/examples/using-the-inspector) force graph shows the same linear structure: four nodes in a chain with an exit node. As you navigate, the inspector's focus indicator follows your position.
+In this example, we specify a `commandsElement.rootId` in the rendering options that matches the id of the HTML node the table will be injected into. The command table content is deduced from the `navigationRules` that need to be passed to the rendering options.
+
+If the `title` option is specified, it adds a `caption` HTML element as the first child of the table.
+
+```js
+const rendering = dataNavigator.rendering({
+    ...
+    commandsElement: {
+        include: true,
+        rootId: 'commands-root',
+        title: 'Commands instructions',
+        navigationRules: structure.navigationRules,
+    },
+});
+```
+
+### Modifying the list of commands
+
+Letting the rendering module generate commands from navigation rules is not always exactly what we want. It is likely that all commands could not be deduced from the navigation rules, or that you would like to adapt the names given to the commands. That's why it's also possible to specify the list of commands explicitly as an array of `CommandObject`, or as a function of the array of generic `CommandObject` returning an array of `CommandObject`.
+
+```js
+const rendering = dataNavigator.rendering({
+    ...
+    commandsElement: {
+        include: true,
+        rootId: 'commands-root',
+        commands: [
+            { label: 'Activate the "Enter navigation area" button', description: 'Enter the structure' },
+            { label: '→', description: 'Next data point' },
+            { label: '←', description: 'Previous data point' },
+            { label: 'Esc', description: 'Exit' }
+        ]
+    },
+});
+```
+
+```js
+const rendering = dataNavigator.rendering({
+    ...
+    commandsElement: {
+        include: true,
+        rootId: 'commands-root',
+        commands: genericCommands => genericCommands.filter(c => c.label !== 'Esc'),
+        navigationRules: structure.navigationRules,
+    },
+});
+```
+
+### More complex implementations
+
+If you have a more complex setup, you may need more control over the insertion of the commands table in the DOM. For example if the `rootId` is not in the DOM when `dataNavigator.rendering` is called.
+
+The commands instructions table is a custom element that is exported as `CommandsTable` from the rendering module. You can define it from your own script, set its parameters manually, and add the `commands-table` tag in your HTML template.
+
+```javascript
+customElements.define('commands-table', rendering.CommandsTable);
+document.querySelector('commands-table').commands = [
+    { label: 'Activate the "Enter navigation area" button', description: 'Enter the structure' },
+    { label: '→', description: 'Next data point' },
+    { label: '←', description: 'Previous data point' },
+    { label: 'Esc', description: 'Exit' }
+];
+```
+
+```html
+<commands-table title="Commands instructions"></commands-table>
+```
+
+The util function `getGenericCommandsFromNavRules` is also exposed by the rendering module. It contains the logic behind the generation of generic commands from navigation rules.
 
 ## The Complete Code
 
-This code is designed to work **without a bundler**. Run `npm install data-navigator @data-navigator/inspector`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers, and loads Bokeh and D3 from CDNs.
-
-If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector, buildLabel } from '@data-navigator/inspector'`, and remove the import map and CDN script tags from the HTML.
-
-The structure is a manually defined linked list — four nodes connected by left/right edges. `coordinator.js` is the entry point that wires everything together. `structure.js` defines the data and navigation graph. `rendering.js` handles both the Bokeh chart drawing and the Data Navigator accessible layer. `input.js` creates the keyboard handler.
+This code is designed to work without a bundler. Run `npm install data-navigator`, copy the files into a `src/` directory, and open `index.html` in your browser.
 
 ::: code-group
 
 ```js [coordinator.js]
-import { structure, callbacks, interactiveData, chartWidth, chartHeight } from './structure.js';
+import { structure, callbacks } from './structure.js';
 import { drawChart, drawFocusIndicator, createRenderer } from './rendering.js';
 import { createInput } from './input.js';
-import { Inspector } from '@data-navigator/inspector';
-
-// Assumes the page has:
-//   <div id="chart-wrapper">
-//     <div id="chart"></div>
-//   </div>
-//   <div id="inspector"></div>
 
 let current = null;
 let previous = null;
 let input;
-
-// Create the inspector (passive — just visualizes the structure)
-const inspector = Inspector({
-    structure,
-    container: 'inspector',
-    size: 250,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit']
-});
 
 function enter() {
     const nextNode = input.enter();
@@ -366,7 +369,6 @@ callbacks.onExit = () => {
         renderer.remove(current);
         current = null;
     }
-    inspector.clear();
     drawChart(null);
 };
 
@@ -395,11 +397,6 @@ function initiateLifecycle(nextNode) {
 
     element.addEventListener('focus', () => {
         drawFocusIndicator(nextNode);
-        inspector.highlight(nextNode.renderId);
-    });
-
-    element.addEventListener('blur', () => {
-        inspector.clear();
     });
 
     input.focus(nextNode.renderId);
@@ -568,7 +565,20 @@ export function createRenderer(structure, onEnter) {
             height: 0
         },
         entryButton: { include: true, callbacks: { click: onEnter } },
-        exitElement: { include: true }
+        exitElement: { include: true },
+        commandsElement: {
+            include: true,
+            rootId: 'commands-root',
+            commands: [
+                {
+                    label: 'Activate the "Enter navigation area" button',
+                    description: 'Enter the structure'
+                },
+                { label: '→', description: 'Next data point' },
+                { label: '←', description: 'Previous data point' },
+                { label: 'Esc', description: 'Exit' }
+            ]
+        }
     });
     renderer.initialize();
     return renderer;
@@ -595,29 +605,17 @@ export function createInput(structure, exitPointId) {
         <script type="importmap">
             {
                 "imports": {
-                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs",
-                    "@data-navigator/inspector": "./node_modules/@data-navigator/inspector/src/inspector.js",
-                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                    "data-navigator": "./node_modules/data-navigator/dist/index.mjs"
                 }
             }
         </script>
     </head>
     <body>
-        <div style="display: flex; gap: 2em; flex-wrap: wrap;">
-            <div>
-                <h3>Stacked Bar Chart</h3>
-                <div id="chart-wrapper">
-                    <div id="chart"></div>
-                </div>
-            </div>
-            <div>
-                <h3>Structure Inspector</h3>
-                <div id="inspector"></div>
+        <div>
+            <h3>Bar Chart</h3>
+            <div id="commands-root"></div>
+            <div id="chart-wrapper">
+                <div id="chart"></div>
             </div>
         </div>
     </body>
@@ -645,5 +643,3 @@ export function createInput(structure, exitPointId) {
 ```
 
 :::
-
-You can also find this example as a ready-to-run project on [GitHub](https://github.com/cmudig/data-navigator/tree/main/assets/simple-list).

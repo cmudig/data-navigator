@@ -143,7 +143,8 @@ export default defineConfig({
                         { text: 'Overview', link: '/examples/' },
                         { text: 'Simple List Navigation', link: '/examples/simple-list' },
                         { text: 'Understanding Dimensions', link: '/examples/understanding-dimensions' },
-                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' }
+                        { text: 'Dimensions API Example', link: '/examples/dimensions-api' },
+                        { text: 'Commands Instructions', link: '/examples/commands-instructions' }
                     ]
                 },
                 {

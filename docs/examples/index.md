@@ -15,6 +15,7 @@ Interactive examples showing Data Navigator in action with different chart types
 - [LLM Text Adventure](/examples/llm-text-adventure) — Extends the text adventure with an optional AI assistant powered by Claude, enabling natural-language questions about the data.
 - [Interactive Elements](/examples/interactive-elements) — A Bokeh scatter chart with clickable data points. Demonstrates how mouse, keyboard, and text-chat users can all select and interact with chart elements using a single `onClick` callback.
 - [Bespoke Visualization](/examples/bespoke) — A hand-authored SVG stratigraphic chart with no charting library, navigated via a manually defined two-level hierarchy. Demonstrates `spatialProperties.path` for non-rectangular focus indicators.
+- [Commands Instructions](/examples/commands-instructions) — An example of usign the rendering API to display the built-in commands instructions table.
 
 ## Planned
 
