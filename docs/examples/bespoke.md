@@ -1,8 +1,16 @@
 # Bespoke Visualization Navigation
 
-This example shows how to add keyboard navigation to a bespoke visualization: a Correlation of Mapped Formations diagram showing mapped formations of glacial sediment in Wisconsin. The chart has no charting library; it is a JPEG image with a manually-defined navigation structure (no dimensions API). Three navigation experiences are demonstrated: exploring by sediment source (a two-level hierarchy), navigating through time (a linear story mode), and a combined demo where both modes share one chart.
+In this example, we are showing how a project that I worked on for the [Quaternary Geology of Wisconsin](https://data.wgnhs.wisc.edu/statewide-quaternary-online/). In the project, we watned to add keyboard navigation to a bespoke visualization that accompanies a map. The visualization is a _Correlation of Mapped Formations_ diagram showing mapped formations of glacial sediment in Wisconsin.
+
+The chart is not created using a charting library here in the browser; it is a JPEG image. For this reason (and because it does not necessarily follow a grammar of visualization in its encoding and layout), it requires a manually-defined navigation structure (in other words, we cannot use our dimensions API).
+
+In this example, we demonstrate three different navigation experiences: exploring by sediment source (a two-level hierarchy), navigating through time (a linear story mode), and a combined demo where both modes share one chart. All of the navigation structures were designed manually (in iterations in a design tool, Figma) and then implemented as nodes and edges (also "manually") in Data Navigator.
+
+Take note in the examples below, looking at the structure inspector that follows each chart: there is a complex navigation structure followed by a simple list structure. Thinking about the design of navigation matters, and we hope this example demonstrates that there isn't really a "right" way to create navigation, because sometimes the context or audience depend on different design choices.
 
 ## Explore by Sediment Source
+
+Our first design was to organize this visualization to be _explored_. We wanted the user to meander through the data displayed, discovering the layout through sediment source.
 
 Navigate the chart as a two-level hierarchy: three glacial sediment source regions at the top level, each containing geological formations. Left and right navigate between regions; up and down navigate within a column; left and right at the formation level cross to the nearest formation in the adjacent column.
 
@@ -42,13 +50,15 @@ The three columns wrap circularly at both levels. At the formation level, left a
 
 ## Navigating as a Story, through Time
 
-The goal for this project has been to make a complex, custom chart navigable using data-navigator.
-
 In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
 
-We describe the chart as if we are describing layers of sediment, starting with the top and describing where each layer comes from and during which era it was deposited. This new navigation experience is serial, one direction forward and backward, and doesn't necessarily require data-navigator (we could just write an alt document or accompanying layer for this).
+My research partner, a geologist and mapping specialist, talked me through how one might "explain" this graphic to someone. We use this explanation as a foundation for a navigation experience.
 
-But instead, we wanted to couple navigation (screen reader accessible as well as keyboard accessible) to visual captions that change while you navigate. This makes it useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website.
+So first, we describe the chart as if we are describing layers of sediment, starting with the top and describing where each layer comes from and during which era it was deposited. This means we navigate top to bottom, one "slice" at a time.
+
+Notably, this new navigation experience is serial, one direction forward and backward. That means that it doesn't necessarily require data navigator (we could just write an alt document or a few paragraphs underneath).
+
+However, we wanted to couple navigation (screen reader accessible as well as keyboard accessible) to visual captions that change while you navigate. This makes our demo useful in a classroom, museum, during a talk, or just as a demonstration, as well as an accessible artifact that can live on a website.
 
 ### Keyboard Controls
 
