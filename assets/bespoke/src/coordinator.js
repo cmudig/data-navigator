@@ -1,15 +1,5 @@
 import dataNavigator from 'data-navigator';
 import { structure, storyStructure, callbacks } from './structure.js';
-import { Inspector } from '@data-navigator/inspector';
-
-const inspector = Inspector({
-    structure,
-    container: 'inspector',
-    size: 300,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit']
-});
 
 const captionEl = document.getElementById('caption');
 
@@ -53,7 +43,6 @@ callbacks.onSourceExit = () => {
         sourceRendering.remove(sourceCurrent);
         sourceCurrent = null;
     }
-    inspector.clear();
     if (captionEl) captionEl.textContent = '';
 };
 
@@ -80,11 +69,7 @@ const sourceLifecycle = nextNode => {
         }
     });
     element.addEventListener('focus', () => {
-        inspector.highlight(nextNode.renderId);
         if (captionEl) captionEl.textContent = nextNode.semantics.label;
-    });
-    element.addEventListener('blur', () => {
-        inspector.clear();
     });
     sourceInput.focus(nextNode.renderId);
     sourcePrevious = sourceCurrent;
@@ -130,7 +115,6 @@ callbacks.onTimeExit = () => {
         timeRendering.remove(timeCurrent);
         timeCurrent = null;
     }
-    inspector.clear();
     if (captionEl) captionEl.textContent = '';
 };
 
@@ -157,11 +141,7 @@ const timeLifecycle = nextNode => {
         }
     });
     element.addEventListener('focus', () => {
-        inspector.clear();
         if (captionEl) captionEl.textContent = nextNode.semantics.label;
-    });
-    element.addEventListener('blur', () => {
-        inspector.clear();
     });
     timeInput.focus(nextNode.renderId);
     timePrevious = timeCurrent;

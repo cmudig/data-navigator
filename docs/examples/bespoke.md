@@ -24,9 +24,12 @@ The three columns wrap circularly at both levels. At the formation level, left a
 
 </div>
 
+### Correlation of Mapped Formations
+
+<br>
+
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Correlation of Mapped Formations</h3>
         <div id="bespoke-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
@@ -37,9 +40,9 @@ The three columns wrap circularly at both levels. At the formation level, left a
     </div>
 </div>
 
-## Story Mode: Navigating Through Time
+## Navigating as a Story, through Time
 
-The story for this project has been to make a complex, custom chart navigable using data-navigator.
+The goal for this project has been to make a complex, custom chart navigable using data-navigator.
 
 In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
 
@@ -56,11 +59,12 @@ But instead, we wanted to couple navigation (screen reader accessible as well as
 | Navigate backward (up through time)  | <kbd>↑</kbd>                                |
 | Exit                                 | <kbd>Esc</kbd>                              |
 
-### Chart + Caption
+### Correlation of Mapped Formations
+
+<br>
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Correlation of Mapped Formations</h3>
         <div id="story-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
@@ -76,7 +80,7 @@ But instead, we wanted to couple navigation (screen reader accessible as well as
 
 ## Combined Navigation
 
-Both navigation modes applied to one shared chart. Two entry buttons appear inside the chart wrapper — one for source-based navigation, one for time-based navigation. Activating one deactivates the other. The caption and inspector update based on whichever mode is active.
+Both navigation modes applied to one shared chart. Two entry buttons appear inside the chart wrapper — one for source-based navigation, one for time-based navigation. Activating one deactivates the other. The caption updates based on whichever mode is active.
 
 ### Keyboard Controls
 
@@ -90,21 +94,18 @@ Both navigation modes applied to one shared chart. Two entry buttons appear insi
 | Source mode | Drill into / out of region               | <kbd>Enter</kbd> / <kbd>Backspace</kbd>          |
 | Time mode   | Navigate forward / backward through time | <kbd>↓</kbd> / <kbd>↑</kbd>                      |
 
-### Chart + Caption
+### Correlation of Mapped Formations
+
+<br>
 
 <div style="display: flex; gap: 2em; flex-wrap: wrap; align-items: flex-start;">
     <div>
-        <h3>Correlation of Mapped Formations</h3>
         <div id="unified-wrapper" style="position: relative; display: inline-block;">
             <img src="/bespoke.jpg" aria-hidden="true" alt="" width="512" height="353" style="display: block;">
         </div>
         <div id="unified-caption" role="status" aria-live="polite" style="margin-top: 0.75rem; min-height: 3em; max-width: 512px; padding: 0.75rem; background: var(--vp-c-bg-soft); border-radius: 6px; border: 1px solid var(--vp-c-divider);">
             Choose a navigation mode above to begin.
         </div>
-    </div>
-    <div>
-        <h3>Structure Inspector</h3>
-        <div id="unified-inspector" style="min-height: 350px;"></div>
     </div>
 </div>
 
@@ -547,15 +548,6 @@ onMounted(async () => {
 
     const unifiedCaptionEl = document.getElementById('unified-caption');
 
-    const unifiedInspector = Inspector({
-        structure,
-        container: 'unified-inspector',
-        size: 300,
-        colorBy: 'dimensionLevel',
-        edgeExclusions: ['any-exit'],
-        nodeInclusions: ['exit']
-    });
-
     // Shallow-copy edges so each rendering has its own independent exit handler
     const unifiedSourceEdges = {
         ...structure.edges,
@@ -610,7 +602,6 @@ onMounted(async () => {
         unifiedSourceRendering.exitElement.style.display = 'block';
         unifiedSourceInput.focus(unifiedSourceRendering.exitElement.id);
         if (unifiedSourceCurrent) { unifiedSourceRendering.remove(unifiedSourceCurrent); unifiedSourceCurrent = null; }
-        unifiedInspector.clear();
         if (unifiedCaptionEl) unifiedCaptionEl.textContent = '';
     };
 
@@ -634,10 +625,8 @@ onMounted(async () => {
             if (direction) { e.preventDefault(); unifiedSourceMove(direction); }
         });
         element.addEventListener('focus', () => {
-            unifiedInspector.highlight(nextNode.renderId);
             if (unifiedCaptionEl) unifiedCaptionEl.textContent = nextNode.semantics.label;
         });
-        element.addEventListener('blur', () => { unifiedInspector.clear(); });
         unifiedSourceInput.focus(nextNode.renderId);
         unifiedSourcePrevious = unifiedSourceCurrent;
         unifiedSourceCurrent  = nextNode.id;
@@ -676,7 +665,6 @@ onMounted(async () => {
         unifiedTimeRendering.exitElement.style.display = 'block';
         unifiedTimeInput.focus(unifiedTimeRendering.exitElement.id);
         if (unifiedTimeCurrent) { unifiedTimeRendering.remove(unifiedTimeCurrent); unifiedTimeCurrent = null; }
-        unifiedInspector.clear();
         if (unifiedCaptionEl) unifiedCaptionEl.textContent = '';
     };
 
@@ -700,10 +688,8 @@ onMounted(async () => {
             if (direction) { e.preventDefault(); unifiedTimeMove(direction); }
         });
         element.addEventListener('focus', () => {
-            unifiedInspector.clear();
             if (unifiedCaptionEl) unifiedCaptionEl.textContent = nextNode.semantics.label;
         });
-        element.addEventListener('blur', () => { unifiedInspector.clear(); });
         unifiedTimeInput.focus(nextNode.renderId);
         unifiedTimePrevious = unifiedTimeCurrent;
         unifiedTimeCurrent  = nextNode.id;
@@ -740,9 +726,9 @@ The combined demo (§3) uses **shallow-copied edge objects** to give each render
 
 ## The Complete Code
 
-This code is designed to work **without a bundler**. Run `npm install data-navigator @data-navigator/inspector`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers.
+This code is designed to work **without a bundler**. Run `npm install data-navigator`, copy the files into a `src/` directory, and open `index.html` in your browser. The HTML uses an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) to resolve bare module specifiers.
 
-If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to `import dataNavigator from 'data-navigator'` and `import { Inspector } from '@data-navigator/inspector'`, and remove the import map and CDN script tags from the HTML.
+If you're using a bundler (Vite, Webpack, etc.), you can simplify the import to `import dataNavigator from 'data-navigator'` and remove the import map from the HTML.
 
 `coordinator.js` wires both navigation modes together. `structure.js` exports both `structure` (source-based hierarchy) and `storyStructure` (sequential time navigation) along with a `callbacks` object used to wire exit handlers after rendering initialization.
 
@@ -751,16 +737,6 @@ If you're using a bundler (Vite, Webpack, etc.), you can simplify the imports to
 ```js [coordinator.js]
 import dataNavigator from 'data-navigator';
 import { structure, storyStructure, callbacks } from './structure.js';
-import { Inspector } from '@data-navigator/inspector';
-
-const inspector = Inspector({
-    structure,
-    container: 'inspector',
-    size: 300,
-    colorBy: 'dimensionLevel',
-    edgeExclusions: ['any-exit'],
-    nodeInclusions: ['exit']
-});
 
 const captionEl = document.getElementById('caption');
 
@@ -804,7 +780,6 @@ callbacks.onSourceExit = () => {
         sourceRendering.remove(sourceCurrent);
         sourceCurrent = null;
     }
-    inspector.clear();
     if (captionEl) captionEl.textContent = '';
 };
 
@@ -831,11 +806,7 @@ const sourceLifecycle = nextNode => {
         }
     });
     element.addEventListener('focus', () => {
-        inspector.highlight(nextNode.renderId);
         if (captionEl) captionEl.textContent = nextNode.semantics.label;
-    });
-    element.addEventListener('blur', () => {
-        inspector.clear();
     });
     sourceInput.focus(nextNode.renderId);
     sourcePrevious = sourceCurrent;
@@ -882,7 +853,6 @@ callbacks.onTimeExit = () => {
         timeRendering.remove(timeCurrent);
         timeCurrent = null;
     }
-    inspector.clear();
     if (captionEl) captionEl.textContent = '';
 };
 
@@ -909,11 +879,7 @@ const timeLifecycle = nextNode => {
         }
     });
     element.addEventListener('focus', () => {
-        inspector.clear();
         if (captionEl) captionEl.textContent = nextNode.semantics.label;
-    });
-    element.addEventListener('blur', () => {
-        inspector.clear();
     });
     timeInput.focus(nextNode.renderId);
     timePrevious = timeCurrent;
@@ -1398,14 +1364,7 @@ export const storyStructure = {
         <script type="importmap">
             {
                 "imports": {
-                    "data-navigator": "https://cdn.jsdelivr.net/npm/data-navigator@2.4.1/dist/index.js",
-                    "@data-navigator/inspector": "https://cdn.jsdelivr.net/npm/@data-navigator/inspector@1.2.0/src/inspector.js",
-                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
-                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
-                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
-                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
-                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
-                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                    "data-navigator": "https://cdn.jsdelivr.net/npm/data-navigator@2.4.1/dist/index.js"
                 }
             }
         </script>
@@ -1425,10 +1384,6 @@ export const storyStructure = {
                 >
                     Choose a navigation mode above to begin.
                 </div>
-            </div>
-            <div>
-                <h3>Structure Inspector</h3>
-                <div id="inspector" style="min-height: 350px;"></div>
             </div>
         </div>
     </body>
