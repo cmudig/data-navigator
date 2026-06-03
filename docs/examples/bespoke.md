@@ -52,7 +52,7 @@ The three columns wrap circularly at both levels. At the formation level, left a
 
 In the first iteration, we designed the chart to be navigable in all directions and focused on a hierarchy that organized each individual element according to the region that a glacial deposit came from. However, we realized that the scientific narrative for this visualization might also serve as a great guideline for creating a navigable experience: describing glacial sediment in Wisconsin through time.
 
-My research partner, a geologist and mapping specialist, talked me through how one might "explain" this graphic to someone. We use this explanation as a foundation for a navigation experience.
+My fantastic project partner, a geologist and mapping specialist named [Caroline Rose](https://home.wgnhs.wisc.edu/personnel/rose-caroline/), talked me through how one might "explain" this graphic to someone. We use this explanation as a foundation for a navigation experience.
 
 So first, we describe the chart as if we are describing layers of sediment, starting with the top and describing where each layer comes from and during which era it was deposited. This means we navigate top to bottom, one "slice" at a time.
 
