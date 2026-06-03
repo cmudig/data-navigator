@@ -22,6 +22,10 @@
 
 .dn-node-path {
     fill: none;
+    stroke: none;
+}
+
+.dn-bespoke-node:focus .dn-node-path {
     stroke: #1e3369;
     stroke-width: 3;
 }

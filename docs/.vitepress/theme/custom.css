@@ -86,6 +86,10 @@
 
 .dn-node-path {
     fill: none;
+    stroke: none;
+}
+
+.dn-node:focus .dn-node-path {
     stroke: var(--vp-c-brand-1);
     stroke-width: 3px;
 }
