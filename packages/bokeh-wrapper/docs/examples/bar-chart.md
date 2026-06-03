@@ -18,6 +18,7 @@ import { onMounted, onUnmounted } from 'vue';
 
 let wrapper = null;
 let addDataNavigator = null;
+let dn = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -70,6 +71,20 @@ onMounted(async () => {
   drawChart();
 
   ({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+  ({ default: dn } = await import('data-navigator'));
+  if (!customElements.get('dn-commands-table')) {
+    customElements.define('dn-commands-table', dn.rendering({}).CommandsTable);
+  }
+  const cmdTable = document.getElementById('bar-commands-table');
+  if (cmdTable) {
+    cmdTable.commands = [
+      { label: 'enter', description: 'Enter the navigation structure' },
+      { label: 'right', description: 'Move to the next fruit' },
+      { label: 'left', description: 'Move to the previous fruit' },
+      { label: 'move to <search>', description: 'Jump to a fruit by name' },
+      { label: 'help', description: 'List available commands' },
+    ];
+  }
 
   const initWrapper = (mode) => {
     wrapper?.destroy();
@@ -123,13 +138,7 @@ onUnmounted(() => wrapper?.destroy());
 
 ## Commands
 
-| Command            | Action                         |
-| ------------------ | ------------------------------ |
-| `enter`            | Enter the navigation structure |
-| `right`            | Move to the next fruit         |
-| `left`             | Move to the previous fruit     |
-| `move to <search>` | Jump to a fruit by name        |
-| `help`             | List available commands        |
+<dn-commands-table id="bar-commands-table"></dn-commands-table>
 
 ## Code Summary
 

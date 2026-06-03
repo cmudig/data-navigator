@@ -14,18 +14,7 @@ This is different from `type: 'multiline'`, which organises the structure around
 </label>
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
-
-| Key                          | Action                                                   |
-| ---------------------------- | -------------------------------------------------------- |
-| Enter navigation area button | Start keyboard navigation                                |
-| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between months (or cities at the deepest level) |
-| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between cities (or months at the deepest level) |
-| <kbd>Enter</kbd>             | Drill in                                                 |
-| <kbd>W</kbd>                 | Go up to month level                                     |
-| <kbd>J</kbd>                 | Go up to city level                                      |
-| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)             |
-| <kbd>Escape</kbd>            | Exit navigation                                          |
-
+<dn-commands-table id="cross-commands-table"></dn-commands-table>
 </div>
 
 <div id="cross-chat" style="max-width:500px;"></div>
@@ -37,6 +26,7 @@ const keyboardMode = ref(false);
 
 let wrapper = null;
 let addDataNavigator = null;
+let dn = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -127,14 +117,28 @@ onMounted(async () => {
 
     p.legend.location = 'top_left';
     plt.show(p, '#cross-chart-inner');
-
-    // City dimension encoding cue: highlight the legend box for the focused city.
-    console.log("yo")
   };
 
   drawChart();
 
   ({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+  ({ default: dn } = await import('data-navigator'));
+  if (!customElements.get('dn-commands-table')) {
+    customElements.define('dn-commands-table', dn.rendering({}).CommandsTable);
+  }
+  const cmdTable = document.getElementById('cross-commands-table');
+  if (cmdTable) {
+    cmdTable.commands = [
+      { label: 'Enter navigation area button', description: 'Start keyboard navigation' },
+      { label: '← →', description: 'Navigate between months (or cities at the deepest level)' },
+      { label: '↑ ↓', description: 'Navigate between cities (or months at the deepest level)' },
+      { label: 'Enter', description: 'Drill in' },
+      { label: 'W', description: 'Go up to month level' },
+      { label: 'J', description: 'Go up to city level' },
+      { label: 'Backspace', description: 'Go back to chart root (from dimension roots)' },
+      { label: 'Escape', description: 'Exit navigation' },
+    ];
+  }
 
   const initWrapper = (mode) => {
     wrapper?.destroy();
