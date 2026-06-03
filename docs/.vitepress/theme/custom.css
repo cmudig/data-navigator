@@ -75,6 +75,10 @@
     z-index: 10;
 }
 
+.dn-node:focus:has(.dn-node-svg) {
+    outline: none;
+}
+
 .dn-node-text {
     position: absolute;
     width: 1px;

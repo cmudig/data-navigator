@@ -11,6 +11,10 @@
     outline-offset: 2px;
 }
 
+.dn-bespoke-node:focus:has(.dn-node-svg) {
+    outline: none;
+}
+
 .dn-node-path {
     fill: none;
     stroke: #1e3369;
