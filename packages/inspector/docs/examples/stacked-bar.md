@@ -244,10 +244,10 @@ onMounted(async () => {
         navigationRules: structure.navigationRules,
         commands: genericCmds => {
             const dimDrillOuts = Object.entries(structure.navigationRules)
-                .filter(([id]) => id.startsWith('parent_'))
+                .filter(([id]) => id.startsWith('drill-out_'))
                 .map(([id, rule]) => ({
                     label: rule.key.replace(/^Key/, ''),
-                    description: `Drill out (${id.replace('parent_', '')})`
+                    description: `Drill out (${id.replace('drill-out_', '')})`
                 }));
             return [...genericCmds, ...dimDrillOuts];
         }
