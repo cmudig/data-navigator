@@ -8,17 +8,7 @@ This example shows the inspector alongside a Visa Chart Components stacked bar c
 
 <div v-show="showControls">
 
-| Command                        | Key                                         |
-| ------------------------------ | ------------------------------------------- |
-| Enter the structure            | Activate the "Enter navigation area" button |
-| Exit                           | <kbd>Esc</kbd>                              |
-| Left (backward along category) | <kbd>←</kbd>                                |
-| Right (forward along category) | <kbd>→</kbd>                                |
-| Up (backward along date)       | <kbd>↑</kbd>                                |
-| Down (forward along date)      | <kbd>↓</kbd>                                |
-| Drill down to child            | <kbd>Enter</kbd>                            |
-| Drill up to category parent    | <kbd>W</kbd>                                |
-| Drill up to date parent        | <kbd>J</kbd>                                |
+<div id="stacked-commands-container"></div>
 
 At the deepest level, left/right moves across dates (via `childmostNavigation: 'across'`) and up/down moves across categories. Both dimensions wrap around circularly.
 
@@ -248,6 +238,20 @@ onMounted(async () => {
         exitElement: { include: true }
     });
     rendering.initialize();
+
+    rendering.initializeCommands({
+        rootId: 'stacked-commands-container',
+        navigationRules: structure.navigationRules,
+        commands: genericCmds => {
+            const dimDrillOuts = Object.entries(structure.navigationRules)
+                .filter(([id]) => id.startsWith('drill-out_'))
+                .map(([id, rule]) => ({
+                    label: rule.key.replace(/^Key/, ''),
+                    description: `Drill out (${id.replace('drill-out_', '')})`
+                }));
+            return [...genericCmds, ...dimDrillOuts];
+        }
+    });
 
     // Update chart highlight based on the current node
     const updateChartHighlight = node => {

@@ -12,18 +12,7 @@ A scatter plot of the classic [Iris dataset](https://en.wikipedia.org/wiki/Iris_
 </label>
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
-
-| Key                          | Action                                                            |
-| ---------------------------- | ----------------------------------------------------------------- |
-| Enter navigation area button | Start keyboard navigation                                         |
-| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level) |
-| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level) |
-| <kbd>Enter</kbd>             | Drill in                                                          |
-| <kbd>W</kbd>                 | Go up to sepal-length level                                       |
-| <kbd>J</kbd>                 | Go up to petal-length level                                       |
-| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)                      |
-| <kbd>Escape</kbd>            | Exit navigation                                                   |
-
+<dn-commands-table id="scatter-commands-table"></dn-commands-table>
 </div>
 
 <div id="scatter-chat" style="max-width:500px;"></div>
@@ -35,6 +24,7 @@ const keyboardMode = ref(false);
 
 let wrapper = null;
 let addDataNavigator = null;
+let dn = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -137,6 +127,23 @@ onMounted(async () => {
   drawChart();
 
   ({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+  ({ default: dn } = await import('data-navigator'));
+  if (!customElements.get('dn-commands-table')) {
+    customElements.define('dn-commands-table', dn.rendering({}).CommandsTable);
+  }
+  const cmdTable = document.getElementById('scatter-commands-table');
+  if (cmdTable) {
+    cmdTable.commands = [
+      { label: 'Enter navigation area button', description: 'Start keyboard navigation' },
+      { label: '← →', description: 'Navigate between sepal-length bins (or data points at leaf level)' },
+      { label: '↑ ↓', description: 'Navigate between petal-length bins (or data points at leaf level)' },
+      { label: 'Enter', description: 'Drill in' },
+      { label: 'W', description: 'Go up to sepal-length level' },
+      { label: 'J', description: 'Go up to petal-length level' },
+      { label: 'Backspace', description: 'Go back to chart root (from dimension roots)' },
+      { label: 'Escape', description: 'Exit navigation' },
+    ];
+  }
 
   // Indexes all bin boundary rects from the structure, keyed by dimension field name,
   // so the dimension root level can display every bin of that dimension at once.

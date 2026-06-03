@@ -1,36 +1,50 @@
 import { commandsTableDefaultColumns } from './consts';
+import type { CommandObject } from './data-navigator';
+
+type ColumnDef = { label: string; id: string };
 
 export class CommandsTable extends HTMLElement {
-    #commands = [];
-    #columns = commandsTableDefaultColumns;
+    #commands: CommandObject[] = [];
+    #columns: ColumnDef[] = commandsTableDefaultColumns;
+    #kbdColumn: string | null = 'label';
     #connected = false;
 
     static get observedAttributes() {
         return ['title'];
     }
 
-    set commands(value) {
+    set commands(value: CommandObject[]) {
         this.#commands = value;
         if (!this.#connected) return;
         this.#render();
     }
 
-    get commands() {
+    get commands(): CommandObject[] {
         return this.#commands;
     }
 
-    set columns(value) {
+    set columns(value: ColumnDef[]) {
         this.#columns = value;
         if (!this.#connected) return;
         this.#render();
     }
 
-    get columns() {
+    get columns(): ColumnDef[] {
         return this.#columns;
     }
 
+    /** Column id whose cells are wrapped in <kbd>. Defaults to 'label'. Set to null to disable. */
+    set kbdColumn(value: string | null) {
+        this.#kbdColumn = value;
+        if (!this.#connected) return;
+        this.#render();
+    }
+
+    get kbdColumn(): string | null {
+        return this.#kbdColumn;
+    }
+
     attributeChangedCallback() {
-        //  Avoid render when the attribute changes on init
         if (!this.#connected) return;
         this.#render();
     }
@@ -43,12 +57,11 @@ export class CommandsTable extends HTMLElement {
     #render() {
         this.replaceChildren();
 
-        const headerCells = [];
+        const headerCells: HTMLTableCellElement[] = [];
         for (const column of this.#columns) {
             const headerCell = document.createElement('th');
             headerCell.classList.add('dn-commands-table-th');
             headerCell.textContent = column.label;
-
             headerCells.push(headerCell);
         }
 
@@ -65,14 +78,14 @@ export class CommandsTable extends HTMLElement {
         const tbody = document.createElement('tbody');
         tbody.classList.add('dn-commands-table-tbody');
         for (const command of this.#commands) {
-            const rowCells = [];
+            const rowCells: HTMLTableCellElement[] = [];
 
             for (const column of this.#columns) {
-                const cellValue = command[column.id];
+                const cellValue = (command as Record<string, string>)[column.id];
 
                 const rowCell = document.createElement('td');
                 rowCell.classList.add('dn-commands-table-td');
-                if (column.id === 'label' && cellValue) {
+                if (this.#kbdColumn !== null && column.id === this.#kbdColumn && cellValue) {
                     const kbd = document.createElement('kbd');
                     kbd.classList.add('dn-commands-table-td-kbd');
                     kbd.textContent = cellValue;
@@ -102,6 +115,8 @@ export class CommandsTable extends HTMLElement {
             caption.classList.add('dn-commands-table-caption');
             caption.textContent = title;
             table.appendChild(caption);
+        } else {
+            table.setAttribute('aria-label', 'Commands table');
         }
 
         table.appendChild(thead);

@@ -8,17 +8,7 @@ This example shows the [inspector](/examples/using-the-inspector) alongside a Vi
 
 <div v-show="showControls">
 
-| Command                        | Key                                         |
-| ------------------------------ | ------------------------------------------- |
-| Enter the structure            | Activate the "Enter navigation area" button |
-| Exit                           | <kbd>Esc</kbd>                              |
-| Left (backward along category) | <kbd>←</kbd>                                |
-| Right (forward along category) | <kbd>→</kbd>                                |
-| Up (backward along date)       | <kbd>↑</kbd>                                |
-| Down (forward along date)      | <kbd>↓</kbd>                                |
-| Drill down to child            | <kbd>Enter</kbd>                            |
-| Drill up to category parent    | <kbd>W</kbd>                                |
-| Drill up to date parent        | <kbd>J</kbd>                                |
+<div id="stacked-commands-root"></div>
 
 At the deepest level, left/right moves across dates (via `childmostNavigation: 'across'`) and up/down moves across categories. Both dimensions wrap around circularly.
 
@@ -246,7 +236,22 @@ onMounted(async () => {
             height: 0
         },
         entryButton: { include: true, callbacks: { click: enter } },
-        exitElement: { include: true }
+        exitElement: { include: true },
+        commandsElement: {
+            include: true,
+            rootId: 'stacked-commands-root',
+            commands: [
+                { label: 'Enter navigation area button', description: 'Enter the structure' },
+                { label: 'Esc', description: 'Exit' },
+                { label: '←', description: 'Backward along category' },
+                { label: '→', description: 'Forward along category' },
+                { label: '↑', description: 'Backward along date' },
+                { label: '↓', description: 'Forward along date' },
+                { label: 'Enter', description: 'Drill in' },
+                { label: 'W', description: 'Drill out to category' },
+                { label: 'J', description: 'Drill out to date' },
+            ]
+        }
     });
     rendering.initialize();
 

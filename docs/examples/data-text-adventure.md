@@ -1,6 +1,6 @@
 # Data Text Adventure
 
-This example demonstrates the **text chat** interface — a text adventure-style alternative to keyboard navigation. Instead of pressing arrow keys to navigate, you type commands like `left`, `right`, `child`, or `parent` into a text input and see descriptions of where you moved.
+This example demonstrates the **text chat** interface — a text adventure-style alternative to keyboard navigation. Instead of pressing arrow keys to navigate, you type commands like `left`, `right`, `drill-in`, or `drill-out` into a text input and see descriptions of where you moved.
 
 This is especially useful for **mobile users**, where screen readers use a virtual cursor that doesn't fire the DOM `focus` events required by data-navigator's keyboard navigation. The text chat keeps focus on a single text input at all times, uses `aria-live` to announce navigation results to screen readers, and calls back to the developer so they can update chart visuals without moving DOM focus.
 
@@ -197,8 +197,9 @@ onMounted(async () => {
             right: 'right across categories',
             up: 'up across dates',
             down: 'down across dates',
-            child: 'drill in',
-            parent: 'back out',
+            'drill-in': 'drill in',
+            'drill-out_category': 'back out towards category',
+            'drill-out_date': 'back out towards date',
             exit: 'exit navigation'
         },
         onNavigate: (node) => {
@@ -226,7 +227,7 @@ import dataNavigator from 'data-navigator';
 const chat = dataNavigator.textChat({
     structure,
     container: 'text-chat-container',
-    commandLabels: { child: 'drill in', parent: 'back out' },
+    commandLabels: { 'drill-in': 'drill in', 'drill-out_category': 'back out towards category' },
     onNavigate: node => {
         /* update your chart */
     },
@@ -238,15 +239,15 @@ const chat = dataNavigator.textChat({
 
 It handles all navigation internally — parsing commands, fuzzy matching, describing nodes, and announcing results via `aria-live`. The `onNavigate` callback receives the node that was navigated to, and the `onExit` callback fires when the user types `exit`.
 
-Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `c` could be `child` or `clear`), the chat shows the options. Typos are also handled — `dwon` will match `down`. You can use up/down arrow keys to recall previous commands.
+Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `d` could be `drill-in`, `drill-out`, or `down`), the chat shows the options. Typos are also handled — `dwon` will match `down`. You can use up/down arrow keys to recall previous commands.
 
 The `aria-live` toggle checkbox controls whether navigation results are automatically announced by screen readers. When unchecked, users can still read the chat log manually.
 
 ### Natural-Language Command Labels
 
-Data Navigator's navigation rules use short internal names like `left`, `child`, and `parent`. These work well as keyboard shortcuts, but in a text interface they can feel cryptic — especially compound rules like `parent_category` that the dimensions API generates automatically.
+Data Navigator's navigation rules use short internal names like `left`, `drill-in`, and `drill-out`. These work well as keyboard shortcuts, but in a text interface they can feel cryptic — especially compound rules like `drill-out_category` that the dimensions API generates automatically.
 
-The `commandLabels` option maps rule names to human-readable descriptions. When labels are provided, `help` output shows the label alongside the command (e.g. `drill in (child)`) and navigation responses use the label instead of the raw rule name (e.g. `drill in: date: Jan...` instead of `child: date: Jan...`).
+The `commandLabels` option maps rule names to human-readable descriptions. When labels are provided, `help` output shows the label alongside the command (e.g. `drill in (drill-in)`) and navigation responses use the label instead of the raw rule name (e.g. `drill in: date: Jan...` instead of `drill-in: date: Jan...`).
 
 ```js
 commandLabels: {
@@ -254,8 +255,9 @@ commandLabels: {
     right: 'right across categories',
     up: 'up across dates',
     down: 'down across dates',
-    child: 'drill in',
-    parent: 'back out',
+    'drill-in': 'drill in',
+    'drill-out_category': 'back out towards category',
+    'drill-out_date': 'back out towards date',
     exit: 'exit navigation'
 }
 ```
@@ -285,8 +287,9 @@ dataNavigator.textChat({
         right: 'right across categories',
         up: 'up across dates',
         down: 'down across dates',
-        child: 'drill in',
-        parent: 'back out',
+        'drill-in': 'drill in',
+        'drill-out_category': 'back out towards category',
+        'drill-out_date': 'back out towards date',
         exit: 'exit navigation'
     },
     onNavigate: node => {

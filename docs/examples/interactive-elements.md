@@ -28,19 +28,7 @@ All three paths converge on the same `onClick` callback, so your interaction log
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
 
-| Key                          | Action                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| Enter navigation area button | Start keyboard navigation                                                             |
-| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level)                     |
-| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level)                     |
-| <kbd>[</kbd> <kbd>]</kbd>    | Navigate between species groups (or data points at leaf level)                        |
-| <kbd>Enter</kbd>             | Drill in                                                                              |
-| <kbd>Space</kbd>             | **Select / deselect current element** (also selects all children if at a group level) |
-| <kbd>W</kbd>                 | Go up to sepal-length level                                                           |
-| <kbd>J</kbd>                 | Go up to petal-length level                                                           |
-| <kbd>\\</kbd>                | Go up to species level                                                                |
-| <kbd>Backspace</kbd>         | Go back to chart root                                                                 |
-| <kbd>Escape</kbd>            | Exit navigation                                                                       |
+<div id="ie-commands-root"></div>
 
 </div>
 
@@ -250,6 +238,26 @@ onMounted(async () => {
   drawChart();
 
   const { addDataNavigator } = await import('@data-navigator/bokeh-wrapper');
+  const { default: dn } = await import('data-navigator');
+
+  // Initialize the keyboard commands table once (it's shown/hidden via v-show)
+  const _r = dn.rendering({ elementData: {}, suffixId: 'ie-commands' });
+  _r.initializeCommands({
+    rootId: 'ie-commands-root',
+    commands: [
+      { label: 'Enter navigation area button', description: 'Start keyboard navigation' },
+      { label: '← →', description: 'Navigate between sepal-length bins (or data points at leaf level)' },
+      { label: '↑ ↓', description: 'Navigate between petal-length bins (or data points at leaf level)' },
+      { label: '[ ]', description: 'Navigate between species groups (or data points at leaf level)' },
+      { label: 'Enter', description: 'Drill in' },
+      { label: 'Space', description: 'Select / deselect current element (also selects all children if at a group level)' },
+      { label: 'W', description: 'Drill out to sepal-length' },
+      { label: 'J', description: 'Drill out to petal-length' },
+      { label: '\\', description: 'Drill out to species' },
+      { label: 'Backspace', description: 'Drill out to chart root' },
+      { label: 'Escape', description: 'Exit navigation' },
+    ]
+  });
 
   const buildDivisionRects = () => {
     divisionRectsByDimension = {};

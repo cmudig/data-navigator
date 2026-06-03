@@ -2,6 +2,16 @@
 
 Let's put everything together!
 
+## Keyboard Controls
+
+<button class="toggle-controls" :aria-expanded="showControls" @click="showControls = !showControls">{{ showControls ? 'Hide controls' : 'Show controls' }}</button>
+
+<div v-show="showControls">
+
+<div id="first-chart-commands-root"></div>
+
+</div>
+
 ## The Final Result
 
 <Example id="chart" height="420px" label="Fruit cost by store. Navigable stacked bar chart." />
@@ -13,7 +23,9 @@ Let's put everything together!
 3. Press <kbd>Escape</kbd> to exit
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+
+const showControls = ref(true)
 
 let cleanup = null
 
@@ -226,7 +238,17 @@ onMounted(async () => {
         height: 0 
       },
       entryButton: { include: true, callbacks: { click: enter } },
-      exitElement: { include: true }
+      exitElement: { include: true },
+      commandsElement: {
+        include: true,
+        rootId: 'first-chart-commands-root',
+        commands: [
+          { label: 'Enter navigation area button', description: 'Enter the structure' },
+          { label: '←', description: 'Navigate to previous data point' },
+          { label: '→', description: 'Navigate to next data point' },
+          { label: 'Esc', description: 'Exit' },
+        ]
+      }
     })
     renderer.initialize()
 

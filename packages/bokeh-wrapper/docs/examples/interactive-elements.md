@@ -22,21 +22,7 @@ This example lets you click (or select) individual Iris data points and groups. 
 <div id="ie-table-container"></div>
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
-
-| Key                          | Action                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| Enter navigation area button | Start keyboard navigation                                                             |
-| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between sepal-length bins (or data points at leaf level)                     |
-| <kbd>↑</kbd> <kbd>↓</kbd>    | Navigate between petal-length bins (or data points at leaf level)                     |
-| <kbd>[</kbd> <kbd>]</kbd>    | Navigate between species groups (or data points at leaf level)                        |
-| <kbd>Enter</kbd>             | Drill in                                                                              |
-| <kbd>Space</kbd>             | **Select / deselect current element** (also selects all children if at a group level) |
-| <kbd>W</kbd>                 | Go up to sepal-length level                                                           |
-| <kbd>J</kbd>                 | Go up to petal-length level                                                           |
-| <kbd>\\</kbd>                | Go up to species level                                                                |
-| <kbd>Backspace</kbd>         | Go back to chart root (from dimension roots)                                          |
-| <kbd>Escape</kbd>            | Exit navigation                                                                       |
-
+<dn-commands-table id="ie-commands-table"></dn-commands-table>
 </div>
 
 <script setup>
@@ -46,6 +32,7 @@ const keyboardMode = ref(false);
 
 let wrapper = null;
 let addDataNavigator = null;
+let dn = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -317,6 +304,26 @@ onMounted(async () => {
   drawChart();
 
   ({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+  ({ default: dn } = await import('data-navigator'));
+  if (!customElements.get('dn-commands-table')) {
+    customElements.define('dn-commands-table', dn.rendering({}).CommandsTable);
+  }
+  const cmdTable = document.getElementById('ie-commands-table');
+  if (cmdTable) {
+    cmdTable.commands = [
+      { label: 'Enter navigation area button', description: 'Start keyboard navigation' },
+      { label: '← →', description: 'Navigate between sepal-length bins (or data points at leaf level)' },
+      { label: '↑ ↓', description: 'Navigate between petal-length bins (or data points at leaf level)' },
+      { label: '[ ]', description: 'Navigate between species groups (or data points at leaf level)' },
+      { label: 'Enter', description: 'Drill in' },
+      { label: 'Space', description: 'Select / deselect current element (also selects all children if at a group level)' },
+      { label: 'W', description: 'Go up to sepal-length level' },
+      { label: 'J', description: 'Go up to petal-length level' },
+      { label: '\\', description: 'Go up to species level' },
+      { label: 'Backspace', description: 'Go back to chart root (from dimension roots)' },
+      { label: 'Escape', description: 'Exit navigation' },
+    ];
+  }
 
   const buildDivisionRects = () => {
     divisionRectsByDimension = {};

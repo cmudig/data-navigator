@@ -12,15 +12,7 @@ A multi-line chart showing monthly average temperatures for three cities. The wr
 </label>
 
 <div v-show="keyboardMode" class="dn-keyboard-controls">
-
-| Key                          | Action                                                      |
-| ---------------------------- | ----------------------------------------------------------- |
-| Enter navigation area button | Start keyboard navigation                                   |
-| <kbd>←</kbd> <kbd>→</kbd>    | Navigate between cities (or months when drilled in)         |
-| <kbd>Enter</kbd>             | Drill into cities or into monthly data for the focused city |
-| <kbd>Backspace</kbd>         | Go back to city level                                       |
-| <kbd>Escape</kbd>            | Exit navigation                                             |
-
+<dn-commands-table id="line-commands-table"></dn-commands-table>
 </div>
 
 <div id="line-chat" style="max-width:500px;"></div>
@@ -32,6 +24,7 @@ const keyboardMode = ref(false);
 
 let wrapper = null;
 let addDataNavigator = null;
+let dn = null;
 
 onMounted(async () => {
   const waitFor = (check, timeout = 5000) => new Promise((resolve, reject) => {
@@ -107,6 +100,20 @@ onMounted(async () => {
   drawChart();
 
   ({ addDataNavigator } = await import('@data-navigator/bokeh-wrapper'));
+  ({ default: dn } = await import('data-navigator'));
+  if (!customElements.get('dn-commands-table')) {
+    customElements.define('dn-commands-table', dn.rendering({}).CommandsTable);
+  }
+  const cmdTable = document.getElementById('line-commands-table');
+  if (cmdTable) {
+    cmdTable.commands = [
+      { label: 'Enter navigation area button', description: 'Start keyboard navigation' },
+      { label: '← →', description: 'Navigate between cities (or months when drilled in)' },
+      { label: 'Enter', description: 'Drill into cities or into monthly data for the focused city' },
+      { label: 'Backspace', description: 'Go back to city level' },
+      { label: 'Escape', description: 'Exit navigation' },
+    ];
+  }
 
   const initWrapper = (mode) => {
     wrapper?.destroy();
@@ -123,10 +130,10 @@ onMounted(async () => {
       yField: 'temp_c',
       groupField: 'city',
       commandLabels: {
-        left:   'Move to previous city',
-        right:  'Move to next city',
-        child:  'Drill into monthly data for this city',
-        parent: 'Go back to cities',
+        left:      'Move to previous city',
+        right:     'Move to next city',
+        'drill-in':  'Drill into monthly data for this city',
+        'drill-out': 'Go back to cities',
       },
       onNavigate(node) {
         if (node.derivedNode) {
@@ -181,9 +188,9 @@ city dimension
 ```
 
 - `left` / `right` navigates between city groups at the top level
-- `child` drills into the months for the current city
+- `drill-in` drills into the months for the current city
 - `left` / `right` (inside a city) navigates between months
-- `parent` returns to the city level
+- `drill-out` returns to the city level
 
 ## Full code
 
@@ -216,8 +223,8 @@ function initWrapper(mode) {
         commandLabels: {
             left: 'Move to previous city',
             right: 'Move to next city',
-            child: 'Drill into monthly data for this city',
-            parent: 'Go back to cities'
+            'drill-in': 'Drill into monthly data for this city',
+            'drill-out': 'Go back to cities'
         },
         onNavigate(node) {
             if (node.derivedNode) {

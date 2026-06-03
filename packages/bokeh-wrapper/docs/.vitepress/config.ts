@@ -77,6 +77,14 @@ export default defineConfig({
         lineNumbers: true
     },
 
+    vue: {
+        template: {
+            compilerOptions: {
+                isCustomElement: (tag: string) => tag.startsWith('dn-')
+            }
+        }
+    },
+
     vite: {
         resolve: {
             alias: {

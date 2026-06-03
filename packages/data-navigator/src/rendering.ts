@@ -247,11 +247,11 @@ export default (options: RenderingOptions) => {
                 : optionsCommands
             : genericCommandsFromRules;
 
-        if (!customElements.get('commands-table')) {
-            customElements.define('commands-table', CommandsTable);
+        if (!customElements.get('dn-commands-table')) {
+            customElements.define('dn-commands-table', CommandsTable);
         }
 
-        const commandsElement = document.createElement('commands-table') as CommandsTable;
+        const commandsElement = document.createElement('dn-commands-table') as CommandsTable;
 
         //  Pass the title attribute to the custom element
         if (commandOptions?.title) {

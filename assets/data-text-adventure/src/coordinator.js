@@ -14,8 +14,9 @@ dataNavigator.textChat({
         right: 'right across categories',
         up: 'up across dates',
         down: 'down across dates',
-        child: 'drill in',
-        parent: 'back out',
+        'drill-in': 'drill in',
+        'drill-out_category': 'back out towards category',
+        'drill-out_date': 'back out towards date',
         exit: 'exit navigation'
     },
     onNavigate: node => {
