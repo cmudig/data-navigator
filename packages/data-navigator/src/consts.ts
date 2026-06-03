@@ -17,8 +17,8 @@ export const defaultKeyBindings = {
     ArrowDown: 'down',
     Period: 'forward',
     Comma: 'backward',
-    Escape: 'parent',
-    Enter: 'child'
+    Escape: 'drill-out',
+    Enter: 'drill-in'
 } as DatumObject;
 
 export const TypicallyUnreservedKeys = ['KeyW', 'KeyJ', 'LeftBracket', 'RightBracket', 'Slash', 'Backslash'];
@@ -47,11 +47,11 @@ export const GenericFullNavigationRules = {
         key: 'ArrowDown',
         direction: 'target'
     },
-    child: {
+    'drill-in': {
         key: 'Enter',
         direction: 'target'
     },
-    parent: {
+    'drill-out': {
         key: 'Backspace',
         direction: 'source'
     },
@@ -100,8 +100,8 @@ export const GenericFullNavigationPairs = {
     forward: ['backward', 'forward'],
     previous: ['previous', 'next'],
     next: ['previous', 'next'],
-    parent: ['parent', 'child'],
-    child: ['parent', 'child'],
+    'drill-out': ['drill-out', 'drill-in'],
+    'drill-in': ['drill-out', 'drill-in'],
     exit: ['exit', 'undo'],
     undo: ['undo', 'undo']
 };
@@ -123,11 +123,11 @@ export const GenericLimitedNavigationRules = {
         key: 'ArrowUp',
         direction: 'source'
     },
-    child: {
+    'drill-in': {
         key: 'Enter',
         direction: 'target'
     },
-    parent: {
+    'drill-out': {
         key: 'Backspace',
         direction: 'source'
     },
@@ -173,12 +173,20 @@ export const NodeElementDefaults = {
 } as RenderObject;
 
 export const GenericNavigationRuleCommands: Record<NavId, CommandObject> = {
-    enter: { label: 'Enter', description: 'Drill down' },
+    'drill-in': { label: 'Enter', description: 'Drill in' },
+    'drill-out': { label: 'Backspace', description: 'Drill out' },
     exit: { label: 'Esc', description: 'Exit' },
     left: { label: '←', description: 'Previous data point' },
     right: { label: '→', description: 'Next data point' },
     up: { label: '↑', description: 'Previous data point' },
-    down: { label: '↓', description: 'Next data point' }
+    down: { label: '↓', description: 'Next data point' },
+    backward: { label: ',', description: 'Move backward' },
+    forward: { label: '.', description: 'Move forward' },
+    previous: { label: ';', description: 'Previous' },
+    next: { label: "'", description: 'Next' },
+    undo: { label: 'Z', description: 'Undo' },
+    help: { label: 'Y', description: 'Help' },
+    legend: { label: 'L', description: 'Legend' }
 };
 
 export const commandsTableDefaultColumns = [

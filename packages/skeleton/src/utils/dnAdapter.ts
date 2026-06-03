@@ -69,10 +69,8 @@ const DIRECTION_KEY_MAP: Record<string, DNNavRule> = {
     up: { key: 'ArrowUp', direction: 'source' },
     down: { key: 'ArrowDown', direction: 'target' },
     exit: { key: 'Escape', direction: 'target' },
-    'drill in': { key: 'Enter', direction: 'target' },
-    'drill out': { key: 'Backspace', direction: 'source' },
-    child: { key: 'Enter', direction: 'target' },
-    parent: { key: 'Backspace', direction: 'source' },
+    'drill-in': { key: 'Enter', direction: 'target' },
+    'drill-out': { key: 'Backspace', direction: 'source' },
     forward: { key: 'BracketRight', direction: 'target' },
     backward: { key: 'BracketLeft', direction: 'source' }
 };

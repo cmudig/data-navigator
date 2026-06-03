@@ -80,8 +80,8 @@ const baseNavRules: NavigationRules = {
     backward: { key: 'BracketLeft', direction: 'source' },
     forward: { key: 'BracketRight', direction: 'target' },
     // Hierarchy traversal
-    child: { key: 'Enter', direction: 'target' },
-    parent: { key: 'Backspace', direction: 'source' },
+    'drill-in': { key: 'Enter', direction: 'target' },
+    'drill-out': { key: 'Backspace', direction: 'source' },
     undo: { key: 'Delete', direction: 'source' },
     // Encoding-specific parent shortcuts (W = x-axis parent, J = y-axis parent, \ = tertiary parent)
     xParent: { key: 'KeyW', direction: 'source' },
@@ -182,7 +182,7 @@ function buildCrosslineStructure(
                     // left/right siblings at this dimension level; W drills back up
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
-                        parent_child: ['xParent', 'child']
+                        parent_child: ['xParent', 'drill-in']
                     }
                 },
                 {
@@ -195,7 +195,7 @@ function buildCrosslineStructure(
                     // up/down siblings at this dimension level; J drills back up
                     navigationRules: {
                         sibling_sibling: ['up', 'down'],
-                        parent_child: ['yParent', 'child']
+                        parent_child: ['yParent', 'drill-in']
                     }
                 }
             ]
@@ -255,7 +255,7 @@ function buildCartesianStructure(
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
-                        parent_child: ['xParent', 'child']
+                        parent_child: ['xParent', 'drill-in']
                     }
                 },
                 {
@@ -279,7 +279,7 @@ function buildCartesianStructure(
                     // },
                     navigationRules: {
                         sibling_sibling: ['down', 'up'],
-                        parent_child: ['yParent', 'child']
+                        parent_child: ['yParent', 'drill-in']
                     }
                 }
             ]
@@ -331,7 +331,7 @@ function buildCartesianGroupedStructure(
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
-                        parent_child: ['xParent', 'child']
+                        parent_child: ['xParent', 'drill-in']
                     }
                 },
                 {
@@ -341,7 +341,7 @@ function buildCartesianGroupedStructure(
                     operations: { createNumericalSubdivisions: autoSubdivs },
                     navigationRules: {
                         sibling_sibling: ['down', 'up'],
-                        parent_child: ['yParent', 'child']
+                        parent_child: ['yParent', 'drill-in']
                     }
                 },
                 {
@@ -350,7 +350,7 @@ function buildCartesianGroupedStructure(
                     behavior: { extents: 'circular' as const },
                     navigationRules: {
                         sibling_sibling: ['backward', 'forward'],
-                        parent_child: ['zParent', 'child']
+                        parent_child: ['zParent', 'drill-in']
                     }
                 }
             ]
@@ -404,7 +404,7 @@ function buildDimensionStructure(
                     },
                     navigationRules: {
                         sibling_sibling: ['left', 'right'],
-                        parent_child: ['parent', 'child']
+                        parent_child: ['drill-out', 'drill-in']
                     }
                 }
             ]
@@ -583,8 +583,8 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
         case 'hbar':
             auto.left = `Move to previous ${xField ?? 'category'}`;
             auto.right = `Move to next ${xField ?? 'category'}`;
-            auto.child = `Drill into ${xField ?? 'category'} detail`;
-            auto.parent = 'Go back up';
+            auto['drill-in'] = `Drill into ${xField ?? 'category'} detail`;
+            auto['drill-out'] = 'Go back up';
             auto.undo = 'Go back up';
             break;
 
@@ -599,7 +599,7 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.right = `Move to next ${xField ?? 'category'}`;
             auto.up = `Move to previous ${groupField ?? 'group'}`;
             auto.down = `Move to next ${groupField ?? 'group'}`;
-            auto.child = 'Drill in';
+            auto['drill-in'] = 'Drill in';
             auto.xParent = `Go up to ${xField ?? 'category'} level`;
             auto.yParent = `Go up to ${groupField ?? 'group'} level`;
             break;
@@ -607,8 +607,8 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
         case 'multiline':
             auto.left = `Move to previous ${groupField ?? 'series'}`;
             auto.right = `Move to next ${groupField ?? 'series'}`;
-            auto.child = `Drill into ${groupField ?? 'series'} data`;
-            auto.parent = 'Go back up';
+            auto['drill-in'] = `Drill into ${groupField ?? 'series'} data`;
+            auto['drill-out'] = 'Go back up';
             auto.undo = 'Go back up';
             break;
 
@@ -617,7 +617,7 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.right = `Move to next ${xField ?? 'x'} range`;
             auto.up = `Move to higher ${yField ?? 'y'} range`;
             auto.down = `Move to lower ${yField ?? 'y'} range`;
-            auto.child = 'Drill in';
+            auto['drill-in'] = 'Drill in';
             auto.xParent = `Go up to ${xField ?? 'x'} level`;
             auto.yParent = `Go up to ${yField ?? 'y'} level`;
             if (groupField) {
@@ -632,7 +632,7 @@ export function buildCommandLabels(options: BokehWrapperOptions): Record<string,
             auto.right = `Move to next ${xField ?? 'x-axis point'}`;
             auto.up = `Move to previous ${groupField ?? 'series'}`;
             auto.down = `Move to next ${groupField ?? 'series'}`;
-            auto.child = 'Drill in';
+            auto['drill-in'] = 'Drill in';
             auto.xParent = `Go up to ${xField ?? 'x-axis'} level`;
             auto.yParent = `Go up to ${groupField ?? 'series'} level`;
             break;

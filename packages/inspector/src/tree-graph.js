@@ -58,7 +58,7 @@ export function TreeGraph(
     const color = nodeGroup == null ? null : scaleOrdinal(nodeGroups, colors);
 
     // Build set of parent-child and sibling navigation rule names.
-    const parentChildRules = new Set(['parent', 'child']);
+    const parentChildRules = new Set(['drill-out', 'drill-in']);
     const siblingRulePairs = [['left', 'right']]; // default pair
     if (dimensions) {
         Object.values(dimensions).forEach(dim => {

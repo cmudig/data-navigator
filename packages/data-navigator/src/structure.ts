@@ -105,7 +105,7 @@ export const buildNodeStructureFromVegaLite = (options): Structure => {
                     edges[firstChildEdge] = {
                         source: node.id,
                         target: firstChildId,
-                        navigationRules: ['parent', 'child']
+                        navigationRules: ['drill-out', 'drill-in']
                     };
                 }
             }
@@ -119,7 +119,7 @@ export const buildNodeStructureFromVegaLite = (options): Structure => {
                     edges[parentEdge] = {
                         source: parentId,
                         target: node.id,
-                        navigationRules: ['parent', 'child']
+                        navigationRules: ['drill-out', 'drill-in']
                     };
                 }
             }
@@ -441,7 +441,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                                 sibling_sibling: rules.length
                                     ? [...rules.shift()]
                                     : ['previous_' + dim.dimensionKey, 'next_' + dim.dimensionKey],
-                                parent_child: ['parent_' + dim.dimensionKey, 'child']
+                                parent_child: ['parent_' + dim.dimensionKey, 'drill-in']
                             }
                         } as DimensionObject;
 
@@ -743,7 +743,7 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
         let po = options.dimensions?.parentOptions || {};
         let extents = po.level1Options?.behavior?.extents || 'terminal';
         let level0 = po.addLevel0;
-        let parentRules = level0 ? po.level1Options?.navigationRules?.parent_child || ['parent', 'child'] : [];
+        let parentRules = level0 ? po.level1Options?.navigationRules?.parent_child || ['drill-out', 'drill-in'] : [];
         let siblingRules = po.level1Options?.navigationRules?.sibling_sibling || ['left', 'right'];
         let firstLevel1Node: NodeObject =
             typeof order[0] === 'string' ? (hasOrder ? nodes[order[0]] : nodes[dimensions[order[0]].nodeId]) : order[0];
@@ -1171,8 +1171,8 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
             // first check for level0, then loop over dimensions
             if (options.dimensions?.parentOptions?.addLevel0) {
                 let rules = options.dimensions.parentOptions.level1Options?.navigationRules?.parent_child || [
-                    'parent',
-                    'child'
+                    'drill-out',
+                    'drill-in'
                 ];
                 checkKeys(rules[0], rules[1]);
             }
