@@ -220,7 +220,7 @@ onMounted(async () => {
                 semantics: { label: 'Holy Hill. Sediment from NE/E, deposited from early until after the middle of the Wisconsin glaciation, during the Pleistocene Epoch. Oak Creek was deposited alongside during the later half.' },
                 spatialProperties: {
                     x: 305, y: 113, width: 95, height: 85,
-                    path: 'M343.75,112.5V148.5H400.125V197.5H304.875V112.5H343.75Z'
+                    path: 'M347.75,109.5V144.5H403.125V200.5H301.875V109.5H347.75Z'
                 }
             },
             'zenda': {
@@ -1076,7 +1076,7 @@ export const structure = {
                 y: 113,
                 width: 95,
                 height: 85,
-                path: 'M343.75,112.5V148.5H400.125V197.5H304.875V112.5H343.75Z'
+                path: 'M347.75,109.5V144.5H403.125V200.5H301.875V109.5H347.75Z'
             }
         },
         zenda: {
