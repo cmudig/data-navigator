@@ -1,6 +1,6 @@
 # Bespoke Visualization Navigation
 
-In this example, we are showing how a project that I worked on for the [Quaternary Geology of Wisconsin](https://data.wgnhs.wisc.edu/statewide-quaternary-online/). In the project, we watned to add keyboard navigation to a bespoke visualization that accompanies a map. The visualization is a _Correlation of Mapped Formations_ diagram showing mapped formations of glacial sediment in Wisconsin.
+In this example, we are showing how a project that I worked on for the [Quaternary Geology of Wisconsin](https://data.wgnhs.wisc.edu/statewide-quaternary-online/) evolved in design. In the project, we wanted to add keyboard navigation to a bespoke visualization that accompanies a map. The visualization is a _Correlation of Mapped Formations_ diagram showing mapped formations of glacial sediment in Wisconsin. Our assumptions about what makes a good navigation experience for this visualization changed over our time working together. This example documents that journey, while also demonstrating how one might think about making a bespoke visualization navigable using data navigator (or not!).
 
 The chart is not created using a charting library here in the browser; it is a JPEG image. For this reason (and because it does not necessarily follow a grammar of visualization in its encoding and layout), it requires a manually-defined navigation structure (in other words, we cannot use our dimensions API).
 
@@ -90,7 +90,9 @@ However, we wanted to couple navigation (screen reader accessible as well as key
 
 ## Combined Navigation
 
-Both navigation modes applied to one shared chart. Two entry buttons appear inside the chart wrapper — one for source-based navigation, one for time-based navigation. Activating one deactivates the other. The caption updates based on whichever mode is active.
+In our final example, we combine both navigation designs. The goal here is that some users may want to navigate a story of the correlation of formations, while in other contexts or other users may want to explore the data's arrangement in a more structural way, organized by the sediment source instead.
+
+Both navigation modes below applied to one shared chart. Two entry buttons appear inside the chart wrapper: one for source-based navigation, one for time-based navigation. Activating one deactivates the other. The caption updates based on whichever mode is active.
 
 ### Keyboard Controls
 
@@ -579,69 +581,6 @@ onMounted(async () => {
     };
     const unifiedTimeStructure = { ...storyStructure, edges: unifiedTimeEdges };
 
-    // --- Source mode ---
-    let unifiedSourceInput;
-
-    const enterUnifiedSource = () => {
-        if (unifiedTimeCurrent) {
-            unifiedTimeRendering.remove(unifiedTimeCurrent);
-            unifiedTimeCurrent = null; unifiedTimePrevious = null;
-        }
-        if (unifiedTimeRendering.exitElement) unifiedTimeRendering.exitElement.style.display = 'none';
-        const nextNode = unifiedSourceInput.enter();
-        if (nextNode) unifiedSourceLifecycle(nextNode);
-    };
-
-    const unifiedSourceRendering = dataNavigator.rendering({
-        elementData: structure.nodes,
-        defaults: { cssClass: 'dn-bespoke-node' },
-        suffixId: 'unified-source',
-        root: {
-            id: 'unified-wrapper',
-            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment in Wisconsin. Three columns by sediment source direction.',
-            width: '100%',
-            height: 0
-        },
-        entryButton: { include: true, callbacks: { click: enterUnifiedSource } },
-        exitElement: { include: true }
-    });
-    unifiedSourceRendering.initialize();
-    unifiedSourceRendering.entryButton.innerText = 'Explore sediment by source';
-
-    unifiedSourceExitHandler = () => {
-        unifiedSourceRendering.exitElement.style.display = 'block';
-        unifiedSourceInput.focus(unifiedSourceRendering.exitElement.id);
-        if (unifiedSourceCurrent) { unifiedSourceRendering.remove(unifiedSourceCurrent); unifiedSourceCurrent = null; }
-        if (unifiedCaptionEl) unifiedCaptionEl.textContent = '';
-    };
-
-    unifiedSourceInput = dataNavigator.input({
-        structure: unifiedSourceStructure,
-        navigationRules: unifiedSourceStructure.navigationRules,
-        entryPoint: 'glacial-sediment-w-nw',
-        exitPoint: unifiedSourceRendering.exitElement?.id
-    });
-
-    const unifiedSourceMove = direction => {
-        const nextNode = unifiedSourceInput.move(unifiedSourceCurrent, direction);
-        if (nextNode) unifiedSourceLifecycle(nextNode);
-    };
-
-    const unifiedSourceLifecycle = nextNode => {
-        if (unifiedSourcePrevious) unifiedSourceRendering.remove(unifiedSourcePrevious);
-        const element = unifiedSourceRendering.render({ renderId: nextNode.renderId, datum: nextNode });
-        element.addEventListener('keydown', e => {
-            const direction = unifiedSourceInput.keydownValidator(e);
-            if (direction) { e.preventDefault(); unifiedSourceMove(direction); }
-        });
-        element.addEventListener('focus', () => {
-            if (unifiedCaptionEl) unifiedCaptionEl.textContent = nextNode.semantics.label;
-        });
-        unifiedSourceInput.focus(nextNode.renderId);
-        unifiedSourcePrevious = unifiedSourceCurrent;
-        unifiedSourceCurrent  = nextNode.id;
-    };
-
     // --- Time mode ---
     let unifiedTimeInput;
 
@@ -705,6 +644,69 @@ onMounted(async () => {
         unifiedTimeCurrent  = nextNode.id;
     };
 
+    // --- Source mode ---
+    let unifiedSourceInput;
+
+    const enterUnifiedSource = () => {
+        if (unifiedTimeCurrent) {
+            unifiedTimeRendering.remove(unifiedTimeCurrent);
+            unifiedTimeCurrent = null; unifiedTimePrevious = null;
+        }
+        if (unifiedTimeRendering.exitElement) unifiedTimeRendering.exitElement.style.display = 'none';
+        const nextNode = unifiedSourceInput.enter();
+        if (nextNode) unifiedSourceLifecycle(nextNode);
+    };
+
+    const unifiedSourceRendering = dataNavigator.rendering({
+        elementData: structure.nodes,
+        defaults: { cssClass: 'dn-bespoke-node' },
+        suffixId: 'unified-source',
+        root: {
+            id: 'unified-wrapper',
+            description: 'Correlation of Mapped Formations showing the time period of deposition for each mapped formation of glacial sediment in Wisconsin. Three columns by sediment source direction.',
+            width: '100%',
+            height: 0
+        },
+        entryButton: { include: true, callbacks: { click: enterUnifiedSource } },
+        exitElement: { include: true }
+    });
+    unifiedSourceRendering.initialize();
+    unifiedSourceRendering.entryButton.innerText = 'Explore sediment by source';
+
+    unifiedSourceExitHandler = () => {
+        unifiedSourceRendering.exitElement.style.display = 'block';
+        unifiedSourceInput.focus(unifiedSourceRendering.exitElement.id);
+        if (unifiedSourceCurrent) { unifiedSourceRendering.remove(unifiedSourceCurrent); unifiedSourceCurrent = null; }
+        if (unifiedCaptionEl) unifiedCaptionEl.textContent = '';
+    };
+
+    unifiedSourceInput = dataNavigator.input({
+        structure: unifiedSourceStructure,
+        navigationRules: unifiedSourceStructure.navigationRules,
+        entryPoint: 'glacial-sediment-w-nw',
+        exitPoint: unifiedSourceRendering.exitElement?.id
+    });
+
+    const unifiedSourceMove = direction => {
+        const nextNode = unifiedSourceInput.move(unifiedSourceCurrent, direction);
+        if (nextNode) unifiedSourceLifecycle(nextNode);
+    };
+
+    const unifiedSourceLifecycle = nextNode => {
+        if (unifiedSourcePrevious) unifiedSourceRendering.remove(unifiedSourcePrevious);
+        const element = unifiedSourceRendering.render({ renderId: nextNode.renderId, datum: nextNode });
+        element.addEventListener('keydown', e => {
+            const direction = unifiedSourceInput.keydownValidator(e);
+            if (direction) { e.preventDefault(); unifiedSourceMove(direction); }
+        });
+        element.addEventListener('focus', () => {
+            if (unifiedCaptionEl) unifiedCaptionEl.textContent = nextNode.semantics.label;
+        });
+        unifiedSourceInput.focus(nextNode.renderId);
+        unifiedSourcePrevious = unifiedSourceCurrent;
+        unifiedSourceCurrent  = nextNode.id;
+    };
+
     cleanup = () => {
         if (rendering) rendering.clearStructure();
         if (storyRendering) storyRendering.clearStructure();
@@ -749,79 +751,6 @@ import dataNavigator from 'data-navigator';
 import { structure, storyStructure, callbacks } from './structure.js';
 
 const captionEl = document.getElementById('caption');
-
-// ── Source mode ──────────────────────────────────────────────────────────────
-let sourceCurrent = null,
-    sourcePrevious = null;
-let sourceInput;
-
-const enterSource = () => {
-    if (timeCurrent) {
-        timeRendering.remove(timeCurrent);
-        timeCurrent = null;
-        timePrevious = null;
-    }
-    if (timeRendering.exitElement) timeRendering.exitElement.style.display = 'none';
-    const nextNode = sourceInput.enter();
-    if (nextNode) sourceLifecycle(nextNode);
-};
-
-const sourceRendering = dataNavigator.rendering({
-    elementData: structure.nodes,
-    defaults: { cssClass: 'dn-bespoke-node' },
-    suffixId: 'source',
-    root: {
-        id: 'chart-wrapper',
-        description:
-            'Stratigraphic chart of glacial sediment deposits in Wisconsin. Three columns by sediment source direction.',
-        width: '100%',
-        height: 0
-    },
-    entryButton: { include: true, callbacks: { click: enterSource } },
-    exitElement: { include: true }
-});
-sourceRendering.initialize();
-sourceRendering.entryButton.innerText = 'Explore sediment by source';
-
-callbacks.onSourceExit = () => {
-    sourceRendering.exitElement.style.display = 'block';
-    sourceInput.focus(sourceRendering.exitElement.id);
-    if (sourceCurrent) {
-        sourceRendering.remove(sourceCurrent);
-        sourceCurrent = null;
-    }
-    if (captionEl) captionEl.textContent = '';
-};
-
-sourceInput = dataNavigator.input({
-    structure,
-    navigationRules: structure.navigationRules,
-    entryPoint: 'glacial-sediment-w-nw',
-    exitPoint: sourceRendering.exitElement?.id
-});
-
-const sourceMove = direction => {
-    const nextNode = sourceInput.move(sourceCurrent, direction);
-    if (nextNode) sourceLifecycle(nextNode);
-};
-
-const sourceLifecycle = nextNode => {
-    if (sourcePrevious) sourceRendering.remove(sourcePrevious);
-    const element = sourceRendering.render({ renderId: nextNode.renderId, datum: nextNode });
-    element.addEventListener('keydown', e => {
-        const direction = sourceInput.keydownValidator(e);
-        if (direction) {
-            e.preventDefault();
-            sourceMove(direction);
-        }
-    });
-    element.addEventListener('focus', () => {
-        if (captionEl) captionEl.textContent = nextNode.semantics.label;
-    });
-    sourceInput.focus(nextNode.renderId);
-    sourcePrevious = sourceCurrent;
-    sourceCurrent = nextNode.id;
-};
 
 // ── Time mode ────────────────────────────────────────────────────────────────
 let timeCurrent = null,
@@ -894,6 +823,79 @@ const timeLifecycle = nextNode => {
     timeInput.focus(nextNode.renderId);
     timePrevious = timeCurrent;
     timeCurrent = nextNode.id;
+};
+
+// ── Source mode ──────────────────────────────────────────────────────────────
+let sourceCurrent = null,
+    sourcePrevious = null;
+let sourceInput;
+
+const enterSource = () => {
+    if (timeCurrent) {
+        timeRendering.remove(timeCurrent);
+        timeCurrent = null;
+        timePrevious = null;
+    }
+    if (timeRendering.exitElement) timeRendering.exitElement.style.display = 'none';
+    const nextNode = sourceInput.enter();
+    if (nextNode) sourceLifecycle(nextNode);
+};
+
+const sourceRendering = dataNavigator.rendering({
+    elementData: structure.nodes,
+    defaults: { cssClass: 'dn-bespoke-node' },
+    suffixId: 'source',
+    root: {
+        id: 'chart-wrapper',
+        description:
+            'Stratigraphic chart of glacial sediment deposits in Wisconsin. Three columns by sediment source direction.',
+        width: '100%',
+        height: 0
+    },
+    entryButton: { include: true, callbacks: { click: enterSource } },
+    exitElement: { include: true }
+});
+sourceRendering.initialize();
+sourceRendering.entryButton.innerText = 'Explore sediment by source';
+
+callbacks.onSourceExit = () => {
+    sourceRendering.exitElement.style.display = 'block';
+    sourceInput.focus(sourceRendering.exitElement.id);
+    if (sourceCurrent) {
+        sourceRendering.remove(sourceCurrent);
+        sourceCurrent = null;
+    }
+    if (captionEl) captionEl.textContent = '';
+};
+
+sourceInput = dataNavigator.input({
+    structure,
+    navigationRules: structure.navigationRules,
+    entryPoint: 'glacial-sediment-w-nw',
+    exitPoint: sourceRendering.exitElement?.id
+});
+
+const sourceMove = direction => {
+    const nextNode = sourceInput.move(sourceCurrent, direction);
+    if (nextNode) sourceLifecycle(nextNode);
+};
+
+const sourceLifecycle = nextNode => {
+    if (sourcePrevious) sourceRendering.remove(sourcePrevious);
+    const element = sourceRendering.render({ renderId: nextNode.renderId, datum: nextNode });
+    element.addEventListener('keydown', e => {
+        const direction = sourceInput.keydownValidator(e);
+        if (direction) {
+            e.preventDefault();
+            sourceMove(direction);
+        }
+    });
+    element.addEventListener('focus', () => {
+        if (captionEl) captionEl.textContent = nextNode.semantics.label;
+    });
+    sourceInput.focus(nextNode.renderId);
+    sourcePrevious = sourceCurrent;
+    sourceCurrent = nextNode.id;
 };
 ```
 
