@@ -75,6 +75,25 @@
     z-index: 10;
 }
 
+.dn-node:focus:has(.dn-node-svg) {
+    outline: none;
+}
+
+.dn-node-svg {
+    position: absolute;
+    pointer-events: none;
+}
+
+.dn-node-path {
+    fill: none;
+    stroke: none;
+}
+
+.dn-node:focus .dn-node-path {
+    stroke: var(--vp-c-brand-1);
+    stroke-width: 3px;
+}
+
 .dn-node-text {
     position: absolute;
     width: 1px;

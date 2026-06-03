@@ -18,8 +18,21 @@
                 outline-offset: 2px;
             }
 
+            .dn-bespoke-node:focus:has(.dn-node-svg) {
+                outline: none;
+            }
+
+            .dn-node-svg {
+                position: absolute;
+                pointer-events: none;
+            }
+
             .dn-node-path {
                 fill: none;
+                stroke: none;
+            }
+
+            .dn-bespoke-node:focus .dn-node-path {
                 stroke: #1e3369;
                 stroke-width: 3;
             }
@@ -2436,7 +2449,7 @@
                             y: 113,
                             width: 95,
                             height: 85,
-                            path: 'M343.75,112.5V148.5H400.125V197.5H304.875V112.5H343.75Z'
+                            path: 'M347.75,109.5V144.5H403.125V200.5H301.875V109.5H347.75Z'
                         }
                     },
                     zenda: {
@@ -2790,6 +2803,78 @@
 
             const captionEl = document.getElementById('caption');
 
+            // ── Time mode ────────────────────────────────────────────────────────────────
+            let timeCurrent = null,
+                timePrevious = null;
+            let timeInput;
+
+            const enterTime = () => {
+                if (sourceCurrent) {
+                    sourceRendering.remove(sourceCurrent);
+                    sourceCurrent = null;
+                    sourcePrevious = null;
+                }
+                if (sourceRendering.exitElement) sourceRendering.exitElement.style.display = 'none';
+                const nextNode = timeInput.enter();
+                if (nextNode) timeLifecycle(nextNode);
+            };
+
+            const timeRendering = dataNavigator.rendering({
+                elementData: storyStructure.nodes,
+                defaults: { cssClass: 'dn-story-node' },
+                suffixId: 'time',
+                root: {
+                    id: 'chart-wrapper',
+                    description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
+                    width: '100%',
+                    height: 0
+                },
+                entryButton: { include: true, callbacks: { click: enterTime } },
+                exitElement: { include: true }
+            });
+            timeRendering.initialize();
+            timeRendering.entryButton.innerText = 'Navigate sediment by time';
+
+            callbacks.onTimeExit = () => {
+                timeRendering.exitElement.style.display = 'block';
+                timeInput.focus(timeRendering.exitElement.id);
+                if (timeCurrent) {
+                    timeRendering.remove(timeCurrent);
+                    timeCurrent = null;
+                }
+                if (captionEl) captionEl.textContent = '';
+            };
+
+            timeInput = dataNavigator.input({
+                structure: storyStructure,
+                navigationRules: storyStructure.navigationRules,
+                entryPoint: 'st-01',
+                exitPoint: timeRendering.exitElement?.id
+            });
+
+            const timeMove = direction => {
+                const nextNode = timeInput.move(timeCurrent, direction);
+                if (nextNode) timeLifecycle(nextNode);
+            };
+
+            const timeLifecycle = nextNode => {
+                if (timePrevious) timeRendering.remove(timePrevious);
+                const element = timeRendering.render({ renderId: nextNode.renderId, datum: nextNode });
+                element.addEventListener('keydown', e => {
+                    const direction = timeInput.keydownValidator(e);
+                    if (direction) {
+                        e.preventDefault();
+                        timeMove(direction);
+                    }
+                });
+                element.addEventListener('focus', () => {
+                    if (captionEl) captionEl.textContent = nextNode.semantics.label;
+                });
+                timeInput.focus(nextNode.renderId);
+                timePrevious = timeCurrent;
+                timeCurrent = nextNode.id;
+            };
+
             // ── Source mode ──────────────────────────────────────────────────────────────
             let sourceCurrent = null,
                 sourcePrevious = null;
@@ -2861,78 +2946,6 @@
                 sourceInput.focus(nextNode.renderId);
                 sourcePrevious = sourceCurrent;
                 sourceCurrent = nextNode.id;
-            };
-
-            // ── Time mode ────────────────────────────────────────────────────────────────
-            let timeCurrent = null,
-                timePrevious = null;
-            let timeInput;
-
-            const enterTime = () => {
-                if (sourceCurrent) {
-                    sourceRendering.remove(sourceCurrent);
-                    sourceCurrent = null;
-                    sourcePrevious = null;
-                }
-                if (sourceRendering.exitElement) sourceRendering.exitElement.style.display = 'none';
-                const nextNode = timeInput.enter();
-                if (nextNode) timeLifecycle(nextNode);
-            };
-
-            const timeRendering = dataNavigator.rendering({
-                elementData: storyStructure.nodes,
-                defaults: { cssClass: 'dn-story-node' },
-                suffixId: 'time',
-                root: {
-                    id: 'chart-wrapper',
-                    description: 'Stratigraphic chart showing glacial sediment layers through time in Wisconsin.',
-                    width: '100%',
-                    height: 0
-                },
-                entryButton: { include: true, callbacks: { click: enterTime } },
-                exitElement: { include: true }
-            });
-            timeRendering.initialize();
-            timeRendering.entryButton.innerText = 'Navigate sediment by time';
-
-            callbacks.onTimeExit = () => {
-                timeRendering.exitElement.style.display = 'block';
-                timeInput.focus(timeRendering.exitElement.id);
-                if (timeCurrent) {
-                    timeRendering.remove(timeCurrent);
-                    timeCurrent = null;
-                }
-                if (captionEl) captionEl.textContent = '';
-            };
-
-            timeInput = dataNavigator.input({
-                structure: storyStructure,
-                navigationRules: storyStructure.navigationRules,
-                entryPoint: 'st-01',
-                exitPoint: timeRendering.exitElement?.id
-            });
-
-            const timeMove = direction => {
-                const nextNode = timeInput.move(timeCurrent, direction);
-                if (nextNode) timeLifecycle(nextNode);
-            };
-
-            const timeLifecycle = nextNode => {
-                if (timePrevious) timeRendering.remove(timePrevious);
-                const element = timeRendering.render({ renderId: nextNode.renderId, datum: nextNode });
-                element.addEventListener('keydown', e => {
-                    const direction = timeInput.keydownValidator(e);
-                    if (direction) {
-                        e.preventDefault();
-                        timeMove(direction);
-                    }
-                });
-                element.addEventListener('focus', () => {
-                    if (captionEl) captionEl.textContent = nextNode.semantics.label;
-                });
-                timeInput.focus(nextNode.renderId);
-                timePrevious = timeCurrent;
-                timeCurrent = nextNode.id;
             };
         </script>
     </body>
