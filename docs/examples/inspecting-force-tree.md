@@ -8,16 +8,7 @@ This example extends [Using the Inspector](/examples/using-the-inspector) by sho
 
 <div v-show="showControls">
 
-| Command                        | Key                                         |
-| ------------------------------ | ------------------------------------------- |
-| Enter the structure            | Activate the "Enter navigation area" button |
-| Exit                           | <kbd>Esc</kbd>                              |
-| Left (backward along category) | <kbd>←</kbd>                                |
-| Right (forward along category) | <kbd>→</kbd>                                |
-| Up (backward along metric)     | <kbd>↑</kbd>                                |
-| Down (forward along metric)    | <kbd>↓</kbd>                                |
-| Drill down to child            | <kbd>Enter</kbd>                            |
-| Drill up to parent             | <kbd>W</kbd> or <kbd>J</kbd>                |
+<div id="tree-commands-root"></div>
 
 </div>
 
@@ -184,7 +175,21 @@ onMounted(async () => {
             height: 0
         },
         entryButton: { include: true, callbacks: { click: enter } },
-        exitElement: { include: true }
+        exitElement: { include: true },
+        commandsElement: {
+            include: true,
+            rootId: 'tree-commands-root',
+            commands: [
+                { label: 'Enter navigation area button', description: 'Enter the structure' },
+                { label: 'Esc', description: 'Exit' },
+                { label: '←', description: 'Backward along category' },
+                { label: '→', description: 'Forward along category' },
+                { label: '↑', description: 'Backward along metric' },
+                { label: '↓', description: 'Forward along metric' },
+                { label: 'Enter', description: 'Drill in' },
+                { label: 'W / J', description: 'Drill out' },
+            ]
+        }
     });
     rendering.initialize();
 

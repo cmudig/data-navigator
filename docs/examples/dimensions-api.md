@@ -251,9 +251,9 @@ onMounted(async () => {
                 { label: '→', description: 'Right (forward along date)' },
                 { label: '↑', description: 'Up (backward along category)' },
                 { label: '↓', description: 'Down (forward along category)' },
-                { label: 'Enter', description: 'Drill down to child' },
-                { label: 'W', description: 'Drill up to date parent' },
-                { label: 'J', description: 'Drill up to category parent' }
+                { label: 'Enter', description: 'Drill in' },
+                { label: 'W', description: 'Drill out to date' },
+                { label: 'J', description: 'Drill out to category' }
             ],
         }
     });
