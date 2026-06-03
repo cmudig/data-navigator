@@ -441,7 +441,7 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
                                 sibling_sibling: rules.length
                                     ? [...rules.shift()]
                                     : ['previous_' + dim.dimensionKey, 'next_' + dim.dimensionKey],
-                                parent_child: ['parent_' + dim.dimensionKey, 'drill-in']
+                                parent_child: ['drill-out_' + dim.dimensionKey, 'drill-in']
                             }
                         } as DimensionObject;
 

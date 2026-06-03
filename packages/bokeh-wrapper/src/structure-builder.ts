@@ -397,8 +397,8 @@ function buildDimensionStructure(
                     type: 'categorical' as const,
                     behavior: { extents: 'circular' as const },
                     // Explicitly name rules so edge tags match keys in baseNavRules.
-                    // Without this, data-navigator auto-generates 'parent_<dimensionKey>'
-                    // (e.g. 'parent_city'), which won't match the 'parent' rule.
+                    // Without this, data-navigator auto-generates 'drill-out_<dimensionKey>'
+                    // (e.g. 'drill-out_city'), which won't match the bare 'drill-out' rule.
                     operations: {
                         compressSparseDivisions: compressSparseDivisions || false
                     },
