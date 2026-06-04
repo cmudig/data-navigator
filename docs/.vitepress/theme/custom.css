@@ -89,6 +89,10 @@
     stroke: none;
 }
 
+#bespoke-inspector-tooltip {
+    top: -154px !important;
+}
+
 .dn-node:focus .dn-node-path {
     stroke: var(--vp-c-brand-1);
     stroke-width: 3px;

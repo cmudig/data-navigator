@@ -292,14 +292,41 @@ onMounted(async () => {
         }
     };
 
+    const treeAnnotated = (() => {
+        const regionToFormations = {
+            'glacial-sediment-w-nw': ['trade-river', 'pierce', 'marathon'],
+            'glacial-sediment-n-ne': ['miller-creek', 'copper-falls', 'river-falls'],
+            'glacial-sediment-ne-e': ['kewaunee', 'oak-creek', 'holy-hill', 'zenda', 'walworth']
+        };
+        const regionOf = {};
+        Object.entries(regionToFormations).forEach(([region, ids]) =>
+            ids.forEach(id => { regionOf[id] = region; })
+        );
+        const annotatedNodes = Object.fromEntries(
+            Object.entries(structure.nodes).map(([id, node]) => {
+                if (id in regionToFormations) return [id, { ...node, dimensionLevel: 1 }];
+                if (regionOf[id])            return [id, { ...node, dimensionLevel: 2, derivedNode: regionOf[id] }];
+                return [id, node];
+            })
+        );
+        const dimensions = Object.fromEntries(
+            Object.keys(regionToFormations).map(id => [id, { nodeId: id }])
+        );
+        return { ...structure, nodes: annotatedNodes, dimensions };
+    })();
+
     const inspector = Inspector({
-        structure,
+        structure: treeAnnotated,
         container: 'bespoke-inspector',
         size: 300,
         colorBy: 'dimensionLevel',
         edgeExclusions: ['any-exit'],
-        nodeInclusions: ['exit']
+        nodeInclusions: ['exit'],
+        mode: 'tree'
     });
+    document.getElementById('bespoke-inspector').style.minHeight = '175px';
+    inspector.svg.setAttribute('height', '175');
+    inspector.svg.setAttribute('viewBox', '0,0,600,175');
 
     let current = null;
     let previous = null;
