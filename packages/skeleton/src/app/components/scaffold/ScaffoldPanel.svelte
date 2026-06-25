@@ -6,6 +6,7 @@
     import type { SkeletonNode } from '../../../store/types';
     import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
     import { latestView } from '../../../store/scaffoldRuntime';
+    import { runEstimateAndApply } from '../../../utils/paddingEstimator';
     import { logAction, logActionDebounced } from '../../../store/historyStore';
     import { detectFieldsForChartType } from '../../../utils/prepAdapter';
 
@@ -68,6 +69,28 @@
         });
 
         logAction('Extracted values from scaffold');
+    }
+
+    // ── Estimate padding (CV) ───────────────────────────────────────────────────
+    let estimatingPadding = $state(false);
+    async function handleEstimatePadding() {
+        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
+        const cfg = s.scaffoldConfig;
+        if (!cfg || !s.imageDataUrl || !s.imageWidth || !s.imageHeight) {
+            window.alert('Need a rendered scaffold and an uploaded image first.');
+            return;
+        }
+        estimatingPadding = true;
+        try {
+            await runEstimateAndApply(cfg, [...s.nodes.values()], {
+                dataUrl: s.imageDataUrl,
+                width: s.imageWidth,
+                height: s.imageHeight
+            });
+            logAction('Estimated padding');
+        } finally {
+            estimatingPadding = false;
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -411,6 +434,15 @@
                 />
             </label>
         </div>
+        <button
+            type="button"
+            class="estimate-padding-btn"
+            onclick={handleEstimatePadding}
+            disabled={estimatingPadding}
+            title="Detect the chart marks in the image and align the scaffold padding to them"
+        >
+            {estimatingPadding ? 'Estimating…' : 'Estimate padding'}
+        </button>
     </section>
 
     <!-- Field mapping (Vega encoding channels) -->
@@ -1271,5 +1303,23 @@
     }
     .btn-xs:hover {
         background: var(--dn-border);
+    }
+    .estimate-padding-btn {
+        margin-top: 8px;
+        width: 100%;
+        font-size: 0.75rem;
+        padding: 5px 10px;
+        border: 1px solid var(--dn-border);
+        border-radius: 4px;
+        background: var(--dn-bg);
+        color: var(--dn-text);
+        cursor: pointer;
+    }
+    .estimate-padding-btn:hover:not(:disabled) {
+        background: var(--dn-border);
+    }
+    .estimate-padding-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
     }
 </style>

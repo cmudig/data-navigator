@@ -14,7 +14,15 @@
     import { renderToHidden, positionNodesFromVegaScales } from '../../../utils/scaffoldAdapter';
     import { detectFieldsForChartType } from '../../../utils/prepAdapter';
     import type { VegaEmbedResult } from '../../../utils/scaffoldAdapter';
-    import { setScaffoldView } from '../../../store/scaffoldRuntime';
+    import {
+        setScaffoldView,
+        autoPaddingHasRun,
+        setAutoPaddingHasRun,
+        paddingEstimateInFlight,
+        pendingPaddingVerification,
+        setPendingPaddingVerification
+    } from '../../../store/scaffoldRuntime';
+    import { runEstimateAndApply, verifyPadding } from '../../../utils/paddingEstimator';
     import { computeGroupPaths } from '../../../utils/groupShapes';
     import type { DivisionExtents } from '../../../utils/groupShapes';
     import type { BonusRect, GroupShapeConfig } from '../../../store/appState';
@@ -145,6 +153,17 @@
 
             // Recompute group paths now that leaf positions are updated
             applyGroupPaths();
+
+            // One-shot padding verification: if a prior estimate just patched the
+            // padding, this is the render that applied it — measure the residual.
+            if (pendingPaddingVerification) {
+                const targets = pendingPaddingVerification;
+                setPendingPaddingVerification(null);
+                verifyPadding(targets, cfg, [...get(appState).nodes.values()]);
+            }
+
+            // Auto-estimate padding once per scaffold session (guarded; no loop).
+            maybeAutoEstimatePadding(cfg, view);
         } catch (err) {
             renderError = String(err);
             currentView = null;
@@ -152,6 +171,40 @@
         } finally {
             isRendering = false;
         }
+    }
+
+    /**
+     * Fire the CV padding estimator exactly once per scaffold session, after a
+     * successful render that has everything it needs. Called from the end of
+     * doRender — NOT from a config-watching $effect, which would loop because the
+     * estimator itself patches the padding config.
+     *
+     * `autoPaddingHasRun` flips true synchronously before the first await, so the
+     * render triggered by the padding patch re-enters here and returns immediately.
+     */
+    async function maybeAutoEstimatePadding(cfg: ScaffoldConfig, view: VegaEmbedResult['view']) {
+        if (autoPaddingHasRun || paddingEstimateInFlight) return;
+        const s = get(appState);
+        const leafCount = [...s.nodes.values()].filter(n => n.dnLevel === 3).length;
+        const ready =
+            s.scaffoldModeActive &&
+            !!s.imageDataUrl &&
+            !!s.imageWidth &&
+            !!s.imageHeight &&
+            !!cfg.chartType &&
+            !!cfg.xField &&
+            !!cfg.yField &&
+            leafCount >= 2 &&
+            !!view;
+        if (!ready) return;
+
+        console.log('[padding] auto-trigger fired');
+        setAutoPaddingHasRun(true); // block re-entry before any await
+        await runEstimateAndApply(cfg, [...s.nodes.values()], {
+            dataUrl: s.imageDataUrl!,
+            width: s.imageWidth!,
+            height: s.imageHeight!
+        });
     }
 
     // Re-render whenever scaffoldConfig changes
@@ -167,6 +220,9 @@
     onDestroy(() => {
         if (renderTimer) clearTimeout(renderTimer);
         if (currentCleanup) currentCleanup();
+        // Reset the once-per-session guard so re-entering scaffold mode re-fits.
+        setAutoPaddingHasRun(false);
+        setPendingPaddingVerification(null);
     });
 
     // ── Group path computation ─────────────────────────────────────────────────
