@@ -6,9 +6,12 @@
  * Pipeline (all in the browser, runs in a few tens of ms on a downscaled crop):
  *   1. Draw the plot region of the image into an offscreen canvas, downscaled so
  *      the longer side is <= MAX_DIM px (tracked via `scale`).
- *   2. Build a binary foreground mask: a pixel is "ink" if it is notably darker
- *      than the background OR notably saturated. The dual test keeps dark line
- *      charts and pastel coloured bars while rejecting light-grey gridlines.
+ *   2. Build a binary foreground mask. Data marks are almost always coloured
+ *      while chart chrome (axes, gridlines, ticks, labels, title) is grayscale,
+ *      so a saturation threshold isolates the marks and keeps the axis line from
+ *      bridging neighbouring bars. Charts with no colour fall back to a luminance
+ *      mask thresholded on |luminance - background|, which works regardless of
+ *      whether the canvas is light or dark.
  *   3. Connected-component labeling (8-connectivity, iterative flood fill).
  *   4. Classify each component as mark | gridline | axis | label | noise using
  *      geometry heuristics (thin-and-long → gridline/axis, tiny → noise, edge-
@@ -72,7 +75,7 @@ export interface PlotRect {
 // ── Tunables ────────────────────────────────────────────────────────────────
 
 const MAX_DIM = 1000; // longer side of the working canvas, px
-const DARK_T = 40; // luminance below (bg - DARK_T) counts as ink (monochrome fallback)
+const DARK_T = 40; // |luminance - bg| above this counts as ink (monochrome fallback)
 const SAT_T = 0.18; // HSV saturation above this counts as a coloured mark pixel
 const COLOR_COVERAGE_MIN = 0.002; // if saturated pixels cover < this fraction, fall back to dark mask
 const NOISE_AREA = 12; // components below this many scaled px² are noise
@@ -160,8 +163,15 @@ export function analyzePlotPixels(
             }
         }
     } else {
+        // Monochrome fallback. Threshold the *magnitude* of deviation from the
+        // background luminance rather than assuming marks are darker than it, so
+        // a light-on-dark chart works as well as the usual dark-on-light one.
+        // (`bg` is the median border luminance, so it already tracks a dark canvas.)
         for (let i = 0; i < npx; i++) {
-            if (data[i * 4 + 3] >= 16 && luminance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) < bg - DARK_T) {
+            if (
+                data[i * 4 + 3] >= 16 &&
+                Math.abs(luminance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) - bg) > DARK_T
+            ) {
                 mask[i] = 1;
             }
         }
