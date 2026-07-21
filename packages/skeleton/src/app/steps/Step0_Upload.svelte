@@ -1,6 +1,8 @@
 <script lang="ts">
     import { get } from 'svelte/store';
     import { appState } from '../../store/appState';
+    import { loadState } from '../../utils/saveLoad';
+    import { resetHistory, logAction } from '../../store/historyStore';
 
     // ─── Initialize from persisted store ──────────────────────────────────────
     const _s = get(appState);
@@ -28,6 +30,15 @@
         { label: 'Stacked Bar Chart', image: 'stack.png',            data: 'stack.json' },
         { label: 'Line Chart',        image: 'line.png',             data: 'line.json' },
         { label: 'Scatter Plot',      image: 'scatter.png',          data: 'scatter.json' },
+    ] as const;
+
+    // Saved sessions (full .zip project state loaded via loadState).
+    const PREP_DONE_SESSIONS = [
+        { label: 'Scatter Plot', file: '2026-07-skeleton-sample-editor-view.zip' },
+    ] as const;
+
+    const FULLY_READY_SESSIONS = [
+        { label: 'Scatter Plot', file: '2026-07-skeleton-sample-scaffolded-view.zip' },
     ] as const;
 
     async function loadExample(imageFile: string, dataFile: string) {
@@ -77,12 +88,35 @@
         }
     }
 
+    async function loadSessionExample(sessionFile: string) {
+        imageStatus = 'Loading session…';
+        dataStatus  = 'Loading session…';
+        try {
+            const res = await fetch(`${BASE}${sessionFile}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            const file = new File([blob], sessionFile, { type: 'application/zip' });
+            const summary = await loadState(file);
+            resetHistory();
+            logAction('Loaded session');
+            imageStatus = summary;
+            dataStatus  = '';
+        } catch (e) {
+            imageStatus = `Error loading session: ${(e as Error).message}`;
+            dataStatus  = '';
+        }
+    }
+
     function onExampleChange(e: Event) {
         const val = (e.target as HTMLSelectElement).value;
+        (e.target as HTMLSelectElement).value = '';
         if (!val) return;
+        if (val.startsWith('session:')) {
+            loadSessionExample(val.slice('session:'.length));
+            return;
+        }
         const [imageFile, dataFile] = val.split('|');
         loadExample(imageFile, dataFile);
-        (e.target as HTMLSelectElement).value = '';
     }
 
     // ─── Minimal CSV parser ───────────────────────────────────────────────────
@@ -429,9 +463,21 @@
         <label for="example-select" class="examples-label">Load an example</label>
         <select id="example-select" class="examples-select" onchange={onExampleChange}>
             <option value="">— choose an example —</option>
-            {#each EXAMPLES as ex}
-                <option value="{ex.image}|{ex.data}">{ex.label}</option>
-            {/each}
+            <optgroup label="Unprepped">
+                {#each EXAMPLES as ex}
+                    <option value="{ex.image}|{ex.data}">{ex.label}</option>
+                {/each}
+            </optgroup>
+            <optgroup label="Prep Done">
+                {#each PREP_DONE_SESSIONS as s}
+                    <option value="session:{s.file}">{s.label}</option>
+                {/each}
+            </optgroup>
+            <optgroup label="Ready to Test">
+                {#each FULLY_READY_SESSIONS as s}
+                    <option value="session:{s.file}">{s.label}</option>
+                {/each}
+            </optgroup>
         </select>
     </div>
 

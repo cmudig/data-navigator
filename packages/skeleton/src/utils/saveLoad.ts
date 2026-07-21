@@ -48,6 +48,11 @@ export interface SerializedState {
     hasManualNodeEdits?: boolean;
     scaffoldConfig?: ScaffoldConfig | null;
     scaffoldModeActive?: boolean;
+    // Canonical DN navigation structure produced by SchemaPanel. Persisted so a
+    // session loaded directly onto the Testing step (which reads it to render the
+    // inspector) has correct per-node edge membership without SchemaPanel needing
+    // to remount and rebuild it. Optional so old saves remain loadable.
+    dnStructure?: Record<string, unknown> | null;
     // future fields go here (all optional so old saves remain loadable)
 }
 
@@ -134,7 +139,8 @@ export function serializeAppState(s: AppState): SerializedState {
         prepState: s.prepState,
         hasManualNodeEdits: s.hasManualNodeEdits,
         scaffoldConfig: s.scaffoldConfig,
-        scaffoldModeActive: s.scaffoldModeActive
+        scaffoldModeActive: s.scaffoldModeActive,
+        dnStructure: s.dnStructure
     };
 }
 
@@ -193,7 +199,8 @@ export function applySerializedState(ss: SerializedState, imageDataUrl: string |
         prepState: ss.prepState ?? null,
         hasManualNodeEdits: ss.hasManualNodeEdits ?? false,
         scaffoldConfig: ss.scaffoldConfig ?? null,
-        scaffoldModeActive: ss.scaffoldModeActive ?? false
+        scaffoldModeActive: ss.scaffoldModeActive ?? false,
+        dnStructure: ss.dnStructure ?? null
     });
 }
 
