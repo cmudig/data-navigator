@@ -339,6 +339,30 @@ document.querySelector('commands-table').commands = [
 
 The util function `getGenericCommandsFromNavRules` is also exposed by the rendering module. It contains the logic behind the generation of generic commands from navigation rules.
 
+`getGenericCommandsFromNavRules(navigationRules, descriptions)` makes one command per rule, in the order the rules are listed:
+
+- `label` is the rule's actual key (`ArrowUp` shows as `↑`, `KeyW` as `W`), so remapped keys show correctly.
+- `description` comes from `descriptions[ruleName]`, then the built-in description, then the rule name itself. Custom rules like `to-year` are included.
+- `command` is the rule name, which is also what people type in the text chat.
+
+Pass `descriptions` through `commandsElement`, and add a column for `command` if you also offer text chat:
+
+```js
+commandsElement: {
+    include: true,
+    rootId: 'commands-root',
+    navigationRules: structure.navigationRules,
+    descriptions: { 'to-year': 'up to the year', exit: 'Exit the chart' },
+    columns: [
+        { label: 'Key', id: 'label' },
+        { label: 'Action', id: 'description' },
+        { label: 'Type in chat', id: 'command' }
+    ]
+}
+```
+
+Every [pattern](/patterns/) page builds its keys table this way. It is also exported from the main package as `getGenericCommandsFromNavRules`, along with `keyLabel` for turning a single key code into a readable label.
+
 ## The Complete Code
 
 This code is designed to work without a bundler. Run `npm install data-navigator`, copy the files into a `src/` directory, and open `index.html` in your browser.

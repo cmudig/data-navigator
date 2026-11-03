@@ -1,6 +1,7 @@
 // Tree layout visualization for data-navigator structures.
 // Arranges dimension, division, and leaf nodes in a deterministic hierarchy.
 // For 2+ dimensions, leaf nodes are placed in a grid layout.
+// Frames, spatial grids, and hierarchies use a layered layout built from each node's parent.
 
 import { map, sort } from 'd3-array';
 import { scaleOrdinal } from 'd3-scale';
@@ -18,6 +19,9 @@ export function TreeGraph(
         width = 640,
         height = 400,
         dimensions,
+        frame,
+        spatialGrid,
+        hierarchy,
         description,
         hide,
         idPrefix = ''
@@ -67,6 +71,9 @@ export function TreeGraph(
             if (ss && ss.length === 2) siblingRulePairs.push(ss);
         });
     }
+    [frame?.parentRules, spatialGrid?.parentRules, hierarchy?.parentRules].forEach(pair => {
+        (pair || []).forEach(r => parentChildRules.add(r));
+    });
     // Map each sibling rule name to its pair for splitting merged edges.
     const ruleToPair = {};
     siblingRulePairs.forEach(pair => {
@@ -159,166 +166,293 @@ export function TreeGraph(
     // Compute layout positions.
     // Upper levels (dimensions, divisions) are compressed; leaves get more room.
     const padding = { top: 30, bottom: 20, left: 30, right: 30 };
-    const usableWidth = width - padding.left - padding.right;
-    const usableHeight = height - padding.top - padding.bottom;
-
-    const hasLevel0 = level0.length > 0;
-    const upperRows = (hasLevel0 ? 1 : 0) + 1 + 1; // l0?, l1, l2
-    // Upper hierarchy gets 25% of height, leaves get the rest after a gap
-    const upperHeight = usableHeight * 0.25;
-    const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
-    const leafGap = usableHeight * 0.05; // small gap between hierarchy and leaves
-    const leafYPos = padding.top + upperHeight + leafGap;
-    const leafAreaCenter = (leafYPos + height - padding.bottom) / 2;
-
-    let currentRow = 0;
-    const yFor = row => padding.top + row * upperSpacing;
-
-    // Level 0
-    if (hasLevel0) {
-        const y = yFor(currentRow);
-        level0.forEach((n, i) => {
-            n.x = padding.left + usableWidth / 2;
-            n.y = y;
-        });
-        currentRow++;
+    const useLayered = !!(spatialGrid || hierarchy) || (!!frame && dimOrder.length < 2);
+    const frameTop = padding.top;
+    if (frame && !useLayered) {
+        // leave a row at the top for the frame root
+        padding.top += Math.max(30, (height - padding.top - padding.bottom) * 0.12);
     }
-
-    // Level 1 (dimensions) — evenly spaced
-    const dimY = yFor(currentRow);
-    const dimCount = level1.length || 1;
-    // Map dimension nodeId to its horizontal allocation
-    const dimAlloc = {};
-    level1.forEach((n, i) => {
-        const x = padding.left + (usableWidth / (dimCount + 1)) * (i + 1);
-        n.x = x;
-        n.y = dimY;
-        dimAlloc[n.id] = {
-            x,
-            idx: i,
-            rangeStart: padding.left + (usableWidth / dimCount) * i,
-            rangeEnd: padding.left + (usableWidth / dimCount) * (i + 1)
-        };
-    });
-    currentRow++;
-
-    // Level 2 (divisions) — grouped under their parent dimension
-    const divY = yFor(currentRow);
-    const divAlloc = {}; // divisionId -> { x, dimKey }
-    dimOrder.forEach(key => {
-        const dim = dimensions ? dimensions[key] : null;
-        if (!dim) return;
-        const alloc = dimAlloc[dim.nodeId];
-        if (!alloc) return;
-        const divs = divisionsByDim[key] || [];
-        if (divs.length === 0) return;
-        const range = alloc.rangeEnd - alloc.rangeStart;
-        const divSpacing = range / (divs.length + 1);
-        divs.forEach((n, i) => {
-            n.x = alloc.rangeStart + divSpacing * (i + 1);
-            n.y = divY;
-            divAlloc[n.id] = { x: n.x, dimKey: key, idx: i };
-        });
-    });
-    currentRow++;
-
-    // Leaf nodes
-    const leafY = leafYPos;
-    if (dimOrder.length === 0 || !dimensions) {
-        // No dimensions — flat row, centered in leaf area
-        leafNodes.forEach((n, i) => {
-            n.x = padding.left + (usableWidth / (leafNodes.length + 1)) * (i + 1);
-            n.y = leafAreaCenter;
-        });
-    } else if (dimOrder.length === 1) {
-        // Single dimension — spread leaves under their division parent, centered in leaf area
-        const key = dimOrder[0];
-        const dim = dimensions[key];
-        const divIds = Object.keys(dim.divisions || {});
-        divIds.forEach(divId => {
-            const div = dim.divisions[divId];
-            const leafIds = Object.keys(div.values || {});
-            const parentX = divAlloc[divId]?.x || width / 2;
-            const spreadWidth = usableWidth / (divIds.length || 1);
-            const leafSpacing = spreadWidth / (leafIds.length + 1);
-            leafIds.forEach((leafId, i) => {
-                const n = nodeObjById[leafId];
-                if (n) {
-                    n.x = parentX - spreadWidth / 2 + leafSpacing * (i + 1);
-                    n.y = leafAreaCenter;
-                }
-            });
-        });
+    if (useLayered) {
+        layoutLayered();
     } else {
-        // 2+ dimensions — grid layout
-        // Prefer horizontal spread: ensure cols >= rows by swapping dims if needed.
-        // This prevents single-column layouts (e.g. when dim1 is compressed to 1 division).
-        let dim1Key = dimOrder[0];
-        let dim2Key = dimOrder[1];
-        let dim1 = dimensions[dim1Key];
-        let dim2 = dimensions[dim2Key];
-        let div1Ids = Object.keys(dim1.divisions || {});
-        let div2Ids = Object.keys(dim2.divisions || {});
+        const usableWidth = width - padding.left - padding.right;
+        const usableHeight = height - padding.top - padding.bottom;
 
-        let cols = div1Ids.length || 1;
-        let rows = div2Ids.length || 1;
+        const hasLevel0 = level0.length > 0;
+        const upperRows = (hasLevel0 ? 1 : 0) + 1 + 1; // l0?, l1, l2
+        // Upper hierarchy gets 25% of height, leaves get the rest after a gap
+        const upperHeight = usableHeight * 0.25;
+        const upperSpacing = upperRows > 1 ? upperHeight / (upperRows - 1) : upperHeight;
+        const leafGap = usableHeight * 0.05; // small gap between hierarchy and leaves
+        const leafYPos = padding.top + upperHeight + leafGap;
+        const leafAreaCenter = (leafYPos + height - padding.bottom) / 2;
 
-        if (cols < rows) {
-            [dim1Key, dim2Key] = [dim2Key, dim1Key];
-            [dim1, dim2] = [dim2, dim1];
-            [div1Ids, div2Ids] = [div2Ids, div1Ids];
-            [cols, rows] = [rows, cols];
+        let currentRow = 0;
+        const yFor = row => padding.top + row * upperSpacing;
+
+        // Level 0
+        if (hasLevel0) {
+            const y = yFor(currentRow);
+            level0.forEach((n, i) => {
+                n.x = padding.left + usableWidth / 2;
+                n.y = y;
+            });
+            currentRow++;
         }
 
-        // Grid occupies the full leaf area
-        const gridTop = leafY;
-        const gridBottom = height - padding.bottom;
-        const gridHeight = gridBottom - gridTop;
-        const colSpacing = usableWidth / (cols + 1);
-        const rowSpacingGrid = gridHeight / (rows + 1);
-
-        // Group leaves by their grid cell so we can spread co-located nodes.
-        const cellGroups = {};
-        leafNodes.forEach(n => {
-            const ld = leafDivisions[n.id];
-            if (!ld) {
-                n.x = width - padding.right;
-                n.y = leafY;
-                return;
-            }
-            const colDivId = ld[dim1Key];
-            const rowDivId = ld[dim2Key];
-            const colIdx = div1Ids.indexOf(colDivId);
-            const rowIdx = div2Ids.indexOf(rowDivId);
-            const cellKey = `${colIdx},${rowIdx}`;
-            if (!cellGroups[cellKey]) cellGroups[cellKey] = { colIdx, rowIdx, nodes: [] };
-            cellGroups[cellKey].nodes.push(n);
+        // Level 1 (dimensions) — evenly spaced
+        const dimY = yFor(currentRow);
+        const dimCount = level1.length || 1;
+        // Map dimension nodeId to its horizontal allocation
+        const dimAlloc = {};
+        level1.forEach((n, i) => {
+            const x = padding.left + (usableWidth / (dimCount + 1)) * (i + 1);
+            n.x = x;
+            n.y = dimY;
+            dimAlloc[n.id] = {
+                x,
+                idx: i,
+                rangeStart: padding.left + (usableWidth / dimCount) * i,
+                rangeEnd: padding.left + (usableWidth / dimCount) * (i + 1)
+            };
         });
-        // Position each group, spreading nodes within shared cells.
-        const cellPad = Math.min(colSpacing, rowSpacingGrid) * 0.6;
-        Object.values(cellGroups).forEach(({ colIdx, rowIdx, nodes: cellNodes }) => {
-            const cx = padding.left + colSpacing * (colIdx + 1);
-            const cy = gridTop + rowSpacingGrid * (rowIdx + 1);
-            if (cellNodes.length === 1) {
-                cellNodes[0].x = cx;
-                cellNodes[0].y = cy;
-            } else {
-                // Spread vertically within the cell (matches row-based dim2)
-                const spread = cellPad;
-                const step = spread / (cellNodes.length - 1);
-                cellNodes.forEach((n, i) => {
-                    n.x = cx;
-                    n.y = cy - spread / 2 + step * i;
+        currentRow++;
+
+        // Level 2 (divisions) — grouped under their parent dimension
+        const divY = yFor(currentRow);
+        const divAlloc = {}; // divisionId -> { x, dimKey }
+        dimOrder.forEach(key => {
+            const dim = dimensions ? dimensions[key] : null;
+            if (!dim) return;
+            const alloc = dimAlloc[dim.nodeId];
+            if (!alloc) return;
+            const divs = divisionsByDim[key] || [];
+            if (divs.length === 0) return;
+            const range = alloc.rangeEnd - alloc.rangeStart;
+            const divSpacing = range / (divs.length + 1);
+            divs.forEach((n, i) => {
+                n.x = alloc.rangeStart + divSpacing * (i + 1);
+                n.y = divY;
+                divAlloc[n.id] = { x: n.x, dimKey: key, idx: i };
+            });
+        });
+        currentRow++;
+
+        // Leaf nodes
+        const leafY = leafYPos;
+        if (dimOrder.length === 0 || !dimensions) {
+            // No dimensions — flat row, centered in leaf area
+            leafNodes.forEach((n, i) => {
+                n.x = padding.left + (usableWidth / (leafNodes.length + 1)) * (i + 1);
+                n.y = leafAreaCenter;
+            });
+        } else if (dimOrder.length === 1) {
+            // Single dimension — spread leaves under their division parent, centered in leaf area
+            const key = dimOrder[0];
+            const dim = dimensions[key];
+            const divIds = Object.keys(dim.divisions || {});
+            divIds.forEach(divId => {
+                const div = dim.divisions[divId];
+                const leafIds = Object.keys(div.values || {});
+                const parentX = divAlloc[divId]?.x || width / 2;
+                const spreadWidth = usableWidth / (divIds.length || 1);
+                const leafSpacing = spreadWidth / (leafIds.length + 1);
+                leafIds.forEach((leafId, i) => {
+                    const n = nodeObjById[leafId];
+                    if (n) {
+                        n.x = parentX - spreadWidth / 2 + leafSpacing * (i + 1);
+                        n.y = leafAreaCenter;
+                    }
                 });
+            });
+        } else {
+            // 2+ dimensions — grid layout
+            // Prefer horizontal spread: ensure cols >= rows by swapping dims if needed.
+            // This prevents single-column layouts (e.g. when dim1 is compressed to 1 division).
+            let dim1Key = dimOrder[0];
+            let dim2Key = dimOrder[1];
+            let dim1 = dimensions[dim1Key];
+            let dim2 = dimensions[dim2Key];
+            let div1Ids = Object.keys(dim1.divisions || {});
+            let div2Ids = Object.keys(dim2.divisions || {});
+
+            let cols = div1Ids.length || 1;
+            let rows = div2Ids.length || 1;
+
+            if (cols < rows) {
+                [dim1Key, dim2Key] = [dim2Key, dim1Key];
+                [dim1, dim2] = [dim2, dim1];
+                [div1Ids, div2Ids] = [div2Ids, div1Ids];
+                [cols, rows] = [rows, cols];
             }
+
+            // Grid occupies the full leaf area
+            const gridTop = leafY;
+            const gridBottom = height - padding.bottom;
+            const gridHeight = gridBottom - gridTop;
+            const colSpacing = usableWidth / (cols + 1);
+            const rowSpacingGrid = gridHeight / (rows + 1);
+
+            // Group leaves by their grid cell so we can spread co-located nodes.
+            const cellGroups = {};
+            leafNodes.forEach(n => {
+                const ld = leafDivisions[n.id];
+                if (!ld) {
+                    n.x = width - padding.right;
+                    n.y = leafY;
+                    return;
+                }
+                const colDivId = ld[dim1Key];
+                const rowDivId = ld[dim2Key];
+                const colIdx = div1Ids.indexOf(colDivId);
+                const rowIdx = div2Ids.indexOf(rowDivId);
+                const cellKey = `${colIdx},${rowIdx}`;
+                if (!cellGroups[cellKey]) cellGroups[cellKey] = { colIdx, rowIdx, nodes: [] };
+                cellGroups[cellKey].nodes.push(n);
+            });
+            // Position each group, spreading nodes within shared cells.
+            const cellPad = Math.min(colSpacing, rowSpacingGrid) * 0.6;
+            Object.values(cellGroups).forEach(({ colIdx, rowIdx, nodes: cellNodes }) => {
+                const cx = padding.left + colSpacing * (colIdx + 1);
+                const cy = gridTop + rowSpacingGrid * (rowIdx + 1);
+                if (cellNodes.length === 1) {
+                    cellNodes[0].x = cx;
+                    cellNodes[0].y = cy;
+                } else {
+                    // Spread vertically within the cell (matches row-based dim2)
+                    const spread = cellPad;
+                    const step = spread / (cellNodes.length - 1);
+                    cellNodes.forEach((n, i) => {
+                        n.x = cx;
+                        n.y = cy - spread / 2 + step * i;
+                    });
+                }
+            });
+        }
+
+        // Other nodes (exit, etc.) — placed bottom-right
+        otherNodes.forEach((n, i) => {
+            n.x = width - padding.right - i * nodeRadius * 3;
+            n.y = height - padding.bottom;
         });
     }
 
-    // Other nodes (exit, etc.) — placed bottom-right
-    otherNodes.forEach((n, i) => {
-        n.x = width - padding.right - i * nodeRadius * 3;
-        n.y = height - padding.bottom;
-    });
+    // Frame over 2+ dimensions: root on top, then title, axes, legends, and data share the level 0 row
+    if (frame && !useLayered) {
+        const rootObj = nodeObjById[frame.rootId];
+        const dataObj = nodeObjById[frame.dataId];
+        const rowY = dataObj ? dataObj.y : padding.top;
+        if (rootObj) {
+            rootObj.x = padding.left + (width - padding.left - padding.right) / 2;
+            rootObj.y = frameTop;
+        }
+        const row = [...frame.elementIds, frame.dataId];
+        const span = width - padding.left - padding.right;
+        row.forEach((id, i) => {
+            const n = nodeObjById[id];
+            if (!n) return;
+            n.x = padding.left + (span / (row.length + 1)) * (i + 1);
+            n.y = rowY;
+        });
+    }
+
+    // Layered layout: each node sits under its parent, leaves spread across the bottom.
+    function layoutLayered() {
+        const parentOf = {};
+        const level0Id = level0[0]?.id;
+        nodes.forEach(n => {
+            const o = nodeById[n.id];
+            if (!o) return;
+            if (o.parentId) parentOf[n.id] = o.parentId;
+            else if (o.dimensionLevel === 1 && level0Id) parentOf[n.id] = level0Id;
+            else if (o.dimensionLevel === 2 && dimensions?.[o.derivedNode]) {
+                parentOf[n.id] = dimensions[o.derivedNode].nodeId;
+            }
+        });
+        Object.keys(leafDivisions).forEach(leafId => {
+            if (!parentOf[leafId]) {
+                const firstKey = Object.keys(leafDivisions[leafId])[0];
+                parentOf[leafId] = leafDivisions[leafId][firstKey];
+            }
+        });
+        const kids = {};
+        nodes.forEach(n => {
+            const p = parentOf[n.id];
+            if (p && nodeObjById[p]) (kids[p] = kids[p] || []).push(n.id);
+        });
+        const order = (parentId, list) => {
+            if (frame && parentId === frame.rootId) {
+                const want = [...frame.elementIds, frame.dataId];
+                return [...list].sort((a, b) => want.indexOf(a) - want.indexOf(b));
+            }
+            const gridRoot = spatialGrid ? nodeById[spatialGrid.rootId] : null;
+            return [...list].sort((a, b) => {
+                const da = nodeById[a]?.data || {};
+                const db = nodeById[b]?.data || {};
+                if (da.cellsPerAxis !== undefined && db.cellsPerAxis !== undefined) {
+                    return db.row - da.row || da.col - db.col;
+                }
+                const xKey = gridRoot?.data?.xKey;
+                if (xKey && typeof da[xKey] === 'number' && typeof db[xKey] === 'number') {
+                    return da[xKey] - db[xKey];
+                }
+                return 0;
+            });
+        };
+        const roots = nodes.filter(n => !parentOf[n.id] && kids[n.id]);
+        const depthOf = {};
+        const leafOrder = [];
+        let maxDepth = 0;
+        const walk = (id, depth) => {
+            depthOf[id] = depth;
+            maxDepth = Math.max(maxDepth, depth);
+            const list = order(id, kids[id] || []);
+            kids[id] = list;
+            if (!list.length) leafOrder.push(id);
+            list.forEach(k => walk(k, depth + 1));
+        };
+        roots.forEach(r => walk(r.id, 0));
+
+        const usableW = width - padding.left - padding.right;
+        const usableH = height - padding.top - padding.bottom;
+        const rowH = maxDepth ? usableH / maxDepth : 0;
+        // leaves above the deepest row (like frame items) get wider slots
+        const weightOf = id => (depthOf[id] < maxDepth ? 4 : 1);
+        const totalWeight = leafOrder.reduce((sum, id) => sum + weightOf(id), 0) || 1;
+        const unit = usableW / totalWeight;
+        const stagger = Math.min(4, Math.max(1, Math.ceil((nodeRadius * 2.5) / unit)));
+        let cursor = padding.left;
+        let deepIndex = 0;
+        leafOrder.forEach(id => {
+            const n = nodeObjById[id];
+            const w = weightOf(id) * unit;
+            n.x = cursor + w / 2;
+            cursor += w;
+            const deepest = depthOf[id] === maxDepth;
+            n.y =
+                padding.top +
+                depthOf[id] * rowH -
+                (deepest && stagger > 1 ? (deepIndex % stagger) * nodeRadius * 2.2 : 0);
+            if (deepest) deepIndex++;
+        });
+        const place = id => {
+            const list = kids[id] || [];
+            if (!list.length) return;
+            list.forEach(place);
+            const n = nodeObjById[id];
+            n.x = (nodeObjById[list[0]].x + nodeObjById[list[list.length - 1]].x) / 2;
+            n.y = padding.top + depthOf[id] * rowH;
+        };
+        roots.forEach(r => place(r.id));
+        otherNodes.length = 0;
+        nodes.forEach(n => {
+            if (depthOf[n.id] === undefined) otherNodes.push(n);
+        });
+        otherNodes.forEach((n, i) => {
+            n.x = width - padding.right - i * nodeRadius * 3;
+            n.y = height - padding.bottom;
+        });
+    }
 
     // Build the SVG.
     const svg = create('svg')

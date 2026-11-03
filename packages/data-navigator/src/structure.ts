@@ -24,6 +24,9 @@ import {
     ChildmostMatchingStrategy
 } from './data-navigator';
 import { describeNode, createValidId } from './utilities';
+import { buildFrame, prepareFrameOptions } from './frame';
+import { buildSpatialGrid } from './spatial-grid';
+import { buildHierarchy } from './hierarchy';
 
 export default (options: StructureOptions): Structure => {
     if (options.dataType === 'vega-lite' || options.dataType === 'vl' || options.dataType === 'Vega-Lite') {
@@ -693,8 +696,13 @@ export const scaffoldDimensions = (options: StructureOptions, nodes: Nodes): Dim
     return dimensions as Dimensions;
 };
 
-export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?: Dimensions): Edges => {
-    let edges = {};
+export const buildEdges = (
+    options: StructureOptions,
+    nodes: Nodes,
+    dimensions?: Dimensions,
+    existingEdges?: Edges
+): Edges => {
+    let edges = existingEdges || {};
 
     const addEdgeToNode = (nodeId, edgeId) => {
         if (nodes[nodeId].edges.indexOf(edgeId) === -1) {
@@ -792,7 +800,7 @@ export const buildEdges = (options: StructureOptions, nodes: Nodes, dimensions?:
 
             if (!l && extents === 'bridgedCustom') {
                 // if we started the dimension and bridge is set, we need to create backwards bridge to new element
-                createEdge(po.level1Options.behavior.customBridgePost, level1Node.id, siblingRules);
+                createEdge(po.level1Options.behavior.customBridgePrevious, level1Node.id, siblingRules);
             }
             l++;
         });
@@ -1184,6 +1192,22 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
             });
         }
 
+        // frame, spatial grid, and hierarchy rules come in pairs too
+        const extraPairs = [
+            options.frame?.navigationRules?.parent_child,
+            options.frame?.navigationRules?.sibling_sibling,
+            options.spatialGrid?.navigationRules?.x,
+            options.spatialGrid?.navigationRules?.y,
+            options.spatialGrid?.navigationRules?.parent_child,
+            options.hierarchy?.navigationRules?.parent_child,
+            options.hierarchy?.navigationRules?.sibling_sibling
+        ];
+        extraPairs.forEach(pair => {
+            if (pair && !used[pair[0]] && !used[pair[1]]) {
+                checkKeys(pair[0], pair[1]);
+            }
+        });
+
         // now check edges for any missing rules (typically from genericEdges)
         Object.keys(edges).forEach(e => {
             edges[e].navigationRules.forEach(rule => {
@@ -1223,18 +1247,42 @@ export const buildRules = (options: StructureOptions, edges: Edges, dimensions: 
     return rules;
 };
 
-export const buildStructure = (options: StructureOptions): Structure => {
-    if (options.addIds) {
-        addSimpleDataIDs(options);
+export const buildStructure = (inputOptions: StructureOptions): Structure => {
+    if (inputOptions.addIds) {
+        addSimpleDataIDs(inputOptions);
     }
+    const options = prepareFrameOptions(inputOptions);
     let nodes = buildNodes(options);
     let dimensions = scaffoldDimensions(options, nodes);
-    let edges = buildEdges(options, nodes, dimensions);
+    let edges: Edges = {};
+
+    // spatial grid and hierarchy add their own nodes and edges
+    const spatialGrid = buildSpatialGrid(options, nodes, edges);
+    const hierarchy = buildHierarchy(options, nodes, edges);
+
+    // the frame needs the top node of whatever was built under it
+    let frame;
+    if (options.frame) {
+        const dimKeys = Object.keys(dimensions || {});
+        const topId =
+            spatialGrid?.rootId ||
+            hierarchy?.rootId ||
+            options.dimensions?.parentOptions?.addLevel0?.id ||
+            (dimKeys.length === 1 ? dimensions[dimKeys[0]].nodeId : undefined);
+        frame = buildFrame(options, nodes, edges, topId);
+    }
+
+    // dimensions and generic edges last, so generic edges reach every node
+    edges = buildEdges(options, nodes, dimensions, edges);
     let navigationRules = buildRules(options, edges, dimensions);
-    return {
+    const structure = {
         nodes,
         edges,
         dimensions,
         navigationRules
     } as Structure;
+    if (frame) structure.frame = frame;
+    if (spatialGrid) structure.spatialGrid = spatialGrid;
+    if (hierarchy) structure.hierarchy = hierarchy;
+    return structure;
 };

@@ -7,6 +7,7 @@ import '../../../packages/inspector/style.css';
 // Import our custom components
 import Example from './components/Example.vue';
 import LiveExample from './components/LiveExample.vue';
+import PatternDemo from './components/PatternDemo.vue';
 import Layout from './Layout.vue';
 
 export default {
@@ -16,5 +17,6 @@ export default {
         // Register global components so they can be used in markdown
         app.component('Example', Example);
         app.component('LiveExample', LiveExample);
+        app.component('PatternDemo', PatternDemo);
     }
 } satisfies Theme;

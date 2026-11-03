@@ -2,6 +2,10 @@
 
 Interactive examples showing Data Navigator in action with different chart types and navigation patterns.
 
+::: tip Looking for reusable structures?
+The [Patterns](/patterns/) section shows the common navigation structures (list, frame, tree, dual tree, 2D spatial, and spatial plus) on several chart types each, with keyboard and text chat in every example.
+:::
+
 ## Basic
 
 - [Simple List Navigation](/examples/simple-list) — A linear linked-list structure on a Bokeh stacked bar chart, navigated with left/right arrow keys.

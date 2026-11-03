@@ -21,12 +21,12 @@ export const defaultKeyBindings = {
     Enter: 'drill-in'
 } as DatumObject;
 
-export const TypicallyUnreservedKeys = ['KeyW', 'KeyJ', 'LeftBracket', 'RightBracket', 'Slash', 'Backslash'];
+export const TypicallyUnreservedKeys = ['KeyW', 'KeyJ', 'BracketLeft', 'BracketRight', 'Slash', 'Backslash'];
 
 export const TypicallyUnreservedSoloKeys = ['KeyW', 'KeyJ'];
 
 export const TypicallyUnreservedKeyPairs = [
-    ['LeftBracket', 'RightBracket'],
+    ['BracketLeft', 'BracketRight'],
     ['Slash', 'Backslash']
 ];
 
@@ -171,6 +171,29 @@ export const NodeElementDefaults = {
         spatialProperties: undefined
     }
 } as RenderObject;
+
+// Readable labels for KeyboardEvent.code values used in navigation rules
+export const KeyLabels: Record<string, string> = {
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    Enter: 'Enter',
+    Backspace: 'Backspace',
+    Escape: 'Esc',
+    Space: 'Space',
+    Tab: 'Tab',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Slash: '/',
+    Comma: ',',
+    Period: '.',
+    Semicolon: ';',
+    Quote: "'",
+    Minus: '-',
+    Equal: '='
+};
 
 export const GenericNavigationRuleCommands: Record<NavId, CommandObject> = {
     'drill-in': { label: 'Enter', description: 'Drill in' },

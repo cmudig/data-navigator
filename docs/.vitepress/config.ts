@@ -105,6 +105,7 @@ export default defineConfig({
             { text: 'Demo', link: '/demo' },
             { text: 'Guide', link: '/getting-started/' },
             { text: 'Examples', link: '/examples/' },
+            { text: 'Patterns', link: '/patterns/' },
             { text: 'API', link: '/api/' },
             {
                 text: 'Resources',
@@ -168,6 +169,21 @@ export default defineConfig({
                         { text: 'Interactive Elements', link: '/examples/interactive-elements' },
                         { text: 'Stacked Bar Chart', link: '/examples/stacked-bar' },
                         { text: 'Bespoke Visualization', link: '/examples/bespoke' }
+                    ]
+                }
+            ],
+            '/patterns/': [
+                {
+                    text: 'Patterns',
+                    items: [
+                        { text: 'Overview', link: '/patterns/' },
+                        { text: 'List', link: '/patterns/list' },
+                        { text: 'Basic Frame', link: '/patterns/frame' },
+                        { text: 'Tree', link: '/patterns/tree' },
+                        { text: 'Dual Tree', link: '/patterns/dual-tree' },
+                        { text: '2D Spatial', link: '/patterns/spatial' },
+                        { text: 'Spatial Plus', link: '/patterns/spatial-plus' },
+                        { text: 'Text Labels', link: '/patterns/labels' }
                     ]
                 }
             ],
