@@ -26,7 +26,9 @@ const convertToArray = (obj, include, exclude) => {
  * Builds a tooltip label for a structure node.
  */
 export const buildLabel = (node, colorBy) => {
-    if (node.semantics?.label) return node.semantics.label;
+    if (node.semantics?.label) {
+        return typeof node.semantics.label === 'function' ? node.semantics.label() : node.semantics.label;
+    }
     if (!node.derivedNode) {
         if (node.data) {
             return (
@@ -161,7 +163,7 @@ export function Inspector({
     const idPrefix = rootId + '-';
     const graphOptions = {
         nodeId: d => d.id,
-        nodeGroup: d => (colorBy === 'dimensionLevel' ? d.dimensionLevel : d.data?.[colorBy]),
+        nodeGroup: d => (colorBy === 'dimensionLevel' ? (d.dimensionLevel ?? d.depth) : d.data?.[colorBy]),
         width: graphWidth,
         height: graphHeight,
         nodeRadius,
@@ -171,7 +173,16 @@ export function Inspector({
 
     const graph =
         mode === 'tree'
-            ? TreeGraph({ nodes: nodeArray, links: linkArray }, { ...graphOptions, dimensions: structure.dimensions })
+            ? TreeGraph(
+                  { nodes: nodeArray, links: linkArray },
+                  {
+                      ...graphOptions,
+                      dimensions: structure.dimensions,
+                      frame: structure.frame,
+                      spatialGrid: structure.spatialGrid,
+                      hierarchy: structure.hierarchy
+                  }
+              )
             : ForceGraph({ nodes: nodeArray, links: linkArray }, graphOptions);
 
     // When explicit pixel dimensions are given, remove the auto-scaling inline style so the
