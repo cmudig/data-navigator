@@ -239,6 +239,8 @@ const chat = dataNavigator.textChat({
 
 It handles all navigation internally — parsing commands, fuzzy matching, describing nodes, and announcing results via `aria-live`. The `onNavigate` callback receives the node that was navigated to, and the `onExit` callback fires when the user types `exit`.
 
+The `describeNode` option controls what the chat says for each node. To share one labeler with your rendered elements, see [Defaults for every node](/getting-started/rendering#defaults-for-every-node).
+
 Commands support fuzzy prefix matching: typing `l` matches `left`, typing `r` matches `right`. If a prefix is ambiguous (e.g. `d` could be `drill-in`, `drill-out`, or `down`), the chat shows the options. Typos are also handled — `dwon` will match `down`. You can use up/down arrow keys to recall previous commands.
 
 The `aria-live` toggle checkbox controls whether navigation results are automatically announced by screen readers. When unchecked, users can still read the chat log manually.

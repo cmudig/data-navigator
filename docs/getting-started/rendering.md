@@ -82,16 +82,27 @@ renderer.initialize();
 ```js
 import { describeNode } from 'data-navigator/utilities';
 
+const labelFor = node => describeNode(node.data, {});
+
 const renderer = dataNavigator.rendering({
     elementData: structure.nodes,
     defaults: {
-        semantics: (renderObject, data) => ({ label: describeNode(data, {}) })
+        semantics: node => ({ label: labelFor(node) })
     }
     // ...
 });
 ```
 
-Functions receive the node's render object and its `data`. They can return a partial object: any property they leave out falls back to the built-in default.
+Functions receive the node's render object and the `datum` passed to `render()` (the node's `data` when there is none). With `elementData: structure.nodes`, the render object is the node itself, so `node.data` works with any `render()` call. They can return a partial object: any property they leave out falls back to the built-in default.
+
+::: tip Text chat
+Text chat doesn't read rendering defaults. Pass the same function as `describeNode` so both say the same thing:
+
+```js
+dataNavigator.textChat({ structure, container, describeNode: labelFor });
+```
+
+:::
 
 ## Key Methods
 
