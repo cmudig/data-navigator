@@ -9,6 +9,69 @@ export type StructureOptions = {
     addIds?: boolean;
     keysForIdGeneration?: KeyList;
     navigationRules?: NavigationRules;
+    frame?: FrameOptions;
+    spatialGrid?: SpatialGridOptions;
+    hierarchy?: HierarchyOptions;
+};
+
+// A frame puts descriptive chart parts (title, axes, legends) in front of the data.
+// root -> [...elements, data]. Only the data node has children.
+export type FrameOptions = {
+    root: NodeObject;
+    elements: Array<NodeObject>;
+    data?: NodeObject;
+    behavior?: { extents: 'circular' | 'terminal' };
+    navigationRules?: DimensionNavigationRules;
+};
+
+export type FrameInfo = {
+    rootId: NodeId;
+    elementIds: Array<NodeId>;
+    dataId: NodeId;
+    parentRules: DimensionNavigationPair;
+};
+
+// A nested 2D grid over two numerical keys. Each zoom level splits the plot into more cells.
+export type SpatialGridOptions = {
+    xKey: string;
+    yKey: string;
+    xExtent?: NumericalExtentsPair;
+    yExtent?: NumericalExtentsPair;
+    levels: Array<number>; // cells per axis at each zoom level, e.g. [2, 4]
+    leaves?: 'points' | 'cells'; // points: rows sit inside the finest cells. cells: each row is a cell (heatmaps)
+    levelNavigation?: 'across' | 'within'; // across: arrow keys reach every node at a zoom level
+    skipEmpty?: boolean; // default true
+    extents?: 'terminal' | 'circular'; // default terminal
+    root?: NodeObject;
+    cellIds?: (level: number, col: number, row: number) => NodeId;
+    navigationRules?: {
+        x?: DimensionNavigationPair; // [toLowerX, toHigherX], default ['left', 'right']
+        y?: DimensionNavigationPair; // [toHigherY, toLowerY], default ['up', 'down']
+        parent_child?: DimensionNavigationPair; // default ['drill-out', 'drill-in']
+    };
+};
+
+export type SpatialGridInfo = {
+    rootId: NodeId;
+    levels: Array<number>;
+    cellsByLevel: Array<Array<NodeId>>;
+    leafIds: Array<NodeId>;
+    parentRules: DimensionNavigationPair;
+};
+
+// A deep tree from flat rows that each name their parent (like d3.stratify).
+export type HierarchyOptions = {
+    parentKey: string;
+    sortFunction?: SortingFunction;
+    levelNavigation?: 'within' | 'across'; // across: siblings keys reach every node at the same depth
+    extents?: 'circular' | 'terminal'; // default circular
+    navigationRules?: DimensionNavigationRules;
+};
+
+export type HierarchyInfo = {
+    rootId: NodeId;
+    depthCount: number;
+    parentRules: DimensionNavigationPair;
 };
 
 export type InputOptions = {
@@ -47,6 +110,9 @@ export type Structure = {
     dimensions?: Dimensions;
     navigationRules?: NavigationRules;
     elementData?: ElementData;
+    frame?: FrameInfo;
+    spatialGrid?: SpatialGridInfo;
+    hierarchy?: HierarchyInfo;
 };
 
 export type Nodes = Record<NodeId, NodeObject>;
@@ -77,6 +143,9 @@ export type NodeObject = {
     renderingStrategy?: RenderingStrategy;
     derivedNode?: DerivedNode;
     dimensionLevel?: DimensionLevel;
+    parentId?: NodeId; // set by frame, spatialGrid, and hierarchy builders
+    depth?: number; // set by frame, spatialGrid, and hierarchy builders
+    frameRole?: 'root' | 'element' | 'data';
     [key: string | number]: any; // NodeObjects can be lazily used as generic objects (like ElementObjects) too
 };
 
@@ -186,6 +255,7 @@ export type CommandsObject = {
     rootId?: string;
     navigationRules?: NavigationRules;
     commands?: Array<CommandObject> | ((genericCommands: Array<CommandObject>) => Array<CommandObject>);
+    descriptions?: Record<NavId, string>; // descriptions for generated commands, keyed by rule name
     columns?: Array<{ label: string; id: string }>;
     title?: string;
 };
@@ -193,6 +263,8 @@ export type CommandsObject = {
 export type CommandObject = {
     label: string;
     description: string;
+    command?: NavId; // the rule name, also what people type in text chat
+    [key: string]: any;
 };
 
 export type SemanticsObject = {

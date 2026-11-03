@@ -258,11 +258,19 @@ export default (options: TextChatOptions): TextChatInstance => {
     }
 
     // Determine entry point
+    // frame root, then level 0 node, then grid or hierarchy root, then first dimension
+    const level0Id = Object.keys(structure.nodes).find(id => structure.nodes[id].dimensionLevel === 0);
+    const firstDimensionId = structure.dimensions
+        ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
+        : undefined;
     const resolvedEntryPoint =
         entryPoint ||
-        (structure.dimensions
-            ? structure.dimensions[Object.keys(structure.dimensions)[0]]?.nodeId
-            : Object.keys(structure.nodes)[0]);
+        structure.frame?.rootId ||
+        level0Id ||
+        structure.spatialGrid?.rootId ||
+        structure.hierarchy?.rootId ||
+        firstDimensionId ||
+        Object.keys(structure.nodes)[0];
 
     // Create input handler
     const inputHandler = inputFactory({

@@ -169,15 +169,15 @@ export default (options: RenderingOptions) => {
         const attributes = resolveProp('semantics', 'attributes');
         if (typeof attributes === 'object') {
             Object.keys(attributes).forEach(attribute => {
-                node.setAttribute(attribute, attributes[attribute]);
+                nodeText.setAttribute(attribute, attributes[attribute]);
             });
         }
         nodeText.setAttribute('role', resolveProp('semantics', 'role'));
         nodeText.classList.add('dn-node-text');
-        if (d.showText) {
-            nodeText.innerText = d.semantics.label;
-        }
         const label = resolveProp('semantics', 'label');
+        if (d.showText) {
+            nodeText.innerText = label;
+        }
         if (!label) {
             console.error(
                 'Accessibility error: a label must be supplied to every rendered element using semantics.label.'
@@ -239,7 +239,10 @@ export default (options: RenderingOptions) => {
         //  Consider explicit commands if given, otherwise try to build generic commands from nav rules
         const optionsCommands = commandOptions.commands;
 
-        const genericCommandsFromRules = getGenericCommandsFromNavRules(commandOptions.navigationRules);
+        const genericCommandsFromRules = getGenericCommandsFromNavRules(
+            commandOptions.navigationRules,
+            commandOptions.descriptions
+        );
 
         const commands = optionsCommands
             ? typeof optionsCommands === 'function'
