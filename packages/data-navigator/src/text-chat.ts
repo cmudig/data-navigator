@@ -702,6 +702,13 @@ export default (options: TextChatOptions): TextChatInstance => {
         },
         getCurrentNode() {
             return currentNodeId ? structure.nodes[currentNodeId] || null : null;
+        },
+        submit(text: string) {
+            return handleCommand(text);
+        },
+        setCurrentNode(nodeId: string | null) {
+            currentNodeId = nodeId && structure.nodes[nodeId] ? nodeId : null;
+            pendingChoices = null;
         }
     };
 };

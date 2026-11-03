@@ -266,6 +266,19 @@ commandLabels: {
 
 This lets you tailor the interface to your chart's semantics — a map might use `pan north` / `pan south`, a tree might use `expand` / `collapse`, and a timeline might use `earlier` / `later`. The typed commands still use the short rule names (with fuzzy matching), so `l` still matches `left` regardless of the label.
 
+### Sharing a Position with Other Inputs
+
+`textChat()` returns an instance with a few methods:
+
+| Method               | What it does                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `getCurrentNode()`   | Returns the node the chat is on, or `null`.                                                                             |
+| `submit(text)`       | Runs a command as if it were typed, and logs the result. Focus stays where it is, so speech or gestures can use it.     |
+| `setCurrentNode(id)` | Moves the chat's position without logging or calling `onNavigate`. Use it when keyboard or another input moved instead. |
+| `destroy()`          | Removes the chat.                                                                                                       |
+
+With `submit` and `setCurrentNode`, one chat can share a single position with keyboard navigation, voice, or gestures. The [demo](/demo) uses both.
+
 ## The Complete Code
 
 This code is designed to work **without a bundler**. Run `npm install data-navigator`, copy the files into a `src/` directory, and open `index.html` in your browser.
