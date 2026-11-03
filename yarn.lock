@@ -185,7 +185,7 @@
   resolved "file:packages/bokeh-wrapper"
 
 "@data-navigator/inspector@*", "@data-navigator/inspector@file:/Users/Elavsky/Documents/projects/data-navigator/packages/inspector":
-  version "1.2.1"
+  version "1.3.0"
   resolved "file:packages/inspector"
 
 "@data-navigator/skeleton@file:/Users/Elavsky/Documents/projects/data-navigator/packages/skeleton":
@@ -195,6 +195,9 @@
     "@data-navigator/inspector" "*"
     data-navigator "*"
     fflate "^0.8.2"
+    vega "^6.2.0"
+    vega-embed "^7.1.0"
+    vega-lite "^6.4.2"
 
 "@docsearch/css@3.8.2":
   version "3.8.2"
@@ -1019,7 +1022,7 @@ d3-timer@^3.0.1, "d3-timer@1 - 3":
     data-navigator "*"
 
 data-navigator@*, "data-navigator@file:/Users/Elavsky/Documents/projects/data-navigator/packages/data-navigator":
-  version "3.0.0"
+  version "3.2.0"
   resolved "file:packages/data-navigator"
 
 debug@^4.3.1, debug@^4.3.7, debug@^4.4.1:
