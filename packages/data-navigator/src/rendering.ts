@@ -19,16 +19,17 @@ export default (options: RenderingOptions) => {
         parentSemantics: { ...NodeElementDefaults.parentSemantics },
         existingElement: { ...NodeElementDefaults.existingElement }
     };
+    const mergeDefault = (base, o) => (typeof o === 'function' ? o : { ...base, ...o });
     if (options.defaults) {
         defaults.cssClass = options.defaults.cssClass || defaults.cssClass;
         defaults.spatialProperties = options.defaults.spatialProperties
-            ? { ...defaults.spatialProperties, ...options.defaults.spatialProperties }
+            ? mergeDefault(defaults.spatialProperties, options.defaults.spatialProperties)
             : defaults.spatialProperties;
         defaults.semantics = options.defaults.semantics
-            ? { ...defaults.semantics, ...options.defaults.semantics }
+            ? mergeDefault(defaults.semantics, options.defaults.semantics)
             : defaults.semantics;
         defaults.parentSemantics = options.defaults.parentSemantics
-            ? { ...defaults.parentSemantics, ...options.defaults.parentSemantics }
+            ? mergeDefault(defaults.parentSemantics, options.defaults.parentSemantics)
             : defaults.parentSemantics;
         defaults.existingElement = options.defaults.existingElement
             ? { ...defaults.existingElement, ...options.defaults.existingElement }
@@ -130,15 +131,12 @@ export default (options: RenderingOptions) => {
         }
         let useExisting = false;
         let existingSpatialProperties = {};
+        const resolve = v => (typeof v === 'function' ? v(d, nodeData.datum ?? nodeData.data) : v);
         const resolveProp = (prop, subprop?, checkExisting?) => {
-            const p1 = d[prop] || defaults[prop];
+            const p1 = resolve(d[prop] || defaults[prop]);
             const s1 = !(checkExisting && useExisting) ? p1?.[subprop] : existingSpatialProperties[subprop];
-            const s2 = defaults[prop]?.[subprop];
-            return typeof p1 === 'function'
-                ? p1(d, nodeData.datum)
-                : typeof s1 === 'function'
-                  ? s1(d, nodeData.datum)
-                  : s1 || s2 || (!subprop ? p1 : undefined);
+            const s2 = resolve(defaults[prop])?.[subprop] ?? NodeElementDefaults[prop]?.[subprop];
+            return resolve(s1) || resolve(s2) || (!subprop ? p1 : undefined);
         };
         useExisting = resolveProp('existingElement', 'useForSpatialProperties');
         existingSpatialProperties = resolveProp('existingElement', 'spatialProperties');
