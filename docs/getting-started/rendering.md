@@ -73,6 +73,26 @@ const renderer = dataNavigator.rendering({
 renderer.initialize();
 ```
 
+### Defaults for every node
+
+`defaults` applies to any node that doesn't set a property itself. Each property is looked up on the node first, then in `defaults`, then in the built-in defaults.
+
+`spatialProperties`, `semantics`, and `parentSemantics` can be functions. This is useful when the structure builds the nodes for you, as with the dimensions API:
+
+```js
+import { describeNode } from 'data-navigator/utilities';
+
+const renderer = dataNavigator.rendering({
+    elementData: structure.nodes,
+    defaults: {
+        semantics: (renderObject, data) => ({ label: describeNode(data, {}) })
+    }
+    // ...
+});
+```
+
+Functions receive the node's render object and its `data`. They can return a partial object: any property they leave out falls back to the built-in default.
+
 ## Key Methods
 
 | Method                      | Description                    |
