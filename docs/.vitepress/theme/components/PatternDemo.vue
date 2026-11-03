@@ -194,10 +194,9 @@ watch(selected, () => mount());
     position: static;
     margin-top: 0.5rem;
 }
-.pattern-chart .dn-node.is-chat-current .dn-node-path {
+.pattern-chart .dn-node.is-current .dn-node-path {
     stroke: var(--vp-c-brand-1);
     stroke-width: 3px;
-    stroke-dasharray: 6 3;
 }
 .pattern-label {
     font-size: 0.8rem;
