@@ -32,7 +32,7 @@ export default (options: RenderingOptions) => {
             ? mergeDefault(defaults.parentSemantics, options.defaults.parentSemantics)
             : defaults.parentSemantics;
         defaults.existingElement = options.defaults.existingElement
-            ? { ...defaults.existingElement, ...options.defaults.existingElement }
+            ? mergeDefault(defaults.existingElement, options.defaults.existingElement)
             : defaults.existingElement;
     }
     renderer.initialize = () => {
@@ -131,12 +131,18 @@ export default (options: RenderingOptions) => {
         }
         let useExisting = false;
         let existingSpatialProperties = {};
-        const resolve = v => (typeof v === 'function' ? v(d, nodeData.datum ?? nodeData.data) : v);
+        const resolved = new Map();
+        const resolve = v =>
+            typeof v !== 'function'
+                ? v
+                : resolved.has(v)
+                  ? resolved.get(v)
+                  : resolved.set(v, v(d, nodeData.datum ?? nodeData.data)).get(v);
         const resolveProp = (prop, subprop?, checkExisting?) => {
             const p1 = resolve(d[prop] || defaults[prop]);
             const s1 = !(checkExisting && useExisting) ? p1?.[subprop] : existingSpatialProperties[subprop];
             const s2 = resolve(defaults[prop])?.[subprop] ?? NodeElementDefaults[prop]?.[subprop];
-            return resolve(s1) || resolve(s2) || (!subprop ? p1 : undefined);
+            return resolve(s1) ?? resolve(s2) ?? (!subprop ? p1 : undefined);
         };
         useExisting = resolveProp('existingElement', 'useForSpatialProperties');
         existingSpatialProperties = resolveProp('existingElement', 'spatialProperties');
@@ -154,7 +160,8 @@ export default (options: RenderingOptions) => {
         node.setAttribute('role', resolveProp('parentSemantics', 'role'));
         node.id = id;
         node.classList.add('dn-node');
-        node.classList.add(resolveProp('cssClass'));
+        const cssClass = resolveProp('cssClass');
+        if (cssClass) node.classList.add(cssClass);
         node.style.width = width + 'px';
         node.style.height = height + 'px';
         node.style.left = x + 'px';

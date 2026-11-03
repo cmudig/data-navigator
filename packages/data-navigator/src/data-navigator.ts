@@ -228,7 +228,7 @@ export type RenderObject = {
     spatialProperties?: SpatialProperties;
     semantics?: Semantics;
     parentSemantics?: Semantics;
-    existingElement?: ExistingElement;
+    existingElement?: ExistingElement | ((r?: RenderObject, d?: DatumObject) => ExistingElement);
     showText?: boolean;
 };
 

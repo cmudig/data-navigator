@@ -5,8 +5,9 @@ import type { TextChatOptions, TextChatInstance, NodeObject, Structure, LLMMessa
  * Default node description — self-contained, no inspector dependency.
  */
 const defaultDescribeNode = (node: NodeObject): string => {
-    if (node.semantics?.label) {
-        const label = typeof node.semantics.label === 'function' ? node.semantics.label() : node.semantics.label;
+    const semantics = typeof node.semantics === 'function' ? node.semantics(node, node.data) : node.semantics;
+    if (semantics?.label) {
+        const label = typeof semantics.label === 'function' ? semantics.label(node, node.data) : semantics.label;
         if (label) return label;
     }
     if (!node.derivedNode) {

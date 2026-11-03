@@ -26,8 +26,9 @@ const convertToArray = (obj, include, exclude) => {
  * Builds a tooltip label for a structure node.
  */
 export const buildLabel = (node, colorBy) => {
-    if (node.semantics?.label) {
-        return typeof node.semantics.label === 'function' ? node.semantics.label() : node.semantics.label;
+    const semantics = typeof node.semantics === 'function' ? node.semantics(node, node.data) : node.semantics;
+    if (semantics?.label) {
+        return typeof semantics.label === 'function' ? semantics.label(node, node.data) : semantics.label;
     }
     if (!node.derivedNode) {
         if (node.data) {
