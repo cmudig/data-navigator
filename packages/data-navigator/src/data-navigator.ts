@@ -411,4 +411,6 @@ export type TextChatOptions = {
 export type TextChatInstance = {
     destroy: () => void;
     getCurrentNode: () => NodeObject | null;
+    submit: (text: string) => Promise<void>;
+    setCurrentNode: (nodeId: string | null) => void;
 };

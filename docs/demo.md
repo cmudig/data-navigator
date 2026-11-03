@@ -1,438 +1,143 @@
 ---
-layout: doc
-title: Interactive Demo
+title: Many Ways
 ---
 
-# Interactive Demo
+<script setup>
+import { onMounted, onBeforeUnmount } from 'vue';
+import 'data-navigator/text-chat.css';
+import '../assets/many-ways/src/style.css';
 
-::: warning Under Construction
-This demo is currently being updated for the new docs site. Check back soon!
+let destroy;
+onMounted(async () => {
+    const { mountManyWays } = await import('../assets/many-ways/src/main.js');
+    destroy = mountManyWays(document.getElementById('mw-demo'));
+});
+onBeforeUnmount(() => destroy?.());
+</script>
 
-In the meantime, you can explore the [Getting Started guide](/getting-started/) to build your own navigable chart.
+# Many Ways
+
+One chart and one Data Navigator structure, with at least six different ways to navigate. Try out our demo and all of the ways that Data Navigator enables input!
+
+<div class="many-ways" id="mw-demo">
+    <fieldset class="mw-ways">
+        <legend>Ways to navigate</legend>
+        <p class="mw-hint">Keyboard and text are always on. Turn on any others.</p>
+        <label><input type="checkbox" id="mw-voice" aria-describedby="mw-voice-note" /> Voice</label>
+        <label><input type="checkbox" id="mw-hand" /> Hand gestures</label>
+        <label><input type="checkbox" id="mw-head" /> Head movement</label>
+        <label><input type="checkbox" id="mw-swipe" aria-describedby="mw-swipe-note" /> Touch swiping</label>
+        <p class="mw-hint" id="mw-voice-note" hidden>This browser does not support speech recognition.</p>
+        <p class="mw-hint" id="mw-swipe-note">Swiping takes over touch on the chart. Leave it off if you use a screen reader.</p>
+    </fieldset>
+    <div class="mw-camera" id="mw-camera" hidden>
+        <video id="mw-video" muted playsinline aria-label="Camera preview"></video>
+        <p class="mw-hint">Video is processed on your device and is not sent anywhere.</p>
+    </div>
+    <p class="mw-status" id="mw-status" role="status"></p>
+    <div class="mw-chart" id="mw-chart"></div>
+    <div>
+        <p class="mw-label" id="mw-chat-label">Text chat</p>
+        <button type="button" class="mw-speak" id="mw-speak" hidden>Speak a command</button>
+        <div id="mw-chat" role="group" aria-labelledby="mw-chat-label"></div>
+    </div>
+    <details class="mw-structure">
+        <summary>View navigation structure</summary>
+        <div class="mw-inspector" id="mw-inspector"></div>
+    </details>
+    <div class="mw-commands" id="mw-commands"></div>
+</div>
+
+## Try a path
+
+1. Enter the chart. You land on the chart summary.
+2. Drill in three times: Year, then 2015, then `62%, Chrome, 2015`.
+3. Go right to 2016, then up to Firefox.
+4. Drill out to the browser to hear about Firefox across all years.
+
+Mix inputs as you go. Type `drill in`, point right with your hand, then say "up to the browser". Every input moves the same position, shown by one outline on the chart and in the inspector.
+
+## "Many ways"
+
+Offering many ways to do the same thing, and reach the same goals, is one of the best measures of a robust, accessible system. People use different inputs because of disability, device, setting, or preference, and those can change from one moment to the next. When every input reaches the same places, many more folks can reach the goals that they have in their own way.
+
+This idea builds on [Chartability](https://www.frank.computer/chartability/), especially its robust and flexible principles, and on [Skeleton](https://arxiv.org/abs/2607.14579), which calls for accommodating inputs beyond the keyboard, including touch and text.
+
+We put this idea into the simple 2 words, "many ways," while working with the React Spectrum Charts team at Adobe. Thank you to that team for helping to shape our micro-philosophy for accessible interaction design.
+
+## How it works
+
+Everything runs on one `structure`, one `input`, one `rendering`, and one `textChat`. The chart is a [dual tree](/patterns/dual-tree): every data point belongs to a year and a browser, so you can move across years or across browsers from any point.
+
+| Input    | How it reaches a navigation rule                                                   |
+| -------- | ---------------------------------------------------------------------------------- |
+| Keyboard | `input.keydownValidator(event)` returns the rule for the key                       |
+| Text     | `textChat` matches what you type to a rule name or label                           |
+| Voice    | The browser's speech recognition passes what you said to `chat.submit(text)`       |
+| Hand     | A MediaPipe gesture recognizer maps each gesture to a rule name                    |
+| Head     | A MediaPipe face landmarker maps head turns, nods, tilts, and expressions to rules |
+| Touch    | Pointer events map swipes, taps, and presses to rules                              |
+
+Every input ends in the same call, `input.move(current, rule)`, so the navigation rules are defined once.
+
+### Many names for one rule
+
+Speech and text need more than one name for each move. People say "drill in", "go in", "child", or "open". Each of these is its own navigation rule, added to the same edges as `drill-in` and pointing in the same direction. Nothing else changes. The commands below the chart list every name.
+
+<<< @/../assets/many-ways/src/commands.js#aliases{js}
+
+### One position
+
+Keyboard moves focus to the chart element, so a screen reader reads it. Other inputs move the same position through the text chat with `chat.submit()`, which logs the result and announces it. When the keyboard moves, `chat.setCurrentNode()` keeps the chat in sync. See [Sharing a position with other inputs](/examples/data-text-adventure#sharing-a-position-with-other-inputs).
+
+Camera, microphone, and swiping status (such as "No hand in view") goes to a separate status message, so it never repeats what the chat or focus already said.
+
+## Notes on each input
+
+- **Voice** is push to talk. Always-on listening can hear a screen reader read a result aloud and act on it again. Speech recognition works in Chrome, Edge, and Safari. Some browsers send audio to a server to recognize it.
+- **Hand gestures** and **head movement** use [MediaPipe Tasks Vision](https://ai.google.dev/edge/mediapipe/solutions/guide), which runs in the browser, including on phones. Models download when you turn them on. Hold a gesture briefly to use it, then relax before the next one. Head movement measures your resting position first, so hold still for a moment after turning it on.
+- **Touch swiping** is off by default. Screen readers on phones use swipes for their own navigation, so swiping here would get in the way. Swiping also works with a mouse drag.
+
+## Focus indicators
+
+Each node's outline matches what it represents: a box around a bar, a box around a year's column, an outline around each segment for a browser, and a box around the legend for the browser grouping. See [Focus Indication](/examples/focus-indication) for how to build these, and [Trouble with Focus Indication](/getting-started/first-chart#trouble-with-focus-indication) for charts drawn on a canvas.
+
+## The code
+
+This demo is a ready-to-run project in [assets/many-ways](https://github.com/cmudig/data-navigator/tree/main/assets/many-ways). Run `npm install` in that folder and serve it from the repository root.
+
+::: code-group
+
+<<< @/../assets/many-ways/src/main.js{js} [main.js]
+
+<<< @/../assets/many-ways/src/navigator.js{js} [navigator.js]
+
+<<< @/../assets/many-ways/src/commands.js{js} [commands.js]
+
+<<< @/../assets/many-ways/src/structure.js{js} [structure.js]
+
+<<< @/../assets/many-ways/src/chart.js{js} [chart.js]
+
+<<< @/../assets/many-ways/src/speech.js{js} [speech.js]
+
+<<< @/../assets/many-ways/src/hand.js{js} [hand.js]
+
+<<< @/../assets/many-ways/src/head.js{js} [head.js]
+
+<<< @/../assets/many-ways/src/swipe.js{js} [swipe.js]
+
+<<< @/../assets/many-ways/src/vision.js{js} [vision.js]
+
+<<< @/../assets/many-ways/index.html{html} [index.html]
+
+<<< @/../assets/many-ways/src/style.css{css} [style.css]
+
 :::
 
-<!-- TODO: restore demo when static-bundle.js and dependencies are working
-
-<script setup>
-import { onMounted } from 'vue'
-
-onMounted(() => {
-  // Load demo stylesheet
-  const link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = '/demo-style.css'
-  document.head.appendChild(link)
-})
-</script>
-
-<style scoped>
-/* Demo page specific accessibility styles */
-.dn-test-path {
-  margin: -2px;
-  border: 1px solid #767676;
-}
-
-.dn-test-path:focus {
-  border: 3px solid #0063ff;
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-}
-
-img {
-  pointer-events: none;
-}
-
-.container {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  padding-top: 56.25%;
-}
-
-.responsive-iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  border: 1px solid #767676;
-}
-
-.responsive-iframe:focus {
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-}
-
-pre {
-  overflow: auto;
-  background: #f6f6f6;
-  padding: 10px;
-  border-radius: 10px;
-  border: 2px solid #ccc;
-}
-
-/* Citation copy button with accessibility */
-.bib {
-  min-width: 44px;
-  min-height: 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 22px;
-  border: 2px solid #333;
-  cursor: pointer;
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bib:hover {
-  border-color: #000;
-  background: #f5f5f5;
-}
-
-.bib:focus {
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-  border-color: #0063ff;
-}
-
-.bib svg {
-  width: 20px;
-  height: 20px;
-  pointer-events: none;
-}
-
-.bib:active path {
-  fill: #015ee9;
-}
-
-.bib path {
-  fill: #333;
-}
-
-/* Tables */
-:deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1rem 0;
-}
-
-:deep(th),
-:deep(td) {
-  text-align: left;
-  padding: 0.5rem;
-  border: 1px solid #767676;
-}
-
-:deep(th) {
-  background: #f5f5f5;
-  font-weight: 600;
-}
-
-/* Form elements */
-:deep(input[type="text"]),
-:deep(input[type="submit"]) {
-  min-height: 44px;
-  padding: 0.5rem;
-  border: 1px solid #767676;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-:deep(input[type="text"]:focus),
-:deep(input[type="submit"]:focus) {
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-  border-color: #0063ff;
-}
-
-/* Buttons */
-:deep(button) {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0.5rem 1rem;
-  border: 1px solid #767676;
-  border-radius: 4px;
-  cursor: pointer;
-  background: #0063ff;
-  color: #fff;
-  font-weight: 500;
-  font-size: 1rem;
-}
-
-:deep(button:hover) {
-  background: #0052cc;
-}
-
-:deep(button:focus) {
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-}
-
-:deep(button:disabled) {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background: #999;
-}
-
-/* Details/Summary */
-:deep(summary) {
-  cursor: pointer;
-  padding: 0.5rem;
-  border: 1px solid #767676;
-  border-radius: 4px;
-  min-height: 44px;
-  list-style: none;
-}
-
-:deep(summary:focus) {
-  outline: 3px solid #0063ff;
-  outline-offset: 2px;
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-</style>
-
-In this demo, you can use a variety of different input modalities to navigate the data structure of a PNG image of a chart.
-
-The core 3 subsystems within Data Navigator are Structure, Input, and Rendering:
-
-- The structure is bespoke but mostly follows common patterns.
-- You can use a lot of different inputs!
-- The chart itself is just a PNG image. The rendered elements (when you navigate) are semantic HTML with custom visuals.
-
-## Overall Instructions and Commands
-
-You will need to "enter" Data Navigator's structure before you can begin navigating.
-
-The details of every input command are outlined below, however note that each input modality specifies these commands in different ways (see each section for more details):
-
-<details>
-<summary>View commands:</summary>
-
-| Command | Result |
-|---------|--------|
-| **Enter** | Enter the interface. (You must enter the interface before using any other command.) |
-| **Exit** | Exit the interface. |
-| **Right** | Move right (across teams). |
-| **Left** | Move left (across teams). |
-| **Up** | Move up (across legend items or between title/legend/axes). |
-| **Down** | Move down (across legend items or between title/legend/axes). |
-| **Child** | Drill into the x axis, legend, or childmost elements. |
-| **Parent** | Drill out toward the x axis. |
-| **Legend** | Drill out toward the legend. |
-| **Undo** | Move to a previous position. |
-
-</details>
-
-## Keyboard, Screen Reader, Touch, and Mouse-drag
-
-<details>
-<summary>Show section</summary>
-
-### Keyboard and Desktop Screen Reader Controls
-
-| Command | Expected Input |
-|---------|----------------|
-| **Enter** | Click the "Enter navigation area" button. |
-| **Exit** | <kbd>ESC</kbd> key. |
-| **Right** | <kbd>→</kbd> (right arrow key). |
-| **Left** | <kbd>←</kbd> (left arrow key). |
-| **Up** | <kbd>↑</kbd> (up arrow key). |
-| **Down** | <kbd>↓</kbd> (down arrow key). |
-| **Child** | <kbd>ENTER</kbd> key. |
-| **Parent** | <kbd>BACKSPACE</kbd> key. |
-| **Legend** | <kbd>L</kbd> key. |
-| **Undo** | <kbd>.</kbd> (period) key. |
-
-### Mobile Screen Reader, Touch, and Mouse-drag Controls
-
-| Command | Expected Input |
-|---------|----------------|
-| **Enter** | Long press and release on the chart area or click the "Enter navigation area" button. |
-| **Exit** | Long press and release on the chart area (if you have entered already). |
-| **Right** | → Press and swipe right. |
-| **Left** | ← Press and swipe left. |
-| **Up** | ↑ Press and swipe up. |
-| **Down** | ↓ Press and swipe down. |
-| **Child** | ↘ Press and swipe down and to the right. |
-| **Parent** | ↖ Press and swipe up and to the left. |
-| **Legend** | ↗ Press and swipe up and to the right. |
-| **Undo** | ↙ Press and swipe down and to the left. |
-
-</details>
-
-## Text and Speech
-
-<details>
-<summary>Show section</summary>
-
-All of the commands from the previous section (Overall Commands) can simply be typed into the text input or spoken using the button. For example:
-
-| Command | Expected Input |
-|---------|----------------|
-| **Enter** | "Enter" "enter" and "EnTeR" are all valid. |
-
-<div class="row">
-<div class="column left">
-
-**Issue a text command:**
-
-<form id="form">
-  <input type="text" id="textCommand" />
-  <input id="submit" type="submit" />
-</form>
-
-</div>
-<div class="column right limited">
-
-**Speak a single-word command:**
-
-<button id="enableSpeech">Issue voice command</button>
-
-<p class="alert" id="alert"></p>
-
-</div>
-</div>
-
-</details>
-
-## Gesture
-
-<details>
-<summary>Show section</summary>
-
-The gesture control model is heavy, so we only load it if you want to try it. Click "Load Gesture Model" to load it and then activate the model with "Open Webcam" (it will need access to your camera).
-
-### Gesture Controls
-
-Close your hand to set the gesture center (marked by an 👊 emoji on the camera space). When ready, you can open your hand or point in a direction to move. Close your hand again to set the gesture center for a new gesture (and repeat).
-
-The model is slow and isn't very smart, so you will need to exaggerate your movement distances and hold your gesture for about a second. It fails often (apologies).
-
-| Command | Expected Input |
-|---------|----------------|
-| **Enter** | 🖐 Open your hand, facing the camera. |
-| **Exit** | 🖐 Open your hand, facing the camera (once already entered). |
-| **Right** | 👉 Point right of your gesture center. |
-| **Left** | 👈 Point left of your gesture center. |
-| **Up** | ☝ Point above your gesture center. |
-| **Down** | 👇 Point below your gesture center. |
-| **Child** | 👇👉 Point below and to the right of your gesture center. |
-| **Parent** | ☝👈 Point above and to the left of your gesture center. |
-| **Legend** | ☝👉 Point above and to the right of your gesture center. |
-| **Undo** | 👇👈 Point below and to the left of your gesture center. |
-
-<button id="loadModel">Load Gesture Model</button>
-<br />
-<button id="openWebcam" disabled>Open Webcam</button>
-<br />
-<button id="closeWebcam" disabled>Close Model</button>
-<br /><br />
-
-<div id="status" class="hidden">
-
-**Ready for a command?** <span id="ready">No. Try closing your hand.</span>
-
-**Command used:** <span id="command">(none yet)</span>
-
-</div>
-
-<div class="video-wrapper">
-  <video class="videobox canvasbox" autoplay="autoplay" id="feed"></video>
-  <canvas id="canvas" class="border canvasbox hidden"></canvas>
-  <div id="fist">👊</div>
-</div>
-
-</details>
-
-## Try It!
-
-<div class="wrapper">
-  <div id="root" class="wrapper">
-    <img
-      id="chart"
-      src="/static.png"
-      alt="Major trophies for some English teams. Stacked bar chart."
-    />
-  </div>
-  <div id="tooltip" role="presentation" class="tooltip hidden" focusable="false"></div>
-</div>
-
-## Copy Citation
-
-<button id="bib-copy" class="bib" title="Copy to clipboard" aria-label="Copy to clipboard">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-    <path d="M208 0H332.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128h80v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" />
-  </svg>
-</button>
-<span aria-live="polite" id="copy-announcer"></span>
-
-```bibtex
-@article{2023-elavsky-data-navigator,
-  title = {{Data Navigator}: An Accessibility-Centered Data Navigation Toolkit},
-  publisher = {{IEEE}},
-  author = {Frank Elavsky and Lucas Nadolskis and Dominik Moritz},
-  journal = {{IEEE} Transactions on Visualization and Computer Graphics},
-  year = {2023},
-  url = {http://dig.cmu.edu/data-navigator/}
-}
-```
-
-<script>
-// Wait for DOM to be ready
-if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', () => {
-    // Load external dependencies
-    const hammerScript = document.createElement('script')
-    hammerScript.src = 'https://hammerjs.github.io/dist/hammer.min.js'
-    document.body.appendChild(hammerScript)
-
-    const handtrackScript = document.createElement('script')
-    handtrackScript.src = 'https://cdn.jsdelivr.net/npm/handtrackjs@latest/dist/handtrack.min.js'
-    document.body.appendChild(handtrackScript)
-
-    // Load the demo bundle after dependencies
-    handtrackScript.onload = () => {
-      const demoScript = document.createElement('script')
-      demoScript.src = '/static-bundle.js'
-      document.body.appendChild(demoScript)
-    }
-
-    // Clipboard functionality
-    setTimeout(() => {
-      const bibCopy = document.getElementById('bib-copy')
-      const bibtex = document.querySelector('pre code')
-      const announce = document.getElementById('copy-announcer')
-
-      if (bibCopy && bibtex && announce) {
-        bibCopy.addEventListener('click', (evt) => {
-          const setText = txt => () => {
-            announce.innerText = txt
-            window.setTimeout(() => (announce.innerText = ''), 1500)
-          }
-
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard
-              .writeText(bibtex.innerText)
-              .then(setText(' Copied!'), setText(' Failed.'))
-          } else {
-            setText(' Clipboard not available.')()
-          }
-        })
-      }
-    }, 1000)
-  })
-}
-</script>
-
-end of commented out demo -->
+## Related
+
+- [Dual Tree pattern](/patterns/dual-tree)
+- [Text Labels](/patterns/labels), for how the descriptions are written
+- [Commands and Instructions](/examples/commands-instructions), for the commands table
+- [Data Text Adventure](/examples/data-text-adventure), for the text chat
+- [Using the Inspector](/examples/using-the-inspector)

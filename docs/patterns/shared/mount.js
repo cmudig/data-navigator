@@ -1,5 +1,5 @@
 // Wires one structure to keyboard navigation, text chat, the inspector, and a keys table.
-// Keyboard and text chat each keep their own position. Both show a focus indicator on the chart.
+// Keyboard and text chat share one position, shown by one focus indicator on the chart.
 import dataNavigator from 'data-navigator';
 import { Inspector } from '@data-navigator/inspector';
 
@@ -56,7 +56,7 @@ export function mountPattern({
     });
     structure.navigationRules.exit = structure.navigationRules.exit || { key: 'Escape', direction: 'target' };
     const entry = entryPoint || defaultEntry(structure);
-    const state = { keyboard: null, chat: null };
+    let current = null;
 
     const rendering = dataNavigator.rendering({
         elementData,
@@ -96,60 +96,55 @@ export function mountPattern({
     }
 
     const report = () => {
-        const current = state.keyboard || state.chat;
         if (inspector) {
             current ? inspector.highlight(current) : inspector.clear();
         }
         onFocus(current ? structure.nodes[current] : null);
     };
 
-    const ensureRendered = nodeId => {
+    // keyboard focuses the node; chat only moves the indicator, so typing stays in the chat
+    const show = (nodeId, focus) => {
+        const prev = current;
+        current = nodeId;
         const node = structure.nodes[nodeId];
         let el = document.getElementById(node.renderId);
         if (!el) {
             el = rendering.render(node);
             el.addEventListener('keydown', onKeydown);
         }
-        return el;
+        el.classList.add('is-current');
+        if (focus) input.focus(node.renderId);
+        if (prev && prev !== nodeId) rendering.remove(structure.nodes[prev].renderId);
+        report();
     };
-    const removeIfUnused = nodeId => {
-        if (nodeId && nodeId !== state.keyboard && nodeId !== state.chat) {
-            rendering.remove(structure.nodes[nodeId].renderId);
-        }
-    };
-    const markChat = () => {
-        rendering.wrapper.querySelectorAll('.is-chat-current').forEach(el => el.classList.remove('is-chat-current'));
-        if (state.chat) ensureRendered(state.chat).classList.add('is-chat-current');
+    const clear = () => {
+        current = null;
+        rendering.clearStructure();
+        report();
     };
 
     function focusNode(nodeId) {
-        const prev = state.keyboard;
-        state.keyboard = nodeId;
-        ensureRendered(nodeId);
-        input.focus(structure.nodes[nodeId].renderId);
-        removeIfUnused(prev);
-        report();
+        show(nodeId, true);
+        chat.setCurrentNode(nodeId);
     }
     function enter() {
         const node = input.enter();
         if (node) focusNode(node.id);
     }
     function exit() {
-        state.keyboard = null;
+        clear();
+        chat.setCurrentNode(null);
         if (rendering.exitElement) {
             rendering.exitElement.style.display = 'block';
             input.focus(rendering.exitElement.id);
         }
-        // exiting clears every rendered node, so put the chat position back
-        markChat();
-        report();
     }
     function onKeydown(e) {
         const rule = input.keydownValidator(e);
         if (!rule) return;
         e.preventDefault();
         if (rule === 'exit') return exit();
-        const next = input.move(state.keyboard, rule);
+        const next = input.move(current, rule);
         if (next) focusNode(next.id);
     }
 
@@ -158,20 +153,8 @@ export function mountPattern({
         container: chatHost,
         entryPoint: entry,
         commandLabels,
-        onNavigate: node => {
-            const prev = state.chat;
-            state.chat = node.id;
-            markChat();
-            removeIfUnused(prev);
-            report();
-        },
-        onExit: () => {
-            const prev = state.chat;
-            state.chat = null;
-            markChat();
-            removeIfUnused(prev);
-            report();
-        }
+        onNavigate: node => show(node.id, false),
+        onExit: clear
     });
 
     return {

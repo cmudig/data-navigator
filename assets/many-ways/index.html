@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Many ways to navigate a chart</title>
+        <link rel="stylesheet" href="./node_modules/data-navigator/text-chat.css" />
+        <link rel="stylesheet" href="../../packages/inspector/style.css" />
+        <link rel="stylesheet" href="./src/style.css" />
+        <script>
+            if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+        </script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "data-navigator": "./node_modules/data-navigator/dist/index.js",
+                    "@data-navigator/inspector": "../../packages/inspector/src/inspector.js",
+                    "d3": "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm",
+                    "d3-array": "https://cdn.jsdelivr.net/npm/d3-array@3/+esm",
+                    "d3-drag": "https://cdn.jsdelivr.net/npm/d3-drag@3/+esm",
+                    "d3-force": "https://cdn.jsdelivr.net/npm/d3-force@3/+esm",
+                    "d3-scale": "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm",
+                    "d3-scale-chromatic": "https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3/+esm",
+                    "d3-selection": "https://cdn.jsdelivr.net/npm/d3-selection@3/+esm"
+                }
+            }
+        </script>
+        <style>
+            body {
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 0 16px;
+                font-family: system-ui, sans-serif;
+                background: Canvas;
+                color: CanvasText;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>Many ways to navigate a chart</h1>
+            <div class="many-ways" id="mw-demo">
+                <fieldset class="mw-ways">
+                    <legend>Ways to navigate</legend>
+                    <p class="mw-hint">Keyboard and text are always on. Turn on any others.</p>
+                    <label><input type="checkbox" id="mw-voice" aria-describedby="mw-voice-note" /> Voice</label>
+                    <label><input type="checkbox" id="mw-hand" /> Hand gestures</label>
+                    <label><input type="checkbox" id="mw-head" /> Head movement</label>
+                    <label
+                        ><input type="checkbox" id="mw-swipe" aria-describedby="mw-swipe-note" /> Touch swiping</label
+                    >
+                    <p class="mw-hint" id="mw-voice-note" hidden>This browser does not support speech recognition.</p>
+                    <p class="mw-hint" id="mw-swipe-note">
+                        Swiping takes over touch on the chart. Leave it off if you use a screen reader.
+                    </p>
+                </fieldset>
+                <div class="mw-camera" id="mw-camera" hidden>
+                    <video id="mw-video" muted playsinline aria-label="Camera preview"></video>
+                    <p class="mw-hint">Video is processed on your device and is not sent anywhere.</p>
+                </div>
+                <p class="mw-status" id="mw-status" role="status"></p>
+                <div class="mw-chart" id="mw-chart"></div>
+                <div>
+                    <p class="mw-label" id="mw-chat-label">Text chat</p>
+                    <button type="button" class="mw-speak" id="mw-speak" hidden>Speak a command</button>
+                    <div id="mw-chat" role="group" aria-labelledby="mw-chat-label"></div>
+                </div>
+                <details class="mw-structure">
+                    <summary>View navigation structure</summary>
+                    <div class="mw-inspector" id="mw-inspector"></div>
+                </details>
+                <div class="mw-commands" id="mw-commands"></div>
+            </div>
+        </main>
+        <script type="module">
+            import { mountManyWays } from './src/main.js';
+            mountManyWays(document.getElementById('mw-demo'));
+        </script>
+    </body>
+</html>

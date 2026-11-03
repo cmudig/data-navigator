@@ -88,7 +88,7 @@ Each node gets a `spatialProperties.path`, drawn over the canvas when the node h
 
 :::
 
-A solid outline marks keyboard focus. A dashed outline marks where the text chat is.
+Keyboard and text chat share one position, so there is only ever one outline on the chart.
 
 ## Source
 

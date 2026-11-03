@@ -164,6 +164,10 @@ export default defineConfig({
                     ]
                 },
                 {
+                    text: 'Focus Indication',
+                    items: [{ text: 'Focus Indication', link: '/examples/focus-indication' }]
+                },
+                {
                     text: 'Advanced Examples',
                     items: [
                         { text: 'Interactive Elements', link: '/examples/interactive-elements' },
