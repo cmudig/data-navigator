@@ -100,7 +100,7 @@ Camera, microphone, and swiping status (such as "No hand in view") goes to a sep
 
 ## Focus indicators
 
-Each node's outline matches what it represents: a box around a bar, a box around a year's column, an outline around each segment for a browser, and a box around the legend for the browser grouping. See [Focus Indication](/examples/focus-indication) for how to build these, and [Trouble with Focus Indication](/getting-started/first-chart#trouble-with-focus-indication) for charts drawn on a canvas.
+Each node's outline matches what it represents: a box around a bar, a box around a year's column, an outline around each segment for a browser, and a box around the browser names for the browser grouping. See [Focus Indication](/examples/focus-indication) for how to build these, and [Trouble with Focus Indication](/getting-started/first-chart#trouble-with-focus-indication) for charts drawn on a canvas.
 
 ## The code
 

@@ -44,7 +44,7 @@ export default {
         root.descendants().forEach(node => {
             const p = pos(node);
             dots[node.id] = { x: p.x, y: p.y, r: 4 };
-            drawDot(ctx, p.x, p.y, 4, node.children ? theme.muted : theme.series[0], theme.surface);
+            drawDot(ctx, p.x, p.y, 4, node.children ? theme.grey : theme.series[0]);
             labels[node.id] = node.children
                 ? drawText(ctx, node.data.name, p.x - 8, p.y - 6, {
                       size: 11,

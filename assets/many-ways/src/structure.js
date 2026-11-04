@@ -81,7 +81,7 @@ export function buildStructure(data, { bars, boxes }) {
     const all = Object.values(bars);
     n.chart.spatialProperties = box(boxes.chart, 0);
     n.years.spatialProperties = box(union([...all, boxes.xAxis]), 4);
-    n.browsers.spatialProperties = box(boxes.legend, 4);
+    n.browsers.spatialProperties = box(boxes.labels, 4);
     years.forEach(y => {
         n[`year-${y}`].spatialProperties = box(union(data.filter(d => d.year === y).map(d => bars[d.id])), 4);
     });

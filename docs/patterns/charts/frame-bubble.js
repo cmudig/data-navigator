@@ -5,7 +5,7 @@ import { cars } from '../data/cars.js';
 
 const origins = ['USA', 'Europe', 'Japan'];
 const alt =
-    'Bubble chart of 60 cars, horsepower against miles per gallon. Color shows origin and size shows weight. Heavy, powerful cars get the lowest MPG.';
+    'Bubble chart of 60 cars, horsepower against miles per gallon. USA cars are blue and the rest are grey. Size shows weight. Heavy, powerful cars get the lowest MPG.';
 const range = ([lo, hi]) => `${Math.round(lo)} to ${Math.round(hi)}`;
 
 export default {
@@ -31,6 +31,7 @@ export default {
             colorKey: 'origin',
             colors: origins,
             colorTitle: 'Origin',
+            highlight: 'USA',
             sizeKey: 'weight',
             sizeDomain: [1500, 5000],
             sizeRange: [3, 11],
@@ -58,7 +59,10 @@ export default {
                     { id: 'subtitle', semantics: { label: 'Subtitle: 60 cars from 1970 to 1982.' } },
                     { id: 'y-axis', semantics: { label: 'Y axis: Miles per gallon, 10 to 50.' } },
                     { id: 'x-axis', semantics: { label: 'X axis: Horsepower, 40 to 240.' } },
-                    { id: 'color-legend', semantics: { label: 'Legend, color: Origin. USA, Europe, Japan.' } },
+                    {
+                        id: 'color-legend',
+                        semantics: { label: 'Legend, color: Origin. USA in blue, Europe and Japan in grey.' }
+                    },
                     {
                         id: 'size-legend',
                         semantics: { label: 'Legend, size: Weight, 2,000 to 5,000 pounds. Bigger circles are heavier.' }

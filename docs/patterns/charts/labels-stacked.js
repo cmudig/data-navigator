@@ -38,8 +38,7 @@ export default {
             width,
             height,
             xLabel: 'Fruit',
-            yLabel: 'Count',
-            legendTitle: 'Store'
+            yLabel: 'Count'
         });
 
         const topToBottom = [...stores].reverse();
@@ -121,7 +120,7 @@ export default {
         const all = Object.values(bars);
         n.chart.spatialProperties = rectSpatial({ x: 6, y: 6, width: width - 12, height: height - 12 }, 0);
         n.fruits.spatialProperties = rectSpatial(unionBox(all, boxes.xAxis), 4);
-        n.stores.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.stores.spatialProperties = rectSpatial(boxes.labels, 4);
         fruits.forEach(f => {
             n[`fruit-${f.toLowerCase()}`].spatialProperties = rectSpatial(
                 unionBox(fruitStores.filter(d => d.fruit === f).map(d => bars[d.id])),

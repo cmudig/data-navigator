@@ -34,7 +34,12 @@ export default {
             yKey: 'petal_length',
             colorKey: 'species',
             colors: species,
-            colorTitle: 'Species',
+            // the species sit apart, so each is named beside its flowers
+            groupLabels: [
+                { text: 'setosa', x: 5.25, y: 2.1 },
+                { text: 'versicolor', x: 6.3, y: 3.4 },
+                { text: 'virginica', x: 6.5, y: 6.5 }
+            ],
             xDomain: [4.5, 7.5],
             yDomain: [0, 7],
             r: 6,
@@ -144,7 +149,7 @@ export default {
 
         // #region focus
         n.root.spatialProperties = rectSpatial(boxes.plot, 16);
-        n.species.spatialProperties = rectSpatial(boxes.colorLegend.box, 4);
+        n.species.spatialProperties = rectSpatial(boxes.labels, 4);
         n.sepal_length.spatialProperties = rectSpatial(boxes.xAxis, 4);
         n.petal_length.spatialProperties = rectSpatial(boxes.yAxis, 4);
         species.forEach(s => {

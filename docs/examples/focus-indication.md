@@ -13,16 +13,24 @@ onMounted(async () => {
 
 <style>
 .fi-page {
-    --fi-c0: #2a78d6;
-    --fi-c1: #eb6834;
-    --fi-c2: #1baf7a;
-    --fi-c3: #eda100;
+    --fi-c0-fill: #f4f8fd;
+    --fi-c0-stroke: #2a78d6;
+    --fi-c1-fill: #fdf4f8;
+    --fi-c1-stroke: #e46293;
+    --fi-c2-fill: #f4fdfa;
+    --fi-c2-stroke: #1aa674;
+    --fi-c3-fill: #fffbf2;
+    --fi-c3-stroke: #c48500;
 }
 .dark .fi-page {
-    --fi-c0: #3987e5;
-    --fi-c1: #d95926;
-    --fi-c2: #199e70;
-    --fi-c3: #c98500;
+    --fi-c0-fill: #134c90;
+    --fi-c0-stroke: #5c9cea;
+    --fi-c1-fill: #832044;
+    --fi-c1-stroke: #dc7097;
+    --fi-c2-fill: #116a4b;
+    --fi-c2-stroke: #1fc78d;
+    --fi-c3-fill: #a36c00;
+    --fi-c3-stroke: #ffcd6b;
 }
 .fi-figure {
     max-width: 420px;
@@ -38,20 +46,19 @@ onMounted(async () => {
     height: auto;
     overflow: visible;
 }
-.fi-c0 { fill: var(--fi-c0); }
-.fi-c1 { fill: var(--fi-c1); }
-.fi-c2 { fill: var(--fi-c2); }
-.fi-c3 { fill: var(--fi-c3); }
+.fi-c0 { fill: var(--fi-c0-fill); stroke: var(--fi-c0-stroke); }
+.fi-c1 { fill: var(--fi-c1-fill); stroke: var(--fi-c1-stroke); }
+.fi-c2 { fill: var(--fi-c2-fill); stroke: var(--fi-c2-stroke); }
+.fi-c3 { fill: var(--fi-c3-fill); stroke: var(--fi-c3-stroke); }
 .fi-mark {
-    stroke: var(--vp-c-bg);
     stroke-width: 1;
 }
 .fi-line {
     fill: none;
     stroke-width: 2.5;
 }
-.fi-s0 { stroke: var(--fi-c0); }
-.fi-s1 { stroke: var(--fi-c1); }
+.fi-s0 { stroke: var(--fi-c0-stroke); }
+.fi-s1 { stroke: var(--fi-c1-stroke); }
 .fi-axis {
     stroke: var(--vp-c-text-3);
 }

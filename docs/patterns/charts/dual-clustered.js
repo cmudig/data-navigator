@@ -11,7 +11,7 @@ const alt =
 export default {
     alt,
     focusNote:
-        'Same tree as the stacked bar, different shapes. A year outlines its cluster. A browser outlines its bar in every cluster.',
+        'Same tree as the stacked bar, different shapes. A year outlines its cluster. A browser outlines its bar in every cluster. The Browser dimension outlines the browser names above the first cluster.',
     commandLabels: {
         left: 'browser to the left',
         right: 'browser to the right',
@@ -33,12 +33,11 @@ export default {
             valueKey: 'share',
             groups,
             xDomain: years,
-            yMax: 70,
+            yMax: 80,
             width,
             height,
             xLabel: 'Year',
-            yLabel: 'Share (%)',
-            legendTitle: 'Browser'
+            yLabel: 'Share (%)'
         });
 
         // #region structure
@@ -113,7 +112,7 @@ export default {
         const all = Object.values(bars);
         n.chart.spatialProperties = rectSpatial({ x: 6, y: 6, width: width - 12, height: height - 12 }, 0);
         n.years.spatialProperties = rectSpatial(unionBox(all, boxes.xAxis), 4);
-        n.browsers.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.browsers.spatialProperties = rectSpatial(boxes.labels, 4);
         years.forEach(y => {
             const cluster = browsers.filter(d => d.year === y).map(d => bars[d.id]);
             n[`year-${y}`].spatialProperties = rectSpatial(unionBox(cluster), 4);

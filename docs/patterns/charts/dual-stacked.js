@@ -11,7 +11,7 @@ const alt =
 export default {
     alt,
     focusNote:
-        'A segment gets a box. A year outlines its whole column. A browser outlines its segments in every year. The Browser dimension outlines the legend, where browsers are named.',
+        'A segment gets a box. A year outlines its whole column. A browser outlines its segments in every year. The Browser dimension outlines the browser names beside the last column.',
     commandLabels: {
         left: 'previous year',
         right: 'next year',
@@ -37,8 +37,7 @@ export default {
             width,
             height,
             xLabel: 'Year',
-            yLabel: 'Share (%)',
-            legendTitle: 'Browser'
+            yLabel: 'Share (%)'
         });
 
         // #region structure
@@ -102,7 +101,7 @@ export default {
         const all = Object.values(bars);
         n.chart.spatialProperties = rectSpatial({ x: 6, y: 6, width: width - 12, height: height - 12 }, 0);
         n.years.spatialProperties = rectSpatial(unionBox(all, boxes.xAxis), 4);
-        n.browsers.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.browsers.spatialProperties = rectSpatial(boxes.labels, 4);
         years.forEach(y => {
             const col = browsers.filter(d => d.year === y).map(d => bars[d.id]);
             n[`year-${y}`].spatialProperties = rectSpatial(unionBox(col), 4);
