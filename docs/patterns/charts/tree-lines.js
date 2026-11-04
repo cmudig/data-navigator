@@ -33,8 +33,7 @@ export default {
             width,
             height,
             xLabel: 'Month',
-            yLabel: 'Temperature (°C)',
-            legendTitle: 'City'
+            yLabel: 'Temperature (°C)'
         });
 
         // #region structure

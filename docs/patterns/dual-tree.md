@@ -96,7 +96,7 @@ The tree is the same in all three charts. The keys follow what is next to what o
 
 - **Stacked bar.** Browsers stack vertically, so Up and Down move between them. A `sortFunction` orders the browser divisions top to bottom, so Down really moves down.
 - **Clustered bar.** Neighboring bars are browsers, so Left and Right move between them. Years are far apart, so they get `[` and `]`.
-- **Multi-line.** Months run left to right. Lines cross each other, so Up and Down follow the legend order.
+- **Multi-line.** Months run left to right. Lines cross each other, so Up and Down follow a fixed city order.
 
 ### Matching data points
 
@@ -110,12 +110,12 @@ Lead with the value, then both categories: `62%, Chrome, 2015`. A division names
 
 ## Focus indicators
 
-| Node           | Stacked bar                                 | Clustered bar          | Multi-line                       |
-| -------------- | ------------------------------------------- | ---------------------- | -------------------------------- |
-| Data point     | Box around the segment                      | Box around the bar     | Circle on the point              |
-| Year / month   | Box around the column                       | Box around the cluster | Box around the month's points    |
-| Browser / city | Outline of each segment                     | Outline of each bar    | Band along the line              |
-| Dimension      | Year: plot and x axis. Browser: the legend. | Same                   | Month: x axis. City: the legend. |
+| Node           | Stacked bar                                        | Clustered bar                                           | Multi-line                                       |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| Data point     | Box around the segment                             | Box around the bar                                      | Circle on the point                              |
+| Year / month   | Box around the column                              | Box around the cluster                                  | Box around the month's points                    |
+| Browser / city | Outline of each segment                            | Outline of each bar                                     | Band along the line                              |
+| Dimension      | Year: plot and x axis. Browser: the browser names. | Year: same. Browser: the names above the first cluster. | Month: x axis. City: the names at the line ends. |
 
 A browser group is spread across the chart, so its indicator is one outline per segment (`unionOfRectPaths`). A year sits in one place, so one box is enough.
 

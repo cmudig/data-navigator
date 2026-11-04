@@ -12,7 +12,7 @@ const slug = s => s.toLowerCase().replace(/\s+/g, '-');
 export default {
     alt,
     focusNote:
-        'Same frame boxes as the bar chart, plus a box around the legend. Inside Data it is a tree: lines, then points.',
+        'Same frame boxes as the bar chart, plus a box around the line labels. Inside Data it is a tree: lines, then points.',
     commandLabels: {
         left: 'previous',
         right: 'next',
@@ -36,8 +36,7 @@ export default {
             title: 'Monthly temperature',
             subtitle: 'Average in degrees Celsius',
             xLabel: 'Month',
-            yLabel: 'Temperature (°C)',
-            legendTitle: 'City'
+            yLabel: 'Temperature (°C)'
         });
 
         // #region structure
@@ -51,7 +50,7 @@ export default {
                     { id: 'subtitle', semantics: { label: 'Subtitle: Average in degrees Celsius.' } },
                     { id: 'y-axis', semantics: { label: 'Y axis: Temperature, 0 to 30 degrees.' } },
                     { id: 'x-axis', semantics: { label: 'X axis: Month, January to December.' } },
-                    { id: 'legend', semantics: { label: 'Legend, color: City. New York, London, Sydney.' } }
+                    { id: 'labels', semantics: { label: 'Line labels: New York, London, Sydney.' } }
                 ]
             },
             dimensions: {
@@ -89,7 +88,7 @@ export default {
         n.subtitle.spatialProperties = rectSpatial(boxes.subtitle, 4);
         n['y-axis'].spatialProperties = rectSpatial(boxes.yAxis, 4);
         n['x-axis'].spatialProperties = rectSpatial(boxes.xAxis, 4);
-        n.legend.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.labels.spatialProperties = rectSpatial(boxes.labels, 4);
         n.cities.spatialProperties = rectSpatial(unionBox(cityOrder.map(c => pointsBox(lines[c]))), 10);
         cityOrder.forEach(c => {
             n[`city-${slug(c)}`].spatialProperties = spatial(pointsBox(lines[c]), offsetLinePath(lines[c], 7));

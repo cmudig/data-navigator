@@ -1,6 +1,6 @@
 import dataNavigator from 'data-navigator';
 import { scaleLinear } from 'd3-scale';
-import { createCanvas, axisBottom, axisLeft, rectSpatial, fitWidth } from '../shared/canvas.js';
+import { createCanvas, axisBottom, axisLeft, drawText, rectSpatial, fitWidth } from '../shared/canvas.js';
 import { seattleHeat } from '../data/seattle-heat.js';
 
 const alt =
@@ -30,12 +30,19 @@ export default {
         const x = scaleLinear([0, 8], [plot.x, plot.x + plot.width]);
         const y = scaleLinear([0, 8], [plot.y + plot.height, plot.y]);
         const maxDays = Math.max(...seattleHeat.map(d => d.days));
-        const color = d => theme.sequential[Math.min(6, Math.floor((d.days / (maxDays + 1)) * 7))];
+        const step = d => Math.min(4, Math.floor((d.days / (maxDays + 1)) * 5));
+        // dark text on the light end of the ramp, white on the dark end, each at least 4.5:1
+        const ink = k => (k < 3 !== theme.dark ? '#0b0b0b' : '#ffffff');
         const cells = {};
         seattleHeat.forEach(d => {
-            cells[d.id] = { x: x(d.highBin), y: y(d.lowBin + 1), width: x(1) - x(0), height: y(0) - y(1) };
-            ctx.fillStyle = color(d);
-            ctx.fillRect(cells[d.id].x + 1, cells[d.id].y + 1, cells[d.id].width - 2, cells[d.id].height - 2);
+            const c = (cells[d.id] = { x: x(d.highBin), y: y(d.lowBin + 1), width: x(1) - x(0), height: y(0) - y(1) });
+            ctx.fillStyle = theme.sequential[step(d)];
+            ctx.fillRect(c.x + 1, c.y + 1, c.width - 2, c.height - 2);
+            drawText(ctx, String(d.days), c.x + c.width / 2, c.y + c.height / 2 + 4, {
+                size: c.width < 32 ? 9 : 11,
+                color: ink(step(d)),
+                align: 'center'
+            });
         });
         // light lines for each zoom level
         [4, 2].forEach((n, i) => {

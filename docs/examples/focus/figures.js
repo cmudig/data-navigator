@@ -70,6 +70,45 @@ const stackedColumns = () => {
     });
 };
 
+const rangeScatter = () => {
+    const x = d3.scaleLinear([0, 100], [M.left, W - M.right]);
+    const y = d3.scaleLinear([0, 100], [H - M.bottom, M.top]);
+    const random = d3.randomUniform.source(d3.randomLcg(3))(6, 94);
+    const points = d3.range(24).map(i => ({ x: x(random()), y: y(random()), r: 5, color: i % 3 }));
+    // #region ranges
+    const extents = [
+        [0, 25],
+        [25, 50],
+        [50, 75],
+        [75, 100]
+    ];
+    const columns = extents.map(([lo, hi]) => ({
+        x: x(lo),
+        y: y(100),
+        width: x(hi) - x(lo),
+        height: y(0) - y(100)
+    }));
+    const rows = extents.map(([lo, hi]) => ({
+        x: x(0),
+        y: y(hi),
+        width: x(100) - x(0),
+        height: y(lo) - y(hi)
+    }));
+    // #endregion ranges
+    return { points, columns, rows };
+};
+
+const dots = (svg, points) =>
+    svg
+        .append('g')
+        .selectAll('circle')
+        .data(points)
+        .join('circle')
+        .attr('class', d => `fi-mark fi-c${d.color}`)
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y)
+        .attr('r', d => d.r);
+
 export const figures = {
     bar(host) {
         const bars = bandBars([4, 7, 9, 5, 6]);
@@ -158,6 +197,73 @@ export const figures = {
         const group = points.filter(d => d.group === 0);
         const path = convexHullOfCircles(group, 4);
         // #endregion scatter
+        indicator(svg, path);
+    },
+
+    grid(host) {
+        const { points, columns, rows } = rangeScatter();
+        const svg = figure(
+            host,
+            'Scatterplot split into four columns and four rows. Every column and row is outlined, forming a grid over the plot.'
+        );
+        dots(svg, points);
+        baseline(svg);
+        // #region grid
+        const path = unionOfRectPaths([...columns, ...rows]);
+        // #endregion grid
+        indicator(svg, path);
+    },
+
+    columns(host) {
+        const { points, columns } = rangeScatter();
+        const svg = figure(
+            host,
+            'Scatterplot split into four columns. Each column is outlined from the top of the plot to the bottom.'
+        );
+        dots(svg, points);
+        baseline(svg);
+        // #region columns
+        const path = unionOfRectPaths(columns);
+        // #endregion columns
+        indicator(svg, path);
+    },
+
+    xrange(host) {
+        const { points, columns } = rangeScatter();
+        const svg = figure(
+            host,
+            'Scatterplot with one outlined column, the second of four, running from the top of the plot to the bottom.'
+        );
+        dots(svg, points);
+        baseline(svg);
+        // #region xrange
+        const path = boundingRectPath([columns[1]]);
+        // #endregion xrange
+        indicator(svg, path);
+    },
+
+    yrange(host) {
+        const { points, rows } = rangeScatter();
+        const svg = figure(
+            host,
+            'Scatterplot with one outlined row, the third of four from the bottom, running across the full width of the plot.'
+        );
+        dots(svg, points);
+        baseline(svg);
+        // #region yrange
+        const path = boundingRectPath([rows[2]]);
+        // #endregion yrange
+        indicator(svg, path);
+    },
+
+    point(host) {
+        const { points } = rangeScatter();
+        const svg = figure(host, 'Scatterplot with one point circled by a ring just outside its edge.');
+        dots(svg, points);
+        baseline(svg);
+        // #region point
+        const path = convexHullOfCircles([points[4]], 3);
+        // #endregion point
         indicator(svg, path);
     },
 

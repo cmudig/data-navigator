@@ -12,7 +12,7 @@ const slug = s => s.toLowerCase().replace(/\s+/g, '-');
 export default {
     alt,
     focusNote:
-        'A point gets a circle. A month outlines its three points. A city gets a band along its line. The City dimension outlines the legend.',
+        'A point gets a circle. A month outlines its three points. A city gets a band along its line. The City dimension outlines the city names at the line ends.',
     commandLabels: {
         left: 'previous month',
         right: 'next month',
@@ -38,8 +38,7 @@ export default {
             width,
             height,
             xLabel: 'Month',
-            yLabel: 'Temperature (°C)',
-            legendTitle: 'City'
+            yLabel: 'Temperature (°C)'
         });
 
         // #region structure
@@ -63,7 +62,7 @@ export default {
                         type: 'categorical',
                         divisionOptions: { divisionNodeIds: (key, value) => `city-${slug(value)}` },
                         behavior: { extents: 'circular', childmostNavigation: 'across' },
-                        // lines cross, so Up and Down follow the legend order
+                        // lines cross, so Up and Down follow the city order
                         navigationRules: { sibling_sibling: ['up', 'down'], parent_child: ['to-city', 'drill-in'] }
                     }
                 ]
@@ -95,7 +94,7 @@ export default {
         // #region focus
         n.chart.spatialProperties = rectSpatial({ x: 6, y: 6, width: width - 12, height: height - 12 }, 0);
         n.months.spatialProperties = rectSpatial(boxes.xAxis, 4);
-        n.cities.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.cities.spatialProperties = rectSpatial(boxes.labels, 4);
         months.forEach(m => {
             const pts = cities.filter(d => d.month === m).map(d => points[d.id]);
             const box = pointsBox(pts);

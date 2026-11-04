@@ -39,7 +39,7 @@ export default {
         axisBottom(ctx, x, { y: height - m.bottom, label: 'Month', format: v => (width < 420 ? v[0] : v) });
         const points = seattleMonthly.map(d => ({ id: d.id, x: x(d.month), y: y(d.high) }));
         drawLine(ctx, points, theme.series[0]);
-        points.forEach(p => drawDot(ctx, p.x, p.y, 4, theme.series[0], theme.surface));
+        points.forEach(p => drawDot(ctx, p.x, p.y, 4, theme.series[0]));
 
         // #region structure
         const structure = dataNavigator.structure({

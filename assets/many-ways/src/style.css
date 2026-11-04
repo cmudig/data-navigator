@@ -6,11 +6,16 @@
     --mw-soft: var(--vp-c-bg-soft, #f6f6f7);
     --mw-divider: var(--vp-c-divider, #d4d4d4);
     --mw-focus: var(--mw-text);
-    --mw-c0: #2a78d6;
-    --mw-c1: #eb6834;
-    --mw-c2: #1baf7a;
-    --mw-c3: #eda100;
-    --mw-c4: #e87ba4;
+    --mw-c0-fill: #f4f8fd;
+    --mw-c0-stroke: #2a78d6;
+    --mw-c1-fill: #fdf4f8;
+    --mw-c1-stroke: #e46293;
+    --mw-c2-fill: #f4fdfa;
+    --mw-c2-stroke: #1aa674;
+    --mw-c3-fill: #fffbf2;
+    --mw-c3-stroke: #c48500;
+    --mw-c4-fill: #fef6f3;
+    --mw-c4-stroke: #eb6834;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
@@ -26,11 +31,16 @@
     --mw-text: #f0efec;
     --mw-muted: #c3c2b7;
     --mw-grid: #2e2e2c;
-    --mw-c0: #3987e5;
-    --mw-c1: #d95926;
-    --mw-c2: #199e70;
-    --mw-c3: #c98500;
-    --mw-c4: #d55181;
+    --mw-c0-fill: #134c90;
+    --mw-c0-stroke: #5c9cea;
+    --mw-c1-fill: #832044;
+    --mw-c1-stroke: #dc7097;
+    --mw-c2-fill: #116a4b;
+    --mw-c2-stroke: #1fc78d;
+    --mw-c3-fill: #a36c00;
+    --mw-c3-stroke: #ffcd6b;
+    --mw-c4-fill: #8b3918;
+    --mw-c4-stroke: #e48a66;
 }
 
 .mw-ways {
@@ -125,24 +135,28 @@
 }
 
 .mw-bar {
-    stroke: var(--mw-surface);
     stroke-width: 1;
 }
 
 .mw-c0 {
-    fill: var(--mw-c0);
+    fill: var(--mw-c0-fill);
+    stroke: var(--mw-c0-stroke);
 }
 .mw-c1 {
-    fill: var(--mw-c1);
+    fill: var(--mw-c1-fill);
+    stroke: var(--mw-c1-stroke);
 }
 .mw-c2 {
-    fill: var(--mw-c2);
+    fill: var(--mw-c2-fill);
+    stroke: var(--mw-c2-stroke);
 }
 .mw-c3 {
-    fill: var(--mw-c3);
+    fill: var(--mw-c3-fill);
+    stroke: var(--mw-c3-stroke);
 }
 .mw-c4 {
-    fill: var(--mw-c4);
+    fill: var(--mw-c4-fill);
+    stroke: var(--mw-c4-stroke);
 }
 
 .many-ways .dn-node {

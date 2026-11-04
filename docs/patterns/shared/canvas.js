@@ -5,7 +5,9 @@ import { boundingRectPath } from 'data-navigator';
 
 const FONT = 'Inter, ui-sans-serif, system-ui, -apple-system, sans-serif';
 
-// Categorical slots in fixed order, plus a blue sequential ramp. Light and dark steps.
+// Up to 5 categorical slots, each a light fill with an outline in the same hue.
+// Every outline passes 3:1 against the surface and its own fill.
+// grey and accent highlight one category when the rest can't be labeled directly.
 const THEMES = {
     light: {
         surface: '#fcfcfb',
@@ -13,8 +15,16 @@ const THEMES = {
         muted: '#52514e',
         grid: '#e6e5e0',
         axis: '#a3a29b',
-        series: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
-        sequential: ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b']
+        series: [
+            { fill: '#f4f8fd', stroke: '#2a78d6' },
+            { fill: '#fdf4f8', stroke: '#e46293' },
+            { fill: '#f4fdfa', stroke: '#1aa674' },
+            { fill: '#fffbf2', stroke: '#c48500' },
+            { fill: '#fef6f3', stroke: '#eb6834' }
+        ],
+        grey: { fill: '#f5f5f5', stroke: '#767676' },
+        accent: { fill: '#2a78d6', stroke: '#2a78d6' },
+        sequential: ['#cde2fb', '#9ec5f4', '#3987e5', '#184f95', '#0d366b']
     },
     dark: {
         surface: '#1a1a19',
@@ -22,8 +32,16 @@ const THEMES = {
         muted: '#c3c2b7',
         grid: '#2e2e2c',
         axis: '#6b6a64',
-        series: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
-        sequential: ['#0d366b', '#104281', '#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#86b6ef']
+        series: [
+            { fill: '#134c90', stroke: '#5c9cea' },
+            { fill: '#832044', stroke: '#dc7097' },
+            { fill: '#116a4b', stroke: '#1fc78d' },
+            { fill: '#a36c00', stroke: '#ffcd6b' },
+            { fill: '#8b3918', stroke: '#e48a66' }
+        ],
+        grey: { fill: '#2e2e2c', stroke: '#8c8c88' },
+        accent: { fill: '#3987e5', stroke: '#3987e5' },
+        sequential: ['#0d366b', '#104281', '#1c5cab', '#5598e7', '#86b6ef']
     }
 };
 
@@ -132,6 +150,11 @@ export const drawText = (
     };
 };
 
+export const measureText = (ctx, str, { size = 12, weight = 400 } = {}) => {
+    ctx.font = `${weight} ${size}px ${FONT}`;
+    return ctx.measureText(str).width;
+};
+
 // Title and optional subtitle, top left. Returns { title, subtitle } boxes.
 export const drawTitle = (ctx, { title, subtitle, x = 16, y = 24 }) => {
     const t = getTheme();
@@ -225,17 +248,19 @@ export const legendSwatches = (ctx, items, { x, y, title, shape = 'square' }) =>
         cx = tb.x + tb.width + 10;
     }
     const itemBoxes = items.map(({ label, color }) => {
-        ctx.fillStyle = color;
         if (shape === 'circle') {
-            ctx.beginPath();
-            ctx.arc(cx + 5, y, 5, 0, Math.PI * 2);
-            ctx.fill();
+            drawDot(ctx, cx + 5, y, 5, color);
         } else if (shape === 'line') {
+            ctx.fillStyle = color.stroke;
             ctx.fillRect(cx, y - 1, 14, 2);
         } else {
+            ctx.fillStyle = color.fill;
+            ctx.strokeStyle = color.stroke;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.roundRect(cx, y - 5, 10, 10, 2);
+            ctx.roundRect(cx + 0.5, y - 4.5, 9, 9, 2);
             ctx.fill();
+            ctx.stroke();
         }
         const swatchW = shape === 'line' ? 14 : 10;
         const lb = drawText(ctx, label, cx + swatchW + 5, y + 4, { size: 11, color: t.text });
@@ -274,8 +299,12 @@ export const legendSizes = (ctx, values, radius, { x, y, title, format = v => v 
 
 // ── Marks ─────────────────────────────────────────────────────────────────
 
-// Bar with a 4px rounded data end. Direction is where the data end points.
-export const drawBar = (ctx, { x, y, width, height }, color, end = 'top') => {
+// Bar with a 4px rounded data end and a 1px outline. Direction is where the data end points.
+export const drawBar = (ctx, box, color, end = 'top') => {
+    const x = box.x + 0.5;
+    const y = box.y + 0.5;
+    const width = Math.max(0, box.width - 1);
+    const height = Math.max(0, box.height - 1);
     const r = Math.min(4, width / 2, height / 2);
     const radii =
         end === 'top'
@@ -287,26 +316,28 @@ export const drawBar = (ctx, { x, y, width, height }, color, end = 'top') => {
                 : end === 'left'
                   ? [r, 0, 0, r]
                   : [0, 0, 0, 0];
-    ctx.fillStyle = color;
+    ctx.fillStyle = color.fill;
+    ctx.strokeStyle = color.stroke;
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(x, y, width, height, radii);
     ctx.fill();
+    ctx.stroke();
 };
 
-export const drawDot = (ctx, cx, cy, r, color, ring) => {
+export const drawDot = (ctx, cx, cy, r, color) => {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
+    ctx.fillStyle = color.fill;
     ctx.fill();
-    if (ring) {
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = ring;
-        ctx.stroke();
-    }
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = color.stroke;
+    ctx.stroke();
 };
 
+// Lines have no fill, so they use the outline color.
 export const drawLine = (ctx, points, color, width = 2) => {
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = color.stroke;
     ctx.lineWidth = width;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';

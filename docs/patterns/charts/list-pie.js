@@ -1,5 +1,5 @@
 import dataNavigator from 'data-navigator';
-import { createCanvas, drawText, arcSpatial, circleSpatial, fitWidth } from '../shared/canvas.js';
+import { createCanvas, drawText, measureText, arcSpatial, circleSpatial, fitWidth } from '../shared/canvas.js';
 import { fruit } from '../data/fruit.js';
 
 const alt = 'Pie chart of fruit counts. Strawberries are the largest slice at 6 of 24. Plums are the smallest at 2.';
@@ -17,14 +17,20 @@ export default {
         const width = fitWidth(host);
         const height = 300;
         const { ctx, theme } = createCanvas(host, { width, height, alt });
-        const total = fruit.reduce((s, d) => s + d.count, 0);
-        const r = width < 440 ? 80 : 110;
-        const cx = r + 24;
+        // largest first, so the slices shrink clockwise from 12 o'clock
+        const sorted = [...fruit].sort((a, b) => b.count - a.count);
+        const total = sorted.reduce((s, d) => s + d.count, 0);
+        // five colors, then grey for the smallest slice
+        const colorOf = i => theme.series[i] || theme.grey;
+        const name = d => `${d.fruit} (${d.count})`;
+        const labelW = Math.max(...sorted.map(d => measureText(ctx, name(d), { size: 12 })));
+        const r = Math.max(50, Math.min(110, (width - 2 * (labelW + 20)) / 2));
+        const cx = width / 2;
         const cy = height / 2;
-        // slices start at 12 o'clock and go clockwise, with a 2px gap between them
         let a = 0;
         const slices = {};
-        fruit.forEach((d, i) => {
+        sorted.forEach((d, i) => {
+            const color = colorOf(i);
             const a0 = a;
             const a1 = a + (d.count / total) * Math.PI * 2;
             slices[d.id] = [a0, a1];
@@ -32,27 +38,24 @@ export default {
             ctx.moveTo(cx, cy);
             ctx.arc(cx, cy, r, a0 - Math.PI / 2, a1 - Math.PI / 2);
             ctx.closePath();
-            ctx.fillStyle = theme.series[i];
+            ctx.fillStyle = color.fill;
             ctx.fill();
-            ctx.strokeStyle = theme.surface;
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = color.stroke;
+            ctx.lineWidth = 1;
+            ctx.lineJoin = 'round';
             ctx.stroke();
+            const mid = (a0 + a1) / 2;
+            drawText(ctx, name(d), cx + (r + 10) * Math.sin(mid), cy - (r + 10) * Math.cos(mid) + 4, {
+                size: 12,
+                color: theme.text,
+                align: Math.sin(mid) >= 0 ? 'left' : 'right'
+            });
             a = a1;
-        });
-        // legend with values, so color is never the only cue
-        fruit.forEach((d, i) => {
-            const ly = cy - 60 + i * 22;
-            const lx = cx + r + 24;
-            ctx.fillStyle = theme.series[i];
-            ctx.beginPath();
-            ctx.roundRect(lx, ly - 9, 10, 10, 2);
-            ctx.fill();
-            drawText(ctx, `${d.fruit} (${d.count})`, lx + 16, ly, { size: 12, color: theme.text });
         });
 
         // #region structure
         const structure = dataNavigator.structure({
-            data: fruit,
+            data: sorted,
             idKey: 'id',
             dimensions: {
                 values: [
@@ -74,14 +77,14 @@ export default {
 
         // #region labels
         structure.nodes.fruit.semantics = { label: `Fruit. 6 slices, ${total} total.` };
-        fruit.forEach(d => {
+        sorted.forEach(d => {
             structure.nodes[d.id].semantics = { label: `${d.count}, ${d.fruit}` };
         });
         // #endregion labels
 
         // #region focus
         structure.nodes.fruit.spatialProperties = circleSpatial(cx, cy, r, 6);
-        fruit.forEach(d => {
+        sorted.forEach(d => {
             const [a0, a1] = slices[d.id];
             structure.nodes[d.id].spatialProperties = arcSpatial(cx, cy, 0, r, a0, a1);
         });

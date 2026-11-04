@@ -5,7 +5,7 @@ import { cars } from '../data/cars.js';
 
 const origins = ['USA', 'Europe', 'Japan'];
 const alt =
-    'Scatterplot of 60 cars, horsepower against miles per gallon, colored by origin. On average, USA cars have the most horsepower and the lowest MPG.';
+    'Scatterplot of 60 cars, horsepower against miles per gallon. USA cars are blue and the rest are grey. On average, USA cars have the most horsepower and the lowest MPG.';
 const range = ([lo, hi]) => `${Math.round(lo)} to ${Math.round(hi)}`;
 
 export default {
@@ -36,6 +36,8 @@ export default {
             colorKey: 'origin',
             colors: origins,
             colorTitle: 'Origin',
+            // origins overlap too much to label, so one is highlighted
+            highlight: 'USA',
             xDomain: [40, 240],
             yDomain: [10, 50],
             r: 4,

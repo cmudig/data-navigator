@@ -25,7 +25,7 @@ Chart (root)
 ├── Subtitle          (if there is one)
 ├── Y axis
 ├── X axis
-├── Legend            (one per legend: color, size, ...)
+├── Legend or labels (one per legend, or one for direct labels)
 └── Data              (the only node with children)
     └── list, tree, dual tree, or grid
 ```
@@ -37,7 +37,7 @@ Chart (root)
 
 ## Try it
 
-The bubble chart has two legends, one for color and one for size. Each gets its own node.
+The bubble chart has two legends, one for color and one for size. Each gets its own node. The stacked bar and line charts name their series with direct labels instead, so the labels get one node.
 
 <PatternDemo id="frame" :charts="charts" />
 
@@ -79,6 +79,7 @@ Frame items say what they are, then what they say: `Title: Fruit in the basket.`
 | Title, subtitle | A box around the text                            |
 | Y axis, x axis  | A box around the axis line, ticks, and axis name |
 | Legend          | A box around that legend                         |
+| Direct labels   | A box around all of the labels                   |
 | Data            | The plot area, or the bars                       |
 
 These boxes come from the canvas itself. The drawing helpers return the bounding box of every piece of text they draw, so the indicator fits what is on screen.

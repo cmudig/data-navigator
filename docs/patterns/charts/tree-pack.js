@@ -1,6 +1,6 @@
 import dataNavigator from 'data-navigator';
 import { stratify, pack } from 'd3-hierarchy';
-import { createCanvas, circleSpatial, drawText, fitWidth } from '../shared/canvas.js';
+import { createCanvas, circleSpatial, drawDot, drawText, fitWidth } from '../shared/canvas.js';
 import { flare } from '../data/flare.js';
 
 const alt =
@@ -36,18 +36,13 @@ export default {
         root.descendants().forEach(node => {
             const c = { x: node.x + 4 + (width - size) / 2, y: node.y + 4, r: node.r };
             circles[node.id] = c;
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-            ctx.fillStyle = node.children ? theme.sequential[Math.min(node.depth, 2)] : theme.series[0];
-            ctx.globalAlpha = node.children ? 0.35 : 1;
-            ctx.fill();
-            ctx.globalAlpha = 1;
+            drawDot(ctx, c.x, c.y, c.r, node.children ? theme.grey : theme.series[0]);
             if (!node.children && c.r > 22) {
                 const name =
                     node.data.name.length > c.r / 3.4
                         ? node.data.name.slice(0, Math.floor(c.r / 3.4)) + '.'
                         : node.data.name;
-                drawText(ctx, name, c.x, c.y + 3, { size: 10, color: '#ffffff', align: 'center' });
+                drawText(ctx, name, c.x, c.y + 3, { size: 10, color: theme.text, align: 'center' });
             }
         });
 

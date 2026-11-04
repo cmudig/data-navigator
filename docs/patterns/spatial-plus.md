@@ -79,7 +79,7 @@ Scatterplot points name both numbers, since two bare numbers are easy to mix up.
 | Species or origin  | Convex hull around the group's dots (`convexHullOfCircles`) |
 | x range            | Vertical band across the plot                               |
 | y range            | Horizontal band across the plot                             |
-| Species dimension  | The color legend                                            |
+| Species dimension  | The species names (iris), or the color legend (cars)        |
 | x and y dimensions | The x axis and the y axis                                   |
 | Root               | The whole plot                                              |
 

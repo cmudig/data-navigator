@@ -39,8 +39,7 @@ export default {
             title: 'Browser market share',
             subtitle: 'Percent of page views, 2015 to 2017',
             xLabel: 'Year',
-            yLabel: 'Share (%)',
-            legendTitle: 'Browser'
+            yLabel: 'Share (%)'
         });
 
         // #region structure
@@ -57,8 +56,8 @@ export default {
                     { id: 'y-axis', semantics: { label: 'Y axis: Share, 0 to 100 percent.' } },
                     { id: 'x-axis', semantics: { label: 'X axis: Year, 2015 to 2017.' } },
                     {
-                        id: 'legend',
-                        semantics: { label: 'Legend, color: Browser. Chrome, Firefox, Safari, Edge, Other.' }
+                        id: 'labels',
+                        semantics: { label: 'Browser labels: Chrome, Firefox, Safari, Edge, Other.' }
                     }
                 ],
                 // with two dimensions, the data node holds both of them
@@ -119,10 +118,10 @@ export default {
         n.subtitle.spatialProperties = rectSpatial(boxes.subtitle, 4);
         n['y-axis'].spatialProperties = rectSpatial(boxes.yAxis, 4);
         n['x-axis'].spatialProperties = rectSpatial(boxes.xAxis, 4);
-        n.legend.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.labels.spatialProperties = rectSpatial(boxes.labels, 4);
         n.data.spatialProperties = rectSpatial(unionBox(all), 8);
         n.years.spatialProperties = rectSpatial(unionBox(all, boxes.xAxis), 4);
-        n.browsers.spatialProperties = rectSpatial(boxes.legends[0].box, 4);
+        n.browsers.spatialProperties = rectSpatial(boxes.labels, 4);
         years.forEach(y => {
             n[`year-${y}`].spatialProperties = rectSpatial(
                 unionBox(browsers.filter(d => d.year === y).map(d => bars[d.id])),
