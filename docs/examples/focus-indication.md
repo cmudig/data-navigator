@@ -148,6 +148,50 @@ A series is spread out, so one box would cover marks that aren't part of it. `un
 
 <<< @/examples/focus/figures.js#scatter{js}
 
+## A scatterplot split into ranges
+
+When a scatterplot bins each axis into numerical ranges, a range covers a whole strip of the plot, not just the points in it. So its indicator is a band from edge to edge. [Skeleton](https://dig.cmu.edu/data-navigator/skeleton/) and the [Bokeh wrapper](https://dig.cmu.edu/data-navigator/bokeh-wrapper/examples/scatter) both draw scatterplots this way.
+
+Build one rect per range from your scales. Each division node keeps its range in `numericalExtents`.
+
+<<< @/examples/focus/figures.js#ranges{js}
+
+### The whole chart
+
+At the top of the chart, outline every range on both axes. Together they show the grid someone can move through.
+
+<div class="fi-figure" id="fi-grid"></div>
+
+<<< @/examples/focus/figures.js#grid{js}
+
+### One axis
+
+On an axis, like the x dimension, outline every range on that axis.
+
+<div class="fi-figure" id="fi-columns"></div>
+
+<<< @/examples/focus/figures.js#columns{js}
+
+### One range
+
+A single range gets a single band. An x range is a column, and a y range is a row. No padding, so neighboring bands line up.
+
+<div class="fi-figure" id="fi-xrange"></div>
+
+<<< @/examples/focus/figures.js#xrange{js}
+
+<div class="fi-figure" id="fi-yrange"></div>
+
+<<< @/examples/focus/figures.js#yrange{js}
+
+### One point
+
+A point gets a ring just outside its edge.
+
+<div class="fi-figure" id="fi-point"></div>
+
+<<< @/examples/focus/figures.js#point{js}
+
 ## A line
 
 `offsetLinePath` draws a band that follows a polyline. The second argument is half the band's width.
