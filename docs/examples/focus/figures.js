@@ -109,6 +109,31 @@ const dots = (svg, points) =>
         .attr('cy', d => d.y)
         .attr('r', d => d.r);
 
+const lineChart = (host, alt) => {
+    const x = d3.scalePoint(d3.range(7), [M.left + 8, W - M.right - 8]);
+    const y = d3.scaleLinear([0, 10], [H - M.bottom, M.top]);
+    const lines = [
+        [2, 4, 3, 6, 5, 8, 7],
+        [6, 5, 7, 4, 6, 3, 4]
+    ].map(values => values.map((v, i) => ({ x: x(i), y: y(v) })));
+    const svg = figure(host, alt);
+    const marks = svg
+        .append('g')
+        .selectAll('path')
+        .data(lines)
+        .join('path')
+        .attr('class', (d, i) => `fi-line fi-s${i}`)
+        .attr(
+            'd',
+            d3.line(
+                d => d.x,
+                d => d.y
+            )
+        );
+    baseline(svg);
+    return { svg, lines, marks };
+};
+
 export const figures = {
     bar(host) {
         const bars = bandBars([4, 7, 9, 5, 6]);
@@ -268,30 +293,26 @@ export const figures = {
     },
 
     line(host) {
-        const x = d3.scalePoint(d3.range(7), [M.left + 8, W - M.right - 8]);
-        const y = d3.scaleLinear([0, 10], [H - M.bottom, M.top]);
-        const lines = [
-            [2, 4, 3, 6, 5, 8, 7],
-            [6, 5, 7, 4, 6, 3, 4]
-        ].map(values => values.map((v, i) => ({ x: x(i), y: y(v) })));
-        const svg = figure(host, 'Line chart with two lines. The rising line has a band drawn around its full length.');
-        svg.append('g')
-            .selectAll('path')
-            .data(lines)
-            .join('path')
-            .attr('class', (d, i) => `fi-line fi-s${i}`)
-            .attr(
-                'd',
-                d3.line(
-                    d => d.x,
-                    d => d.y
-                )
-            );
-        baseline(svg);
+        const { svg, lines } = lineChart(
+            host,
+            'Line chart with two lines. The rising line has a band drawn around its full length. The falling line crosses over it.'
+        );
         // #region line
         const path = offsetLinePath(lines[0], 7);
         // #endregion line
         indicator(svg, path);
+    },
+
+    raised(host) {
+        const { svg, lines, marks } = lineChart(
+            host,
+            'Line chart with two lines. The rising line is drawn above the falling line and has a band drawn around its full length.'
+        );
+        // #region raised
+        const focused = marks.nodes()[0];
+        focused.parentNode.appendChild(focused);
+        // #endregion raised
+        indicator(svg, offsetLinePath(lines[0], 7));
     },
 
     legend(host) {

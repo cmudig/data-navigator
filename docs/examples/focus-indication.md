@@ -92,6 +92,7 @@ A focus indicator shows where someone is in a chart. Keyboard users, switch user
 - **Make it visible.** Focus must be visible ([WCAG 2.4.7](https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html)). Aim for an outline at least 2px thick with 3:1 contrast against what it sits on ([WCAG 2.4.13](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html), [1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)).
 - **Match the shape of what is focused.** A box for a bar, an outline around each segment of a series, a band for a line, a hull for a group of points.
 - **Leave a gap.** Pad the indicator outward so it doesn't cover the mark or change how big it looks.
+- **Keep it on top.** Draw the focused mark above other marks so nothing covers it ([WCAG 2.4.11](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html)).
 - **Contrast with the marks and the background.** Marks come in many colors. The figures here draw the indicator twice: a wide stroke in the background color, then a narrower stroke in the text color on top. This keeps it visible on any mark.
 - **Don't rely on color alone.** A change in fill or opacity is easy to miss. An outline adds shape.
 
@@ -206,6 +207,16 @@ A point gets a ring just outside its edge.
 <div class="fi-figure" id="fi-line"></div>
 
 <<< @/examples/focus/figures.js#line{js}
+
+The pink line was drawn after the focused line, so it crosses over it inside the band.
+
+### Keep the focused mark on top
+
+When marks overlap, draw the focused one last. In SVG, move its element to the end of its parent. On a canvas or in WebGL, redraw the focused mark after everything else. A static image can't be redrawn, so the indicator has to do the work alone.
+
+<div class="fi-figure" id="fi-raised"></div>
+
+<<< @/examples/focus/figures.js#raised{js}
 
 ## A legend or axis
 
