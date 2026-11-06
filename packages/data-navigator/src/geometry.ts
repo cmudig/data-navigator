@@ -73,19 +73,26 @@ export function convexHullPath(points: Point[]): string {
 }
 
 /**
- * Expand a convex hull polygon outward from its centroid by `padPx` pixels.
- * Each hull vertex is pushed radially away from the centroid.
+ * Expand a convex hull polygon by moving each edge outward by `padPx` pixels.
+ * Corners are placed where neighboring edges meet (miter join).
  */
 export function expandHull(hullPoints: Point[], padPx: number): Point[] {
-    if (padPx === 0 || hullPoints.length === 0) return hullPoints;
-    const cx = hullPoints.reduce((s, p) => s + p.x, 0) / hullPoints.length;
-    const cy = hullPoints.reduce((s, p) => s + p.y, 0) / hullPoints.length;
-    return hullPoints.map(p => {
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        const dist = Math.hypot(dx, dy);
-        if (dist === 0) return p;
-        return { x: p.x + (dx / dist) * padPx, y: p.y + (dy / dist) * padPx };
+    const n = hullPoints.length;
+    if (padPx === 0 || n < 3) return hullPoints;
+    const area = hullPoints.reduce((s, p, i) => {
+        const q = hullPoints[(i + 1) % n];
+        return s + p.x * q.y - q.x * p.y;
+    }, 0);
+    const sign = Math.sign(area);
+    const normal = (a: Point, b: Point): Point => {
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        return { x: (sign * (b.y - a.y)) / len, y: (sign * (a.x - b.x)) / len };
+    };
+    return hullPoints.map((p, i) => {
+        const n1 = normal(hullPoints[(i + n - 1) % n], p);
+        const n2 = normal(p, hullPoints[(i + 1) % n]);
+        const scale = padPx / (1 + n1.x * n2.x + n1.y * n2.y);
+        return { x: p.x + (n1.x + n2.x) * scale, y: p.y + (n1.y + n2.y) * scale };
     });
 }
 
