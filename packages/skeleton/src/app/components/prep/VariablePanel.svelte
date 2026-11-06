@@ -1,191 +1,63 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import {
-        appState,
-        type PrepState,
-        type VariableMeta,
-        type QAChapterId,
-    } from '../../../store/appState';
+    import { app, edit } from '../../../model/state.svelte';
+    import { newDim, syncKeys, type Doc } from '../../../model/doc';
     import ComputedVariableModal from './ComputedVariableModal.svelte';
+    import CreateDataWizard from './CreateDataWizard.svelte';
     import { computeDimensionSuggestion } from './dimensionSuggestions';
-    import { logAction } from '../../../store/historyStore';
 
-    // ─── Store mirrors ────────────────────────────────────────────────────────
-    let data = $state<Record<string, unknown>[] | null>(null);
-    let prep = $state<PrepState | null>(null);
-
-    const unsub = appState.subscribe(s => {
-        data = s.uploadedData;
-        prep = s.prepState;
-    });
-    onDestroy(unsub);
-
-    // ─── Derived lists ────────────────────────────────────────────────────────
-    const activeVars = $derived(prep?.variables.filter(v => !v.removed) ?? []);
-    const removedVars = $derived(prep?.variables.filter(v => v.removed) ?? []);
-
-    // ─── Suggested variables (shown when user is on the choose-dimensions question) ──
-    const suggestedKeys = $derived.by((): Set<string> => {
-        if (!prep) return new Set();
-        const qa = prep.qaProgress;
-        if (qa.currentChapterId !== 'dimensions' || qa.currentQuestionId !== 'choose-dimensions') return new Set();
-        const ch1Ans = qa.chapters.find(c => c.id === 'top-level-access')?.answers ?? {};
-        const chartType = (ch1Ans['chart-type'] as string | undefined) ?? '';
-        if (!chartType) return new Set();
-        const suggestions = computeDimensionSuggestion(chartType, prep.variables, data);
-        if (!suggestions) return new Set();
-        return new Set(
-            Object.entries(suggestions).filter(([, s]) => s.primary).map(([key]) => key)
-        );
+    const data = $derived(app.doc.data.rows);
+    const fields = $derived(app.doc.data.fields);
+    const activeVars = $derived(fields.filter(f => !f.removed));
+    const removedVars = $derived(fields.filter(f => f.removed));
+    const dimKeys = $derived(new Set(app.doc.recipe.dimensions.map(d => d.key)));
+    const suggestedKeys = $derived.by(() => {
+        if (app.ui.qa !== 'choose-dimensions' || !app.doc.chart.type) return new Set<string>();
+        const s = computeDimensionSuggestion(app.doc.chart.type, fields, app.doc.data.idKey, data);
+        return new Set(Object.entries(s ?? {}).filter(([, v]) => v.primary).map(([k]) => k));
     });
 
-    // ─── Initialization ───────────────────────────────────────────────────────
-    // When uploadedData arrives and no prepState exists yet, create initial state.
-    $effect(() => {
-        if (data && !prep) {
-            const vars = buildInitialVariables(data);
-            const initial: PrepState = {
-                hasRun: false,
-                variables: vars,
-                customVariables: [],
-                customData: null,
-                qaProgress: {
-                    currentChapterId: 'top-level-access',
-                    currentQuestionId: '',
-                    chapters: [
-                        { id: 'top-level-access', completed: false, answers: {}, invalidated: false },
-                        { id: 'dimensions',        completed: false, answers: {}, invalidated: false },
-                        { id: 'navigation',        completed: false, answers: {}, invalidated: false },
-                        { id: 'leaf-node-patterns', completed: false, answers: {}, invalidated: false },
-                    ],
-                    invalidatedQuestions: [],
-                },
-                labelConfig: {
-                    level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
-                    perDimension: {},
-                    perDivision: {},
-                    leaves: { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false },
-                },
-            };
-            appState.update(s => ({ ...s, prepState: initial }));
-        }
-    });
-
-    // ─── Type inference (mirrors SchemaPanel.inferType) ───────────────────────
-    function inferType(values: unknown[]): 'numerical' | 'categorical' {
-        const valid = values.filter(v => v !== null && v !== undefined && v !== '');
-        if (valid.length === 0) return 'categorical';
-        return valid.every(v => !isNaN(Number(v))) ? 'numerical' : 'categorical';
-    }
-
-    // ─── Variable initialization ──────────────────────────────────────────────
-    function buildInitialVariables(rows: Record<string, unknown>[]): VariableMeta[] {
-        if (!rows.length) return [];
-        const keys = Object.keys(rows[0]);
-        const total = rows.length;
-        const ID_NAMES = new Set(['id', '_id', 'key', 'index']);
-
-        const metas: VariableMeta[] = keys.map(key => {
-            const values = rows.map(r => r[key]);
-            const type = inferType(values);
-            const uniqueCount = new Set(values.map(v => String(v))).size;
-            const allUnique = uniqueCount === total && total > 1;
-            const isId = allUnique && ID_NAMES.has(key.toLowerCase());
-            return { key, type, isId, isDimension: false, removed: false };
+    const change = (label: string, fn: (d: Doc) => void) =>
+        edit(label, d => {
+            fn(d);
+            Object.assign(d.recipe, syncKeys(d.recipe));
         });
 
-        // If no name-matched ID found, mark the first all-unique column as ID
-        if (!metas.some(m => m.isId)) {
-            const firstUnique = metas.find(m => {
-                const values = rows.map(r => r[m.key]);
-                return new Set(values.map(v => String(v))).size === total && total > 1;
-            });
-            if (firstUnique) firstUnique.isId = true;
-        }
-
-        return metas;
-    }
-
-    // ─── Mutations ────────────────────────────────────────────────────────────
     function toggleType(key: string) {
-        appState.update(s => {
-            if (!s.prepState) return s;
-            const variables = s.prepState.variables.map(v =>
-                v.key === key
-                    ? { ...v, type: (v.type === 'numerical' ? 'categorical' : 'numerical') as VariableMeta['type'] }
-                    : v
-            );
-            // Invalidate downstream Q/A answers that depended on this variable's type
-            const qaProgress = {
-                ...s.prepState.qaProgress,
-                chapters: s.prepState.qaProgress.chapters.map(ch =>
-                    ch.id === 'dimensions' || ch.id === 'navigation'
-                        ? { ...ch, invalidated: true }
-                        : ch
-                ),
-            };
-            return { ...s, prepState: { ...s.prepState, variables, qaProgress } };
+        change(`Prep: changed type of ${key}`, d => {
+            const f = d.data.fields.find(f => f.key === key)!;
+            f.type = f.type === 'numerical' ? 'categorical' : 'numerical';
+            const i = d.recipe.dimensions.findIndex(x => x.key === key);
+            if (i >= 0) d.recipe.dimensions[i] = { ...newDim(key, f.type, 0, d.data.rows ?? []), nav: d.recipe.dimensions[i].nav };
+            delete d.recipe.labels.perDivision[key];
         });
-        logAction(`Prep: changed type — ${key}`);
     }
 
-    function removeVariable(key: string) {
-        appState.update(s => {
-            if (!s.prepState) return s;
-            const variables = s.prepState.variables.map(v =>
-                v.key === key ? { ...v, removed: true, isDimension: false } : v
-            );
-            return { ...s, prepState: { ...s.prepState, variables } };
+    const setRemoved = (key: string, removed: boolean) =>
+        change(`Prep: ${removed ? 'removed' : 'restored'} variable ${key}`, d => {
+            d.data.fields = d.data.fields.map(f => (f.key === key ? { ...f, removed: removed || undefined } : f));
+            if (removed) d.recipe.dimensions = d.recipe.dimensions.filter(x => x.key !== key);
+            if (removed && d.data.idKey === key) d.data.idKey = null;
         });
-        logAction(`Prep: removed variable — ${key}`);
-    }
 
-    function restoreVariable(key: string) {
-        appState.update(s => {
-            if (!s.prepState) return s;
-            const variables = s.prepState.variables.map(v =>
-                v.key === key ? { ...v, removed: false } : v
-            );
-            return { ...s, prepState: { ...s.prepState, variables } };
-        });
-        logAction(`Prep: restored variable — ${key}`);
-    }
-
-    // Triggers the Q/A engine to navigate to the Dimensions chapter for this variable.
-    // QAEngine (Task 8) will read qaProgress.currentChapterId to know where to navigate.
     function createDimension(key: string) {
-        appState.update(s => {
-            if (!s.prepState) return s;
-            return {
-                ...s,
-                prepState: {
-                    ...s.prepState,
-                    qaProgress: {
-                        ...s.prepState.qaProgress,
-                        currentChapterId: 'dimensions' as QAChapterId,
-                        currentQuestionId: `dim-setup-${key}`,
-                    },
-                },
-            };
+        change(`Prep: added dimension ${key}`, d => {
+            if (!d.recipe.dimensions.some(x => x.key === key)) d.recipe.dimensions.push(newDim(key, d.data.fields.find(f => f.key === key)!.type, d.recipe.dimensions.length, d.data.rows ?? []));
         });
-        logAction(`Prep: added dimension — ${key}`);
+        app.ui.qa = `dim-type-${key}`;
     }
 
-    // ─── Modal state ──────────────────────────────────────────────────────────
-    let showComputedVariableModal = $state(false);
-
-    function openComputedVariableModal() {
-        showComputedVariableModal = true;
-    }
+    let showComputed = $state(false);
+    let showCreate = $state(false);
 </script>
+
 
 <div class="var-panel">
     <h3 class="panel-heading">Variables (metadata)</h3>
 
-    {#if data === null && !prep}
+    {#if data === null}
         <p class="var-placeholder">
             Upload a dataset in Step 0, or
-            <button class="link-btn" onclick={openComputedVariableModal}>create data manually</button>.
+            <button class="link-btn" onclick={() => (showCreate = true)}>create data manually</button>.
         </p>
     {:else}
         <!-- Active variables -->
@@ -203,7 +75,7 @@
                         {v.type === 'numerical' ? 'NUM' : 'CAT'}
                     </button>
                     <span class="var-name">"{v.key}"</span>
-                    {#if v.isId}
+                    {#if v.key === app.doc.data.idKey}
                         <span class="var-id-badge" aria-label="Unique identifier column">ID</span>
                     {/if}
                     {#if suggestedKeys.has(v.key)}
@@ -212,12 +84,12 @@
                     <div class="var-actions">
                         <button
                             class="link-btn"
-                            onclick={() => removeVariable(v.key)}
+                            onclick={() => setRemoved(v.key, true)}
                             aria-label="Remove variable {v.key}"
                         >
                             remove variable
                         </button>
-                        {#if v.isDimension}
+                        {#if dimKeys.has(v.key)}
                             <span class="var-dim-done" aria-label="{v.key} is set up as a dimension">
                                 &#x2713; added
                             </span>
@@ -236,7 +108,7 @@
             {/each}
         </ul>
 
-        <button class="btn-add-var" onclick={openComputedVariableModal}>
+        <button class="btn-add-var" onclick={() => (showComputed = true)}>
             + add variable
         </button>
 
@@ -256,7 +128,7 @@
                             <span class="var-name var-name-muted">"{v.key}"</span>
                             <button
                                 class="link-btn"
-                                onclick={() => restoreVariable(v.key)}
+                                onclick={() => setRemoved(v.key, false)}
                                 aria-label="Add {v.key} back to active variables"
                             >
                                 add variable back
@@ -269,8 +141,11 @@
     {/if}
 </div>
 
-{#if showComputedVariableModal}
-    <ComputedVariableModal onclose={() => { showComputedVariableModal = false; }} />
+{#if showComputed}
+    <ComputedVariableModal onclose={() => (showComputed = false)} />
+{/if}
+{#if showCreate}
+    <CreateDataWizard onclose={() => (showCreate = false)} />
 {/if}
 
 <style>
@@ -350,7 +225,7 @@
         border-color: #93c5fd;
     }
 
-    .dark .var-badge-num {
+    :global(.dark) .var-badge-num {
         background: rgba(30, 64, 175, 0.25);
         color: #93c5fd;
         border-color: #1e40af;
@@ -362,7 +237,7 @@
         border-color: #f9a8d4;
     }
 
-    .dark .var-badge-cat {
+    :global(.dark) .var-badge-cat {
         background: rgba(157, 23, 77, 0.25);
         color: #f9a8d4;
         border-color: #9d174d;

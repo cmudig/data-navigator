@@ -1,15 +1,13 @@
 <script lang="ts">
     import './styles/global.css';
-    import { tick } from 'svelte';
-    import { get } from 'svelte/store';
-    import { appState } from './store/appState';
-    import { saveState, loadState } from './utils/saveLoad';
-    import { historyStore, undo, redo, jumpTo, resetHistory, logAction } from './store/historyStore';
-    import type { HistoryEntry } from './store/historyStore';
+    import { app, goTo, undo, redo, load } from './model/state.svelte';
+    import { saveDoc, loadDoc } from './utils/saveLoad';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
     import ScaffoldPanel from './app/components/scaffold/ScaffoldPanel.svelte';
+    import { buildVegaSpec, renderHidden } from './utils/vegaBuilder';
+    import { vega } from './runtime/adapters.js';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Prep from './app/steps/Step1_Prep.svelte';
@@ -19,147 +17,87 @@
     import HelpModal from './app/components/HelpModal.svelte';
     import IntroModal from './app/components/IntroModal.svelte';
 
-    const stepComponents = [
-        Step0_Upload,
-        Step1_Prep,
-        Step2_Editor,
-        Step3_Testing,
-        Step4_Export,
-    ] as const;
-
-    // Steps that should be full-width (no properties panel)
-    // Editor (step 2) shows the properties panel; all others are full-width
-    const fullWidthSteps = new Set([0, 1, 3, 4]);
-
-    let currentStep = $state(0);
-    let hasUploadedData = $state(false);
-    let showEntryGate = $state(false);
-    let scaffoldModeActive = $state(false);
-
-    let _lastStep = -1;
-    appState.subscribe(async s => {
-        const stepChanged = s.currentStep !== _lastStep;
-        _lastStep = s.currentStep;
-        currentStep = s.currentStep;
-        hasUploadedData = s.uploadedData !== null;
-        scaffoldModeActive = s.scaffoldModeActive;
-        // Move focus to the new step heading only when the step actually changes
-        if (stepChanged) {
-            await tick();
-            const heading = document.getElementById(`step-heading-${s.currentStep}`);
-            heading?.focus();
-        }
-    });
-
-    function beforeStepNavigate(targetStep: number): boolean {
-        const s = get(appState);
-        if (targetStep === 2 && s.currentStep === 1) {
-            if (!s.prepState?.hasRun) {
-                const confirmed = window.confirm(
-                    "You haven't finished prepping your data yet.\n\n" +
-                    "The Editor will try to auto-build a structure, but labels and descriptions " +
-                    "won't be set up. You can always come back to Prep later.\n\n" +
-                    "Continue anyway?"
-                );
-                if (!confirmed) return false;
-            }
-        }
-        // Warn when navigating upstream from the Editor if the user has manual node/edge edits.
-        // Going back to Prep (step 1) or Upload (step 0) and then back to the Editor could
-        // trigger a schema rebuild that overwrites those changes.
-        if (targetStep < 2 && s.currentStep >= 2 && s.hasManualNodeEdits) {
-            const confirmed = window.confirm(
-                "You've manually edited individual nodes or edges in the Editor.\n\n" +
-                "Going back to an earlier step and re-running setup may rebuild the graph " +
-                "structure and override those changes.\n\n" +
-                "Continue?"
-            );
-            if (!confirmed) return false;
-        }
-        if (targetStep === 3) {
-            if (!s.entryNodeId) {
-                showEntryGate = true;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    const ActiveStep = $derived(stepComponents[currentStep]);
-    const isFullWidth = $derived(fullWidthSteps.has(currentStep));
-    const showSchemaPanel = $derived(currentStep === 2 && hasUploadedData);
-
-    // ── History ───────────────────────────────────────────────────────────────
-    let historyEntries = $state<HistoryEntry[]>([]);
-    let historyPointer = $state(-1);
+    const steps = [Step0_Upload, Step1_Prep, Step2_Editor, Step3_Testing, Step4_Export];
+    const step = $derived(app.ui.step);
+    const ActiveStep = $derived(steps[step]);
+    const isFullWidth = $derived(step !== 2);
+    const scaffoldModeActive = $derived(app.ui.scaffoldMode);
+    const showSchemaPanel = $derived(step === 2 && !!app.doc.data.rows);
     let historyOpen = $state(false);
 
-    historyStore.subscribe(h => {
-        historyEntries = h.entries;
-        historyPointer = h.pointer;
+    let release: (() => void) | null = null;
+    $effect(() => {
+        const cfg = app.scaffold;
+        const rows = app.vegaRows;
+        if (!cfg) {
+            app.measure = app.view = null;
+            return;
+        }
+        let stale = false;
+        const timer = setTimeout(async () => {
+            try {
+                const { view, cleanup } = await renderHidden(buildVegaSpec(cfg, rows));
+                if (stale) return cleanup();
+                release?.();
+                release = cleanup;
+                app.view = view;
+                app.measure = vega(view, { key: (d: any) => d._dn_row, offset: [cfg.offsetX, cfg.offsetY] })();
+                app.error = '';
+            } catch (e) {
+                app.error = String(e);
+            }
+        }, 150);
+        return () => {
+            stale = true;
+            clearTimeout(timer);
+        };
     });
 
-    function formatTime(ts: number): string {
-        const d = new Date(ts);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const formatTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    function jump(offset: number) {
+        for (let i = 0; i < Math.abs(offset); i++) offset < 0 ? undo() : redo();
     }
 
     function handleKeyDown(e: KeyboardEvent) {
         const t = e.target as HTMLElement;
-        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable) return;
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             e.shiftKey ? redo() : undo();
         }
     }
 
-    // ── Theme toggle ──────────────────────────────────────────────────────────
     const THEME_KEY = 'dn-skeleton-theme';
-
-    function resolveInitialDark(): boolean {
-        const stored = localStorage.getItem(THEME_KEY);
-        if (stored === 'dark') return true;
-        if (stored === 'light') return false;
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-
-    const initialDark = resolveInitialDark();
-    document.documentElement.classList.toggle('dark', initialDark);
-    let isDark = $state(initialDark);
+    const stored = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
+    let isDark = $state(stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches);
+    $effect(() => {
+        document.documentElement.classList.toggle('dark', isDark);
+    });
 
     function toggleTheme() {
         isDark = !isDark;
-        document.documentElement.classList.toggle('dark', isDark);
-        localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+        try { localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light'); } catch {}
     }
 
-    // ── Help modal ────────────────────────────────────────────────────────────
     let showHelp = $state(false);
     let helpButtonEl: HTMLButtonElement | undefined = $state();
-
-    // ── Intro modal ───────────────────────────────────────────────────────────
     const INTRO_KEY = 'dn-skeleton-intro-seen';
-    let showIntro = $state(localStorage.getItem(INTRO_KEY) !== 'true');
+    let showIntro = $state((() => { try { return localStorage.getItem(INTRO_KEY) !== 'true'; } catch { return true; } })());
 
-    function openIntroFromHelp() {
-        showHelp = false;
-        showIntro = true;
-    }
-
-    // ── Save / Load ───────────────────────────────────────────────────────────
     let loadFileInput: HTMLInputElement;
     let saveLoadStatus = $state('');
-    let saveLoadStatusTimeout: ReturnType<typeof setTimeout> | null = null;
+    let statusTimer: ReturnType<typeof setTimeout>;
 
     function showStatus(msg: string) {
         saveLoadStatus = msg;
-        if (saveLoadStatusTimeout) clearTimeout(saveLoadStatusTimeout);
-        saveLoadStatusTimeout = setTimeout(() => { saveLoadStatus = ''; }, 5000);
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => (saveLoadStatus = ''), 5000);
     }
 
     function handleSave() {
         try {
-            saveState();
+            saveDoc(app.doc);
             showStatus('Session saved.');
         } catch (e) {
             showStatus(`Save failed: ${(e as Error).message}`);
@@ -168,10 +106,8 @@
 
     async function handleLoadFile(file: File) {
         try {
-            const summary = await loadState(file);
-            resetHistory();
-            logAction('Loaded session');
-            showStatus(summary);
+            load(await loadDoc(file));
+            showStatus(`Loaded ${file.name}.`);
         } catch (e) {
             showStatus(`Load failed: ${(e as Error).message}`);
         }
@@ -228,24 +164,24 @@
         <!-- History dropdown -->
         <details class="history-dropdown" bind:open={historyOpen}>
             <summary class="btn-ghost btn-sm" title="View and navigate action history">
-                History{#if historyEntries.length > 0}&nbsp;({historyEntries.length}){/if}
+                History{#if app.past.length > 0}&nbsp;({app.past.length}){/if}
             </summary>
             <div class="history-panel" role="listbox" aria-label="Action history">
-                {#if historyEntries.length === 0}
+                {#if app.past.length === 0 && app.future.length === 0}
                     <p class="history-empty">No actions logged yet.</p>
                 {:else}
-                    {#each [...historyEntries].reverse() as entry, ri}
-                        {@const i = historyEntries.length - 1 - ri}
-                        <button
-                            class="history-item"
-                            class:history-current={i === historyPointer}
-                            type="button"
-                            role="option"
-                            aria-selected={i === historyPointer}
-                            onclick={() => { jumpTo(i); historyOpen = false; }}
-                        >
-                            <span class="history-label">{entry.label}</span>
-                            <span class="history-time">{formatTime(entry.timestamp)}</span>
+                    {#each app.future.toReversed() as entry, ri}
+                        <button class="history-item history-future" type="button" role="option" aria-selected="false" onclick={() => { jump(app.future.length - ri); historyOpen = false; }}>
+                            <span class="history-label">Redo: {entry.label}</span>
+                        </button>
+                    {/each}
+                    <button class="history-item history-current" type="button" role="option" aria-selected="true" onclick={() => (historyOpen = false)}>
+                        <span class="history-label">Current state</span>
+                    </button>
+                    {#each app.past.toReversed() as entry, ri}
+                        <button class="history-item" type="button" role="option" aria-selected="false" onclick={() => { jump(-(ri + 1)); historyOpen = false; }}>
+                            <span class="history-label">Undo: {entry.label}</span>
+                            <span class="history-time">{formatTime(entry.time)}</span>
                         </button>
                     {/each}
                 {/if}
@@ -294,7 +230,7 @@
 </header>
 
 <!-- Step navigation -->
-<StepNav beforeNavigate={beforeStepNavigate} />
+<StepNav />
 
 <!-- Main workspace -->
 <main id="main-content">
@@ -302,8 +238,8 @@
         class="workspace"
         class:full-width={isFullWidth}
         role="tabpanel"
-        aria-labelledby="tab-{currentStep}"
-        id="step-panel-{currentStep}"
+        aria-labelledby="tab-{step}"
+        id="step-panel-{step}"
     >
         {#if showSchemaPanel}
             <aside aria-label="Schema">
@@ -311,8 +247,8 @@
             </aside>
         {/if}
 
-        {#if currentStep !== 3}
-            <div class="workspace-canvas" class:workspace-canvas--fill={currentStep === 2}>
+        {#if step !== 3}
+            <div class="workspace-canvas" class:workspace-canvas--fill={step === 2}>
                 <ActiveStep />
             </div>
         {:else}
@@ -320,8 +256,8 @@
         {/if}
 
         {#if !isFullWidth}
-            <aside class="workspace-panel" aria-label={currentStep === 2 && scaffoldModeActive ? 'Scaffold' : 'Properties'}>
-                {#if currentStep === 2 && scaffoldModeActive}
+            <aside class="workspace-panel" aria-label={scaffoldModeActive ? 'Scaffold' : 'Properties'}>
+                {#if scaffoldModeActive}
                     <ScaffoldPanel />
                 {:else}
                     <PropertiesPanel />
@@ -332,23 +268,20 @@
 </main>
 
 {#if showIntro}
-    <IntroModal onclose={() => { showIntro = false; }} />
+    <IntroModal onclose={() => (showIntro = false)} />
 {/if}
 
 {#if showHelp}
     <HelpModal
         onclose={() => { showHelp = false; helpButtonEl?.focus(); }}
-        onOpenIntro={openIntroFromHelp}
+        onOpenIntro={() => { showHelp = false; showIntro = true; }}
     />
 {/if}
 
-{#if showEntryGate}
+{#if app.ui.entryGate}
     <EntryNodeModal
-        onclose={() => { showEntryGate = false; }}
-        onconfirm={() => {
-            showEntryGate = false;
-            appState.update(s => ({ ...s, currentStep: 3 }));
-        }}
+        onclose={() => (app.ui.entryGate = false)}
+        onconfirm={() => { app.ui.entryGate = false; goTo(3); }}
     />
 {/if}
 
@@ -430,6 +363,10 @@
         background: transparent;
         outline: 2px dashed var(--dn-text, currentColor);
         outline-offset: -2px;
+    }
+
+    .history-future {
+        color: var(--dn-text-muted);
     }
 
     .history-item.history-current {

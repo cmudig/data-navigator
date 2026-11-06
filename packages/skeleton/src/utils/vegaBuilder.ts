@@ -1,302 +1,174 @@
-/**
- * vegaBuilder — Builds Vega-Lite specs from a ScaffoldConfig + data rows.
- *
- * Vega-Lite is used as a pure layout engine: the spec is rendered to a
- * hidden container to extract mark positions and scales. It is never shown
- * as-is to the user; our ScaffoldOverlay SVG layer handles the interactive display.
- */
+import type { Doc, Dim, Field, Row, ScaffoldConfig } from '../model/doc';
 
-import type { ScaffoldConfig, SyntheticDataConfig } from '../store/appState';
-
-export type Row = Record<string, unknown>;
-
-// Vega-Lite spec (typed loosely — the full vega-lite TopLevelSpec is large
-// and we only need the subset we construct here).
 export type VegaLiteSpec = Record<string, unknown>;
+export const CHART_TYPES = ['bar', 'stacked-bar', 'clustered-bar', 'scatter', 'line', 'area'];
 
-// ── Shared spec scaffolding ────────────────────────────────────────────────────
+export function detectFields(chartType: string, dims: Pick<Dim, 'key' | 'type'>[], fields: Field[]) {
+    const pick = (type: string, used: Set<string>) =>
+        dims.find(d => d.type === type && !used.has(d.key))?.key ??
+        fields.find(f => f.type === type && !f.removed && !used.has(f.key))?.key;
+    const used = new Set<string>();
+    const take = (k?: string) => (k && used.add(k), k);
+    if (chartType === 'scatter') {
+        const xField = take(pick('numerical', used));
+        return { xField, yField: take(pick('numerical', used)), colorField: pick('categorical', used) };
+    }
+    const xField = take(pick('categorical', used));
+    const value = fields.find(f => f.type === 'numerical' && !f.removed && !dims.some(d => d.key === f.key))?.key;
+    const yField = take(value ?? pick('numerical', used));
+    const series = ['stacked-bar', 'clustered-bar', 'line', 'area'].includes(chartType);
+    return { xField, yField, colorField: series ? pick('categorical', used) : undefined };
+}
 
-function baseSpec(config: ScaffoldConfig): Record<string, unknown> {
-    // plotWidth/plotHeight are the OUTER box dimensions (border-box model).
-    // Vega-Lite's width/height are the inner mark area; padding is outside that area.
-    // So: vega_width = outer - left_pad - right_pad, and the total SVG = vega_width + pads = outer. ✓
-    const innerW = Math.max(1, config.plotWidth - config.paddingLeft - config.paddingRight);
-    const innerH = Math.max(1, config.plotHeight - config.paddingTop - config.paddingBottom);
+export function resolveFields(cfg: ScaffoldConfig, doc: Doc): ScaffoldConfig {
+    const d = detectFields(cfg.chartType, doc.recipe.dimensions, doc.data.fields);
     return {
-        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-        width: innerW,
-        height: innerH,
-        padding: {
-            left: config.paddingLeft,
-            top: config.paddingTop,
-            right: config.paddingRight,
-            bottom: config.paddingBottom
-        },
+        ...cfg,
+        xField: cfg.xField ?? d.xField,
+        yField: cfg.yField ?? d.yField,
+        colorField: cfg.colorField ?? d.colorField
+    };
+}
+
+export function seedScaffold(doc: Doc): ScaffoldConfig {
+    const chartType = CHART_TYPES.includes(doc.chart.type) ? doc.chart.type : 'bar';
+    const w = doc.image?.width ?? 800;
+    const h = doc.image?.height ?? 600;
+    const small = w < 200 || h < 200;
+    const series = ['stacked-bar', 'clustered-bar', 'line', 'area'].includes(chartType);
+    const hasData = !!doc.data.rows?.length;
+    return {
+        chartType,
+        offsetX: 0,
+        offsetY: 0,
+        plotWidth: w,
+        plotHeight: h,
+        paddingLeft: small ? 0 : Math.round(Math.max(50, w * 0.07)),
+        paddingTop: small ? 0 : 10,
+        paddingRight: small ? 0 : 10,
+        paddingBottom: small ? 0 : Math.round(Math.max(50, h * 0.07)),
+        markParams: {},
+        dataMode: hasData ? 'csv' : 'synthetic',
+        ...(hasData
+            ? {}
+            : {
+                  syntheticConfig: {
+                      categories: ['A', 'B', 'C', 'D'],
+                      seriesNames: series ? ['Series 1', 'Series 2'] : undefined,
+                      xField: 'category',
+                      yField: 'value',
+                      colorField: series ? 'series' : undefined
+                  }
+              })
+    };
+}
+
+export function buildSyntheticData(cfg: NonNullable<ScaffoldConfig['syntheticConfig']>): Row[] {
+    const series = cfg.seriesNames?.length && cfg.colorField ? cfg.seriesNames : [null];
+    return cfg.categories.flatMap(cat =>
+        series.map(s => ({ [cfg.xField]: cat, [cfg.yField]: 1, ...(s ? { [cfg.colorField!]: s } : {}) }))
+    );
+}
+
+export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
+    const mp = c.markParams;
+    const x = c.xField ?? 'x';
+    const y = c.yField ?? 'value';
+    const sort = c.sortX && c.sortX !== 'none' ? c.sortX : null;
+    const band = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
+    const color = c.colorField ? { color: { field: c.colorField, type: 'nominal' } } : {};
+    const horizontal = c.barOrientation === 'horizontal';
+    const domain = (lo?: number, hi?: number) => ({
+        zero: false,
+        ...(lo != null || hi != null ? { domain: [lo ?? null, hi ?? null] } : {})
+    });
+    const cat = { field: x, type: 'ordinal', sort };
+    const bar = (extra: Record<string, unknown>, stack?: string) => {
+        const [a, b] = horizontal ? ['y', 'x'] : ['x', 'y'];
+        return {
+            [a]: { ...cat, scale: band },
+            [b]: { field: y, type: 'quantitative', ...(stack ? { stack } : {}) },
+            ...extra
+        };
+    };
+    const encodings: Record<string, [unknown, unknown]> = {
+        bar: [{ type: 'bar', color: '#6366f1' }, bar({})],
+        'stacked-bar': [
+            { type: 'bar' },
+            bar(
+                {
+                    ...color,
+                    ...(c.colorField ? { color: { field: c.colorField, type: 'nominal', sort: null } } : {}),
+                    order: { field: '_dn_row', type: 'quantitative' }
+                },
+                'zero'
+            )
+        ],
+        'clustered-bar': [
+            { type: 'bar' },
+            bar({
+                ...color,
+                [horizontal ? 'yOffset' : 'xOffset']: {
+                    field: c.colorField ?? 'series',
+                    type: 'nominal',
+                    scale: { paddingInner: mp.groupPadding ?? 0.05 }
+                }
+            })
+        ],
+        scatter: [
+            { type: 'point', color: '#6366f1', ...(mp.pointSizeField ? {} : { size: mp.pointSize ?? 30 }) },
+            {
+                x: { field: x, type: 'quantitative', scale: domain(c.xDomainMin, c.xDomainMax) },
+                y: { field: y, type: 'quantitative', scale: domain(c.yDomainMin, c.yDomainMax) },
+                ...(mp.pointSizeField ? { size: { field: mp.pointSizeField, type: 'quantitative' } } : {}),
+                ...color
+            }
+        ],
+        line: [
+            { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? 300 } },
+            { x: cat, y: { field: y, type: 'quantitative' }, ...color }
+        ],
+        area: [
+            {
+                type: 'area',
+                fillOpacity: mp.fillOpacity ?? 0.4,
+                strokeWidth: mp.strokeWidth ?? 1.5,
+                point: { size: mp.pointSize ?? 300 }
+            },
+            { x: cat, y: { field: y, type: 'quantitative' }, ...color }
+        ]
+    };
+    const [mark, encoding] = encodings[c.chartType] ?? encodings.bar;
+    return {
+        $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
+        width: Math.max(1, c.plotWidth - c.paddingLeft - c.paddingRight),
+        height: Math.max(1, c.plotHeight - c.paddingTop - c.paddingBottom),
+        padding: { left: c.paddingLeft, top: c.paddingTop, right: c.paddingRight, bottom: c.paddingBottom },
         autosize: { type: 'none' },
         background: 'transparent',
         config: {
-            // Suppress axis titles and grid lines to keep the overlay clean
             axis: { title: null, grid: false, ticks: false, labels: false, domain: false },
             view: { stroke: null }
-        }
-    };
-}
-
-function getData(config: ScaffoldConfig, data: Row[]): Row[] {
-    if (config.dataMode === 'synthetic' && config.syntheticConfig) {
-        return buildSyntheticData(config.syntheticConfig);
-    }
-    return data;
-}
-
-// ── Synthetic data generation ──────────────────────────────────────────────────
-
-/**
- * Build synthetic rows where every quantitative value is 1.
- * For series chart types: cross-product of categories × seriesNames.
- */
-export function buildSyntheticData(cfg: SyntheticDataConfig): Row[] {
-    const rows: Row[] = [];
-    if (cfg.seriesNames && cfg.seriesNames.length > 0 && cfg.colorField) {
-        for (const cat of cfg.categories) {
-            for (const series of cfg.seriesNames) {
-                rows.push({ [cfg.xField]: cat, [cfg.yField]: 1, [cfg.colorField]: series });
-            }
-        }
-    } else {
-        for (const cat of cfg.categories) {
-            rows.push({ [cfg.xField]: cat, [cfg.yField]: 1 });
-        }
-    }
-    return rows;
-}
-
-// ── Chart-type spec builders ───────────────────────────────────────────────────
-
-function vegaSortX(config: ScaffoldConfig): unknown {
-    if (config.sortX === 'ascending') return 'ascending';
-    if (config.sortX === 'descending') return 'descending';
-    return null; // 'none' or unset → preserve data insertion order
-}
-
-function buildBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'value';
-    const mp = config.markParams;
-    const horizontal = config.barOrientation === 'horizontal';
-    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: { type: 'bar', color: '#6366f1' },
-        encoding: horizontal
-            ? {
-                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  x: { field: yField, type: 'quantitative' }
-              }
-            : {
-                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  y: { field: yField, type: 'quantitative' }
-              }
-    };
-}
-
-function buildStackedBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'value';
-    const colorField = config.colorField ?? 'series';
-    const mp = config.markParams;
-    const horizontal = config.barOrientation === 'horizontal';
-    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: { type: 'bar' },
-        encoding: horizontal
-            ? {
-                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  x: { field: yField, type: 'quantitative', stack: 'zero' },
-                  color: { field: colorField, type: 'nominal' }
-              }
-            : {
-                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  y: { field: yField, type: 'quantitative', stack: 'zero' },
-                  color: { field: colorField, type: 'nominal' }
-              }
-    };
-}
-
-function buildClusteredBarSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'value';
-    const colorField = config.colorField ?? 'series';
-    const mp = config.markParams;
-    const horizontal = config.barOrientation === 'horizontal';
-    const bandScale = { paddingInner: mp.barInnerPadding ?? 0.1, paddingOuter: mp.barOuterPadding ?? 0.05 };
-    const offsetScale = { paddingInner: mp.groupPadding ?? 0.05 };
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: { type: 'bar' },
-        encoding: horizontal
-            ? {
-                  y: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  yOffset: { field: colorField, type: 'nominal', scale: offsetScale },
-                  x: { field: yField, type: 'quantitative' },
-                  color: { field: colorField, type: 'nominal' }
-              }
-            : {
-                  x: { field: xField, type: 'ordinal', sort: vegaSortX(config), scale: bandScale },
-                  xOffset: { field: colorField, type: 'nominal', scale: offsetScale },
-                  y: { field: yField, type: 'quantitative' },
-                  color: { field: colorField, type: 'nominal' }
-              }
-    };
-}
-
-function buildScatterSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'y';
-    const colorField = config.colorField;
-    const mp = config.markParams;
-    const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
-
-    // zero: false — scatter axes should start from data extent, not 0.
-    // Domain overrides let users match an image's axis range when it differs from the data extent.
-    const xScale: Record<string, unknown> = { zero: false };
-    if (config.xDomainMin != null || config.xDomainMax != null) {
-        xScale.domain = [config.xDomainMin ?? null, config.xDomainMax ?? null];
-    }
-    const yScale: Record<string, unknown> = { zero: false };
-    if (config.yDomainMin != null || config.yDomainMax != null) {
-        yScale.domain = [config.yDomainMin ?? null, config.yDomainMax ?? null];
-    }
-
-    // Size: data-driven field OR static value (default 30)
-    const sizeEnc = mp.pointSizeField ? { size: { field: mp.pointSizeField, type: 'quantitative' } } : {};
-    const markSize = mp.pointSizeField ? undefined : (mp.pointSize ?? 30);
-
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: { type: 'point', ...(markSize != null ? { size: markSize } : {}), color: '#6366f1' },
-        encoding: {
-            x: { field: xField, type: 'quantitative', scale: xScale },
-            y: { field: yField, type: 'quantitative', scale: yScale },
-            ...sizeEnc,
-            ...colorEnc
-        }
-    };
-}
-
-function buildLineSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'value';
-    const colorField = config.colorField;
-    const mp = config.markParams;
-    const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
-    const sharedEncoding = {
-        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
-        y: { field: yField, type: 'quantitative' },
-        ...colorEnc
-    };
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? 300 } },
-        encoding: sharedEncoding
-    };
-}
-
-function buildAreaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    const xField = config.xField ?? 'x';
-    const yField = config.yField ?? 'value';
-    const colorField = config.colorField;
-    const mp = config.markParams;
-    const colorEnc = colorField ? { color: { field: colorField, type: 'nominal' } } : {};
-    const sharedEncoding = {
-        x: { field: xField, type: 'ordinal', sort: vegaSortX(config) },
-        y: { field: yField, type: 'quantitative' },
-        ...colorEnc
-    };
-    return {
-        ...baseSpec(config),
-        data: { values: getData(config, data) },
-        mark: {
-            type: 'area',
-            fillOpacity: mp.fillOpacity ?? 0.4,
-            strokeWidth: mp.strokeWidth ?? 1.5,
-            point: { size: mp.pointSize ?? 300 }
         },
-        encoding: sharedEncoding
+        data: {
+            values: c.dataMode === 'synthetic' && c.syntheticConfig ? buildSyntheticData(c.syntheticConfig) : data
+        },
+        mark,
+        encoding
     };
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
-/**
- * Build a Vega-Lite spec from the scaffold config + data rows.
- * For synthetic data (dataMode === 'synthetic'), the rows arg is ignored.
- */
-export function buildVegaSpec(config: ScaffoldConfig, data: Row[]): VegaLiteSpec {
-    switch (config.chartType) {
-        case 'bar':
-            return buildBarSpec(config, data);
-        case 'stacked-bar':
-            return buildStackedBarSpec(config, data);
-        case 'clustered-bar':
-            return buildClusteredBarSpec(config, data);
-        case 'scatter':
-            return buildScatterSpec(config, data);
-        case 'line':
-            return buildLineSpec(config, data);
-        case 'area':
-            return buildAreaSpec(config, data);
-        default:
-            // Fallback: render as a bar chart so something is always shown
-            return buildBarSpec(config, data);
-    }
+export async function renderHidden(spec: VegaLiteSpec) {
+    const embed = (await import('vega-embed')).default;
+    const el = document.createElement('div');
+    el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none';
+    document.body.appendChild(el);
+    const result = await embed(el, spec as never, { renderer: 'svg', actions: false, tooltip: false });
+    return {
+        view: result.view,
+        cleanup: () => {
+            result.finalize();
+            el.remove();
+        }
+    };
 }
-
-/*
- * ── FUTURE CHART TYPE CHANNEL REQUIREMENTS ────────────────────────────────────
- *
- * When adding new chart types, each will need the following Vega-Lite channels,
- * auto-detect logic in detectFieldsForChartType (prepAdapter.ts), and possibly
- * new ScaffoldConfig fields.
- *
- * CHART TYPE      REQUIRED CHANNELS                     AUTO-DETECT FROM           SCAFFOLDCONFIG CHANGES NEEDED
- * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
- * pie / donut     theta (NUM), color (CAT)               first NUM → thetaField     Add thetaField; x/y not used.
- *                                                        first CAT → colorField     positionNodesFromVegaScales:
- *                                                                                   arc marks need arc centroid math
- *                                                                                   (no band/linear scales); use SVG extraction.
- *
- * heatmap         x (ordinal CAT), y (ordinal CAT),      first CAT → xField         No new fields needed.
- *                 color (quant NUM)                      second CAT → yField        positionNodesFromVegaScales:
- *                                                        first NUM → colorField     both x/y are band scales;
- *                                                                                   positioning is straightforward (like clustered-bar).
- *                                                                                   Note: colorField encodes value, not series.
- *
- * treemap         size (NUM), category hierarchy         first NUM → sizeField      Add sizeField + optional parentField.
- *                 (1–2 CAT levels for outer/inner)       first CAT → outer group    Vega-Lite has NO treemap mark — requires
- *                                                        second CAT → inner group   a raw Vega spec with a treemap transform,
- *                                                                                   or a pre-computed layout. SVG extraction
- *                                                                                   is the only viable positioning path.
- *
- * ── SMARTER PREP → SCAFFOLD FIELD MAPPING (pre-work for the above) ────────────
- *
- * Before implementing pie/heatmap/treemap scaffolding, the prep Q/A flow and
- * dimension suggestions (dimensionSuggestions.ts) need to surface:
- *
- * - pie/donut:   Single-level structure (1 CAT as labels, 1 NUM as angle/size).
- *                No x/y axis concept. Scaffold should skip axis padding UI.
- *
- * - heatmap:     Exactly 2 CAT dimensions (forming a grid) + 1 NUM (fill color).
- *                Both categorical axes are ordinal — detect via 2 included CAT dims.
- *
- * - treemap:     Hierarchical data: either parent-child rows with an explicit
- *                parent key, or 2 CAT dimensions (outer group + inner group) + 1 NUM.
- *                Requires raw Vega (not Vega-Lite) for the layout transform.
- *                positionNodesFromVegaScales cannot be used; fall back to extractMarksFromSVG.
- */

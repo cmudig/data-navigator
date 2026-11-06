@@ -1,301 +1,172 @@
 <script lang="ts">
-    import { get } from 'svelte/store';
-    import { appState } from '../../store/appState';
-    import { loadState } from '../../utils/saveLoad';
-    import { resetHistory, logAction } from '../../store/historyStore';
+    import { app, commit, goTo, load } from '../../model/state.svelte';
+    import { emptyDoc, guessId, inferFields, type Row } from '../../model/doc';
+    import { loadDoc } from '../../utils/saveLoad';
 
-    // ─── Initialize from persisted store ──────────────────────────────────────
-    const _s = get(appState);
-
-    // ─── Image upload ──────────────────────────────────────────────────────────
-    let imageDataUrl: string | null = $state(_s.imageDataUrl);
-    let imageWidth: number | null = $state(_s.imageWidth);
-    let imageHeight: number | null = $state(_s.imageHeight);
+    const imageDataUrl = $derived(app.doc.image?.url ?? null);
+    const imageWidth = $derived(app.doc.image?.width ?? null);
+    const imageHeight = $derived(app.doc.image?.height ?? null);
+    const uploadedData = $derived(app.doc.data.rows);
+    const fileName = $derived(app.doc.data.name);
     let imageStatus = $state('');
-    let imageDragging = $state(false);
-    let imageFileInput: HTMLInputElement;
-
-    // ─── Data upload ───────────────────────────────────────────────────────────
-    let uploadedData: Record<string, unknown>[] | null = $state.raw(_s.uploadedData);
-    let uploadedDataRaw: { filename: string; content: string } | null = $state.raw(_s.uploadedDataRaw);
     let dataStatus = $state('');
+    let imageDragging = $state(false);
     let dataDragging = $state(false);
+    let imageFileInput: HTMLInputElement;
     let dataFileInput: HTMLInputElement;
 
-    // ─── Examples ─────────────────────────────────────────────────────────────
     const BASE = import.meta.env.BASE_URL;
-
     const EXAMPLES = [
-        { label: 'Bar Chart',         image: 'skeleton_starter.png', data: 'skeleton_starter.json' },
-        { label: 'Stacked Bar Chart', image: 'stack.png',            data: 'stack.json' },
-        { label: 'Line Chart',        image: 'line.png',             data: 'line.json' },
-        { label: 'Scatter Plot',      image: 'scatter.png',          data: 'scatter.json' },
-    ] as const;
+        { label: 'Bar Chart', image: 'skeleton_starter.png', data: 'skeleton_starter.json' },
+        { label: 'Stacked Bar Chart', image: 'stack.png', data: 'stack.json' },
+        { label: 'Line Chart', image: 'line.png', data: 'line.json' },
+        { label: 'Scatter Plot', image: 'scatter.png', data: 'scatter.json' }
+    ];
+    const PREP_DONE_SESSIONS = [{ label: 'Scatter Plot', file: '2026-07-skeleton-sample-editor-view.zip' }];
+    const FULLY_READY_SESSIONS = [{ label: 'Scatter Plot', file: '2026-07-skeleton-sample-scaffolded-view.zip' }];
 
-    // Saved sessions (full .zip project state loaded via loadState).
-    const PREP_DONE_SESSIONS = [
-        { label: 'Scatter Plot', file: '2026-07-skeleton-sample-editor-view.zip' },
-    ] as const;
+    const readAs = (blob: Blob, how: 'text' | 'url') =>
+        new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = rej;
+            how === 'text' ? r.readAsText(blob) : r.readAsDataURL(blob);
+        });
 
-    const FULLY_READY_SESSIONS = [
-        { label: 'Scatter Plot', file: '2026-07-skeleton-sample-scaffolded-view.zip' },
-    ] as const;
+    const imageSize = (url: string) =>
+        new Promise<{ width: number; height: number }>(res => {
+            const img = new Image();
+            img.onload = () => res({ width: img.naturalWidth || 800, height: img.naturalHeight || 600 });
+            img.onerror = () => res({ width: 800, height: 600 });
+            img.src = url;
+        });
+
+    async function setImage(blob: Blob, name: string) {
+        const url = await readAs(blob, 'url');
+        const size = await imageSize(url);
+        commit('Uploaded image', d => ({ ...d, image: { url, ...size } }));
+        imageStatus = `Image loaded: ${name} (${size.width}×${size.height}).`;
+    }
+
+    function setData(rows: Row[] | null, name: string) {
+        const d = app.doc;
+        const hasWork = d.recipe.dimensions.length > 0 || Object.keys(d.overrides.added.nodes).length > 0;
+        if (hasWork && !confirm('Replacing the data resets prep answers, dimensions, labels and manual nodes. Continue?')) return false;
+        const fields = rows ? inferFields(rows) : [];
+        commit(rows ? 'Uploaded data' : 'Removed data', doc => ({
+            ...emptyDoc(),
+            image: doc.image,
+            data: { rows, name, fields, idKey: rows ? guessId(rows, fields) : null }
+        }));
+        return true;
+    }
 
     async function loadExample(imageFile: string, dataFile: string) {
-        imageStatus = 'Loading example…';
-        dataStatus  = 'Loading example…';
+        imageStatus = dataStatus = 'Loading example…';
         try {
-            const [imgRes, dataRes] = await Promise.all([
-                fetch(`${BASE}${imageFile}`),
-                fetch(`${BASE}${dataFile}`),
-            ]);
-            if (!imgRes.ok) throw new Error(`Image HTTP ${imgRes.status}`);
-            if (!dataRes.ok) throw new Error(`Data HTTP ${dataRes.status}`);
-
-            const [blob, content] = await Promise.all([imgRes.blob(), dataRes.text()]);
-
-            // Parse data
-            const data: Record<string, unknown>[] = JSON.parse(content);
-            const raw = { filename: dataFile, content };
-            uploadedData = data;
-            uploadedDataRaw = raw;
-            dataStatus = `Example dataset loaded (${data.length} row${data.length !== 1 ? 's' : ''}).`;
-
-            // Parse image via FileReader
-            const reader = new FileReader();
-            reader.onload = () => {
-                const dataUrl = reader.result as string;
-                const img = new Image();
-                img.onload = () => {
-                    imageDataUrl = dataUrl;
-                    imageWidth = img.naturalWidth || null;
-                    imageHeight = img.naturalHeight || null;
-                    imageStatus = `Example image loaded${imageWidth ? ` (${imageWidth}×${imageHeight})` : ''}.`;
-                    appState.update(s => ({ ...s, imageDataUrl, imageWidth, imageHeight, uploadedData: data, uploadedDataRaw: raw }));
-                };
-                img.onerror = () => {
-                    imageDataUrl = dataUrl;
-                    imageWidth = null; imageHeight = null;
-                    imageStatus = 'Example image loaded.';
-                    appState.update(s => ({ ...s, imageDataUrl, imageWidth: null, imageHeight: null, uploadedData: data, uploadedDataRaw: raw }));
-                };
-                img.src = dataUrl;
-            };
-            reader.readAsDataURL(blob);
+            const [img, data] = await Promise.all([fetch(BASE + imageFile), fetch(BASE + dataFile)]);
+            if (!img.ok || !data.ok) throw new Error(`HTTP ${img.ok ? data.status : img.status}`);
+            const rows: Row[] = await data.json();
+            if (!setData(rows, dataFile)) return (imageStatus = dataStatus = '');
+            dataStatus = `Example dataset loaded (${rows.length} rows).`;
+            await setImage(await img.blob(), imageFile);
         } catch (e) {
             imageStatus = `Error loading example: ${(e as Error).message}`;
-            dataStatus  = '';
+            dataStatus = '';
         }
     }
 
-    async function loadSessionExample(sessionFile: string) {
+    async function loadSessionExample(file: string) {
         imageStatus = 'Loading session…';
-        dataStatus  = 'Loading session…';
+        dataStatus = '';
         try {
-            const res = await fetch(`${BASE}${sessionFile}`);
+            const res = await fetch(BASE + file);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const blob = await res.blob();
-            const file = new File([blob], sessionFile, { type: 'application/zip' });
-            const summary = await loadState(file);
-            resetHistory();
-            logAction('Loaded session');
-            imageStatus = summary;
-            dataStatus  = '';
+            load(await loadDoc(await res.blob()));
+            imageStatus = `Loaded session ${file}.`;
         } catch (e) {
             imageStatus = `Error loading session: ${(e as Error).message}`;
-            dataStatus  = '';
         }
     }
 
     function onExampleChange(e: Event) {
-        const val = (e.target as HTMLSelectElement).value;
-        (e.target as HTMLSelectElement).value = '';
-        if (!val) return;
-        if (val.startsWith('session:')) {
-            loadSessionExample(val.slice('session:'.length));
-            return;
-        }
-        const [imageFile, dataFile] = val.split('|');
-        loadExample(imageFile, dataFile);
+        const el = e.target as HTMLSelectElement;
+        const val = el.value;
+        el.value = '';
+        if (val.startsWith('session:')) loadSessionExample(val.slice(8));
+        else if (val) loadExample(...(val.split('|') as [string, string]));
     }
 
-    // ─── Minimal CSV parser ───────────────────────────────────────────────────
     function parseCSVLine(line: string): string[] {
-        const result: string[] = [];
-        let current = '';
-        let inQuotes = false;
+        const out: string[] = [];
+        let cur = '';
+        let quoted = false;
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
-            if (ch === '"') {
-                if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-                else { inQuotes = !inQuotes; }
-            } else if (ch === ',' && !inQuotes) {
-                result.push(current);
-                current = '';
-            } else {
-                current += ch;
-            }
+            if (ch === '"' && quoted && line[i + 1] === '"') (cur += '"'), i++;
+            else if (ch === '"') quoted = !quoted;
+            else if (ch === ',' && !quoted) out.push(cur), (cur = '');
+            else cur += ch;
         }
-        result.push(current);
-        return result;
+        return [...out, cur];
     }
 
-    function parseCSV(text: string): Record<string, string>[] {
-        const lines = text.trim().split(/\r?\n/);
-        if (lines.length < 2) return [];
-        const headers = parseCSVLine(lines[0]);
-        return lines.slice(1).filter(l => l.trim()).map(line => {
-            const values = parseCSVLine(line);
-            const row: Record<string, string> = {};
-            headers.forEach((h, i) => { row[h.trim()] = (values[i] ?? '').trim(); });
-            return row;
+    function parseCSV(text: string): Row[] {
+        const [head, ...lines] = text.trim().split(/\r?\n/);
+        const headers = parseCSVLine(head).map(h => h.trim());
+        return lines.filter(l => l.trim()).map(l => {
+            const v = parseCSVLine(l);
+            return Object.fromEntries(headers.map((h, i) => [h, (v[i] ?? '').trim()]));
         });
     }
 
-    // ─── File handlers ────────────────────────────────────────────────────────
     function handleImageFile(file: File) {
-        const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml'];
-        const validExts = ['.png', '.jpg', '.jpeg', '.svg', '.gif'];
-        const nameLower = file.name.toLowerCase();
-        if (!validTypes.includes(file.type) && !validExts.some(ext => nameLower.endsWith(ext))) {
+        if (!/\.(png|jpe?g|svg|gif)$/i.test(file.name) && !file.type.startsWith('image/')) {
             imageStatus = 'Error: only PNG, JPG, JPEG, SVG, or GIF files accepted.';
             return;
         }
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = reader.result as string;
-            const img = new Image();
-            img.onload = () => {
-                imageDataUrl = dataUrl;
-                imageWidth = img.naturalWidth || null;
-                imageHeight = img.naturalHeight || null;
-                imageStatus = `Image uploaded: ${file.name}${imageWidth ? ` (${imageWidth}×${imageHeight})` : ''}.`;
-                appState.update(s => ({ ...s, imageDataUrl, imageWidth, imageHeight }));
-            };
-            img.onerror = () => {
-                imageDataUrl = dataUrl;
-                imageWidth = null;
-                imageHeight = null;
-                imageStatus = `Image uploaded: ${file.name}.`;
-                appState.update(s => ({ ...s, imageDataUrl, imageWidth: null, imageHeight: null }));
-            };
-            img.src = dataUrl;
-        };
-        reader.readAsDataURL(file);
+        setImage(file, file.name);
     }
 
-    function handleDataFile(file: File) {
-        const validExts = ['.csv', '.json'];
-        const nameLower = file.name.toLowerCase();
-        if (!validExts.some(ext => nameLower.endsWith(ext))) {
+    async function handleDataFile(file: File) {
+        if (!/\.(csv|json)$/i.test(file.name)) {
             dataStatus = 'Error: only CSV and JSON files accepted.';
             return;
         }
-        const reader = new FileReader();
-        reader.onload = () => {
-            const content = reader.result as string;
-            const raw = { filename: file.name, content };
-            try {
-                let data: Record<string, unknown>[];
-                if (nameLower.endsWith('.json')) {
-                    const parsed = JSON.parse(content);
-                    data = Array.isArray(parsed) ? parsed : [parsed];
-                } else {
-                    data = parseCSV(content);
-                }
-                uploadedData = data;
-                uploadedDataRaw = raw;
-                dataStatus = `Data uploaded: ${file.name} (${data.length} row${data.length !== 1 ? 's' : ''}).`;
-                appState.update(s => ({ ...s, uploadedData: data, uploadedDataRaw: raw }));
-            } catch (e) {
-                dataStatus = `Error parsing ${file.name}: ${(e as Error).message}`;
-            }
-        };
-        reader.readAsText(file);
+        try {
+            const text = await readAs(file, 'text');
+            const parsed = file.name.toLowerCase().endsWith('.json') ? JSON.parse(text) : parseCSV(text);
+            const rows: Row[] = Array.isArray(parsed) ? parsed : [parsed];
+            if (setData(rows, file.name)) dataStatus = `Data uploaded: ${file.name} (${rows.length} rows).`;
+        } catch (e) {
+            dataStatus = `Error parsing ${file.name}: ${(e as Error).message}`;
+        }
     }
 
     function removeImage() {
-        imageDataUrl = null;
-        imageWidth = null;
-        imageHeight = null;
+        commit('Removed image', d => ({ ...d, image: null }));
         imageStatus = 'Image removed.';
-        imageFileInput.value = '';
-        appState.update(s => ({ ...s, imageDataUrl: null, imageWidth: null, imageHeight: null }));
     }
 
     function removeData() {
-        uploadedData = null;
-        uploadedDataRaw = null;
-        dataStatus = 'Data removed.';
-        dataFileInput.value = '';
-        appState.update(s => ({ ...s, uploadedData: null, uploadedDataRaw: null }));
+        if (setData(null, '')) dataStatus = 'Data removed.';
     }
 
-    // ─── Drag-and-drop ────────────────────────────────────────────────────────
-    function onImageDragOver(e: DragEvent) { e.preventDefault(); imageDragging = true; }
-    function onImageDragLeave(e: DragEvent) {
-        if (!(e.currentTarget as Element).contains(e.relatedTarget as Node)) imageDragging = false;
-    }
-    function onImageDrop(e: DragEvent) {
-        e.preventDefault();
-        imageDragging = false;
-        const file = e.dataTransfer?.files[0];
-        if (file) handleImageFile(file);
-    }
-
-    function onDataDragOver(e: DragEvent) { e.preventDefault(); dataDragging = true; }
-    function onDataDragLeave(e: DragEvent) {
-        if (!(e.currentTarget as Element).contains(e.relatedTarget as Node)) dataDragging = false;
-    }
-    function onDataDrop(e: DragEvent) {
-        e.preventDefault();
-        dataDragging = false;
-        const file = e.dataTransfer?.files[0];
-        if (file) handleDataFile(file);
-    }
-
-    // ─── Zone click/keyboard ──────────────────────────────────────────────────
-    function onImageZoneClick() {
-        if (!imageDataUrl) imageFileInput.click();
-    }
-    function onImageZoneKeydown(e: KeyboardEvent) {
-        if ((e.key === 'Enter' || e.key === ' ') && !imageDataUrl) {
+    const dropper = (set: (v: boolean) => void, handle: (f: File) => void) => ({
+        ondragover: (e: DragEvent) => (e.preventDefault(), set(true)),
+        ondragleave: (e: DragEvent) => !(e.currentTarget as Element).contains(e.relatedTarget as Node) && set(false),
+        ondrop: (e: DragEvent) => {
             e.preventDefault();
-            imageFileInput.click();
+            set(false);
+            const f = e.dataTransfer?.files[0];
+            if (f) handle(f);
         }
-    }
+    });
+    const imageDrop = dropper(v => (imageDragging = v), handleImageFile);
+    const dataDrop = dropper(v => (dataDragging = v), handleDataFile);
 
-    function onDataZoneClick() {
-        if (!uploadedData) dataFileInput.click();
-    }
-    function onDataZoneKeydown(e: KeyboardEvent) {
-        if ((e.key === 'Enter' || e.key === ' ') && !uploadedData) {
-            e.preventDefault();
-            dataFileInput.click();
-        }
-    }
-
-    // ─── Continue ─────────────────────────────────────────────────────────────
-    function continueToPrep() {
-        appState.update(s => ({ ...s, currentStep: 1 }));
-    }
-
-    // ─── Preview ──────────────────────────────────────────────────────────────
-    const previewRows = $derived(uploadedData ? uploadedData.slice(0, 5) : []);
-    const previewCols = $derived(
-        previewRows.length > 0 ? Object.keys(previewRows[0]).slice(0, 5) : []
-    );
-
-    const imageZoneLabel = $derived(
-        imageDataUrl
-            ? `Uploaded image preview${imageWidth ? `, ${imageWidth} by ${imageHeight} pixels` : ''}.`
-            : 'Image upload zone. Accepts PNG, JPG, JPEG, SVG, GIF. Drag and drop or press Enter to browse files.'
-    );
-    const dataZoneLabel = $derived(
-        uploadedData
-            ? `Uploaded data preview. ${uploadedDataRaw?.filename}, ${uploadedData.length} rows.`
-            : 'Data upload zone. Accepts CSV and JSON files. Drag and drop or press Enter to browse files.'
-    );
+    const previewRows = $derived(uploadedData?.slice(0, 5) ?? []);
+    const previewCols = $derived(Object.keys(previewRows[0] ?? {}).slice(0, 5));
 </script>
 
 <div class="upload-step">
@@ -311,14 +182,9 @@
                 class="upload-zone"
                 class:dragging={imageDragging}
                 class:has-content={imageDataUrl !== null}
-                role="button"
-                tabindex="0"
-                aria-label={imageZoneLabel}
-                ondragover={onImageDragOver}
-                ondragleave={onImageDragLeave}
-                ondrop={onImageDrop}
-                onclick={onImageZoneClick}
-                onkeydown={onImageZoneKeydown}
+                role="region"
+                aria-label="Image upload"
+                {...imageDrop}
             >
                 <input
                     bind:this={imageFileInput}
@@ -335,7 +201,7 @@
                 />
 
                 {#if imageDataUrl === null}
-                    <div class="zone-prompt">
+                    <button class="zone-prompt" type="button" onclick={() => imageFileInput.click()}>
                         <svg class="zone-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2"/>
                             <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -344,14 +210,9 @@
                         <p class="zone-title">Image</p>
                         <p class="zone-hint">PNG, JPG, JPEG, SVG, GIF</p>
                         <p class="zone-hint">Drag &amp; drop or click to browse</p>
-                    </div>
+                    </button>
                 {:else}
-                    <div
-                        class="image-preview"
-                        role="presentation"
-                        onclick={(e) => e.stopPropagation()}
-                        onkeydown={(e) => e.stopPropagation()}
-                    >
+                    <div class="image-preview">
                         <img
                             src={imageDataUrl}
                             alt="Uploaded preview"
@@ -363,7 +224,7 @@
                         <button
                             class="btn-ghost btn-sm"
                             type="button"
-                            onclick={(e) => { e.stopPropagation(); removeImage(); }}
+                            onclick={removeImage}
                         >
                             Remove image
                         </button>
@@ -378,14 +239,9 @@
                 class="upload-zone"
                 class:dragging={dataDragging}
                 class:has-content={uploadedData !== null}
-                role="button"
-                tabindex="0"
-                aria-label={dataZoneLabel}
-                ondragover={onDataDragOver}
-                ondragleave={onDataDragLeave}
-                ondrop={onDataDrop}
-                onclick={onDataZoneClick}
-                onkeydown={onDataZoneKeydown}
+                role="region"
+                aria-label="Data upload"
+                {...dataDrop}
             >
                 <input
                     bind:this={dataFileInput}
@@ -402,23 +258,18 @@
                 />
 
                 {#if uploadedData === null}
-                    <div class="zone-prompt">
+                    <button class="zone-prompt" type="button" onclick={() => dataFileInput.click()}>
                         <svg class="zone-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/>
                         </svg>
                         <p class="zone-title">Data</p>
                         <p class="zone-hint">CSV or JSON</p>
                         <p class="zone-hint">Drag &amp; drop or click to browse</p>
-                    </div>
+                    </button>
                 {:else}
-                    <div
-                        class="data-preview"
-                        role="presentation"
-                        onclick={(e) => e.stopPropagation()}
-                        onkeydown={(e) => e.stopPropagation()}
-                    >
+                    <div class="data-preview">
                         <p class="preview-meta">
-                            {uploadedDataRaw?.filename} — {uploadedData.length} row{uploadedData.length !== 1 ? 's' : ''}
+                            {fileName} ({uploadedData.length} row{uploadedData.length !== 1 ? 's' : ''})
                         </p>
                         {#if previewCols.length > 0}
                             <div class="preview-table-wrapper">
@@ -448,7 +299,7 @@
                         <button
                             class="btn-ghost btn-sm"
                             type="button"
-                            onclick={(e) => { e.stopPropagation(); removeData(); }}
+                            onclick={removeData}
                         >
                             Remove data
                         </button>
@@ -487,7 +338,7 @@
 
     <!-- ── Actions row ─────────────────────────────────────────────────────── -->
     <div class="step-actions">
-        <button class="btn-primary" type="button" onclick={continueToPrep}>
+        <button class="btn-primary" type="button" onclick={() => goTo(1)}>
             Continue to Prep →
         </button>
     </div>
@@ -622,10 +473,17 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: calc(var(--dn-space) * 0.75);
         text-align: center;
-        pointer-events: none;
         user-select: none;
+        width: 100%;
+        height: 100%;
+        background: none;
+        border: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
     }
 
     .zone-icon {

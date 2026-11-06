@@ -1,31 +1,14 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import { get } from 'svelte/store';
-    import { appState, type PrepState } from '../../store/appState';
-    import { logAction } from '../../store/historyStore';
+    import { app, commit, goTo } from '../../model/state.svelte';
+    import { seedScaffold } from '../../utils/vegaBuilder';
     import GraphCanvas from '../components/GraphCanvas.svelte';
 
-    let selectedNodeIds = $state<string[]>([]);
-    let selectedEdgeIds = $state<string[]>([]);
-    let prep = $state<PrepState | null>(null);
-    let scaffoldModeActive = $state(false);
-
-    const _unsub = appState.subscribe(s => {
-        prep = s.prepState;
-        scaffoldModeActive = s.scaffoldModeActive;
-    });
-    onDestroy(_unsub);
-
-    function continueToTesting() {
-        appState.update(s => ({ ...s, currentStep: 3 }));
-    }
+    const prepDone = $derived(app.doc.meta.prepDone);
+    const scaffoldModeActive = $derived(app.ui.scaffoldMode);
 
     function toggleScaffold() {
-        const s = get(appState);
-        if (!s.scaffoldModeActive) {
-            logAction('Entered scaffold mode'); // snapshot before positions change
-        }
-        appState.update(st => ({ ...st, scaffoldModeActive: !st.scaffoldModeActive }));
+        if (!app.doc.scaffold) commit('Started scaffold', d => ({ ...d, scaffold: seedScaffold(d) }));
+        app.ui.scaffoldMode = !app.ui.scaffoldMode;
     }
 </script>
 
@@ -34,7 +17,7 @@
         <div class="header-row">
             <h2 id="step-heading-2" tabindex="-1">Editor</h2>
             <div class="header-actions">
-                {#if prep?.hasRun}
+                {#if prepDone}
                     <span class="prep-status-badge" role="status" aria-live="polite">✓ Prep</span>
                 {/if}
                 <button
@@ -48,30 +31,39 @@
                 </button>
             </div>
         </div>
-        {#if !prep?.hasRun}
+        {#if !prepDone}
             <p class="step-desc">
                 Draw nodes and edges to define the navigation graph.
             </p>
+        {/if}
+        {#if app.warnings.length}
+            <ul class="editor-warnings" aria-label="Structure warnings">
+                {#each app.warnings as w (w)}<li>{w}</li>{/each}
+            </ul>
         {/if}
     </div>
 
     <div class="editor-body">
         <div class="canvas-wrapper">
-            <GraphCanvas
-                selectNodes={(ids) => { selectedNodeIds = ids; }}
-                selectEdges={(ids) => { selectedEdgeIds = ids; }}
-            />
+            <GraphCanvas />
         </div>
     </div>
 
     <div class="step-actions">
-        <button class="btn-primary" type="button" onclick={continueToTesting}>
+        <button class="btn-primary" type="button" onclick={() => goTo(3)}>
             Continue to Testing →
         </button>
     </div>
 </div>
 
 <style>
+    .editor-warnings {
+        margin: calc(var(--dn-space) * 0.5) 0 0;
+        padding-left: calc(var(--dn-space) * 2);
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+    }
+
     .editor-step {
         display: flex;
         flex-direction: column;

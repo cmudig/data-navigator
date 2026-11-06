@@ -1,551 +1,193 @@
 <script lang="ts">
-    import { get } from 'svelte/store';
     import { untrack } from 'svelte';
-    import { appState } from '../../store/appState';
-    import { logAction, logActionDebounced } from '../../store/historyStore';
-    import type { SkeletonNode, SkeletonEdge } from '../../store/types';
-    import type { RenderConfig, SchemaState, ToolOptions } from '../../store/appState';
-    import { defaultRenderProperties } from '../../store/nodeFactory';
+    import { app, edit, select } from '../../model/state.svelte';
+    import type { GNode, ToolOptions } from '../../model/state.svelte';
+    import { newId, type Geo } from '../../model/doc';
+    import { shiftPath } from '../../runtime/dn-runtime.js';
     import ScaffoldOverlay from './scaffold/ScaffoldOverlay.svelte';
 
-    // ── Callback props (Svelte 5 style) ───────────────────────────────────────
-    type Props = {
-        selectNodes?: (ids: string[]) => void;
-        selectEdges?: (ids: string[]) => void;
-        nodesMoved?: (moves: Array<{ nodeId: string; x: number; y: number }>) => void;
-        readonly?: boolean;
-    };
-    const { selectNodes, selectEdges, nodesMoved, readonly = false }: Props = $props();
+    type Mode = 'select' | 'addNode' | 'addEdge' | 'pan';
+    type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+    const HANDLES: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
     let svgEl: SVGSVGElement | undefined = $state();
     let sceneEl: SVGGElement | undefined = $state();
-
-    // ── SVG element pixel dimensions (bound via bind:clientWidth/Height) ──────
     let svgW = $state(0);
     let svgH = $state(0);
-
-    // ── View transform (in SVG viewBox coordinates) ───────────────────────────
     let tx = $state(0);
     let ty = $state(0);
     let scale = $state(1);
-
-    // ── Interaction mode ──────────────────────────────────────────────────────
-    type Mode = 'select' | 'addNode' | 'addEdge' | 'pan';
+    let zoomInput = $state(100);
     let mode = $state<Mode>('select');
-
-    // ── Pan state ─────────────────────────────────────────────────────────────
     let isPanning = $state(false);
     let spaceDown = $state(false);
-    let panStartClient = $state({ x: 0, y: 0 });
-    let panStartTransform = $state({ tx: 0, ty: 0 });
-
-    // ── Zoom input ────────────────────────────────────────────────────────────
-    let zoomInput = $state(100);
-
-    // ── Drag state ────────────────────────────────────────────────────────────
-    let drag = $state<{
-        nodeId: string;
-        startClientX: number;
-        startClientY: number;
-        startNodeX: number;
-        startNodeY: number;
-        moved: boolean;
-    } | null>(null);
-
-    // ── Resize state ──────────────────────────────────────────────────────────
-    type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
-    let resize = $state<{
-        nodeId: string;
-        dir: HandleDir;
-        startClientX: number;
-        startClientY: number;
-        startNodeX: number;
-        startNodeY: number;
-        startNodeW: number;
-        startNodeH: number;
-        moved: boolean;
-    } | null>(null);
-
-    // ── Lasso state ───────────────────────────────────────────────────────────
+    let panStart = { x: 0, y: 0, tx: 0, ty: 0 };
+    let drag = $state<{ ids: string[]; sx: number; sy: number; dx: number; dy: number; moved: boolean; clicked: string } | null>(null);
+    let resize = $state<{ id: string; dir: HandleDir; sx: number; sy: number; start: Geo; geo: Geo } | null>(null);
     let lassoRect = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
-    let lassoAdditive = $state(false); // true when Cmd/Ctrl held at lasso start
-    let activeTouchId = $state<number | null>(null);
-
-    // ── Select filter ─────────────────────────────────────────────────────────
+    let lassoAdditive = false;
+    let activeTouchId: number | null = null;
     let selectFilter = $state<'nodes' | 'edges'>('nodes');
-
-    // ── Edge draw state ───────────────────────────────────────────────────────
     let edgeSourceId = $state<string | null>(null);
     let addEdgePairs = $state(true);
-    let edgeCursorX = $state(0);
-    let edgeCursorY = $state(0);
-
-    // ── Keyboard focus ────────────────────────────────────────────────────────
-    let focusedNodeIdx = $state(-1);
-
-    // ── Live region ───────────────────────────────────────────────────────────
+    let edgeCursor = $state({ x: 0, y: 0 });
     let liveMsg = $state('');
 
-    // ── Store sync ────────────────────────────────────────────────────────────
-    const initial = get(appState);
-    let nodes = $state<Map<string, SkeletonNode>>(initial.nodes);
-    let edges = $state<Map<string, SkeletonEdge>>(initial.edges);
-    let selectedNodeIds = $state<Set<string>>(initial.selectedNodeIds);
-    let selectedEdgeIds = $state<Set<string>>(initial.selectedEdgeIds);
-    let entryNodeId = $state<string | null>(initial.entryNodeId);
-    let hoveredNodeId = $state<string | null>(initial.hoveredNodeId);
-    let hoveredEdgeId = $state<string | null>(initial.hoveredEdgeId);
-    let imageDataUrl = $state<string | null>(initial.imageDataUrl);
-    let imageWidth = $state<number | null>(initial.imageWidth);
-    let imageHeight = $state<number | null>(initial.imageHeight);
-    let renderConfig = $state<RenderConfig>(initial.renderConfig);
-    let toolOptions = $state<ToolOptions>(initial.toolOptions);
-    let schemaState = $state<SchemaState>(initial.schemaState);
-    let uploadedData = $state.raw<Record<string, unknown>[] | null>(initial.uploadedData);
-    let scaffoldModeActive = $state<boolean>(initial.scaffoldModeActive);
+    const tools = $derived(app.ui.tools);
+    const nodes = $derived(app.graph.nodes);
+    const edges = $derived(app.graph.edges);
+    const selected = $derived(new Set(app.ui.selected));
+    const selectedEdges = $derived(new Set(app.ui.selectedEdges));
+    const imageDataUrl = $derived(app.doc.image?.url ?? null);
+    const vbW = $derived(app.size.width);
+    const vbH = $derived(app.size.height);
+    const viewBox = $derived(svgW > 0 && svgH > 0 ? `0 0 ${svgW} ${svgH}` : `0 0 ${vbW} ${vbH}`);
+    const hasLevels = $derived(app.doc.recipe.dimensions.length > 0);
+    const levelShown: Record<string, keyof ToolOptions> = { root: 'showLevel0Node', dimension: 'showLevel1Nodes', division: 'showLevel2Nodes', leaf: 'showLevel3Nodes' };
+    const levelFill: Record<string, keyof ToolOptions> = { root: 'level0BackfillColor', dimension: 'level1BackfillColor', division: 'level2BackfillColor', leaf: 'level3BackfillColor', manual: 'nodeBackfillColor' };
 
-    $effect(() => {
-        return appState.subscribe(s => {
-            nodes = s.nodes;
-            edges = s.edges;
-            selectedNodeIds = s.selectedNodeIds;
-            selectedEdgeIds = s.selectedEdgeIds;
-            entryNodeId = s.entryNodeId;
-            hoveredNodeId = s.hoveredNodeId;
-            hoveredEdgeId = s.hoveredEdgeId;
-            imageDataUrl = s.imageDataUrl;
-            imageWidth = s.imageWidth;
-            imageHeight = s.imageHeight;
-            renderConfig = s.renderConfig;
-            toolOptions = s.toolOptions;
-            schemaState = s.schemaState;
-            scaffoldModeActive = s.scaffoldModeActive;
-            if (s.uploadedData !== uploadedData) uploadedData = s.uploadedData;
-        });
-    });
-
-    // ── Derived ───────────────────────────────────────────────────────────────
-    const vbW = $derived(imageWidth ?? 1200);
-    const vbH = $derived(imageHeight ?? 800);
-    // Use the SVG element's actual pixel dimensions as the viewBox so the
-    // coordinate system is always 1:1 with CSS pixels. This eliminates the
-    // xMidYMid centering offset that shifts canvas content when the element resizes.
-    const viewBox = $derived(
-        svgW > 0 && svgH > 0 ? `0 0 ${svgW} ${svgH}` : `0 0 ${vbW} ${vbH}`
-    );
-    const nodeList = $derived([...nodes.values()]);
-
-    // ── Tool options derivations ──────────────────────────────────────────────
-    const isSchemaMode = $derived(
-        uploadedData !== null && schemaState.dimensions.some(d => d.included)
-    );
-
-    // Derive unique edge types from schema navigation rules (when in schema mode)
-    const schemaEdgeTypes = $derived.by((): string[] => {
-        if (!isSchemaMode) return [];
-        const seen = new Set<string>();
-        const types: string[] = [];
-        const add = (s: string) => { if (s && !seen.has(s)) { seen.add(s); types.push(s); } };
-        schemaState.dimensions.filter(d => d.included).forEach(d => {
-            add(d.drillInName);
-            add(d.drillOutName);
-            add(d.forwardName);
-            add(d.backwardName);
-        });
-        add(schemaState.level1NavForwardName);
-        add(schemaState.level1NavBackwardName);
-        return types;
-    });
-
-    // Compute which schema nodes are hidden by level filters
-    const hiddenNodeIds = $derived.by((): Set<string> => {
-        const hidden = new Set<string>();
-        const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
-        const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
-        const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
-        const level2Ids = new Set(schemaState.dimensions.flatMap(d => d.divisions.map(div => div.id)));
-        nodes.forEach((node, id) => {
-            if (!toolOptions.showAllNodes) { hidden.add(id); return; }
-            if (node.source !== 'schema') return;
-            if (!isSchemaMode) return;
-            if (id === level0Id) {
-                if (!toolOptions.showLevel0Node) hidden.add(id);
-            } else if (level1Ids.has(id)) {
-                if (!toolOptions.showLevel1Nodes) hidden.add(id);
-            } else if (level2Ids.has(id)) {
-                if (!toolOptions.showLevel2Nodes) hidden.add(id);
-            } else {
-                if (!toolOptions.showLevel3Nodes) hidden.add(id);
-            }
-        });
-        return hidden;
-    });
-
-    // Compute backfill color per node (manual nodes use nodeBackfillColor; schema nodes by level)
-    const nodeBackfillColorMap = $derived.by((): Map<string, string> => {
-        const map = new Map<string, string>();
-        const makeDimNodeId = (key: string) => '_' + ('dim_' + key).replace(/[^a-zA-Z0-9_-]+/g, '_');
-        const level1Ids = new Set(schemaState.dimensions.filter(d => d.included).map(d => makeDimNodeId(d.key)));
-        const level0Id = schemaState.level0Enabled ? schemaState.level0Id : null;
-        const level2Ids = new Set(schemaState.dimensions.flatMap(d => d.divisions.map(div => div.id)));
-        nodes.forEach((node, id) => {
-            if (node.source !== 'schema') {
-                map.set(id, toolOptions.nodeBackfillColor);
-                return;
-            }
-            if (!isSchemaMode) return;
-            if (id === level0Id) {
-                map.set(id, toolOptions.level0BackfillColor);
-            } else if (level1Ids.has(id)) {
-                map.set(id, toolOptions.level1BackfillColor);
-            } else if (level2Ids.has(id)) {
-                map.set(id, toolOptions.level2BackfillColor);
-            } else {
-                map.set(id, toolOptions.level3BackfillColor);
-            }
-        });
-        return map;
-    });
-
-    // Compute which edges render as two curved arrows (forward + backward arcs).
-    // navigationRuleNames.length > 1 detects this correctly for visual rendering:
-    //   - Schema edges always carry 2 rules → always render as paired arcs.
-    //   - Manual edges with "Add pairs" enabled → 2 rules → paired arcs.
-    //   - Manual edges without "Add pairs" → 1 rule → single straight arrow.
-    // NOTE: having 2 rules does NOT mean both nodes hold the edge — that is determined
-    // at the node level by addEdgeToNode() in the DN library. See SkeletonEdge in types.ts.
-    const pairedEdgeIds = $derived.by((): Set<string> => {
-        const paired = new Set<string>();
-        edges.forEach((edge) => {
-            if ((edge.navigationRuleNames?.length ?? 0) > 1) paired.add(edge.id);
-        });
-        return paired;
-    });
-
-    // Compute which edges are hidden
-    const hiddenEdgeIds = $derived.by((): Set<string> => {
-        const hidden = new Set<string>();
-        edges.forEach((edge, id) => {
-            if (!toolOptions.showEdges) { hidden.add(id); return; }
-            if (edge.label && toolOptions.hiddenEdgeTypes.includes(edge.label)) { hidden.add(id); return; }
-            if (hiddenNodeIds.has(edge.sourceId) || hiddenNodeIds.has(edge.targetId)) { hidden.add(id); return; }
-        });
-        return hidden;
-    });
-
-    // ── Tool options helpers ──────────────────────────────────────────────────
-    function setToolOption<K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) {
-        appState.update(s => {
-            const updated: ToolOptions = { ...s.toolOptions, [key]: value };
-            // When changing the master node backfill, cascade to any level that hasn't diverged
-            if (key === 'nodeBackfillColor') {
-                const prev = s.toolOptions.nodeBackfillColor;
-                const next = value as string;
-                const levelKeys = ['level0BackfillColor', 'level1BackfillColor', 'level2BackfillColor', 'level3BackfillColor'] as const;
-                for (const lk of levelKeys) {
-                    if (s.toolOptions[lk] === prev) updated[lk] = next;
-                }
-            }
-            return { ...s, toolOptions: updated };
-        });
-        if (typeof value === 'boolean') {
-            logAction('Updated display options');
-        } else {
-            logActionDebounced('Updated display options');
+    const geoOf = (n: GNode): Geo => {
+        if (resize?.id === n.id) return resize.geo;
+        if (drag?.moved && drag.ids.includes(n.id)) {
+            const g = n.geo;
+            return { ...g, x: g.x + drag.dx, y: g.y + drag.dy, ...(g.path ? { path: shiftPath(g.path, drag.dx, drag.dy) } : {}) };
         }
+        return n.geo;
+    };
+    const nodeList = $derived([...nodes.values()].map(n => ({ ...n, geo: geoOf(n) })));
+    const byId = $derived(new Map(nodeList.map(n => [n.id, n])));
+    const hidden = $derived(new Set(nodeList.filter(n => !tools.showAllNodes || (n.kind !== 'manual' && !tools[levelShown[n.kind]])).map(n => n.id)));
+    const edgeTypes = $derived([...new Set([...edges.values()].map(e => e.rules[0]).filter(Boolean))]);
+    const edgeList = $derived(
+        [...edges.values()].filter(e => tools.showEdges && !tools.hiddenEdgeTypes.includes(e.rules[0]) && !hidden.has(e.source) && !hidden.has(e.target))
+    );
+
+    function setTool<K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) {
+        const t = app.ui.tools;
+        if (key === 'nodeBackfillColor')
+            for (const k of ['level0BackfillColor', 'level1BackfillColor', 'level2BackfillColor', 'level3BackfillColor'] as const)
+                if (t[k] === t.nodeBackfillColor) t[k] = value as string;
+        t[key] = value;
     }
 
-    function toggleEdgeType(type: string) {
-        appState.update(s => {
-            const hidden = s.toolOptions.hiddenEdgeTypes;
-            const next = hidden.includes(type) ? hidden.filter(t => t !== type) : [...hidden, type];
-            return { ...s, toolOptions: { ...s.toolOptions, hiddenEdgeTypes: next } };
-        });
-    }
+    const toggleEdgeType = (type: string) =>
+        (app.ui.tools.hiddenEdgeTypes = tools.hiddenEdgeTypes.includes(type) ? tools.hiddenEdgeTypes.filter(t => t !== type) : [...tools.hiddenEdgeTypes, type]);
 
-    function setEdgeTypeColor(type: string, color: string) {
-        appState.update(s => ({
-            ...s,
-            toolOptions: {
-                ...s.toolOptions,
-                edgeTypeColors: { ...s.toolOptions.edgeTypeColors, [type]: color }
-            }
-        }));
-    }
-
-
-    // ── Coordinate helpers ────────────────────────────────────────────────────
-
-    function clientToScene(clientX: number, clientY: number): { x: number; y: number } {
-        if (!svgEl || !sceneEl) return { x: 0, y: 0 };
+    function clientToScene(x: number, y: number) {
+        const ctm = sceneEl?.getScreenCTM();
+        if (!svgEl || !ctm) return { x: 0, y: 0 };
         const pt = svgEl.createSVGPoint();
-        pt.x = clientX;
-        pt.y = clientY;
-        const ctm = sceneEl.getScreenCTM();
-        if (!ctm) return { x: 0, y: 0 };
+        pt.x = x;
+        pt.y = y;
         const r = pt.matrixTransform(ctm.inverse());
         return { x: r.x, y: r.y };
     }
+    const sceneDelta = (dx: number, dy: number) => {
+        const a = svgEl?.getScreenCTM()?.a ?? 1;
+        return { dx: dx / a / scale, dy: dy / a / scale };
+    };
+    const center = (g: Geo) => ({ x: g.x + g.width / 2, y: g.y + g.height / 2 });
+    const overlaps = (a: Geo, b: Geo) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 
-    /** Convert mouse event to scene (image-space) coordinates. */
-    function mouseToScene(e: MouseEvent): { x: number; y: number } {
-        return clientToScene(e.clientX, e.clientY);
+    function handlePositions(g: Geo) {
+        const { x, y, width: w, height: h } = g;
+        const pos: Record<HandleDir, [number, number]> = { nw: [x, y], n: [x + w / 2, y], ne: [x + w, y], e: [x + w, y + h / 2], se: [x + w, y + h], s: [x + w / 2, y + h], sw: [x, y + h], w: [x, y + h / 2] };
+        return HANDLES.map(dir => ({ dir, x: pos[dir][0], y: pos[dir][1] }));
     }
 
-    /** Convert mouse event to SVG viewBox coordinates. */
-    function mouseToSVGViewBox(e: MouseEvent): { x: number; y: number } {
-        if (!svgEl) return { x: 0, y: 0 };
-        const pt = svgEl.createSVGPoint();
-        pt.x = e.clientX;
-        pt.y = e.clientY;
-        const ctm = svgEl.getScreenCTM();
-        if (!ctm) return { x: 0, y: 0 };
-        const r = pt.matrixTransform(ctm.inverse());
-        return { x: r.x, y: r.y };
+    function setGeo(d: Parameters<Parameters<typeof edit>[1]>[0], id: string, geo: Geo) {
+        if (d.overrides.added.nodes[id]) d.overrides.added.nodes[id].geo = geo;
+        else d.overrides.nodes[id] = { ...d.overrides.nodes[id], geo };
     }
-
-    function nodeCenter(node: SkeletonNode) {
-        return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
-    }
-
-    function getHandlePositions(node: SkeletonNode): Array<{ dir: HandleDir; x: number; y: number }> {
-        const { x, y, width, height } = node;
-        const mx = x + width / 2;
-        const my = y + height / 2;
-        const r = x + width;
-        const b = y + height;
-        return [
-            { dir: 'nw', x, y },
-            { dir: 'n',  x: mx, y },
-            { dir: 'ne', x: r, y },
-            { dir: 'e',  x: r, y: my },
-            { dir: 'se', x: r, y: b },
-            { dir: 's',  x: mx, y: b },
-            { dir: 'sw', x, y: b },
-            { dir: 'w',  x, y: my },
-        ];
-    }
-
-    function rectsOverlap(
-        ax: number, ay: number, aw: number, ah: number,
-        bx: number, by: number, bw: number, bh: number,
-    ): boolean {
-        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-    }
-
-    // ── Store mutators ────────────────────────────────────────────────────────
-
-    function setSelection(nodeIds: string[], edgeIds: string[]) {
-        appState.update(s => ({
-            ...s,
-            selectedNodeIds: new Set(nodeIds),
-            selectedEdgeIds: new Set(edgeIds),
-        }));
-        selectNodes?.(nodeIds);
-        selectEdges?.(edgeIds);
-    }
-
-    function setHoveredNode(id: string | null) {
-        appState.update(s => ({ ...s, hoveredNodeId: id }));
-    }
-
-    function setHoveredEdge(id: string | null) {
-        appState.update(s => ({ ...s, hoveredEdgeId: id }));
-    }
-
-    // Keyboard focus → hover: sync focusedNodeIdx to shared hoveredNodeId.
-    // Guard reads hoveredNodeId via untrack so it doesn't become a reactive dependency —
-    // otherwise the effect would loop: write hoveredNodeId → re-run → write again.
-    $effect(() => {
-        const id = focusedNodeIdx >= 0 && focusedNodeIdx < nodeList.length
-            ? nodeList[focusedNodeIdx].id
-            : null;
-        if (id !== untrack(() => hoveredNodeId)) setHoveredNode(id);
-    });
-
-    // ── Add node ──────────────────────────────────────────────────────────────
 
     function addNodeAt(pt: { x: number; y: number }) {
-        const id = crypto.randomUUID();
-        const isFirst = nodes.size === 0;
-        const node: SkeletonNode = {
-            id,
-            label: `Node ${nodes.size + 1}`,
-            x: pt.x - 60,
-            y: pt.y - 30,
-            width: 120,
-            height: 60,
-            isEntry: isFirst,
-            isCluster: false,
-            source: 'manual',
-            semantics: { label: `Node ${nodes.size + 1}`, template: `Node ${nodes.size + 1}`, name: 'data point', includeParentName: false, includeIndex: false, omitKeyNames: false },
-            data: {},
-            renderProperties: defaultRenderProperties(),
-        };
-        appState.update(s => ({
-            ...s,
-            nodes: new Map(s.nodes).set(id, node),
-            entryNodeId: isFirst ? id : s.entryNodeId,
-        }));
-        logAction('Added node');
-        setSelection([id], []);
+        const id = newId('node', app.structure.nodes);
+        const label = `Node ${Object.keys(app.doc.overrides.added.nodes).length + 1}`;
+        edit('Added node', d => {
+            d.overrides.added.nodes[id] = { label, geo: { x: pt.x - 60, y: pt.y - 30, width: 120, height: 60 } };
+            if (!app.entry) d.entry = id;
+        });
+        select([id]);
         mode = 'select';
     }
 
-    // ── Add edge ──────────────────────────────────────────────────────────────
-
-    function addEdgeBetween(sourceId: string, targetId: string) {
-        appState.update(s => {
-            const newEdges = new Map(s.edges);
-            const id = crypto.randomUUID();
-            // A "paired" (bidirectional) edge is ONE edge with 2 nav rules — not 2 separate edges.
-            // toStructure() in dnAdapter.ts adds a 2-rule edge to both the source and target
-            // node edge lists, enabling traversal in either direction from either endpoint.
-            newEdges.set(id, {
-                id, sourceId, targetId,
-                direction: 'down',
-                label: '',
-                dnProperties: {},
-                navigationRuleNames: addEdgePairs ? ['down', 'up'] : ['down'],
-            });
-            return { ...s, edges: newEdges };
+    function addEdgeBetween(source: string, target: string) {
+        const rules = addEdgePairs ? ['down', 'up'] : ['down'];
+        const id = newId('edge', app.structure.edges);
+        edit(addEdgePairs ? 'Added edge pair' : 'Added edge', d => {
+            d.overrides.added.edges[id] = { source, target, rules };
         });
-        logAction(addEdgePairs ? 'Added edge pair' : 'Added edge');
         edgeSourceId = null;
         mode = 'select';
     }
 
-    // ── Delete selection ──────────────────────────────────────────────────────
-
     function deleteSelection() {
-        const nodeIds = [...selectedNodeIds];
-        const edgeIds = [...selectedEdgeIds];
-        const connectedEdgeIds = [...edges.values()]
-            .filter(e => selectedNodeIds.has(e.sourceId) || selectedNodeIds.has(e.targetId))
-            .map(e => e.id);
-        const allEdgeIds = new Set([...edgeIds, ...connectedEdgeIds]);
-        if (nodeIds.length === 0 && allEdgeIds.size === 0) return;
-
-        appState.update(s => {
-            const newNodes = new Map(s.nodes);
-            nodeIds.forEach(id => newNodes.delete(id));
-            const newEdges = new Map(s.edges);
-            allEdgeIds.forEach(id => newEdges.delete(id));
-            let newEntryId = s.entryNodeId;
-            if (newEntryId && selectedNodeIds.has(newEntryId)) {
-                newEntryId = newNodes.size > 0 ? [...newNodes.keys()][0] : null;
+        const ns = [...selected];
+        const es = [...selectedEdges];
+        if (!ns.length && !es.length) return;
+        edit(`Deleted ${ns.length} node(s) and ${es.length} edge(s)`, d => {
+            const ov = d.overrides;
+            for (const id of ns) {
+                if (ov.added.nodes[id]) {
+                    delete ov.added.nodes[id];
+                    for (const [eid, e] of Object.entries(ov.added.edges)) if (e.source === id || e.target === id) delete ov.added.edges[eid];
+                } else ov.nodes[id] = { ...ov.nodes[id], removed: true };
+                if (d.entry === id) d.entry = null;
             }
-            return {
-                ...s,
-                nodes: newNodes,
-                edges: newEdges,
-                selectedNodeIds: new Set<string>(),
-                selectedEdgeIds: new Set<string>(),
-                entryNodeId: newEntryId,
-            };
+            for (const id of es) {
+                if (ov.added.edges[id]) delete ov.added.edges[id];
+                else ov.edges[id] = { ...ov.edges[id], removed: true };
+            }
         });
-        logAction(`Deleted ${nodeIds.length} node(s) and ${allEdgeIds.size} edge(s)`);
-        liveMsg = `Deleted ${nodeIds.length} node(s) and ${allEdgeIds.size} edge(s).`;
-        selectNodes?.([]);
-        selectEdges?.([]);
+        liveMsg = `Deleted ${ns.length} node(s) and ${es.length} edge(s).`;
+        select();
     }
-
-    // ── Lasso commit ──────────────────────────────────────────────────────────
 
     function commitLasso() {
         if (!lassoRect) return;
-        const lx = Math.min(lassoRect.x0, lassoRect.x1);
-        const ly = Math.min(lassoRect.y0, lassoRect.y1);
-        const lw = Math.abs(lassoRect.x1 - lassoRect.x0);
-        const lh = Math.abs(lassoRect.y1 - lassoRect.y0);
-        if (lw <= 2 && lh <= 2) {
-            // Click without drag on empty canvas → deselect all
-            setSelection([], []);
-            focusedNodeIdx = -1;
-        } else if (selectFilter === 'nodes') {
-            const hitNodeIds = nodeList
-                .filter(n => rectsOverlap(lx, ly, lw, lh, n.x, n.y, n.width, n.height))
-                .map(n => n.id);
-            const hitNodeSet = new Set(hitNodeIds);
-            const hitEdgeIds = [...edges.values()]
-                .filter(e => hitNodeSet.has(e.sourceId) && hitNodeSet.has(e.targetId))
-                .map(e => e.id);
-
-            if (lassoAdditive) {
-                const newNodeIds = hitNodeIds.filter(id => !selectedNodeIds.has(id));
-                if (newNodeIds.length > 0) {
-                    const merged = new Set([...selectedNodeIds, ...hitNodeIds]);
-                    const mergedEdges = new Set([...selectedEdgeIds, ...hitEdgeIds]);
-                    setSelection([...merged], [...mergedEdges]);
-                    liveMsg = `Added ${newNodeIds.length} node(s) to selection.`;
-                } else {
-                    const remaining = [...selectedNodeIds].filter(id => !hitNodeSet.has(id));
-                    const removedEdgeSet = new Set(hitEdgeIds);
-                    const remainingEdges = [...selectedEdgeIds].filter(id => !removedEdgeSet.has(id));
-                    setSelection(remaining, remainingEdges);
-                    liveMsg = `Removed ${hitNodeIds.length} node(s) from selection.`;
-                }
-            } else {
-                setSelection(hitNodeIds, hitEdgeIds);
-                liveMsg = `Selected ${hitNodeIds.length} node(s) and ${hitEdgeIds.length} edge(s).`;
-            }
+        const box = { x: Math.min(lassoRect.x0, lassoRect.x1), y: Math.min(lassoRect.y0, lassoRect.y1), width: Math.abs(lassoRect.x1 - lassoRect.x0), height: Math.abs(lassoRect.y1 - lassoRect.y0) };
+        lassoRect = null;
+        if (box.width <= 2 && box.height <= 2) return select();
+        const visible = nodeList.filter(n => !hidden.has(n.id));
+        let ns: string[] = [];
+        let es: string[] = [];
+        if (selectFilter === 'nodes') {
+            ns = visible.filter(n => overlaps(box, n.geo)).map(n => n.id);
+            const hit = new Set(ns);
+            es = edgeList.filter(e => hit.has(e.source) && hit.has(e.target)).map(e => e.id);
         } else {
-            // Edge filter: select edges whose midpoint falls in lasso rect
-            const hitEdgeIds = [...edges.values()]
+            es = edgeList
                 .filter(e => {
-                    const src = nodes.get(e.sourceId);
-                    const tgt = nodes.get(e.targetId);
-                    if (!src || !tgt) return false;
-                    const mx = (src.x + src.width / 2 + tgt.x + tgt.width / 2) / 2;
-                    const my = (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2;
-                    return mx >= lx && mx <= lx + lw && my >= ly && my <= ly + lh;
+                    const a = byId.get(e.source);
+                    const b = byId.get(e.target);
+                    if (!a || !b) return false;
+                    const m = { x: (center(a.geo).x + center(b.geo).x) / 2, y: (center(a.geo).y + center(b.geo).y) / 2 };
+                    return m.x >= box.x && m.x <= box.x + box.width && m.y >= box.y && m.y <= box.y + box.height;
                 })
                 .map(e => e.id);
-            const hitEdgeSet = new Set(hitEdgeIds);
-
-            if (lassoAdditive) {
-                const newEdgeIds = hitEdgeIds.filter(id => !selectedEdgeIds.has(id));
-                if (newEdgeIds.length > 0) {
-                    const merged = new Set([...selectedEdgeIds, ...hitEdgeIds]);
-                    setSelection([...selectedNodeIds], [...merged]);
-                    liveMsg = `Added ${newEdgeIds.length} edge(s) to selection.`;
-                } else {
-                    const remaining = [...selectedEdgeIds].filter(id => !hitEdgeSet.has(id));
-                    setSelection([...selectedNodeIds], remaining);
-                    liveMsg = `Removed ${hitEdgeIds.length} edge(s) from selection.`;
-                }
-            } else {
-                setSelection([], hitEdgeIds);
-                liveMsg = `Selected ${hitEdgeIds.length} edge(s).`;
-            }
         }
-        lassoRect = null;
-        lassoAdditive = false;
+        if (lassoAdditive) {
+            const fresh = ns.some(id => !selected.has(id)) || es.some(id => !selectedEdges.has(id));
+            const toggle = (cur: Set<string>, hit: string[]) => (fresh ? [...new Set([...cur, ...hit])] : [...cur].filter(id => !hit.includes(id)));
+            select(toggle(selected, ns), toggle(selectedEdges, es));
+        } else select(ns, es);
+        liveMsg = `Selected ${app.ui.selected.length} node(s) and ${app.ui.selectedEdges.length} edge(s).`;
     }
 
-    // ── SVG mouse events ──────────────────────────────────────────────────────
-
     function onSvgMousedown(e: MouseEvent) {
-        // Middle mouse, space+left, or pan mode = pan
-        if (e.button === 1 || (e.button === 0 && spaceDown) || (e.button === 0 && mode === 'pan')) {
+        if (e.button === 1 || (e.button === 0 && (spaceDown || mode === 'pan'))) {
             isPanning = true;
-            panStartClient = { x: e.clientX, y: e.clientY };
-            panStartTransform = { tx, ty };
+            panStart = { x: e.clientX, y: e.clientY, tx, ty };
             e.preventDefault();
             return;
         }
         if (e.button !== 0) return;
-
-        // Left click on empty canvas (nodes/edges stop propagation)
-        if (mode === 'addNode') {
-            addNodeAt(mouseToScene(e));
-        } else if (mode === 'addEdge' && edgeSourceId) {
+        if (mode === 'addNode') addNodeAt(clientToScene(e.clientX, e.clientY));
+        else if (mode === 'addEdge') {
             edgeSourceId = null;
             mode = 'select';
         } else if (mode === 'select') {
-            // Start a potential lasso; deselect fires in commitLasso if no drag occurred
-            const pt = mouseToScene(e);
+            const pt = clientToScene(e.clientX, e.clientY);
             lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
             lassoAdditive = e.metaKey || e.ctrlKey;
         }
@@ -553,491 +195,192 @@
 
     function onSvgMousemove(e: MouseEvent) {
         if (isPanning) {
-            if (!svgEl) return;
-            const ctm = svgEl.getScreenCTM();
-            if (!ctm) return;
-            // ctm.a = screen px per SVG viewBox px
-            tx = panStartTransform.tx + (e.clientX - panStartClient.x) / ctm.a;
-            ty = panStartTransform.ty + (e.clientY - panStartClient.y) / ctm.d;
-            return;
-        }
-
-        if (lassoRect) {
-            const pt = mouseToScene(e);
+            const a = svgEl?.getScreenCTM()?.a ?? 1;
+            tx = panStart.tx + (e.clientX - panStart.x) / a;
+            ty = panStart.ty + (e.clientY - panStart.y) / a;
+        } else if (lassoRect) {
+            const pt = clientToScene(e.clientX, e.clientY);
             lassoRect = { ...lassoRect, x1: pt.x, y1: pt.y };
-            return;
-        }
-
-        if (resize) {
-            if (!svgEl) return;
-            const ctm = svgEl.getScreenCTM();
-            if (!ctm) return;
-            const dx = (e.clientX - resize.startClientX) / ctm.a / scale;
-            const dy = (e.clientY - resize.startClientY) / ctm.d / scale;
-            const MIN = 20;
-            let nx = resize.startNodeX, ny = resize.startNodeY;
-            let nw = resize.startNodeW, nh = resize.startNodeH;
-            // West handles: move x, shrink width
-            if (resize.dir === 'nw' || resize.dir === 'sw' || resize.dir === 'w') {
-                nw = Math.max(MIN, resize.startNodeW - dx);
-                nx = resize.startNodeX + resize.startNodeW - nw;
-            }
-            // East handles: grow width
-            if (resize.dir === 'ne' || resize.dir === 'se' || resize.dir === 'e') {
-                nw = Math.max(MIN, resize.startNodeW + dx);
-            }
-            // North handles: move y, shrink height
-            if (resize.dir === 'nw' || resize.dir === 'n' || resize.dir === 'ne') {
-                nh = Math.max(MIN, resize.startNodeH - dy);
-                ny = resize.startNodeY + resize.startNodeH - nh;
-            }
-            // South handles: grow height
-            if (resize.dir === 'sw' || resize.dir === 's' || resize.dir === 'se') {
-                nh = Math.max(MIN, resize.startNodeH + dy);
-            }
-            resize.moved = true;
-            appState.update(s => {
-                const n = s.nodes.get(resize!.nodeId);
-                if (!n) return s;
-                return { ...s, nodes: new Map(s.nodes).set(resize!.nodeId, { ...n, x: nx, y: ny, width: nw, height: nh }) };
-            });
-            return;
-        }
-
-        if (drag) {
-            const dx = e.clientX - drag.startClientX;
-            const dy = e.clientY - drag.startClientY;
-            if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+        } else if (resize) {
+            const { dx, dy } = sceneDelta(e.clientX - resize.sx, e.clientY - resize.sy);
+            const s = resize.start;
+            const g = { ...s };
+            if (resize.dir.includes('w')) (g.width = Math.max(20, s.width - dx)), (g.x = s.x + s.width - g.width);
+            if (resize.dir.includes('e')) g.width = Math.max(20, s.width + dx);
+            if (resize.dir.includes('n')) (g.height = Math.max(20, s.height - dy)), (g.y = s.y + s.height - g.height);
+            if (resize.dir.includes('s')) g.height = Math.max(20, s.height + dy);
+            resize.geo = g;
+        } else if (drag) {
+            if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+            const d = sceneDelta(e.clientX - drag.sx, e.clientY - drag.sy);
             drag.moved = true;
-            if (!svgEl) return;
-            const ctm = svgEl.getScreenCTM();
-            if (!ctm) return;
-            // screen delta → viewBox delta → image space delta
-            const imgDx = dx / ctm.a / scale;
-            const imgDy = dy / ctm.d / scale;
-            const newX = drag.startNodeX + imgDx;
-            const newY = drag.startNodeY + imgDy;
-            appState.update(s => {
-                const n = s.nodes.get(drag!.nodeId);
-                if (!n) return s;
-                return { ...s, nodes: new Map(s.nodes).set(drag!.nodeId, { ...n, x: newX, y: newY }) };
-            });
-            return;
-        }
-
-        if (mode === 'addEdge' && edgeSourceId) {
-            const pt = mouseToScene(e);
-            edgeCursorX = pt.x;
-            edgeCursorY = pt.y;
-        }
+            drag.dx = d.dx;
+            drag.dy = d.dy;
+        } else if (mode === 'addEdge' && edgeSourceId) edgeCursor = clientToScene(e.clientX, e.clientY);
     }
 
-    function onSvgMouseup(e: MouseEvent) {
-        if (isPanning) {
-            isPanning = false;
-            return;
-        }
-        if (resize) {
-            if (resize.moved) {
-                const node = nodes.get(resize.nodeId);
-                if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
-                logAction('Resized node');
-            }
-            resize = null;
-            return;
-        }
-        if (lassoRect) {
-            commitLasso();
-            return;
-        }
-        if (drag) {
-            if (!drag.moved) {
-                // Treat as node click: select
-                if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                    // Additive/subtractive toggle
-                    const ids = new Set(selectedNodeIds);
-                    if (ids.has(drag.nodeId)) ids.delete(drag.nodeId);
-                    else ids.add(drag.nodeId);
-                    setSelection([...ids], [...selectedEdgeIds]);
-                } else {
-                    setSelection([drag.nodeId], []);
-                }
-                focusedNodeIdx = nodeList.findIndex(n => n.id === drag!.nodeId);
-            } else {
-                const node = nodes.get(drag.nodeId);
-                if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
-                logAction('Moved node');
-            }
-            drag = null;
-        }
-    }
-
-    function onSvgMouseleave() {
+    function finishPointer(e?: MouseEvent) {
         isPanning = false;
-        if (resize?.moved) {
-            const node = nodes.get(resize.nodeId);
-            if (node) nodesMoved?.([{ nodeId: resize.nodeId, x: node.x, y: node.y }]);
-            logAction('Resized node');
+        if (resize) {
+            const r = resize;
+            resize = null;
+            if (r.geo !== r.start) edit('Resized node', d => setGeo(d, r.id, r.geo));
         }
-        resize = null;
-        if (drag?.moved) {
-            const node = nodes.get(drag.nodeId);
-            if (node) nodesMoved?.([{ nodeId: drag.nodeId, x: node.x, y: node.y }]);
-            logAction('Moved node');
-        }
+        if (lassoRect) commitLasso();
+        if (!drag) return;
+        const dr = drag;
         drag = null;
-        lassoRect = null;
+        if (dr.moved) {
+            edit(dr.ids.length > 1 ? `Moved ${dr.ids.length} nodes` : 'Moved node', d => {
+                for (const id of dr.ids) {
+                    const g = nodes.get(id)!.geo;
+                    setGeo(d, id, { ...g, x: g.x + dr.dx, y: g.y + dr.dy, ...(g.path ? { path: shiftPath(g.path, dr.dx, dr.dy) } : {}) });
+                }
+            });
+        } else if (e && (e.metaKey || e.ctrlKey || e.shiftKey)) {
+            const ids = new Set(selected);
+            ids.has(dr.clicked) ? ids.delete(dr.clicked) : ids.add(dr.clicked);
+            select([...ids], [...selectedEdges]);
+        } else if (e) select([dr.clicked]);
     }
 
-    // ── Node mouse events ─────────────────────────────────────────────────────
-
-    function onNodeMousedown(e: MouseEvent, nodeId: string) {
+    function onNodeMousedown(e: MouseEvent, id: string) {
         if (e.button !== 0) return;
         e.stopPropagation();
-
         if (mode === 'addEdge') {
             if (!edgeSourceId) {
-                edgeSourceId = nodeId;
-                const n = nodes.get(nodeId);
-                if (n) { edgeCursorX = n.x + n.width / 2; edgeCursorY = n.y + n.height / 2; }
-            } else if (edgeSourceId !== nodeId) {
-                addEdgeBetween(edgeSourceId, nodeId);
-            }
+                edgeSourceId = id;
+                edgeCursor = center(nodes.get(id)!.geo);
+            } else if (edgeSourceId !== id) addEdgeBetween(edgeSourceId, id);
             return;
         }
-
-        if (spaceDown || mode === 'pan') return; // space+drag or pan mode pans, don't start node drag
-        if (readonly) return; // no dragging in read-only mode
-
-        const node = nodes.get(nodeId);
-        if (!node) return;
-        drag = {
-            nodeId,
-            startClientX: e.clientX,
-            startClientY: e.clientY,
-            startNodeX: node.x,
-            startNodeY: node.y,
-            moved: false,
-        };
+        if (spaceDown || mode === 'pan') return;
+        drag = { ids: selected.has(id) ? [...selected] : [id], sx: e.clientX, sy: e.clientY, dx: 0, dy: 0, moved: false, clicked: id };
     }
 
-    // ── Handle (resize) mouse events ─────────────────────────────────────────
-
-    function onHandleMousedown(e: MouseEvent, nodeId: string, dir: HandleDir) {
-        if (e.button !== 0 || readonly) return;
-        e.stopPropagation();
-        const node = nodes.get(nodeId);
-        if (!node) return;
-        resize = {
-            nodeId,
-            dir,
-            startClientX: e.clientX,
-            startClientY: e.clientY,
-            startNodeX: node.x,
-            startNodeY: node.y,
-            startNodeW: node.width,
-            startNodeH: node.height,
-            moved: false,
-        };
-    }
-
-    // ── Edge mouse events ─────────────────────────────────────────────────────
-
-    function onEdgeMousedown(e: MouseEvent, edgeId: string) {
-        e.stopPropagation();
-        if (mode === 'addEdge') return; // don't select edges while drawing
+    function onHandleMousedown(e: MouseEvent, id: string, dir: HandleDir) {
         if (e.button !== 0) return;
-        if (e.shiftKey) {
-            const ids = new Set(selectedEdgeIds);
-            if (ids.has(edgeId)) ids.delete(edgeId);
-            else ids.add(edgeId);
-            setSelection([...selectedNodeIds], [...ids]);
-        } else {
-            setSelection([], [edgeId]);
-        }
+        e.stopPropagation();
+        const g = nodes.get(id)!.geo;
+        resize = { id, dir, sx: e.clientX, sy: e.clientY, start: g, geo: g };
     }
 
-    // ── Keyboard ──────────────────────────────────────────────────────────────
+    function onEdgeMousedown(e: MouseEvent, id: string) {
+        e.stopPropagation();
+        if (mode === 'addEdge' || e.button !== 0) return;
+        if (!e.shiftKey) return select([], [id]);
+        const ids = new Set(selectedEdges);
+        ids.has(id) ? ids.delete(id) : ids.add(id);
+        select([...selected], [...ids]);
+    }
+
+    function cycle(step: number) {
+        const list = nodeList.filter(n => !hidden.has(n.id));
+        if (!list.length) return;
+        const i = list.findIndex(n => n.id === app.ui.selected[0]);
+        const next = list[(i + step + list.length) % list.length].id;
+        select([next]);
+        app.ui.hovered = next;
+    }
 
     function onSvgKeydown(e: KeyboardEvent) {
-        switch (e.key) {
-            case ' ':
-                e.preventDefault();
-                spaceDown = true;
-                break;
-            case 'Escape':
-                if (lassoRect) {
-                    lassoRect = null;
-                } else if (mode === 'addNode' || mode === 'addEdge' || mode === 'pan' || edgeSourceId) {
-                    mode = 'select';
-                    edgeSourceId = null;
-                } else {
-                    setSelection([], []);
-                    focusedNodeIdx = -1;
-                }
-                break;
-            case 'a':
-            case 'A':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    setSelection(nodeList.map(n => n.id), [...edges.keys()]);
-                    liveMsg = `Selected all ${nodeList.length} node(s) and ${edges.size} edge(s).`;
-                }
-                break;
-            case 'Delete':
-            case 'Backspace':
-                if (!readonly) deleteSelection();
-                break;
-            case 'ArrowRight':
-            case 'ArrowDown':
-                e.preventDefault();
-                if (nodeList.length > 0) {
-                    focusedNodeIdx = (focusedNodeIdx + 1) % nodeList.length;
-                    setSelection([nodeList[focusedNodeIdx].id], []);
-                }
-                break;
-            case 'ArrowLeft':
-            case 'ArrowUp':
-                e.preventDefault();
-                if (nodeList.length > 0) {
-                    focusedNodeIdx = (focusedNodeIdx - 1 + nodeList.length) % nodeList.length;
-                    setSelection([nodeList[focusedNodeIdx].id], []);
-                }
-                break;
-            case 'Enter':
-                if (focusedNodeIdx >= 0 && focusedNodeIdx < nodeList.length) {
-                    selectNodes?.([nodeList[focusedNodeIdx].id]);
-                }
-                break;
-        }
+        if (e.key === ' ') {
+            e.preventDefault();
+            spaceDown = true;
+        } else if (e.key === 'Escape') {
+            if (lassoRect) lassoRect = null;
+            else if (mode !== 'select' || edgeSourceId) (mode = 'select'), (edgeSourceId = null);
+            else select();
+        } else if (e.key.toLowerCase() === 'a' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            select(nodeList.filter(n => !hidden.has(n.id)).map(n => n.id), edgeList.map(e => e.id));
+            liveMsg = `Selected all ${app.ui.selected.length} node(s) and ${app.ui.selectedEdges.length} edge(s).`;
+        } else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
+        else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), cycle(1));
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), cycle(-1));
     }
-
-    function onSvgKeyup(e: KeyboardEvent) {
-        if (e.key === ' ') spaceDown = false;
-    }
-
-    // ── Touch events ──────────────────────────────────────────────────────────
 
     function onTouchStart(e: TouchEvent) {
-        if (e.touches.length !== 1) return;
-        const touch = e.touches[0];
-        activeTouchId = touch.identifier;
-        if (mode === 'select') {
-            e.preventDefault();
-            const pt = clientToScene(touch.clientX, touch.clientY);
-            lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
-        }
-    }
-
-    function onTouchMove(e: TouchEvent) {
-        if (activeTouchId === null || !lassoRect) return;
-        const touch = [...e.changedTouches].find(t => t.identifier === activeTouchId);
-        if (!touch) return;
+        if (e.touches.length !== 1 || mode !== 'select' || (e.target as Element).closest('.node, .edge')) return;
+        const t = e.touches[0];
+        activeTouchId = t.identifier;
         e.preventDefault();
-        const pt = clientToScene(touch.clientX, touch.clientY);
+        const pt = clientToScene(t.clientX, t.clientY);
+        lassoRect = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+    }
+    function onTouchMove(e: TouchEvent) {
+        const t = [...e.changedTouches].find(t => t.identifier === activeTouchId);
+        if (!t || !lassoRect) return;
+        e.preventDefault();
+        const pt = clientToScene(t.clientX, t.clientY);
         lassoRect = { ...lassoRect, x1: pt.x, y1: pt.y };
     }
-
     function onTouchEnd(e: TouchEvent) {
-        if (activeTouchId === null) return;
-        const touch = [...e.changedTouches].find(t => t.identifier === activeTouchId);
-        if (!touch) return;
+        if (![...e.changedTouches].some(t => t.identifier === activeTouchId)) return;
         activeTouchId = null;
         commitLasso();
     }
 
-    // ── View controls ─────────────────────────────────────────────────────────
-
     function resetView() {
-        if (svgW > 0 && svgH > 0) {
-            // Fit the image/canvas into the SVG element, centered — what xMidYMid meet
-            // was doing implicitly. Now explicit so the view is stable on element resize.
-            const fitScale = Math.min(svgW / vbW, svgH / vbH);
-            tx = (svgW - vbW * fitScale) / 2;
-            ty = (svgH - vbH * fitScale) / 2;
-            scale = fitScale;
-            zoomInput = Math.round(fitScale * 100);
-        } else {
-            tx = 0;
-            ty = 0;
-            scale = 1;
-            zoomInput = 100;
-        }
+        const fit = svgW > 0 && svgH > 0 ? Math.min(svgW / vbW, svgH / vbH) : 1;
+        tx = svgW > 0 ? (svgW - vbW * fit) / 2 : 0;
+        ty = svgH > 0 ? (svgH - vbH * fit) / 2 : 0;
+        scale = fit;
+        zoomInput = Math.round(fit * 100);
     }
-
-    // Initialize the view once the SVG element is first measured.
-    let _viewInitialized = false;
+    let viewReady = false;
     $effect(() => {
-        if (svgW > 0 && svgH > 0 && !_viewInitialized) {
-            _viewInitialized = true;
+        if (svgW > 0 && svgH > 0 && !viewReady) {
+            viewReady = true;
             untrack(resetView);
         }
     });
 
     function applyZoom(percent: number) {
-        const newScale = Math.max(10, Math.min(800, percent)) / 100;
-        // zoom around canvas center
-        if (svgEl) {
-            const { width, height } = svgEl.getBoundingClientRect();
-            const cx = width / 2;
-            const cy = height / 2;
-            const ctm = svgEl.getScreenCTM();
-            if (ctm) {
-                const svgPt = { x: cx / ctm.a, y: cy / ctm.d };
-                const actual = newScale / scale;
-                tx = svgPt.x - (svgPt.x - tx) * actual;
-                ty = svgPt.y - (svgPt.y - ty) * actual;
-            }
+        const next = Math.max(10, Math.min(800, percent)) / 100;
+        const r = svgEl?.getBoundingClientRect();
+        const a = svgEl?.getScreenCTM()?.a ?? 1;
+        if (r) {
+            const c = { x: r.width / 2 / a, y: r.height / 2 / a };
+            tx = c.x - (c.x - tx) * (next / scale);
+            ty = c.y - (c.y - ty) * (next / scale);
         }
-        scale = newScale;
-        zoomInput = Math.round(newScale * 100);
+        scale = next;
+        zoomInput = Math.round(next * 100);
     }
 
-    function activateSelect() {
-        mode = 'select';
+    function setMode(next: Mode) {
+        mode = mode === next && next !== 'select' ? 'select' : next;
         edgeSourceId = null;
         lassoRect = null;
     }
 
-    function togglePan() {
-        mode = mode === 'pan' ? 'select' : 'pan';
-        edgeSourceId = null;
-        lassoRect = null;
-    }
-
-    function toggleAddNode() {
-        mode = mode === 'addNode' ? 'select' : 'addNode';
-        if (mode === 'addNode') edgeSourceId = null;
-    }
-
-    function toggleAddEdge() {
-        mode = mode === 'addEdge' ? 'select' : 'addEdge';
-        if (mode !== 'addEdge') edgeSourceId = null;
-    }
-
-    // ── Resize tooltip (disabled) ──────────────────────────────────────────────
-
-    /* const tooltipNode = $derived(
-        !readonly && selectedNodeIds.size === 1
-            ? (nodes.get([...selectedNodeIds][0]) ?? null)
-            : null
-    );
-
-    let tipX = $state(0);
-    let tipY = $state(0);
-
-    $effect(() => {
-        if (!svgEl || !tooltipNode) return;
-        const cx = tooltipNode.x + tooltipNode.width / 2;
-        const cy = tooltipNode.y;
-        const pt = svgEl.createSVGPoint();
-        pt.x = tx + cx * scale;
-        pt.y = ty + cy * scale;
-        const ctm = svgEl.getScreenCTM();
-        if (!ctm) return;
-        const screen = pt.matrixTransform(ctm);
-        tipX = screen.x;
-        tipY = screen.y;
-    });
-
-    const tipStep = $derived(renderConfig.positionUnit === '%' ? 0.1 : 1);
-
-    function toDisplayW(node: SkeletonNode): number {
-        if (renderConfig.positionUnit === '%' && imageWidth && imageWidth > 0)
-            return Math.round((node.width / imageWidth) * 1000) / 10;
-        return Math.round(node.width);
-    }
-
-    function toDisplayH(node: SkeletonNode): number {
-        if (renderConfig.positionUnit === '%' && imageHeight && imageHeight > 0)
-            return Math.round((node.height / imageHeight) * 1000) / 10;
-        return Math.round(node.height);
-    }
-
-    function tipSetWidth(nodeId: string, displayVal: number) {
-        if (isNaN(displayVal)) return;
-        const px = renderConfig.positionUnit === '%' && imageWidth
-            ? (displayVal / 100) * imageWidth
-            : displayVal;
-        appState.update(s => {
-            const n = s.nodes.get(nodeId);
-            if (!n) return s;
-            return { ...s, nodes: new Map(s.nodes).set(nodeId, { ...n, width: px }) };
-        });
-    }
-
-    function tipSetHeight(nodeId: string, displayVal: number) {
-        if (isNaN(displayVal)) return;
-        const px = renderConfig.positionUnit === '%' && imageHeight
-            ? (displayVal / 100) * imageHeight
-            : displayVal;
-        appState.update(s => {
-            const n = s.nodes.get(nodeId);
-            if (!n) return s;
-            return { ...s, nodes: new Map(s.nodes).set(nodeId, { ...n, height: px }) };
-        });
-    } */
+    const dash = (d: string) => (d === 'dashed' ? '6 3' : d === 'dotted' ? '2 2' : undefined);
 </script>
 
-<!-- aria-live for screen-reader announcements -->
 <div class="visually-hidden" aria-live="polite" aria-atomic="true">{liveMsg}</div>
 
-<!-- Toolbar -->
 <div class="canvas-toolbar" role="toolbar" aria-label="Canvas tools">
-    {#if !readonly}
-        <button
-            class="btn-ghost btn-sm"
-            class:active={mode === 'pan'}
-            type="button"
-            aria-pressed={mode === 'pan'}
-            onclick={togglePan}
-        >
-            Pan
-        </button>
-        <button
-            class="btn-ghost btn-sm"
-            class:active={mode === 'select'}
-            type="button"
-            aria-pressed={mode === 'select'}
-            onclick={activateSelect}
-        >
-            Select
-        </button>
-        <span class="select-filter" role="group" aria-label="Selection target">
-            <label class="filter-label" class:active={selectFilter === 'nodes'}>
-                <input type="radio" name="selectFilter" value="nodes" bind:group={selectFilter} />
-                Nodes
+    {#each [['pan', 'Pan'], ['select', 'Select']] as [m, label] (m)}
+        <button class="btn-ghost btn-sm" class:active={mode === m} type="button" aria-pressed={mode === m} onclick={() => setMode(m as Mode)}>{label}</button>
+    {/each}
+    <span class="select-filter" role="group" aria-label="Selection target">
+        {#each ['nodes', 'edges'] as f (f)}
+            <label class="filter-label" class:active={selectFilter === f}>
+                <input type="radio" name="selectFilter" value={f} bind:group={selectFilter} />
+                {f === 'nodes' ? 'Nodes' : 'Edges'}
             </label>
-            <label class="filter-label" class:active={selectFilter === 'edges'}>
-                <input type="radio" name="selectFilter" value="edges" bind:group={selectFilter} />
-                Edges
-            </label>
-        </span>
-        <span class="toolbar-sep" aria-hidden="true"></span>
-        <button
-            class="btn-ghost btn-sm"
-            class:active={mode === 'addNode'}
-            type="button"
-            aria-pressed={mode === 'addNode'}
-            onclick={toggleAddNode}
-        >
-            + Node
-        </button>
-        <button
-            class="btn-ghost btn-sm"
-            class:active={mode === 'addEdge'}
-            type="button"
-            aria-pressed={mode === 'addEdge'}
-            onclick={toggleAddEdge}
-        >
-            + Edge
-        </button>
-        <label class="toolbar-option">
-            <input type="checkbox" bind:checked={addEdgePairs} />
-            Add pairs
-        </label>
-        <span class="toolbar-sep" aria-hidden="true"></span>
-    {/if}
+        {/each}
+    </span>
+    <span class="toolbar-sep" aria-hidden="true"></span>
+    {#each [['addNode', '+ Node'], ['addEdge', '+ Edge']] as [m, label] (m)}
+        <button class="btn-ghost btn-sm" class:active={mode === m} type="button" aria-pressed={mode === m} onclick={() => setMode(m as Mode)}>{label}</button>
+    {/each}
+    <label class="toolbar-option">
+        <input type="checkbox" bind:checked={addEdgePairs} />
+        Add pairs
+    </label>
+    <span class="toolbar-sep" aria-hidden="true"></span>
     <label class="zoom-label" aria-label="Zoom level">
         <input
             type="number"
@@ -1048,185 +391,106 @@
             bind:value={zoomInput}
             aria-label="Zoom percentage"
             onchange={() => applyZoom(zoomInput)}
-            onkeydown={(e) => { if (e.key === 'Enter') applyZoom(zoomInput); }}
+            onkeydown={e => e.key === 'Enter' && applyZoom(zoomInput)}
         />%
     </label>
-    <button class="btn-ghost btn-sm" type="button" onclick={resetView}>
-        Reset View
-    </button>
+    <button class="btn-ghost btn-sm" type="button" onclick={resetView}>Reset View</button>
     <span class="toolbar-sep" aria-hidden="true"></span>
     <div class="tool-options-wrapper">
         <details class="tool-options-dropdown">
             <summary class="btn-ghost btn-sm">Tool options</summary>
             <div class="tool-options-panel">
-                <!-- Labels -->
                 <p class="tool-opt-heading">Labels</p>
                 <table class="tool-opt-table">
                     <tbody>
-                        <tr>
-                            <td><input type="checkbox" checked={toolOptions.showNodeLabels}
-                                onchange={() => setToolOption('showNodeLabels', !toolOptions.showNodeLabels)} /></td>
-                            <td>Node labels</td>
-                            <td>
-                                <div class="color-pair">
-                                    <input type="color" class="tool-opt-color" title="Text color"
-                                        value={toolOptions.nodeLabelColor}
-                                        oninput={(e) => setToolOption('nodeLabelColor', (e.target as HTMLInputElement).value)} />
-                                    <input type="color" class="tool-opt-color" title="Outline color"
-                                        value={toolOptions.nodeLabelOutlineColor}
-                                        oninput={(e) => setToolOption('nodeLabelOutlineColor', (e.target as HTMLInputElement).value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><input type="checkbox" checked={toolOptions.showEdgeLabels}
-                                onchange={() => setToolOption('showEdgeLabels', !toolOptions.showEdgeLabels)} /></td>
-                            <td>Edge labels</td>
-                            <td>
-                                <div class="color-pair">
-                                    <input type="color" class="tool-opt-color" title="Text color"
-                                        value={toolOptions.edgeLabelColor}
-                                        oninput={(e) => setToolOption('edgeLabelColor', (e.target as HTMLInputElement).value)} />
-                                    <input type="color" class="tool-opt-color" title="Outline color"
-                                        value={toolOptions.edgeLabelOutlineColor}
-                                        oninput={(e) => setToolOption('edgeLabelOutlineColor', (e.target as HTMLInputElement).value)} />
-                                </div>
-                            </td>
-                        </tr>
+                        {#each [['showNodeLabels', 'Node labels', 'nodeLabelColor', 'nodeLabelOutlineColor'], ['showEdgeLabels', 'Edge labels', 'edgeLabelColor', 'edgeLabelOutlineColor']] as [show, label, fg, outline] (show)}
+                            <tr>
+                                <td><input type="checkbox" checked={tools[show as 'showNodeLabels']} onchange={e => setTool(show as 'showNodeLabels', e.currentTarget.checked)} /></td>
+                                <td>{label}</td>
+                                <td>
+                                    <div class="color-pair">
+                                        <input type="color" class="tool-opt-color" title="Text color" value={tools[fg as 'nodeLabelColor']} oninput={e => setTool(fg as 'nodeLabelColor', e.currentTarget.value)} />
+                                        <input type="color" class="tool-opt-color" title="Outline color" value={tools[outline as 'nodeLabelColor']} oninput={e => setTool(outline as 'nodeLabelColor', e.currentTarget.value)} />
+                                    </div>
+                                </td>
+                            </tr>
+                        {/each}
                     </tbody>
                 </table>
 
-                <!-- Nodes -->
                 <p class="tool-opt-heading">Nodes</p>
                 <p class="tool-opt-subtext">Fill is in the properties panel. Backfill color shown here does not appear in the rendered output.</p>
                 <div class="tool-opt-slider-row">
                     <label for="tool-node-fill-opacity">
                         Fill opacity
-                        <span class="tool-opt-note" aria-hidden="true">{toolOptions.nodeFillOpacity.toFixed(2)}</span>
+                        <span class="tool-opt-note" aria-hidden="true">{tools.nodeFillOpacity.toFixed(2)}</span>
                     </label>
-                    <input
-                        id="tool-node-fill-opacity"
-                        type="range"
-                        min="0" max="1" step="0.05"
-                        value={toolOptions.nodeFillOpacity}
-                        oninput={(e) => setToolOption('nodeFillOpacity', parseFloat(e.currentTarget.value))}
-                    />
+                    <input id="tool-node-fill-opacity" type="range" min="0" max="1" step="0.05" value={tools.nodeFillOpacity} oninput={e => setTool('nodeFillOpacity', parseFloat(e.currentTarget.value))} />
                 </div>
                 <table class="tool-opt-table">
                     <tbody>
                         <tr>
-                            <td><input type="checkbox" checked={toolOptions.showAllNodes}
-                                onchange={() => setToolOption('showAllNodes', !toolOptions.showAllNodes)} /></td>
+                            <td><input type="checkbox" checked={tools.showAllNodes} onchange={e => setTool('showAllNodes', e.currentTarget.checked)} /></td>
                             <td>All nodes</td>
-                            <td>
-                                <input type="color" class="tool-opt-color" title="Node backfill color"
-                                    value={toolOptions.nodeBackfillColor}
-                                    oninput={(e) => setToolOption('nodeBackfillColor', (e.target as HTMLInputElement).value)} />
-                            </td>
+                            <td><input type="color" class="tool-opt-color" title="Node backfill color" value={tools.nodeBackfillColor} oninput={e => setTool('nodeBackfillColor', e.currentTarget.value)} /></td>
                         </tr>
-                        {#if isSchemaMode}
-                            <tr class:opt-disabled={!schemaState.level0Enabled}>
-                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel0Node}
-                                    disabled={!schemaState.level0Enabled}
-                                    onchange={() => setToolOption('showLevel0Node', !toolOptions.showLevel0Node)} /></td>
-                                <td>Level 0 node</td>
-                                <td>
-                                    <input type="color" class="tool-opt-color" title="Level 0 backfill color"
-                                        value={toolOptions.level0BackfillColor}
-                                        oninput={(e) => setToolOption('level0BackfillColor', (e.target as HTMLInputElement).value)} />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel1Nodes}
-                                    onchange={() => setToolOption('showLevel1Nodes', !toolOptions.showLevel1Nodes)} /></td>
-                                <td>Level 1 nodes</td>
-                                <td>
-                                    <input type="color" class="tool-opt-color" title="Level 1 backfill color"
-                                        value={toolOptions.level1BackfillColor}
-                                        oninput={(e) => setToolOption('level1BackfillColor', (e.target as HTMLInputElement).value)} />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel2Nodes}
-                                    onchange={() => setToolOption('showLevel2Nodes', !toolOptions.showLevel2Nodes)} /></td>
-                                <td>Level 2 nodes</td>
-                                <td>
-                                    <input type="color" class="tool-opt-color" title="Level 2 backfill color"
-                                        value={toolOptions.level2BackfillColor}
-                                        oninput={(e) => setToolOption('level2BackfillColor', (e.target as HTMLInputElement).value)} />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={toolOptions.showLevel3Nodes}
-                                    onchange={() => setToolOption('showLevel3Nodes', !toolOptions.showLevel3Nodes)} /></td>
-                                <td>Level 3 nodes</td>
-                                <td>
-                                    <input type="color" class="tool-opt-color" title="Level 3 backfill color"
-                                        value={toolOptions.level3BackfillColor}
-                                        oninput={(e) => setToolOption('level3BackfillColor', (e.target as HTMLInputElement).value)} />
-                                </td>
-                            </tr>
-                        {/if}
-                    </tbody>
-                </table>
-
-                <!-- Edges -->
-                <p class="tool-opt-heading">Edges</p>
-                <table class="tool-opt-table">
-                    <tbody>
-                        <tr>
-                            <td><input type="checkbox" checked={toolOptions.showEdges}
-                                onchange={() => setToolOption('showEdges', !toolOptions.showEdges)} /></td>
-                            <td>All edges</td>
-                            <td>
-                                <input type="color" class="tool-opt-color" title="Edge color"
-                                    value={toolOptions.edgeColor}
-                                    oninput={(e) => setToolOption('edgeColor', (e.target as HTMLInputElement).value)} />
-                            </td>
-                        </tr>
-                        {#if isSchemaMode && schemaEdgeTypes.length > 0}
-                            {#each schemaEdgeTypes as edgeType (edgeType)}
-                                <tr>
-                                    <td class="tool-opt-indent-cell">
-                                        <input type="checkbox"
-                                            checked={!toolOptions.hiddenEdgeTypes.includes(edgeType)}
-                                            onchange={() => toggleEdgeType(edgeType)} />
-                                    </td>
-                                    <td>"{edgeType}"</td>
-                                    <td>
-                                        <input type="color" class="tool-opt-color"
-                                            title="Color for {edgeType} edges"
-                                            value={toolOptions.edgeTypeColors[edgeType] ?? toolOptions.edgeColor}
-                                            oninput={(e) => setEdgeTypeColor(edgeType, (e.target as HTMLInputElement).value)} />
-                                    </td>
+                        {#if hasLevels}
+                            {#each ['root', 'dimension', 'division', 'leaf'] as kind, i (kind)}
+                                {@const disabled = kind === 'root' && !app.doc.recipe.root.enabled}
+                                <tr class:opt-disabled={disabled}>
+                                    <td class="tool-opt-indent-cell"><input type="checkbox" {disabled} checked={!!tools[levelShown[kind]]} onchange={e => setTool(levelShown[kind], e.currentTarget.checked as never)} /></td>
+                                    <td>Level {i} node{i ? 's' : ''}</td>
+                                    <td><input type="color" class="tool-opt-color" title="Level {i} backfill color" value={tools[levelFill[kind]]} oninput={e => setTool(levelFill[kind], e.currentTarget.value as never)} /></td>
                                 </tr>
                             {/each}
                         {/if}
                     </tbody>
                 </table>
+
+                <p class="tool-opt-heading">Edges</p>
+                <table class="tool-opt-table">
+                    <tbody>
+                        <tr>
+                            <td><input type="checkbox" checked={tools.showEdges} onchange={e => setTool('showEdges', e.currentTarget.checked)} /></td>
+                            <td>All edges</td>
+                            <td><input type="color" class="tool-opt-color" title="Edge color" value={tools.edgeColor} oninput={e => setTool('edgeColor', e.currentTarget.value)} /></td>
+                        </tr>
+                        {#each edgeTypes as type (type)}
+                            <tr>
+                                <td class="tool-opt-indent-cell"><input type="checkbox" checked={!tools.hiddenEdgeTypes.includes(type)} onchange={() => toggleEdgeType(type)} /></td>
+                                <td>"{type}"</td>
+                                <td>
+                                    <input
+                                        type="color"
+                                        class="tool-opt-color"
+                                        title="Color for {type} edges"
+                                        value={tools.edgeTypeColors[type] ?? tools.edgeColor}
+                                        oninput={e => (app.ui.tools.edgeTypeColors = { ...tools.edgeTypeColors, [type]: e.currentTarget.value })}
+                                    />
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
             </div>
         </details>
     </div>
-    {#if mode === 'addNode'}
-        <span class="mode-hint" aria-live="polite">Click canvas to place node — Escape to cancel</span>
-    {:else if mode === 'addEdge'}
+    {#if mode !== 'select'}
         <span class="mode-hint" aria-live="polite">
-            {edgeSourceId ? 'Click target node — Escape to cancel' : 'Click source node — Escape to cancel'}
+            {mode === 'addNode' ? 'Click canvas to place node' : mode === 'pan' ? 'Click and drag to pan the canvas' : edgeSourceId ? 'Click target node' : 'Click source node'}. Escape to cancel.
         </span>
-    {:else if mode === 'pan'}
-        <span class="mode-hint" aria-live="polite">Click and drag to pan the canvas — Escape to exit</span>
     {/if}
 </div>
 
-<!-- SVG Canvas: role="application" makes this interactive; svelte a11y lint doesn't recognize it -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_no_noninteractive_tabindex -->
 <svg
     bind:this={svgEl}
     bind:clientWidth={svgW}
     bind:clientHeight={svgH}
     {viewBox}
     role="application"
-    aria-label="Graph editor canvas. Use arrow keys to cycle nodes, Enter to open properties, Delete to remove selection."
+    tabindex="0"
+    aria-label="Graph editor canvas. Use arrow keys to cycle nodes and Delete to remove the selection."
     class="graph-canvas"
     class:cursor-crosshair={mode === 'addNode'}
     class:cursor-lasso={!!lassoRect}
@@ -1236,10 +500,10 @@
     style={resize ? `cursor: ${resize.dir}-resize` : ''}
     onmousedown={onSvgMousedown}
     onmousemove={onSvgMousemove}
-    onmouseup={onSvgMouseup}
-    onmouseleave={onSvgMouseleave}
+    onmouseup={finishPointer}
+    onmouseleave={() => finishPointer()}
     onkeydown={onSvgKeydown}
-    onkeyup={onSvgKeyup}
+    onkeyup={e => e.key === ' ' && (spaceDown = false)}
     ontouchstart={onTouchStart}
     ontouchmove={onTouchMove}
     ontouchend={onTouchEnd}
@@ -1254,461 +518,160 @@
     </defs>
 
     <g id="scene" bind:this={sceneEl} transform="translate({tx} {ty}) scale({scale})">
-
-        <!-- Layer 1: Background -->
         {#if imageDataUrl}
-            <image
-                href={imageDataUrl}
-                x="0" y="0"
-                width={vbW} height={vbH}
-                preserveAspectRatio="xMidYMid meet"
-                aria-hidden="true"
-            />
+            <image href={imageDataUrl} x="0" y="0" width={vbW} height={vbH} preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
         {:else}
             <rect class="canvas-bg" x="0" y="0" width={vbW} height={vbH} />
         {/if}
 
-        <!-- Layer 2: Edges -->
-        <!-- TODO(perf): bidirectional edges render 5 SVG elements each (2 paths + 2 hit
-             targets + 1 label). Investigate whether $derived.by() computations
-             (pairedEdgeIds, hiddenEdgeIds, nodeList) re-run more often than necessary.
-             Consider element batching or virtualization for graphs with many nodes/edges. -->
         <g class="edge-layer">
-            {#each [...edges.values()] as edge (edge.id)}
-                {@const src = nodes.get(edge.sourceId)}
-                {@const tgt = nodes.get(edge.targetId)}
-                {#if src && tgt && !hiddenEdgeIds.has(edge.id)}
-                    {@const sc = nodeCenter(src)}
-                    {@const tc = nodeCenter(tgt)}
+            {#each edgeList as edge (edge.id)}
+                {@const src = byId.get(edge.source)}
+                {@const tgt = byId.get(edge.target)}
+                {#if src && tgt}
+                    {@const sc = center(src.geo)}
+                    {@const tc = center(tgt.geo)}
                     {@const dx = tc.x - sc.x}
                     {@const dy = tc.y - sc.y}
-                    {@const len = Math.sqrt(dx * dx + dy * dy) || 1}
+                    {@const len = Math.hypot(dx, dy) || 1}
                     {@const mx = (sc.x + tc.x) / 2}
                     {@const my = (sc.y + tc.y) / 2}
-                    {@const isPaired = pairedEdgeIds.has(edge.id)}
-                    {@const cpx = isPaired ? mx + (dy / len) * 30 : mx}
-                    {@const cpy = isPaired ? my + (-dx / len) * 30 : my}
-                    {@const lx = isPaired ? (sc.x + 2 * cpx + tc.x) / 4 : mx}
-                    {@const ly = isPaired ? (sc.y + 2 * cpy + tc.y) / 4 : my}
-                    {@const isSel = selectedEdgeIds.has(edge.id)}
-                    {@const isEdgeHov = hoveredEdgeId === edge.id && !isSel}
-                    {@const edgeCol = isSel ? 'var(--dn-accent)' : (toolOptions.edgeTypeColors[edge.label ?? ''] ?? toolOptions.edgeColor)}
+                    {@const paired = edge.rules.length > 1}
+                    {@const fwd = paired ? `M ${sc.x} ${sc.y} Q ${mx + (dy / len) * 30} ${my - (dx / len) * 30} ${tc.x} ${tc.y}` : `M ${sc.x} ${sc.y} L ${tc.x} ${tc.y}`}
+                    {@const bwd = `M ${tc.x} ${tc.y} Q ${mx - (dy / len) * 30} ${my + (dx / len) * 30} ${sc.x} ${sc.y}`}
+                    {@const isSel = selectedEdges.has(edge.id)}
+                    {@const col = isSel ? 'var(--dn-accent)' : (tools.edgeTypeColors[edge.rules[0]] ?? tools.edgeColor)}
+                    {@const marker = isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
                     <g
                         class="edge"
                         class:selected={isSel}
-                        class:hovered={isEdgeHov}
+                        class:hovered={app.ui.hoveredEdge === edge.id && !isSel}
                         role="button"
                         tabindex="-1"
-                        aria-label="Edge {edge.label || edge.direction} from {src.label} to {tgt.label}{isSel ? ', selected' : ''}"
-                        onmousedown={(e) => onEdgeMousedown(e, edge.id)}
-                        onmouseenter={() => setHoveredEdge(edge.id)}
-                        onmouseleave={() => setHoveredEdge(null)}
+                        aria-label="Edge {edge.rules.join(' and ')} from {src.name} to {tgt.name}{isSel ? ', selected' : ''}"
+                        onmousedown={e => onEdgeMousedown(e, edge.id)}
+                        onmouseenter={() => (app.ui.hoveredEdge = edge.id)}
+                        onmouseleave={() => (app.ui.hoveredEdge = null)}
                     >
-                        <!-- Invisible wide hit target -->
-                        {#if isPaired}
-                            <path
-                                d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
-                                fill="none" stroke="transparent" stroke-width="12"
-                            />
-                        {:else}
-                            <line
-                                x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                                stroke="transparent" stroke-width="12"
-                            />
-                        {/if}
-                        {#if isPaired}
-                            {@const cpx_bwd = mx - (dy / len) * 30}
-                            {@const cpy_bwd = my + (dx / len) * 30}
-                            <!-- Forward arrow: src → tgt (offset to one side) -->
-                            <path
-                                d="M {sc.x} {sc.y} Q {cpx} {cpy} {tc.x} {tc.y}"
-                                fill="none"
-                                color={edgeCol}
-                                stroke={edgeCol}
-                                stroke-width={isSel ? 2.5 : 1.5}
-                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
-                            />
-                            <!-- Reverse arrow: tgt → src (offset to opposite side).
-                                 Both arrows belong to this one bidirectional edge. -->
-                            <path
-                                d="M {tc.x} {tc.y} Q {cpx_bwd} {cpy_bwd} {sc.x} {sc.y}"
-                                fill="none"
-                                color={edgeCol}
-                                stroke={edgeCol}
-                                stroke-width={isSel ? 2.5 : 1.5}
-                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
-                            />
-                        {:else}
-                            <line
-                                x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y}
-                                color={edgeCol}
-                                stroke={edgeCol}
-                                stroke-width={isSel ? 2.5 : 1.5}
-                                marker-end={isSel ? 'url(#dn-arrow-sel)' : 'url(#dn-arrow)'}
-                            />
-                        {/if}
-                        {#if toolOptions.showEdgeLabels && (edge.direction || edge.label)}
+                        <path d={fwd} fill="none" stroke="transparent" stroke-width="12" />
+                        {#if paired}<path d={bwd} fill="none" stroke="transparent" stroke-width="12" />{/if}
+                        <path d={fwd} fill="none" color={col} stroke={col} stroke-width={isSel ? 2.5 : 1.5} marker-end={marker} />
+                        {#if paired}<path d={bwd} fill="none" color={col} stroke={col} stroke-width={isSel ? 2.5 : 1.5} marker-end={marker} />{/if}
+                        {#if tools.showEdgeLabels}
                             <text
-                                x={lx} y={ly - 6}
+                                x={paired ? (sc.x + 2 * (mx + (dy / len) * 30) + tc.x) / 4 : mx}
+                                y={(paired ? (sc.y + 2 * (my - (dx / len) * 30) + tc.y) / 4 : my) - 6}
                                 class="edge-label"
                                 text-anchor="middle"
-                                fill={isSel ? 'var(--dn-accent)' : toolOptions.edgeLabelColor}
-                                stroke={toolOptions.edgeLabelOutlineColor}
+                                fill={isSel ? 'var(--dn-accent)' : tools.edgeLabelColor}
+                                stroke={tools.edgeLabelOutlineColor}
                                 stroke-width="2"
                                 paint-order="stroke"
                                 font-size="11"
-                                font-family="var(--dn-font)"
-                            >{edge.label || edge.direction}</text>
+                                font-family="var(--dn-font)">{edge.rules.join(' / ')}</text
+                            >
                         {/if}
                     </g>
                 {/if}
             {/each}
         </g>
 
-        <!-- Layer 3: Nodes -->
         <g class="node-layer">
             {#each nodeList as node (node.id)}
-                {#if !hiddenNodeIds.has(node.id)}
-                {@const isSel = selectedNodeIds.has(node.id)}
-                {@const isHov = hoveredNodeId === node.id && !isSel}
-                {@const isEntry = node.id === entryNodeId}
-                {@const cx = node.x + node.width / 2}
-                {@const cy = node.y + node.height / 2}
-                <g
-                    class="node"
-                    class:selected={isSel}
-                    class:hovered={isHov}
-                    role="button"
-                    tabindex="-1"
-                    aria-label="{node.label}{isEntry ? ', entry node' : ''}{node.isCluster ? ', cluster node' : ''}{isSel ? ', selected' : ''}"
-                    onmousedown={(e) => onNodeMousedown(e, node.id)}
-                    onmouseenter={() => setHoveredNode(node.id)}
-                    onmouseleave={() => setHoveredNode(null)}
-                >
-                    <!-- Hover ring (linked from schema or keyboard focus) -->
-                    {#if isHov}
-                        {#if node.renderProperties.shape === 'ellipse'}
-                            <ellipse
-                                {cx} {cy}
-                                rx={node.width / 2 + 4} ry={node.height / 2 + 4}
-                                fill="none"
-                                stroke="var(--dn-accent-mid)"
-                                stroke-width="1.5"
-                                stroke-dasharray="3 2"
-                                opacity="0.7"
-                            />
-                        {:else}
-                            <rect
-                                x={node.x - 4} y={node.y - 4}
-                                width={node.width + 8} height={node.height + 8}
-                                fill="none"
-                                stroke="var(--dn-accent-mid)"
-                                stroke-width="1.5"
-                                stroke-dasharray="3 2"
-                                rx="6"
-                                opacity="0.7"
-                            />
-                        {/if}
-                    {/if}
-
-                    <!-- Selection ring -->
-                    {#if isSel}
-                        {#if node.renderProperties.shape === 'ellipse'}
-                            <ellipse
-                                {cx} {cy}
-                                rx={node.width / 2 + 5} ry={node.height / 2 + 5}
-                                fill="none"
-                                stroke="var(--dn-accent)"
-                                stroke-width="2"
-                                stroke-dasharray="5 2"
-                            />
-                        {:else}
-                            <rect
-                                x={node.x - 5} y={node.y - 5}
-                                width={node.width + 10} height={node.height + 10}
-                                fill="none"
-                                stroke="var(--dn-accent)"
-                                stroke-width="2"
-                                stroke-dasharray="5 2"
-                                rx="7"
-                            />
-                        {/if}
-                    {/if}
-
-                    <!-- Cluster shadow rect -->
-                    {#if node.isCluster && node.renderProperties.shape !== 'ellipse'}
-                        {@const shadowFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                        <rect
-                            x={node.x + 5} y={node.y + 5}
-                            width={node.width} height={node.height}
-                            fill={shadowFill}
-                            stroke={node.renderProperties.strokeColor ?? '#000000'}
-                            stroke-width={node.renderProperties.strokeWidth ?? 2}
-                            rx="4"
-                            opacity="0.5"
-                        />
-                    {/if}
-
-                    <!-- Backfill (tool-only visual, not exported) -->
-                    {#if nodeBackfillColorMap.has(node.id)}
-                        {@const bfColor = nodeBackfillColorMap.get(node.id)!}
-                        {#if node.renderProperties.shape === 'ellipse'}
-                            <ellipse
-                                {cx} {cy}
-                                rx={node.width / 2} ry={node.height / 2}
-                                fill={bfColor}
-                                fill-opacity={toolOptions.nodeFillOpacity}
-                                stroke="none"
-                                pointer-events="none"
-                            />
-                        {:else}
-                            <rect
-                                x={node.x} y={node.y}
-                                width={node.width} height={node.height}
-                                fill={bfColor}
-                                fill-opacity={toolOptions.nodeFillOpacity}
-                                stroke="none"
-                                rx="4"
-                                pointer-events="none"
-                            />
-                        {/if}
-                    {/if}
-
-                    <!-- Main shape -->
-                    {#if node.renderProperties.shape === 'ellipse'}
-                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
-                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
-                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
-                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
-                        <ellipse
-                            {cx} {cy}
-                            rx={node.width / 2} ry={node.height / 2}
-                            fill={nodeFill}
-                            fill-opacity={nodeFillOpacity}
-                            stroke={nodeStroke}
-                            stroke-width={nodeStrokeWidth}
-                            stroke-dasharray={nodeDashArray}
-                            opacity={node.renderProperties.opacity}
-                        />
-                    {:else if node.renderProperties.shape === 'path'}
-                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
-                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
-                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
-                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
-                        <path
-                            d={node.pathData ?? ''}
-                            fill={nodeFill}
-                            fill-opacity={nodeFillOpacity}
-                            stroke={nodeStroke}
-                            stroke-width={nodeStrokeWidth}
-                            stroke-dasharray={nodeDashArray}
-                            opacity={node.renderProperties.opacity}
-                        />
-                    {:else}
-                        {@const nodeFill = node.renderProperties.fillEnabled ? node.renderProperties.fill : 'white'}
-                        {@const nodeFillOpacity = node.renderProperties.fillEnabled ? toolOptions.nodeFillOpacity : 0}
-                        {@const nodeStroke = isSel ? 'var(--dn-accent)' : (node.renderProperties.strokeColor ?? '#000000')}
-                        {@const nodeStrokeWidth = isSel ? 2 : (node.renderProperties.strokeWidth ?? 2)}
-                        {@const nodeDashArray = node.renderProperties.strokeDash === 'dashed' ? '6 3' : node.renderProperties.strokeDash === 'dotted' ? '2 2' : undefined}
-                        <rect
-                            x={node.x} y={node.y}
-                            width={node.width} height={node.height}
-                            fill={nodeFill}
-                            fill-opacity={nodeFillOpacity}
-                            stroke={nodeStroke}
-                            stroke-width={nodeStrokeWidth}
-                            stroke-dasharray={nodeDashArray}
-                            rx="4"
-                            opacity={node.renderProperties.opacity}
-                        />
-                    {/if}
-
-                    <!-- Label (white halo pass + black text pass for legibility) -->
-                    {#if toolOptions.showNodeLabels}
-                    <text
-                        x={cx} y={cy}
-                        text-anchor="middle"
-                        dominant-baseline="middle"
-                        font-size="12"
-                        font-family="var(--dn-font)"
-                        font-weight="700"
-                        fill="none"
-                        stroke={toolOptions.nodeLabelOutlineColor}
-                        stroke-width="3"
-                        stroke-linejoin="round"
-                        paint-order="stroke"
-                        pointer-events="none"
-                        aria-hidden="true"
+                {#if !hidden.has(node.id)}
+                    {@const g = node.geo}
+                    {@const st = node.style}
+                    {@const isSel = selected.has(node.id)}
+                    {@const isHov = app.ui.hovered === node.id && !isSel}
+                    {@const isEntry = node.id === app.entry}
+                    {@const shape = g.path ? 'path' : st.shape}
+                    {@const cx = g.x + g.width / 2}
+                    {@const cy = g.y + g.height / 2}
+                    {@const back = tools[levelFill[node.kind]] as string}
+                        {@const fill = st.fillEnabled ? st.fill : shape === 'path' ? 'none' : 'white'}
+                        {@const fillOpacity = st.fillEnabled ? tools.nodeFillOpacity : 0}
+                        {@const stroke = isSel ? 'var(--dn-accent)' : st.strokeColor}
+                        {@const strokeWidth = isSel ? 2 : st.strokeWidth}
+                    <g
+                        class="node"
+                        class:selected={isSel}
+                        class:hovered={isHov}
+                        role="button"
+                        tabindex="-1"
+                        aria-label="{node.name}{isEntry ? ', entry node' : ''}{isSel ? ', selected' : ''}"
+                        onmousedown={e => onNodeMousedown(e, node.id)}
+                        onmouseenter={() => (app.ui.hovered = node.id)}
+                        onmouseleave={() => (app.ui.hovered = null)}
                     >
-                        {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
-                    </text>
-                    <text
-                        x={cx} y={cy}
-                        text-anchor="middle"
-                        dominant-baseline="middle"
-                        font-size="12"
-                        font-family="var(--dn-font)"
-                        font-weight="700"
-                        fill={toolOptions.nodeLabelColor}
-                        pointer-events="none"
-                    >
-                        {node.label}{node.isCluster && node.clusterCount != null ? ` (${node.clusterCount})` : ''}
-                    </text>
-                    {/if}
-
-                    <!-- Entry marker ★ -->
-                    {#if isEntry}
-                        <text
-                            x={node.x + 4}
-                            y={node.y - 3}
-                            font-size="11"
-                            fill="var(--dn-accent)"
-                            pointer-events="none"
-                            aria-hidden="true"
-                        >★</text>
-                    {/if}
-
-                    <!-- Resize handles (single selection, editable, not for path nodes) -->
-                    {#if isSel && selectedNodeIds.size === 1 && !readonly && node.renderProperties.shape !== 'path'}
-                        {@const hs = 8 / scale}
-                        {@const hhs = hs / 2}
-                        {#each getHandlePositions(node) as h (h.dir)}
-                            <rect
-                                class="resize-handle"
-                                x={h.x - hhs} y={h.y - hhs}
-                                width={hs} height={hs}
-                                stroke-width={1.5 / scale}
-                                style="cursor: {h.dir}-resize"
-                                aria-hidden="true"
-                                onmousedown={(e) => onHandleMousedown(e, node.id, h.dir)}
-                            />
+                        {#each [[isHov, 4, 'var(--dn-accent-mid)', '3 2', 1.5], [isSel, 5, 'var(--dn-accent)', '5 2', 2]] as [on, pad, stroke, dashes, width]}
+                            {#if on}
+                                {#if shape === 'ellipse'}
+                                    <ellipse {cx} {cy} rx={g.width / 2 + +pad} ry={g.height / 2 + +pad} fill="none" stroke={String(stroke)} stroke-width={+width} stroke-dasharray={String(dashes)} />
+                                {:else}
+                                    <rect x={g.x - +pad} y={g.y - +pad} width={g.width + 2 * +pad} height={g.height + 2 * +pad} fill="none" stroke={String(stroke)} stroke-width={+width} stroke-dasharray={String(dashes)} rx="6" />
+                                {/if}
+                            {/if}
                         {/each}
-                    {/if}
-                </g>
+                        {#if shape === 'ellipse'}
+                            <ellipse {cx} {cy} rx={g.width / 2} ry={g.height / 2} fill={back} fill-opacity={tools.nodeFillOpacity} stroke="none" pointer-events="none" />
+                        {:else if shape !== 'path'}
+                            <rect x={g.x} y={g.y} width={g.width} height={g.height} fill={back} fill-opacity={tools.nodeFillOpacity} stroke="none" rx="4" pointer-events="none" />
+                        {/if}
+                        {#if shape === 'ellipse'}
+                            <ellipse {cx} {cy} rx={g.width / 2} ry={g.height / 2} {fill} fill-opacity={fillOpacity} {stroke} stroke-width={strokeWidth} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
+                        {:else if shape === 'path'}
+                            <path d={g.path ?? ''} {fill} fill-opacity={fillOpacity} {stroke} stroke-width={strokeWidth} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
+                        {:else}
+                            <rect x={g.x} y={g.y} width={g.width} height={g.height} {fill} fill-opacity={fillOpacity} {stroke} stroke-width={strokeWidth} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
+                        {/if}
+                        {#if tools.showNodeLabels}
+                            <text x={cx} y={cy} text-anchor="middle" dominant-baseline="middle" font-size="12" font-family="var(--dn-font)" font-weight="700" fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor} stroke-width="3" stroke-linejoin="round" paint-order="stroke" pointer-events="none">{node.name}</text>
+                        {/if}
+                        {#if isEntry}
+                            <text x={g.x + 4} y={g.y - 3} font-size="11" fill="var(--dn-accent)" pointer-events="none" aria-hidden="true">★</text>
+                        {/if}
+                        {#if isSel && selected.size === 1 && shape !== 'path'}
+                            {@const hs = 8 / scale}
+                            {#each handlePositions(g) as h (h.dir)}
+                                <rect
+                                    class="resize-handle"
+                                    x={h.x - hs / 2}
+                                    y={h.y - hs / 2}
+                                    width={hs}
+                                    height={hs}
+                                    stroke-width={1.5 / scale}
+                                    style="cursor: {h.dir}-resize"
+                                    aria-hidden="true"
+                                    onmousedown={e => onHandleMousedown(e, node.id, h.dir)}
+                                />
+                            {/each}
+                        {/if}
+                    </g>
                 {/if}
             {/each}
         </g>
 
-        <!-- Layer 4: Interaction overlay -->
-        {#if mode === 'addEdge' && edgeSourceId}
-            {@const srcNode = nodes.get(edgeSourceId)}
-            {#if srcNode}
-                <line
-                    x1={srcNode.x + srcNode.width / 2}
-                    y1={srcNode.y + srcNode.height / 2}
-                    x2={edgeCursorX}
-                    y2={edgeCursorY}
-                    stroke="var(--dn-accent)"
-                    stroke-width="1.5"
-                    stroke-dasharray="6 3"
-                    pointer-events="none"
-                />
-            {/if}
+        {#if mode === 'addEdge' && edgeSourceId && byId.get(edgeSourceId)}
+            {@const c = center(byId.get(edgeSourceId)!.geo)}
+            <line x1={c.x} y1={c.y} x2={edgeCursor.x} y2={edgeCursor.y} stroke="var(--dn-accent)" stroke-width="1.5" stroke-dasharray="6 3" pointer-events="none" />
         {/if}
 
-        <!-- Layer 5: Placement preview overlay -->
-        {#if renderConfig.showOverlay}
-            <g class="overlay-layer" aria-hidden="true" pointer-events="none">
-                {#each nodeList as node (node.id)}
-                    <rect
-                        class="overlay-rect"
-                        x={node.x} y={node.y}
-                        width={node.width} height={node.height}
-                        rx="4"
-                        pointer-events="none"
-                    />
-                {/each}
-            </g>
-        {/if}
-
-        <!-- Layer 6: Lasso rect -->
         {#if lassoRect}
-            {@const lx = Math.min(lassoRect.x0, lassoRect.x1)}
-            {@const ly = Math.min(lassoRect.y0, lassoRect.y1)}
-            {@const lw = Math.abs(lassoRect.x1 - lassoRect.x0)}
-            {@const lh = Math.abs(lassoRect.y1 - lassoRect.y0)}
             <rect
                 class="lasso-rect"
-                x={lx} y={ly}
-                width={lw} height={lh}
+                x={Math.min(lassoRect.x0, lassoRect.x1)}
+                y={Math.min(lassoRect.y0, lassoRect.y1)}
+                width={Math.abs(lassoRect.x1 - lassoRect.x0)}
+                height={Math.abs(lassoRect.y1 - lassoRect.y0)}
                 pointer-events="none"
             />
         {/if}
 
-        <!-- Layer 7: Scaffold overlay (active only in scaffold mode) -->
-        {#if scaffoldModeActive}
-            <ScaffoldOverlay />
+        {#if app.ui.scaffoldMode}
+            <ScaffoldOverlay {scale} />
         {/if}
-
     </g>
 </svg>
-
-<!-- Resize tooltip disabled -->
-<!-- {#if tooltipNode}
-    {@const tn = tooltipNode}
-    <div
-        class="resize-tooltip"
-        style="left: {tipX}px; top: {tipY}px"
-        aria-label="Size of {tn.label}"
-        onmousedown={(e) => e.stopPropagation()}
-    >
-        <div class="rtip-row">
-            <span class="rtip-label">W</span>
-            <button
-                class="rtip-btn"
-                type="button"
-                aria-label="Decrease width"
-                onmousedown={(e) => e.stopPropagation()}
-                onclick={() => tipSetWidth(tn.id, toDisplayW(tn) - tipStep)}
-            >−</button>
-            <input
-                type="number"
-                class="rtip-input"
-                step={tipStep}
-                value={toDisplayW(tn)}
-                aria-label="Width"
-                onmousedown={(e) => e.stopPropagation()}
-                oninput={(e) => tipSetWidth(tn.id, parseFloat(e.currentTarget.value))}
-            />
-            <button
-                class="rtip-btn"
-                type="button"
-                aria-label="Increase width"
-                onmousedown={(e) => e.stopPropagation()}
-                onclick={() => tipSetWidth(tn.id, toDisplayW(tn) + tipStep)}
-            >+</button>
-        </div>
-        <div class="rtip-row">
-            <span class="rtip-label">H</span>
-            <button
-                class="rtip-btn"
-                type="button"
-                aria-label="Decrease height"
-                onmousedown={(e) => e.stopPropagation()}
-                onclick={() => tipSetHeight(tn.id, toDisplayH(tn) - tipStep)}
-            >−</button>
-            <input
-                type="number"
-                class="rtip-input"
-                step={tipStep}
-                value={toDisplayH(tn)}
-                aria-label="Height"
-                onmousedown={(e) => e.stopPropagation()}
-                oninput={(e) => tipSetHeight(tn.id, parseFloat(e.currentTarget.value))}
-            />
-            <button
-                class="rtip-btn"
-                type="button"
-                aria-label="Increase height"
-                onmousedown={(e) => e.stopPropagation()}
-                onclick={() => tipSetHeight(tn.id, toDisplayH(tn) + tipStep)}
-            >+</button>
-        </div>
-        <span class="rtip-unit">{renderConfig.positionUnit}</span>
-    </div>
-{/if} -->
 
 <style>
     .canvas-toolbar {
@@ -1859,12 +822,6 @@
         stroke-dasharray: 4 2;
     }
 
-    :global(.overlay-rect) {
-        fill: rgba(20, 184, 166, 0.25);
-        stroke: rgba(13, 148, 136, 0.7);
-        stroke-width: 1.5;
-    }
-
     :global(.resize-handle) {
         fill: var(--dn-bg);
         stroke: var(--dn-accent);
@@ -1874,95 +831,6 @@
         fill: var(--dn-accent-soft);
     }
 
-    /* ── Resize tooltip (disabled) ──
-    .resize-tooltip {
-        position: absolute;
-        transform: translate(-50%, calc(-100% - 10px));
-        background: var(--dn-bg);
-        border: 1px solid var(--dn-border);
-        border-radius: var(--dn-radius);
-        padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 0.875);
-        display: flex;
-        flex-direction: column;
-        gap: calc(var(--dn-space) * 0.375);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-        z-index: 50;
-        pointer-events: auto;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-
-    .rtip-row {
-        display: flex;
-        align-items: center;
-        gap: calc(var(--dn-space) * 0.375);
-    }
-
-    .rtip-label {
-        font-size: 0.6875rem;
-        font-weight: 700;
-        color: #949494;
-        width: 10px;
-        font-family: var(--dn-font-mono);
-        text-transform: uppercase;
-    }
-
-    .rtip-input {
-        font-family: var(--dn-font-mono);
-        font-size: 0.8125rem;
-        color: var(--dn-text);
-        background: var(--dn-surface);
-        border: 1px solid var(--dn-border);
-        border-radius: 3px;
-        padding: 2px 4px;
-        width: 58px;
-        text-align: right;
-        -moz-appearance: textfield;
-        appearance: textfield;
-    }
-
-    .rtip-input::-webkit-outer-spin-button,
-    .rtip-input::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-
-    .rtip-input:focus {
-        border-color: var(--dn-accent);
-        outline: none;
-    }
-
-    .rtip-btn {
-        background: none;
-        border: 1px solid var(--dn-border);
-        border-radius: 3px;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 0.9375rem;
-        color: #949494;
-        padding: 0;
-        line-height: 1;
-        font-family: var(--dn-font-mono);
-        flex-shrink: 0;
-    }
-
-    .rtip-btn:hover {
-        background: var(--dn-accent-soft);
-        color: var(--dn-accent);
-        border-color: var(--dn-accent-light);
-    }
-
-    .rtip-unit {
-        font-size: 0.625rem;
-        color: #949494;
-        text-align: center;
-        font-family: var(--dn-font-mono);
-        letter-spacing: 0.03em;
-    } */
 
     /* ── Tool options dropdown ── */
     .tool-options-wrapper {

@@ -1,580 +1,137 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
-    import type { LabelTemplate } from '../../../store/appState';
-    import {
-        calcCount, calcSubcount, calcMin, calcMax, calcSum, calcAvg,
-        calcTrend, calcR2, normalizeTemplate,
-        stripKeyNamesFromDimTemplate, addKeyNamesToDimTemplate, formatNum,
-    } from './aggregateUtils';
-
-    interface ParentDimension {
-        key: string;
-        isReduced: boolean;
-        dimNoun: string;       // noun from LabelTemplate.name (e.g., "group")
-        hasDivisions: boolean; // whether this dim has meaningful divisions
-        divNoun?: string;      // noun from division LabelTemplate.name (e.g., "subgroup")
-        divTotal?: number;     // dim.subdivisions — for "of N" in subgroup preview
-    }
-
-    interface SuggestedField {
-        key: string;
-        rank?: '1st' | '2nd' | '3rd';
-    }
+    import { app } from '../../../model/state.svelte';
+    import type { LabelTemplate } from '../../../model/doc';
+    import { label as resolve } from '../../../runtime/dn-runtime.js';
 
     interface Props {
-        fields: string[];
-        nodeType: 'level0' | 'level1' | 'level2' | 'level3';
         value: LabelTemplate;
-        sampleData: Record<string, unknown>;
+        level: 0 | 1 | 2 | 3;
         onchange: (v: LabelTemplate) => void;
-        dimensionName?: string;          // division builders: the parent dim key
-        parentDimensions?: ParentDimension[]; // leaf builders: per-dim parent name checkboxes
-        suggestedFields?: SuggestedField[];   // fields to highlight with ★ badges
-        // aggregate extras (level1 and level2 only)
-        aggregateFields?: string[];      // numerical fields available for agg selection
-        trendXFields?: string[];         // all fields eligible as trend X variable (cat + num)
-        suggestedAggField?: string;      // pre-highlighted field for min/max (divisions)
-        dimensionCount?: number;         // how many dimensions selected (for position checkbox)
-        hasDivisions?: boolean;          // level1 only: whether this dim has sub-divisions
-        rawData?: Record<string, unknown>[];  // full dataset for real aggregate previews
-        dimensionKey?: string;           // level1 only: the dimension's field key (for subcount)
-        parentDimNoun?: string;          // level2 only: noun of the parent dimension (for suffix preview)
+        dimensionKey?: string;
+        nodeId?: string;
+        suggestedFields?: { key: string; rank?: string }[];
+        suggestedAggField?: string;
     }
+    const { value, level, onchange, dimensionKey, nodeId, suggestedFields = [], suggestedAggField }: Props = $props();
 
-    let {
-        fields,
-        nodeType,
-        value,
-        sampleData,
-        onchange,
-        dimensionName = undefined,
-        parentDimensions = [],
-        suggestedFields = [],
-        aggregateFields = [],
-        trendXFields = undefined,
-        suggestedAggField = undefined,
-        dimensionCount = 1,
-        hasDivisions = false,
-        rawData = [],
-        dimensionKey = undefined,
-        parentDimNoun = undefined,
-    }: Props = $props();
-
-    const effectiveTrendXFields = $derived(trendXFields ?? aggregateFields);
-
-
-    // ── Live preview ─────────────────────────────────────────────────────────
-    const preview = $derived(buildPreview(value, sampleData));
-
-    function buildPreview(tmpl: LabelTemplate, data: Record<string, unknown>): string {
-        let resolved = tmpl.template;
-
-        // Aggregate tokens (resolve before key/value tokens) — use real data when available
-        resolved = resolved.replace(/\{subcount\}/g, () =>
-            (rawData.length > 0 && dimensionKey)
-                ? String(calcSubcount(rawData, dimensionKey))
-                : '[subcount]'
-        );
-        resolved = resolved.replace(/\{count\}/g, () =>
-            rawData.length > 0 ? String(calcCount(rawData)) : '[count]'
-        );
-        resolved = resolved.replace(/\{min:"([^"]+)"\}/g, (_: string, f: string) =>
-            rawData.length > 0 ? formatNum(calcMin(rawData, f)) : `[min ${f}]`
-        );
-        resolved = resolved.replace(/\{max:"([^"]+)"\}/g, (_: string, f: string) =>
-            rawData.length > 0 ? formatNum(calcMax(rawData, f)) : `[max ${f}]`
-        );
-        resolved = resolved.replace(/\{sum:"([^"]+)"\}/g, (_: string, f: string) =>
-            rawData.length > 0 ? formatNum(calcSum(rawData, f)) : `[sum ${f}]`
-        );
-        resolved = resolved.replace(/\{avg:"([^"]+)"\}/g, (_: string, f: string) =>
-            rawData.length > 0 ? formatNum(calcAvg(rawData, f)) : `[avg ${f}]`
-        );
-        resolved = resolved.replace(/\{trend:"([^"]+)":"([^"]+)"\}/g, (_: string, x: string, y: string) =>
-            rawData.length > 0 ? calcTrend(rawData, x, y) : 'slightly increasing'
-        );
-        resolved = resolved.replace(/\{r2:"([^"]+)":"([^"]+)"\}/g, (_: string, x: string, y: string) =>
-            rawData.length > 0 ? formatNum(calcR2(rawData, x, y)) : '0.82'
-        );
-
-        if (tmpl.omitKeyNames) {
-            // Strip "{key:"..."}:" patterns (with following colon + optional space),
-            // then strip any remaining bare {key:"..."} tokens.
-            resolved = resolved.replace(/\{key:"[^"]+"\}:\s*/g, '');
-            resolved = resolved.replace(/\{key:"[^"]+"\}/g, '');
-        } else {
-            resolved = resolved.replace(/\{key:"([^"]+)"\}/g, (_: string, key: string) => key);
-        }
-
-        resolved = resolved.replace(/\{value:"([^"]+)"\}/g, (_: string, key: string) => {
-            const val = data[key];
-            return val !== undefined ? String(val) : `[${key}]`;
-        });
-
-        const name = tmpl.name || (nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'subgroup' : 'data point');
-        const cap = name.charAt(0).toUpperCase() + name.slice(1);
-        let suffix = cap;
-        if (tmpl.includeIndex) {
-            suffix += nodeType === 'level1' ? ` 1 of ${dimensionCount ?? 2}` : ` 3 of 8`;
-        }
-
-        // Division builders: append "in {dimKey} {dimNoun}" when checked
-        if (tmpl.includeDimensionName && dimensionName) {
-            suffix += ` in ${dimensionName} ${parentDimNoun ?? 'group'}`;
-        }
-
-        // Leaf builders: build per-dimension clauses, joined with " and "
-        // Each clause can be: dim-only, div-only, or combined div+dim.
-        function buildParentClause(pd: ParentDimension, includeDim: boolean, includeDiv: boolean): string | null {
-            const hasDivInfo = includeDiv && pd.hasDivisions && pd.divNoun;
-            if (hasDivInfo && includeDim) {
-                return `in ${pd.divNoun} 1 of ${pd.divTotal ?? '?'} in ${pd.key}`;
-            } else if (hasDivInfo) {
-                return `in ${pd.divNoun} 1 of ${pd.divTotal ?? '?'}`;
-            } else if (includeDim) {
-                return `in ${pd.key} ${pd.dimNoun}`;
-            }
-            return null;
-        }
-
-        if (parentDimensions.length > 0) {
-            const parentClauses: string[] = [];
-            for (const pd of parentDimensions) {
-                const includeDim = (tmpl.includeParentNames ?? []).includes(pd.key);
-                const includeDiv = (tmpl.includeParentDivisions ?? []).includes(pd.key);
-                const clause = buildParentClause(pd, includeDim, includeDiv);
-                if (clause) parentClauses.push(clause);
-            }
-            if (parentClauses.length > 0) {
-                suffix += ` ${parentClauses.join(' and ')}`;
-            } else if (tmpl.includeParentName) {
-                suffix += ` in Example Group`;
-            }
-        } else if (tmpl.includeParentName) {
-            suffix += ` in Example Group`;
-        }
-
-        suffix += '.';
-
-        return resolved ? `${resolved} ${suffix}` : suffix;
-    }
-
-    // ── Node type labels ─────────────────────────────────────────────────────
-    const NODE_TYPE_LABELS: Record<string, string> = {
-        level0: 'entry point (root)',
-        level1: 'dimension header',
-        level2: 'division header',
-        level3: 'individual data point',
-    };
-
-    // ── Selected fields (derived from template) ───────────────────────────────
-    const selectedFields = $derived(
-        new Set([...value.template.matchAll(/\{value:"([^"]+)"\}/g)].map(m => m[1]))
+    const fields = $derived(app.doc.data.fields.filter(f => !f.removed).map(f => f.key));
+    const numeric = $derived(app.doc.data.fields.filter(f => !f.removed && f.type === 'numerical').map(f => f.key));
+    const s = $derived(app.structure);
+    const ctx = $derived(s.context);
+    const sample = $derived.by(() => {
+        if (nodeId && s.nodes[nodeId]) return s.nodes[nodeId];
+        const nodes = Object.values<any>(s.nodes);
+        if (level === 0) return nodes.find(n => n.dimensionLevel === 0);
+        if (level === 3) return nodes.find(n => n.dimensionLevel === undefined && !n.manual);
+        return nodes.find(n => n.dimensionLevel === level && n.derivedNode === dimensionKey);
+    });
+    const preview = $derived(sample ? resolve(value, sample, app.pattern, ctx, app.prepared) : 'Add data and dimensions to preview this label.');
+    const dims = $derived(
+        app.doc.recipe.dimensions.map(d => ({
+            key: d.key,
+            divisions: ctx.dims.some((x: any) => x.dimensionKey === d.key && Object.keys(x.divisions).some(id => ctx.info[id])),
+            dimNoun: app.doc.recipe.labels.perDimension[d.key]?.name ?? 'group',
+            divNoun: app.doc.recipe.labels.perDivision[d.key]?.name ?? 'subgroup'
+        }))
     );
+    const KIND = ['entry point (root)', 'dimension header', 'division header', 'individual data point'];
 
-    // ── Mutations ────────────────────────────────────────────────────────────
+    const set = (patch: Partial<LabelTemplate>) => onchange({ ...value, ...patch });
+    const tidy = (t: string) => t.replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '');
+    const esc = (f: string) => f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    function removeField(fieldName: string): string {
+    const selected = $derived(new Set([...value.template.matchAll(/\{value:"([^"]+)"\}/g)].map(m => m[1])));
+    function toggleField(f: string) {
+        const t = value.template;
+        if (selected.has(f)) set({ template: tidy(t.replace(new RegExp(`(\\{key:"${esc(f)}"\\}:\\s*)?\\{value:"${esc(f)}"\\},?`, 'g'), '')) });
+        else set({ template: tidy(`${t}${t ? ', ' : ''}${value.omitKeyNames ? '' : `{key:"${f}"}: `}{value:"${f}"}`) });
+    }
+
+    type Agg = { id: string; label: string; pair?: boolean; test: RegExp; phrase: (a: string, b: string) => string };
+    const AGGS: Agg[] = [
+        { id: 'min', label: 'Min and Max of', test: /\{min:"([^"]+)"\}/, phrase: f => `, {key:"${f}"} ranging from {min:"${f}"} to {max:"${f}"}` },
+        { id: 'sum', label: 'Sum of', test: /\{sum:"([^"]+)"\}/, phrase: f => `, total {key:"${f}"}: {sum:"${f}"}` },
+        { id: 'avg', label: 'Average of', test: /\{avg:"([^"]+)"\}/, phrase: f => `, average {key:"${f}"}: {avg:"${f}"}` },
+        { id: 'trend', label: 'Trend direction', pair: true, test: /\{trend:"([^"]+)":"([^"]+)"\}/, phrase: (x, y) => `, trend {key:"${x}"}/{key:"${y}"}: {trend:"${x}":"${y}"}` },
+        { id: 'r2', label: 'R² value', pair: true, test: /\{r2:"([^"]+)":"([^"]+)"\}/, phrase: (x, y) => `, R² {key:"${x}"}/{key:"${y}"}: {r2:"${x}":"${y}"}` }
+    ];
+    let picked = $state<Record<string, string>>({});
+    const pick = (id: string, fallback: string) => picked[id] ?? fallback;
+    const fieldA = (a: Agg) => value.template.match(a.test)?.[1] ?? pick(a.pair ? 'x' : a.id, a.pair ? fields[0] : (suggestedAggField && numeric.includes(suggestedAggField) ? suggestedAggField : numeric[0]));
+    const fieldB = (a: Agg) => value.template.match(a.test)?.[2] ?? pick('y', numeric[1] ?? numeric[0]);
+    const strip = (t: string, a: Agg) => t.replace(new RegExp(`,?[^,{]*(\\{key:"[^"]+"\\}[^,{]*)*` + a.test.source.replace(/\(\[\^"\]\+\)/g, '[^"]+') + `(\\s*to \\{max:"[^"]+"\\})?`, 'g'), '');
+    function toggleAgg(a: Agg) {
+        if (a.test.test(value.template)) set({ template: tidy(strip(value.template, a)) });
+        else set({ template: tidy(value.template + a.phrase(fieldA(a), fieldB(a))) });
+    }
+    function repick(key: string, f: string) {
+        picked[key] = f;
         let t = value.template;
-        // Try exact token removal first (both forms)
-        const withKey = ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
-        const valueOnly = ` {value:"${fieldName}"}, `;
-        if (t.includes(withKey)) return t.replace(withKey, '');
-        if (t.includes(valueOnly)) return t.replace(valueOnly, '');
-        // Fallback: strip any remaining {key:"field"} and {value:"field"} tokens
-        t = t.replace(new RegExp(`\\{key:"${fieldName}"\\}:\\s*`, 'g'), '');
-        t = t.replace(new RegExp(`\\{value:"${fieldName}"\\}`, 'g'), '');
-        return t;
+        for (const a of AGGS)
+            if (a.test.test(t) && (key === a.id || (a.pair && (key === 'x' || key === 'y'))))
+                t = tidy(strip(t, a) + a.phrase(key === 'y' ? fieldA(a) : f, key === 'y' ? f : fieldB(a)));
+        if (t !== value.template) set({ template: t });
     }
-
-    // Click a field pill: toggles the field in/out of the template.
-    function toggleField(fieldName: string) {
-        if (selectedFields.has(fieldName)) {
-            onchange({ ...value, template: removeField(fieldName) });
-        } else {
-            const token = value.omitKeyNames
-                ? ` {value:"${fieldName}"}, `
-                : ` {key:"${fieldName}"}: {value:"${fieldName}"}, `;
-            onchange({ ...value, template: value.template + token });
-        }
-    }
-
-    function clearTemplate() {
-        onchange({ ...value, template: '' });
-    }
-
-    function handleTemplateInput(e: Event) {
-        onchange({ ...value, template: (e.target as HTMLInputElement).value });
-    }
-
-    function handleNameInput(e: Event) {
-        onchange({ ...value, name: (e.target as HTMLInputElement).value });
-    }
-
-    function handleIncludeIndex(e: Event) {
-        onchange({ ...value, includeIndex: (e.target as HTMLInputElement).checked });
-    }
-
-    function handleIncludeParentName(e: Event) {
-        onchange({ ...value, includeParentName: (e.target as HTMLInputElement).checked });
-    }
-
-    function handleOmitKeyNames(e: Event) {
-        const checked = (e.target as HTMLInputElement).checked;
-        if (nodeType === 'level1' || nodeType === 'level2') {
-            // For level1/level2, aggregate phrase key tokens are handled via template surgery
-            // (not runtime omitKeyNames) so that phrase colons are preserved properly.
-            const newTemplate = checked
-                ? stripKeyNamesFromDimTemplate(value.template)
-                : addKeyNamesToDimTemplate(value.template);
-            onchange({ ...value, omitKeyNames: checked, template: newTemplate });
-        } else {
-            onchange({ ...value, omitKeyNames: checked });
-        }
-    }
-
-    // ── Aggregate state (level1 and level2 only) ──────────────────────────────
-
-    const showAggregates = $derived(nodeType === 'level1' || nodeType === 'level2');
-
-    // Count
-    const countInTemplate = $derived(value.template.includes('{count}'));
-
-    // Min/Max (combined — one field picker for both)
-    const minMaxFieldFromTemplate = $derived(value.template.match(/\{min:"([^"]+)"\}/)?.[1] ?? null);
-    const hasMinMax = $derived(
-        value.template.includes('{min:') || value.template.includes('{max:')
-    );
-    let minMaxField = $state<string>('');
-    $effect(() => {
-        const fromTmpl = minMaxFieldFromTemplate;
-        const fields = aggregateFields;
-        const suggested = suggestedAggField;
-        const cur = untrack(() => minMaxField);
-        if (fromTmpl !== null && fields.includes(fromTmpl)) {
-            minMaxField = fromTmpl;
-        } else if (!cur || !fields.includes(cur)) {
-            minMaxField = (suggested && fields.includes(suggested)) ? suggested : (fields[0] ?? '');
-        }
-    });
-
-    // Sum
-    const sumFieldFromTemplate = $derived(value.template.match(/\{sum:"([^"]+)"\}/)?.[1] ?? null);
-    const hasSumInTemplate = $derived(sumFieldFromTemplate !== null);
-    let sumField = $state<string>('');
-    $effect(() => {
-        const fromTmpl = sumFieldFromTemplate;
-        const fields = aggregateFields;
-        const cur = untrack(() => sumField);
-        if (fromTmpl !== null && fields.includes(fromTmpl)) {
-            sumField = fromTmpl;
-        } else if (!cur || !fields.includes(cur)) {
-            sumField = fields[0] ?? '';
-        }
-    });
-
-    // Average
-    const avgFieldFromTemplate = $derived(value.template.match(/\{avg:"([^"]+)"\}/)?.[1] ?? null);
-    const hasAvgInTemplate = $derived(avgFieldFromTemplate !== null);
-    let avgField = $state<string>('');
-    $effect(() => {
-        const fromTmpl = avgFieldFromTemplate;
-        const fields = aggregateFields;
-        const cur = untrack(() => avgField);
-        if (fromTmpl !== null && fields.includes(fromTmpl)) {
-            avgField = fromTmpl;
-        } else if (!cur || !fields.includes(cur)) {
-            avgField = fields[0] ?? '';
-        }
-    });
-
-    // Trend + R² (shared field pickers)
-    const trendMatchResult = $derived(value.template.match(/\{trend:"([^"]+)":"([^"]+)"\}/));
-    const r2MatchResult = $derived(value.template.match(/\{r2:"([^"]+)":"([^"]+)"\}/));
-    const hasTrendInTemplate = $derived(trendMatchResult !== null);
-    const hasR2InTemplate = $derived(r2MatchResult !== null);
-    let trendXField = $state<string>('');
-    let trendYField = $state<string>('');
-    $effect(() => {
-        const tm = trendMatchResult;
-        const rm = r2MatchResult;
-        const xFields = effectiveTrendXFields;
-        const yFields = aggregateFields;
-        const tx = tm?.[1] ?? rm?.[1];
-        const ty = tm?.[2] ?? rm?.[2];
-        const curX = untrack(() => trendXField);
-        const curY = untrack(() => trendYField);
-        if (tx && xFields.includes(tx)) {
-            trendXField = tx;
-        } else if (!curX || !xFields.includes(curX)) {
-            trendXField = xFields[0] ?? '';
-        }
-        if (ty && yFields.includes(ty)) {
-            trendYField = ty;
-        } else if (!curY || !yFields.includes(curY)) {
-            trendYField = yFields.length > 1 ? yFields[1] : (yFields[0] ?? '');
-        }
-    });
-
-    // ── Aggregate toggle functions ────────────────────────────────────────────
-
-    function toggleCount() {
-        if (countInTemplate) {
-            let t = value.template;
-            // Remove full natural language phrases first
-            t = t.replace(/ contains \{subcount\} subgroups and \{count\} total child data points/g, '');
-            t = t.replace(/ contains \{count\} total child data points/g, '');
-            // Fallback: remove bare tokens
-            t = t.replace(/ \{subcount\},?\s*/g, ' ').replace(/\{subcount\}/g, '');
-            t = t.replace(/ \{count\},?\s*/g, ' ').replace(/\{count\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (nodeType === 'level1') {
-            // Count has no key tokens to hide, so always use the natural language phrase
-            const phrase = hasDivisions
-                ? ' contains {subcount} subgroups and {count} total child data points'
-                : ' contains {count} total child data points';
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        } else if (nodeType === 'level2') {
-            onchange({ ...value, template: normalizeTemplate(value.template + ' contains {count} data points') });
-        } else {
-            onchange({ ...value, template: normalizeTemplate(value.template + ' {count}') });
-        }
-    }
-
-    function toggleMinMax() {
-        if (hasMinMax) {
-            let t = value.template;
-            // Remove with-key phrase: ", {key:"f"} ranging from {min:"f"} to {max:"f"}"
-            t = t.replace(/, \{key:"[^"]+"\} ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, '');
-            // Remove without-key phrase: ", ranging from {min:"f"} to {max:"f"}"
-            t = t.replace(/, ranging from \{min:"[^"]+"\} to \{max:"[^"]+"\}/g, '');
-            // Bare token fallback
-            t = t.replace(/\{min:"[^"]+"\}/g, '').replace(/\{max:"[^"]+"\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (minMaxField) {
-            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
-            const phrase = !useNaturalLang
-                ? ` {min:"${minMaxField}"}, {max:"${minMaxField}"}`
-                : value.omitKeyNames
-                    ? `, ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`
-                    : `, {key:"${minMaxField}"} ranging from {min:"${minMaxField}"} to {max:"${minMaxField}"}`;
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        }
-    }
-
-    function toggleSum() {
-        if (hasSumInTemplate) {
-            let t = value.template;
-            // Remove with-key phrase: ", total {key:"f"}: {sum:"f"}"
-            t = t.replace(/, total \{key:"[^"]+"\}: \{sum:"[^"]+"\}/g, '');
-            // Remove without-key phrase: ", total: {sum:"f"}"
-            t = t.replace(/, total: \{sum:"[^"]+"\}/g, '');
-            // Bare token fallback
-            t = t.replace(/\{sum:"[^"]+"\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (sumField) {
-            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
-            const phrase = !useNaturalLang
-                ? ` {sum:"${sumField}"}`
-                : value.omitKeyNames
-                    ? `, total: {sum:"${sumField}"}`
-                    : `, total {key:"${sumField}"}: {sum:"${sumField}"}`;
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        }
-    }
-
-    function toggleAvg() {
-        if (hasAvgInTemplate) {
-            let t = value.template;
-            // Remove with-key phrase: ", average {key:"f"}: {avg:"f"}"
-            t = t.replace(/, average \{key:"[^"]+"\}: \{avg:"[^"]+"\}/g, '');
-            // Remove without-key phrase: ", average: {avg:"f"}"
-            t = t.replace(/, average: \{avg:"[^"]+"\}/g, '');
-            // Bare token fallback
-            t = t.replace(/\{avg:"[^"]+"\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (avgField) {
-            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
-            const phrase = !useNaturalLang
-                ? ` {avg:"${avgField}"}`
-                : value.omitKeyNames
-                    ? `, average: {avg:"${avgField}"}`
-                    : `, average {key:"${avgField}"}: {avg:"${avgField}"}`;
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        }
-    }
-
-    function toggleTrend() {
-        if (hasTrendInTemplate) {
-            let t = value.template;
-            // Remove with-key phrase: ", trend {key:"x"}/{key:"y"}: {trend:"x":"y"}"
-            t = t.replace(/, trend \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{trend:"[^"]+":"[^"]+"\}/g, '');
-            // Remove without-key phrase: ", trend: {trend:"x":"y"}"
-            t = t.replace(/, trend: \{trend:"[^"]+":"[^"]+"\}/g, '');
-            // Bare token fallback
-            t = t.replace(/\{trend:"[^"]+":"[^"]+"\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (trendXField && trendYField) {
-            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
-            const phrase = !useNaturalLang
-                ? ` {trend:"${trendXField}":"${trendYField}"}`
-                : value.omitKeyNames
-                    ? `, trend: {trend:"${trendXField}":"${trendYField}"}`
-                    : `, trend {key:"${trendXField}"}/{key:"${trendYField}"}: {trend:"${trendXField}":"${trendYField}"}`;
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        }
-    }
-
-    function toggleR2() {
-        if (hasR2InTemplate) {
-            let t = value.template;
-            // Remove with-key phrase: ", R² {key:"x"}/{key:"y"}: {r2:"x":"y"}"
-            t = t.replace(/, R² \{key:"[^"]+"\}\/\{key:"[^"]+"\}: \{r2:"[^"]+":"[^"]+"\}/g, '');
-            // Remove without-key phrase: ", R²: {r2:"x":"y"}"
-            t = t.replace(/, R²: \{r2:"[^"]+":"[^"]+"\}/g, '');
-            // Bare token fallback
-            t = t.replace(/\{r2:"[^"]+":"[^"]+"\}/g, '');
-            onchange({ ...value, template: normalizeTemplate(t) });
-        } else if (trendXField && trendYField) {
-            const useNaturalLang = nodeType === 'level1' || nodeType === 'level2';
-            const phrase = !useNaturalLang
-                ? ` {r2:"${trendXField}":"${trendYField}"}`
-                : value.omitKeyNames
-                    ? `, R²: {r2:"${trendXField}":"${trendYField}"}`
-                    : `, R² {key:"${trendXField}"}/{key:"${trendYField}"}: {r2:"${trendXField}":"${trendYField}"}`;
-            onchange({ ...value, template: normalizeTemplate(value.template + phrase) });
-        }
-    }
+    const COUNT = $derived(level === 1 ? (dims.find(d => d.key === dimensionKey)?.divisions ? ' contains {subcount} subgroups and {count} total child data points' : ' contains {count} total child data points') : ' contains {count} data points');
+    const toggleCount = () =>
+        set({ template: tidy(value.template.includes('{count}') ? value.template.replace(/ contains (\{subcount\} subgroups and )?\{count\} (total child )?data points/g, '').replace(/\{(sub)?count\}/g, '') : value.template + COUNT) });
+    const toggleIn = (list: 'includeParentNames' | 'includeParentDivisions', key: string, on: boolean) =>
+        set({ [list]: on ? [...(value[list] ?? []), key] : (value[list] ?? []).filter(k => k !== key) });
 </script>
 
 <div class="label-builder">
-    <p class="lb-context">
-        Building label for: <strong>{NODE_TYPE_LABELS[nodeType] ?? nodeType}</strong>
-    </p>
+    <p class="lb-context">Building label for: <strong>{KIND[level]}</strong></p>
     <p class="lb-instruction">
-        Click a field pill to add it to your label.
-        {#if value.omitKeyNames}
-            Each click adds the field's value only (e.g., <code>42</code>).
-        {:else}
-            Each click adds the field name and value together (e.g., <code>Score: 42</code>).
-        {/if}
-        You can also type directly in the template box below.
+        Check a field to add it to your label. {value.omitKeyNames ? "Each field adds its value only (e.g., 42)." : 'Each field adds its name and value (e.g., Score: 42).'} You can also type in the template box below.
     </p>
 
-    {#if fields.length > 0}
+    {#if fields.length}
         <fieldset class="lb-fields-area">
-            <legend class="visually-hidden">Fields — check to include in label</legend>
+            <legend class="visually-hidden">Fields to include in the label</legend>
             {#each fields as field (field)}
-                {@const selected = selectedFields.has(field)}
-                {@const suggestion = suggestedFields.find(s => s.key === field)}
+                {@const s = suggestedFields.find(x => x.key === field)}
                 <label class="lb-field">
-                    <input type="checkbox" checked={selected} onchange={() => toggleField(field)} />
-                    {field}{#if suggestion}<span class="lb-field-suggested" aria-label={suggestion.rank ? `Suggested: ${suggestion.rank}` : 'Suggested'}>★{suggestion.rank ? ` ${suggestion.rank}` : ''}</span>{/if}
+                    <input type="checkbox" checked={selected.has(field)} onchange={() => toggleField(field)} />
+                    {field}{#if s}<span class="lb-field-suggested" aria-label={s.rank ? `Suggested: ${s.rank}` : 'Suggested'}>★{s.rank ? ` ${s.rank}` : ''}</span>{/if}
                 </label>
             {/each}
         </fieldset>
     {/if}
 
-    {#if showAggregates}
+    {#if level === 1 || level === 2}
         <div class="lb-agg-section">
             <p class="lb-agg-heading">Aggregate summaries from children</p>
-
-            <!-- Count of children (no field selector needed) -->
             <div class="lb-agg-row">
-                <label class="lb-agg-check">
-                    <input type="checkbox" checked={countInTemplate} onchange={toggleCount} />
-                    Count of children
-                </label>
+                <label class="lb-agg-check"><input type="checkbox" checked={value.template.includes('{count}')} onchange={toggleCount} /> Count of children</label>
             </div>
-
-            {#if aggregateFields.length > 0}
-                <!-- Min and Max (combined) -->
-                <div class="lb-agg-row">
-                    <label class="lb-agg-check">
-                        <input type="checkbox" checked={hasMinMax} onchange={toggleMinMax} />
-                        Min and Max of
-                    </label>
-                    <label class="lb-agg-field-label">
-                        <span class="visually-hidden">Field for min and max</span>
-                        <select
-                            class="lb-agg-select"
-                            bind:value={minMaxField}
-                        >
-                            {#each aggregateFields as f (f)}
-                                <option value={f}>{f}{suggestedAggField === f ? ' ★' : ''}</option>
-                            {/each}
-                        </select>
-                    </label>
-                </div>
-
-                <!-- Sum -->
-                <div class="lb-agg-row">
-                    <label class="lb-agg-check">
-                        <input type="checkbox" checked={hasSumInTemplate} onchange={toggleSum} />
-                        Sum of
-                    </label>
-                    <label class="lb-agg-field-label">
-                        <span class="visually-hidden">Field for sum</span>
-                        <select
-                            class="lb-agg-select"
-                            bind:value={sumField}
-                        >
-                            {#each aggregateFields as f (f)}
-                                <option value={f}>{f}</option>
-                            {/each}
-                        </select>
-                    </label>
-                </div>
-
-                <!-- Average -->
-                <div class="lb-agg-row">
-                    <label class="lb-agg-check">
-                        <input type="checkbox" checked={hasAvgInTemplate} onchange={toggleAvg} />
-                        Average of
-                    </label>
-                    <label class="lb-agg-field-label">
-                        <span class="visually-hidden">Field for average</span>
-                        <select
-                            class="lb-agg-select"
-                            bind:value={avgField}
-                        >
-                            {#each aggregateFields as f (f)}
-                                <option value={f}>{f}</option>
-                            {/each}
-                        </select>
-                    </label>
-                </div>
-
-                <!-- Trend direction + R² (shared field pickers) -->
-                <div class="lb-agg-trend">
-                    <p class="lb-agg-trend-label">Trend direction and R²</p>
-                    <div class="lb-agg-trend-fields">
-                        <label class="lb-agg-trend-field">
-                            <span class="lb-agg-trend-field-name">X variable</span>
-                            <select class="lb-agg-select" bind:value={trendXField}>
-                                {#each effectiveTrendXFields as f (f)}
-                                    <option value={f}>{f}</option>
-                                {/each}
-                            </select>
-                        </label>
-                        <label class="lb-agg-trend-field">
-                            <span class="lb-agg-trend-field-name">Y variable</span>
-                            <select class="lb-agg-select" bind:value={trendYField}>
-                                {#each aggregateFields as f (f)}
-                                    <option value={f}>{f}</option>
-                                {/each}
+            {#if numeric.length}
+                {#each AGGS.filter(a => !a.pair) as a (a.id)}
+                    <div class="lb-agg-row">
+                        <label class="lb-agg-check"><input type="checkbox" checked={a.test.test(value.template)} onchange={() => toggleAgg(a)} /> {a.label}</label>
+                        <label class="lb-agg-field-label">
+                            <span class="visually-hidden">Field for {a.label}</span>
+                            <select class="lb-agg-select" value={fieldA(a)} onchange={e => repick(a.id, e.currentTarget.value)}>
+                                {#each numeric as f (f)}<option value={f}>{f}{suggestedAggField === f ? ' ★' : ''}</option>{/each}
                             </select>
                         </label>
                     </div>
+                {/each}
+                <div class="lb-agg-trend">
+                    <p class="lb-agg-trend-label">Trend direction and R²</p>
+                    <div class="lb-agg-trend-fields">
+                        {#each [['x', 'X variable', fields], ['y', 'Y variable', numeric]] as const as [key, text, options] (key)}
+                            <label class="lb-agg-trend-field">
+                                <span class="lb-agg-trend-field-name">{text}</span>
+                                <select class="lb-agg-select" value={key === 'x' ? fieldA(AGGS[3]) : fieldB(AGGS[3])} onchange={e => repick(key, e.currentTarget.value)}>
+                                    {#each options as f (f)}<option value={f}>{f}</option>{/each}
+                                </select>
+                            </label>
+                        {/each}
+                    </div>
                     <div class="lb-agg-trend-toggles">
-                        <label class="lb-agg-check">
-                            <input type="checkbox" checked={hasTrendInTemplate} onchange={toggleTrend} />
-                            Trend direction
-                        </label>
-                        <label class="lb-agg-check">
-                            <input type="checkbox" checked={hasR2InTemplate} onchange={toggleR2} />
-                            R² value
-                        </label>
+                        {#each AGGS.filter(a => a.pair) as a (a.id)}
+                            <label class="lb-agg-check"><input type="checkbox" checked={a.test.test(value.template)} onchange={() => toggleAgg(a)} /> {a.label}</label>
+                        {/each}
                     </div>
                 </div>
             {/if}
@@ -582,147 +139,55 @@
     {/if}
 
     <div class="lb-template-row">
-        <label class="lb-label" for="lb-template-input">Label template</label>
+        <label class="lb-label" for="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}">Label template</label>
         <div class="lb-template-controls">
-            <input
-                id="lb-template-input"
-                type="text"
-                class="lb-template-input"
-                value={value.template}
-                oninput={handleTemplateInput}
-                placeholder={`e.g. {value:"name"}: {value:"score"}`}
-            />
-            <button
-                class="lb-clear-btn"
-                onclick={clearTemplate}
-                aria-label="Clear label template"
-            >
-                Clear
-            </button>
+            <input id="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-template-input" value={value.template} oninput={e => set({ template: e.currentTarget.value })} placeholder={'e.g. {value:"name"}: {value:"score"}'} />
+            <button class="lb-clear-btn" type="button" onclick={() => set({ template: '' })} aria-label="Clear label template">Clear</button>
         </div>
     </div>
 
     <div class="lb-options">
         <div class="lb-noun-row">
-            <label class="lb-label" for="lb-noun-input">What is this item called?</label>
-            <input
-                id="lb-noun-input"
-                type="text"
-                class="lb-noun-input"
-                value={value.name}
-                oninput={handleNameInput}
-                placeholder={nodeType === 'level1' ? 'group' : nodeType === 'level2' ? 'range' : 'data point'}
-            />
+            <label class="lb-label" for="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}">What is this item called?</label>
+            <input id="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-noun-input" value={value.name} oninput={e => set({ name: e.currentTarget.value })} placeholder={['root', 'group', 'subgroup', 'data point'][level]} />
         </div>
-
-        {#if nodeType === 'level1' && dimensionCount > 1}
-            <!-- Dimension builders: show "position among dimensions" only when multiple dims selected -->
+        {#if level === 2 || level === 3 || (level === 1 && dims.length > 1)}
             <label class="lb-checkbox-label">
-                <input
-                    type="checkbox"
-                    checked={value.includeIndex}
-                    onchange={handleIncludeIndex}
-                />
-                Include position among dimensions?
-                <span class="lb-checkbox-example">(e.g., dimension 1 of {dimensionCount})</span>
-            </label>
-        {:else if nodeType !== 'level1'}
-            <!-- All other builders (level0, level2, level3): standard "position in group" -->
-            <label class="lb-checkbox-label">
-                <input
-                    type="checkbox"
-                    checked={value.includeIndex}
-                    onchange={handleIncludeIndex}
-                />
-                Include position in group?
-                <span class="lb-checkbox-example">(e.g., item 3 of 8)</span>
+                <input type="checkbox" checked={value.includeIndex} onchange={e => set({ includeIndex: e.currentTarget.checked })} />
+                {level === 1 ? 'Include position among dimensions?' : 'Include position in group?'}
+                <span class="lb-checkbox-example">(e.g., {level === 1 ? `dimension 1 of ${dims.length}` : 'item 3 of 8'})</span>
             </label>
         {/if}
-
-        {#if dimensionName}
-            <!-- Division builders: append "in {dimKey} {dimNoun}" to label suffix -->
+        {#if level === 2 && dimensionKey}
             <label class="lb-checkbox-label">
-                <input
-                    type="checkbox"
-                    checked={value.includeDimensionName ?? false}
-                    onchange={(e) => onchange({ ...value, includeDimensionName: (e.target as HTMLInputElement).checked })}
-                />
-                Include parent {dimensionName} dimension
-                <span class="lb-checkbox-example">(e.g., in {dimensionName} {parentDimNoun ?? 'group'})</span>
+                <input type="checkbox" checked={value.includeDimensionName ?? false} onchange={e => set({ includeDimensionName: e.currentTarget.checked })} />
+                Include parent {dimensionKey} dimension
+                <span class="lb-checkbox-example">(e.g., in {dimensionKey} {dims.find(d => d.key === dimensionKey)?.dimNoun})</span>
             </label>
-        {:else if parentDimensions.length > 0}
-            <!-- Leaf builders: per-dim "dimension" toggle + optional "subgroup" toggle -->
-            {#each parentDimensions as pd (pd.key)}
+        {/if}
+        {#if level === 3}
+            {#each dims as pd (pd.key)}
                 <label class="lb-checkbox-label">
-                    <input
-                        type="checkbox"
-                        checked={(value.includeParentNames ?? []).includes(pd.key)}
-                        onchange={(e) => {
-                            const cur = value.includeParentNames ?? [];
-                            const next = (e.target as HTMLInputElement).checked
-                                ? [...cur, pd.key]
-                                : cur.filter(k => k !== pd.key);
-                            onchange({ ...value, includeParentNames: next });
-                        }}
-                    />
+                    <input type="checkbox" checked={(value.includeParentNames ?? []).includes(pd.key)} onchange={e => toggleIn('includeParentNames', pd.key, e.currentTarget.checked)} />
                     Include parent {pd.key} dimension
                     <span class="lb-checkbox-example">(e.g., in {pd.key} {pd.dimNoun})</span>
                 </label>
-                {#if pd.hasDivisions}
+                {#if pd.divisions}
                     <label class="lb-checkbox-label">
-                        <input
-                            type="checkbox"
-                            checked={(value.includeParentDivisions ?? []).includes(pd.key)}
-                            onchange={(e) => {
-                                const cur = value.includeParentDivisions ?? [];
-                                const next = (e.target as HTMLInputElement).checked
-                                    ? [...cur, pd.key]
-                                    : cur.filter(k => k !== pd.key);
-                                onchange({ ...value, includeParentDivisions: next });
-                            }}
-                        />
+                        <input type="checkbox" checked={(value.includeParentDivisions ?? []).includes(pd.key)} onchange={e => toggleIn('includeParentDivisions', pd.key, e.currentTarget.checked)} />
                         Include parent subgroup of dimension {pd.key}
-                        <span class="lb-checkbox-example">(e.g., in {pd.divNoun ?? 'subgroup'} 1 of {pd.divTotal ?? '?'})</span>
+                        <span class="lb-checkbox-example">(e.g., in {pd.divNoun} 1 of 4)</span>
                     </label>
                 {/if}
             {/each}
-        {:else if nodeType === 'level0'}
-            <!-- Level 0 only: include parent name (root has no parent so this is a fallback for custom use) -->
-            <label class="lb-checkbox-label">
-                <input
-                    type="checkbox"
-                    checked={value.includeParentName}
-                    onchange={handleIncludeParentName}
-                />
-                Include the name of the group?
-                <span class="lb-checkbox-example">(e.g., in North region)</span>
-            </label>
         {/if}
-
-        {#if nodeType === 'level1' || nodeType === 'level2'}
-            <label class="lb-checkbox-label lb-omit-toggle">
-                <input
-                    type="checkbox"
-                    checked={value.omitKeyNames}
-                    onchange={handleOmitKeyNames}
-                />
-                Hide field names
-                <span class="lb-checkbox-example">(omit field labels from aggregate summaries)</span>
-            </label>
-        {:else}
-            <label class="lb-checkbox-label lb-omit-toggle">
-                <input
-                    type="checkbox"
-                    checked={value.omitKeyNames}
-                    onchange={handleOmitKeyNames}
-                />
-                Hide field names
-                <span class="lb-checkbox-example">(show values only — e.g., "42" instead of "Score: 42")</span>
-            </label>
-        {/if}
+        <label class="lb-checkbox-label lb-omit-toggle">
+            <input type="checkbox" checked={value.omitKeyNames} onchange={e => set({ omitKeyNames: e.currentTarget.checked })} />
+            Hide field names
+            <span class="lb-checkbox-example">(show values only, e.g., "42" instead of "Score: 42")</span>
+        </label>
     </div>
 
-    <!-- Preview is last so it can stick to the bottom of the scroll container -->
     <div class="lb-preview-box" aria-live="polite">
         <span class="lb-preview-label">label preview:</span>
         <span class="lb-preview-text">{preview}</span>
@@ -967,7 +432,7 @@
     }
 
     /* Dark mode: keep the box light so dark text stays readable */
-    .dark .lb-preview-box {
+    :global(.dark) .lb-preview-box {
         background: #f0fdf4;
         border-color: #86efac;
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
@@ -982,7 +447,7 @@
     }
 
     /* Keep label text dark always — readable on the always-light green bg */
-    .dark .lb-preview-label {
+    :global(.dark) .lb-preview-label {
         color: #166534;
     }
 
@@ -1044,12 +509,4 @@
     }
 
     /* Inline code style for the instruction examples */
-    .lb-instruction code {
-        font-family: var(--dn-font-mono);
-        font-size: 0.8125rem;
-        background: var(--dn-surface);
-        border: 1px solid var(--dn-border);
-        border-radius: 3px;
-        padding: 1px 5px;
-    }
 </style>

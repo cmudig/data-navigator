@@ -1,140 +1,73 @@
 <script lang="ts">
-    import { get } from 'svelte/store';
-    import { appState } from '../../store/appState';
-    import type { SkeletonNode } from '../../store/types';
+    import { app, edit } from '../../model/state.svelte';
 
-    type Props = {
-        onclose: () => void;
-        onconfirm: () => void;
-    };
-    const { onclose, onconfirm }: Props = $props();
+    const { onclose, onconfirm }: { onclose: () => void; onconfirm: () => void } = $props();
 
-    const initial = get(appState);
-    let nodes = $state<Map<string, SkeletonNode>>(initial.nodes);
-    let selectedNodeId = $state<string | null>(null);
+    let dialog: HTMLDialogElement;
+    let chosen = $state<string | null>(null);
+    let query = $state('');
+    const candidates = $derived([...app.graph.nodes.values()].filter(n => n.kind !== 'leaf'));
+    const list = $derived(candidates.filter(n => n.name.toLowerCase().includes(query.toLowerCase())).slice(0, 200));
 
-    $effect(() => {
-        return appState.subscribe(s => { nodes = s.nodes; });
-    });
+    $effect(() => dialog.showModal());
 
-    const nodeList = $derived([...nodes.values()]);
-
-    let dialogEl: HTMLElement | undefined = $state();
-
-    $effect(() => {
-        if (dialogEl) {
-            const first = dialogEl.querySelector<HTMLElement>(
-                'button, input, [tabindex]:not([tabindex="-1"])'
-            );
-            first?.focus();
-        }
-    });
-
-    function handleSetEntry() {
-        if (!selectedNodeId) return;
-        appState.update(s => ({ ...s, entryNodeId: selectedNodeId }));
+    function confirm() {
+        if (!chosen) return;
+        const id = chosen;
+        edit('Set entry node', d => (d.entry = id));
         onconfirm();
-    }
-
-    function onKeydown(e: KeyboardEvent) {
-        if (e.key === 'Escape') {
-            onclose();
-            return;
-        }
-        if (e.key === 'Tab' && dialogEl) {
-            const focusables = [...dialogEl.querySelectorAll<HTMLElement>(
-                'button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
-            )];
-            if (focusables.length === 0) return;
-            const first = focusables[0];
-            const last = focusables[focusables.length - 1];
-            if (e.shiftKey) {
-                if (document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                }
-            } else {
-                if (document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        }
     }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="modal-backdrop" role="presentation" onclick={onclose}>
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="entry-modal-title"
-        tabindex="-1"
-        bind:this={dialogEl}
-        onkeydown={onKeydown}
-        onclick={(e) => e.stopPropagation()}
-    >
-        <h2 id="entry-modal-title" class="modal-title">Set an entry node before continuing</h2>
-        <p class="modal-desc">
-            The entry node is where keyboard navigation begins — it's the first element
-            a user reaches when they enter the navigable region of your interface.
-        </p>
-
-        <div class="node-list" role="radiogroup" aria-label="Select entry node">
-            {#each nodeList as node}
-                <label class="radio-row">
-                    <input
-                        type="radio"
-                        name="entry-node-modal"
-                        value={node.id}
-                        bind:group={selectedNodeId}
-                    />
-                    <span class="radio-label">{node.label}</span>
-                </label>
-            {/each}
-            {#if nodeList.length === 0}
-                <p class="empty-msg">No nodes have been created yet. Go back to Step 1 to add nodes.</p>
-            {/if}
-        </div>
-
-        <div class="modal-actions">
-            <button class="btn-ghost" type="button" onclick={onclose}>Cancel</button>
-            <button
-                class="btn-primary"
-                type="button"
-                disabled={!selectedNodeId || nodeList.length === 0}
-                onclick={handleSetEntry}
-            >
-                Set entry node
-            </button>
-        </div>
+<dialog class="modal" bind:this={dialog} aria-labelledby="entry-modal-title" onclose={onclose} onclick={e => e.target === dialog && dialog.close()}>
+    <h2 id="entry-modal-title" class="modal-title">Set an entry node before continuing</h2>
+    <p class="modal-desc">The entry node is where keyboard navigation begins. It is the first element a user reaches when they enter the chart.</p>
+    {#if candidates.length > 8}
+        <label>
+            <span class="visually-hidden">Filter nodes</span>
+            <input class="search" type="search" placeholder="Filter nodes" bind:value={query} />
+        </label>
+    {/if}
+    <div class="node-list" role="radiogroup" aria-label="Select entry node">
+        {#each list as node (node.id)}
+            <label class="radio-row">
+                <input type="radio" name="entry-node-modal" value={node.id} bind:group={chosen} />
+                <span class="radio-label">{node.name}</span>
+            </label>
+        {:else}
+            <p class="empty-msg">No nodes yet. Add dimensions or draw nodes in the Editor first.</p>
+        {/each}
     </div>
-</div>
+    <div class="modal-actions">
+        <button class="btn-ghost" type="button" onclick={() => dialog.close()}>Cancel</button>
+        <button class="btn-primary" type="button" disabled={!chosen} onclick={confirm}>Set entry node</button>
+    </div>
+</dialog>
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
     .modal {
         background: var(--dn-bg);
+        color: var(--dn-text);
         border: 1px solid var(--dn-border);
         border-radius: var(--dn-radius);
         padding: calc(var(--dn-space) * 3);
         width: min(480px, calc(100vw - var(--dn-space) * 4));
         max-height: 80dvh;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    }
+
+    .modal[open] {
         display: flex;
         flex-direction: column;
         gap: calc(var(--dn-space) * 2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    }
+
+    .modal::backdrop {
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    .search {
+        width: 100%;
     }
 
     .modal-title {
