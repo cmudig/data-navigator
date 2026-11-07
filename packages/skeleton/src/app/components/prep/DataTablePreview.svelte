@@ -161,7 +161,7 @@
     .data-table th,
     .data-table td {
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
-        border-bottom: 1px solid var(--dn-control);
+        border-bottom: 1px solid var(--dn-border);
         text-align: left;
         white-space: nowrap;
         vertical-align: middle;
@@ -174,7 +174,7 @@
         z-index: 1;
         font-weight: 600;
         color: var(--dn-text);
-        border-bottom: 2px solid var(--dn-control);
+        border-bottom: 2px solid var(--dn-border);
     }
 
     .data-table td {

@@ -1,8 +1,9 @@
 <script lang="ts">
     import { app, commit, edit } from '../../../model/state.svelte';
-    import type { Dim, DimensionGroupConfig, Doc, GroupShapeConfig, ScaffoldConfig } from '../../../model/doc';
+    import type { Doc, GroupShapeConfig, ScaffoldConfig } from '../../../model/doc';
     import { CHART_TYPES, detectFields } from '../../../utils/vegaBuilder';
     import { runFit } from '../../../utils/paddingEstimator';
+    import OutlineControls from '../OutlineControls.svelte';
 
     const raw = $derived(app.doc.scaffold);
     const config = $derived(app.scaffold);
@@ -28,18 +29,7 @@
     const set = (label: string, mutate: (c: ScaffoldConfig, d: Doc) => void) => edit(label, d => mutate(d.scaffold!, d), true);
     const num = (v: string) => (v === '' ? undefined : Number(v));
     const setGroups = (patch: Partial<GroupShapeConfig>) => edit('Group shapes changed', d => Object.assign(d.recipe.groups, patch), true);
-    const STYLES = [
-        ['boundingRect', 'Bounding rect'],
-        ['convexHull', 'Convex hull'],
-        ['unionOfAll', 'Union of parts'],
-        ['line', 'Follow the line']
-    ];
-    const resolved = $derived(app.pattern.recipe.groups);
     const fit = $derived(app.ui.fit);
-    const dimConfig = (dim: Dim): DimensionGroupConfig => resolved.perDimension[dim.key];
-    const resetDim = (dim: Dim) => edit('Group shapes reset', d => delete d.recipe.groups.perDimension[dim.key]);
-    const setDim = (dim: Dim, patch: Partial<DimensionGroupConfig>) =>
-        edit('Group shapes changed', d => (d.recipe.groups.perDimension[dim.key] = { ...dimConfig(dim), ...patch }), true);
     const bonus = (field: 'dimensionBonusRects' | 'divisionBonusRects', key: string, patch: Partial<GroupShapeConfig['divisionBonusRects'][string]>, at = { x: 10, y: 10 }) =>
         edit('Group shapes changed', d => {
             const prev = d.recipe.groups[field][key] ?? { enabled: true, ...at, width: 80, height: 40 };
@@ -234,16 +224,7 @@
                     </label>
                     {#if gs.rootEnabled}
                         <div class="param-grid gs-indent">
-                            <label class="param-row">
-                                <span class="param-label">Strategy</span>
-                                <select class="param-select" value={resolved.rootStrategy} onchange={e => setGroups({ rootStrategy: e.currentTarget.value as GroupShapeConfig['rootStrategy'] })}>
-                                    {#each STYLES.slice(0, 3) as [v, label] (v)}<option value={v}>{label}</option>{/each}
-                                </select>
-                            </label>
-                            {@render numberRow('Padding', resolved.rootPadding, v => setGroups({ rootPadding: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
-                            {#if gs.rootStrategy !== undefined || gs.rootPadding !== undefined}
-                                <button class="btn-xs" type="button" onclick={() => edit('Group shapes reset', d => (delete d.recipe.groups.rootStrategy, delete d.recipe.groups.rootPadding))}>Use defaults</button>
-                            {/if}
+                            <OutlineControls part="root" />
                             {#if rootPin}
                                 {@render rectInputs(rootPin, patch => edit('Resized root outline', d => (d.overrides.nodes[rootId].geo = { ...rootPin, ...patch }), true))}
                                 <button class="btn-xs" type="button" onclick={() => edit('Reset root outline', d => delete d.overrides.nodes[rootId].geo)}>Reset to auto</button>
@@ -266,31 +247,15 @@
                 </div>
                 {#if gs.dimensionEnabled || gs.divisionEnabled}
                     {#each dims as dim (dim.key)}
-                        {@const cfg = dimConfig(dim)}
                         {@const divs = nodes.filter(n => n.kind === 'division' && n.dimensionKey === dim.key)}
                         <div class="per-dim-section">
                             <p class="dim-heading">
                                 <span>{dim.key}</span><span class="dim-type-badge">{dim.type}</span>
-                                {#if gs.perDimension[dim.key]}<button class="btn-xs" type="button" onclick={() => resetDim(dim)}>Use defaults</button>{/if}
                             </p>
-                            {#each [['dimensionEnabled', 'strategy', 'padding', ''], ['divisionEnabled', 'divisionStrategy', 'divisionPadding', 'Divisions: ']] as const as [on, sk, pk, prefix] (sk)}
-                                {#if gs[on]}
-                                    {#if prefix}<p class="divisions-heading gs-indent">Divisions:</p>{/if}
-                                    <div class="param-grid gs-indent">
-                                        <label class="param-row">
-                                            <span class="param-label">Style</span>
-                                            <select class="param-select" aria-label="{dim.key} {prefix}style" value={cfg[sk]} onchange={e => setDim(dim, { [sk]: e.currentTarget.value })}>
-                                                {#each STYLES as [v, label] (v)}<option value={v}>{label}</option>{/each}
-                                                {#if prefix && dim.type === 'numerical'}
-                                                    <option value="rangeBounds">Range bounds</option>
-                                                    <option value="rangeRect">Range rect</option>
-                                                {/if}
-                                            </select>
-                                        </label>
-                                        {@render numberRow('Padding', cfg[pk], v => setDim(dim, { [pk]: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
-                                    </div>
-                                {/if}
-                            {/each}
+                            <div class="gs-indent">
+                                {#if gs.dimensionEnabled}<OutlineControls part="dimension" {dim} />{/if}
+                                {#if gs.divisionEnabled}<OutlineControls part="division" {dim} />{/if}
+                            </div>
                             <details class="bonus-rect-disclosure gs-indent">
                                 <summary>add extra geometries</summary>
                                 <div class="bonus-rect-list">
@@ -576,12 +541,6 @@
         width: 54px;
     }
 
-    .divisions-heading {
-        margin-bottom: 0;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dn-text-muted);
-    }
 
     .dim-heading {
         margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.25);

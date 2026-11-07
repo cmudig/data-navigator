@@ -3,10 +3,12 @@
     import { keyLabel } from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
     import '@data-navigator/inspector/style.css';
+    import { untrack } from 'svelte';
     import { app } from '../../model/state.svelte';
     import { mount } from '../../runtime/dn-runtime.js';
     import NavKeysPanel from '../components/NavKeysPanel.svelte';
     import AssistantPanel from '../components/AssistantPanel.svelte';
+    import NodeEditor from '../components/NodeEditor.svelte';
 
     const structure = $derived.by(() => {
         const s = app.structure;
@@ -23,7 +25,7 @@
     const imageDataUrl = $derived(app.doc.image?.url ?? null);
     let scalerWidth = $state(0);
     let innerHeight = $state(900);
-    const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth, Math.max(160, innerHeight - 360) / canvasHeight) : 1);
+    const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth, Math.max(160, innerHeight - 460) / canvasHeight) : 1);
 
     let navMode = $state<'text' | 'keyboard'>('text');
     let showAllNodes = $state(false);
@@ -39,47 +41,77 @@
     let nav: ReturnType<typeof mount> | null = $state.raw(null);
     let inspector: ReturnType<typeof Inspector> | null = null;
 
+    let lastId = $state<string | null>(null);
+    let updating = false;
+    let chartFocused = $state(false);
+    const entryOk = $derived(!!app.entry && !!structure.nodes[app.entry]);
+
+    function drawInspector(s: any) {
+        if (!inspectorEl) return;
+        inspectorEl.innerHTML = '';
+        inspector = Inspector({ structure: s, container: inspectorEl, size: { width: 340, height: 280 }, colorBy: 'dimensionLevel', mode: app.ui.schema.graphMode, nodeRadius: 6, showConsoleMenu: { data: app.rows } } as any);
+        if (current) inspector.highlight(current.renderId || current.id);
+    }
+
     $effect(() => {
-        const s = structure;
         const entry = app.entry;
         const chat = navMode === 'text' ? chatEl : undefined;
-        if (!root || !entry || !s.nodes[entry]) return;
-        const m = mount({
-            structure: s,
-            container: root,
-            entry,
-            chat,
-            suffix: 'test',
-            description: 'Navigate the data structure',
-            onFocus: (n: any) => {
-                current = n;
-                inspector?.highlight(n.renderId || n.id);
-                log({ kind: 'navigate', label: n.semantics?.label });
-            },
-            onExit: () => {
-                current = null;
-                inspector?.clear();
-                log({ kind: 'exit' });
-            },
-            onKey: (e: KeyboardEvent, _rule: string, next: unknown) => log({ kind: 'keypress', key: e.key, moved: !!next }),
-            chatOptions: {
-                data: app.rows,
-                onClick: (n: any) => log({ kind: 'select', label: n.semantics?.label }),
-                onHover: (n: any) => log({ kind: 'hover', label: n.semantics?.label })
-            }
-        });
+        if (!root || !entryOk || !entry) return;
+        const m = untrack(() =>
+            mount({
+                structure,
+                container: root!,
+                entry,
+                chat,
+                suffix: 'test',
+                description: 'Navigate the data structure',
+                onFocus: (n: any) => {
+                    current = n;
+                    lastId = n.id;
+                    inspector?.highlight(n.renderId || n.id);
+                    if (!updating) log({ kind: 'navigate', label: n.semantics?.label });
+                },
+                onExit: () => {
+                    current = null;
+                    inspector?.clear();
+                    log({ kind: 'exit' });
+                },
+                onKey: (e: KeyboardEvent, _rule: string, next: unknown) => log({ kind: 'keypress', key: e.key, moved: !!next }),
+                chatOptions: {
+                    data: app.rows,
+                    onClick: (n: any) => log({ kind: 'select', label: n.semantics?.label }),
+                    onHover: (n: any) => log({ kind: 'hover', label: n.semantics?.label })
+                }
+            })
+        );
         nav = m;
-        if (inspectorEl) {
-            inspectorEl.innerHTML = '';
-            inspector = Inspector({ structure: s, container: inspectorEl, size: { width: 340, height: 280 }, colorBy: 'dimensionLevel', mode: app.ui.schema.graphMode, nodeRadius: 6, showConsoleMenu: { data: app.rows } } as any);
-        }
+        untrack(() => drawInspector(structure));
         return () => {
             m.destroy();
             inspector?.destroy();
             nav = null;
             current = null;
+            lastId = null;
         };
     });
+
+    $effect(() => {
+        const s = structure;
+        untrack(() => {
+            if (!nav) return;
+            updating = true;
+            nav.update(s);
+            updating = false;
+            if (current && !s.nodes[current.id]) current = null;
+            drawInspector(s);
+        });
+    });
+
+    function refocus() {
+        if (!nav || !lastId || !structure.nodes[lastId]) return;
+        nav.focus(lastId, true);
+        log({ kind: 'refocus' });
+    }
 
     const directions = $derived(
         current && nav
@@ -101,7 +133,7 @@
     <AssistantPanel />
 </aside>
 
-<svelte:window bind:innerHeight />
+<svelte:window bind:innerHeight onfocusin={() => (chartFocused = !!root?.contains(document.activeElement))} onfocusout={() => queueMicrotask(() => (chartFocused = !!root?.contains(document.activeElement)))} />
 
 <div class="workspace-canvas--mild center-content">
     <h2 id="step-heading-3" class="visually-hidden" tabindex="-1">Testing</h2>
@@ -164,7 +196,8 @@
                 <span class="sr-label">{#if app.missing.has(current.id)}<span aria-hidden="true">⚠ </span>Warning. {/if}Screen reader announcement:</span>
                 <span class="sr-value">{current.semantics?.label}</span>
             </div>
-            <details>
+            <div class="node-panels">
+            <details class="node-panel">
                 <summary>Info for current node</summary>
                 {#if directions.length}
                     <h4 class="sr-subheading">Navigation</h4>
@@ -187,6 +220,11 @@
                     </table>
                 {/if}
             </details>
+            <details class="node-panel">
+                <summary>Edit structure at this node</summary>
+                <NodeEditor node={current} />
+            </details>
+            </div>
         </div>
     {/if}
 
@@ -207,6 +245,7 @@
         <div class="panel-heading">Keyboard navigation</div>
         <div class="kbd-enter-area">
             <button class="btn-primary" type="button" onclick={() => (nav?.enter(), log({ kind: 'enter' }))} disabled={!nav}>Enter navigation area</button>
+            <button class="btn-ghost" type="button" onclick={refocus} disabled={chartFocused || !lastId || !nav}>Re-focus last element</button>
         </div>
         <table class="keys-table">
             <thead><tr><th>Key</th><th>Rule</th></tr></thead>
@@ -331,6 +370,28 @@
     }
 
     /* ─── Screen reader announcement (below canvas) ──────────────────────────── */
+    .node-panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+        .node-panels {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .node-panel {
+        min-width: 0;
+    }
+
+    .node-panel > summary {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
     .sr-announcement {
         width: 100%;
         padding: 8px 10px;
@@ -388,7 +449,7 @@
     .output-table td {
         padding: 3px 6px;
         text-align: left;
-        border-bottom: 1px solid var(--dn-control);
+        border-bottom: 1px solid var(--dn-border);
     }
 
     .output-table th {
@@ -421,7 +482,7 @@
         padding: 1px 5px;
         margin: 0px 2px;
         background: var(--dn-surface);
-        border: 1px solid var(--dn-control);
+        border: 1px solid var(--dn-border);
         border-radius: 3px;
         color: var(--dn-text);
     }
@@ -485,7 +546,7 @@
     /* Keyboard nav toggle at top of right panel */
     .kbd-toggle-label {
         padding: 6px 10px;
-        border-bottom: 1px solid var(--dn-control);
+        border-bottom: 1px solid var(--dn-border);
         flex-shrink: 0;
         font-weight: 500;
     }
@@ -513,9 +574,12 @@
 
     /* Keyboard mode: enter button area */
     .kbd-enter-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
         padding: 10px;
         flex-shrink: 0;
-        border-bottom: 1px solid var(--dn-control);
+        border-bottom: 1px solid var(--dn-border);
     }
 
     .btn-primary {
@@ -560,7 +624,7 @@
         font-size: 0.72rem;
         padding: 1px 5px;
         background: var(--dn-surface);
-        border: 1px solid var(--dn-control);
+        border: 1px solid var(--dn-border);
         border-radius: 3px;
         color: var(--dn-text);
     }

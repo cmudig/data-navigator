@@ -475,7 +475,7 @@
         align-items: center;
         gap: calc(var(--dn-space) * 0.75);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
-        border: 1px solid var(--dn-control);
+        border: 1px solid var(--dn-border);
         border-radius: var(--dn-radius);
         background: var(--dn-surface);
     }

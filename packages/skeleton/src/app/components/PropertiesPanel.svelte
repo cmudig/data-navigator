@@ -740,7 +740,7 @@
     /* ── Name row (select + new input + add button) ── */
     /* ── Panel fieldset (group info) ── */
     .panel-fieldset {
-        border: 1px solid var(--dn-control);
+        border: 1px solid var(--dn-border);
         border-radius: calc(var(--dn-radius) / 2);
         padding: calc(var(--dn-space) * 1) calc(var(--dn-space) * 1.25);
         margin: 0 0 calc(var(--dn-space) * 1.25);

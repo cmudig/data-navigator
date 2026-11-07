@@ -138,7 +138,7 @@
         gap: 4px;
         padding: 4px;
         background: var(--dn-bg);
-        border: 1px solid var(--dn-control);
+        border: 1px solid var(--dn-border);
         border-radius: var(--dn-radius);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }

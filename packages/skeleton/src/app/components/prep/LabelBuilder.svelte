@@ -12,8 +12,9 @@
         suggestedFields?: { key: string; rank?: string }[];
         suggestedAggField?: string;
         missing?: string;
+        preview?: boolean;
     }
-    const { value, level, onchange, dimensionKey, nodeId, suggestedFields = [], suggestedAggField, missing }: Props = $props();
+    const { value, level, onchange, dimensionKey, nodeId, suggestedFields = [], suggestedAggField, missing, preview: showPreview = true }: Props = $props();
 
     const fields = $derived(app.doc.data.fields.filter(f => !f.removed).map(f => f.key));
     const numeric = $derived(app.doc.data.fields.filter(f => !f.removed && f.type === 'numerical').map(f => f.key));
@@ -189,10 +190,12 @@
         </label>
     </div>
 
-    <div class="lb-preview-box" aria-live="polite">
+{#if showPreview}
+        <div class="lb-preview-box" aria-live="polite">
         <span class="lb-preview-label">label preview:</span>
         <span class="lb-preview-text">{preview}</span>
     </div>
+    {/if}
 </div>
 
 <style>

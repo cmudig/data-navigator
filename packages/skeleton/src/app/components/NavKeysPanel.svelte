@@ -1,56 +1,67 @@
 <script lang="ts">
     import { app, edit } from '../../model/state.svelte';
-    import { SIBLING_PRESETS, presetOf, syncKeys, type Pair } from '../../model/doc';
+    import { SIBLING_PRESETS, presetOf, syncKeys, type Pair, type Recipe } from '../../model/doc';
 
-    const dims = $derived(app.doc.recipe.dimensions);
+    const { only, between, title = 'Keys for each dimension' }: { only?: string[]; between?: boolean; title?: string } = $props();
+    const uid = Math.random().toString(36).slice(2, 7);
+    const BETWEEN = '__between';
+    const r = $derived(app.doc.recipe);
+    const rows = $derived([
+        ...((between ?? r.dimensions.length > 1) ? [{ id: BETWEEN, label: 'Between dimensions', nav: r.level1.nav }] : []),
+        ...r.dimensions.filter(d => !only || only.includes(d.key)).map(d => ({ id: d.key, label: d.key, nav: d.nav.sibling }))
+    ]);
 
     const flipped = (nav: Pair) => {
         const p = presetOf(nav);
         return !!p && nav[0] !== p.names[0];
     };
+    const orient = (names: readonly string[], back: boolean) => (back ? [names[1], names[0]] : [names[0], names[1]]) as Pair;
     const short = (label: string, back: boolean) => {
         const parts = label.replace(/ (arrow|bracket) keys/, '').split(' / ');
         return (back ? parts.reverse() : parts).join(' / ');
     };
+    const navOf = (rr: Recipe, id: string) => (id === BETWEEN ? rr.level1.nav : rr.dimensions.find(x => x.key === id)!.nav.sibling);
 
-    function set(key: string, label: string, mutate: (me: { nav: { sibling: Pair } }, dims: { key: string; nav: { sibling: Pair } }[]) => void) {
+    function set(id: string, label: string, next: (nav: Pair, rr: Recipe) => Pair) {
         edit(label, d => {
-            const r = d.recipe;
-            mutate(r.dimensions.find(x => x.key === key)!, r.dimensions);
-            Object.assign(r, syncKeys(r));
+            const rr = d.recipe;
+            const nav = next(navOf(rr, id), rr);
+            if (id === BETWEEN) rr.level1.nav = nav;
+            else rr.dimensions.find(x => x.key === id)!.nav.sibling = nav;
+            Object.assign(rr, syncKeys(rr));
         });
     }
 
-    function choose(key: string, id: string) {
-        const p = SIBLING_PRESETS.find(x => x.id === id)!;
-        set(key, `Keys for ${key}`, (me, all) => {
-            const back = flipped(me.nav.sibling);
-            const other = all.find(x => x.key !== key && presetOf(x.nav.sibling)?.id === id);
-            if (other) other.nav.sibling = [...me.nav.sibling] as Pair;
-            me.nav.sibling = (back ? [p.names[1], p.names[0]] : [...p.names]) as Pair;
+    function choose(id: string, label: string, preset: string) {
+        const p = SIBLING_PRESETS.find(x => x.id === preset)!;
+        set(id, `Keys for ${label}`, (nav, rr) => {
+            const other = id === BETWEEN ? null : rr.dimensions.find(x => x.key !== id && presetOf(x.nav.sibling)?.id === preset);
+            const mine = presetOf(nav);
+            if (other) other.nav.sibling = mine ? orient(mine.names, flipped(other.nav.sibling)) : ([...nav] as Pair);
+            return orient(p.names, flipped(nav));
         });
-        app.ui.live = `${key} now uses ${p.label}.`;
+        app.ui.live = `${label} now uses ${p.label}.`;
     }
 
-    function reverse(key: string) {
-        set(key, `Reversed ${key}`, me => (me.nav.sibling = [me.nav.sibling[1], me.nav.sibling[0]]));
-        const nav = dims.find(x => x.key === key)!.nav.sibling;
-        app.ui.live = `${key}: ${nav[1]} moves forward, ${nav[0]} moves back.`;
+    function reverse(id: string, label: string) {
+        set(id, `Reversed ${label}`, nav => [nav[1], nav[0]]);
+        const nav = navOf(app.doc.recipe, id);
+        app.ui.live = `${label}: ${nav[1]} moves forward, ${nav[0]} moves back.`;
     }
 </script>
 
-<section class="nav-keys" aria-labelledby="nav-keys-heading">
-    <h3 id="nav-keys-heading">Keys for each dimension</h3>
+<section class="nav-keys" aria-labelledby="nav-keys-{uid}">
+    <h3 id="nav-keys-{uid}">{title}</h3>
     <p class="hint">Picking keys another dimension uses swaps the two. ⇄ flips which key moves forward.</p>
-    {#each dims as d (d.key)}
-        {@const cur = presetOf(d.nav.sibling)?.id}
-        {@const back = flipped(d.nav.sibling)}
+    {#each rows as row (row.id)}
+        {@const cur = presetOf(row.nav)?.id}
+        {@const back = flipped(row.nav)}
         <fieldset>
-            <legend>{d.key}</legend>
-            <button class="reverse" type="button" aria-pressed={back} aria-label="Reverse direction for {d.key}" title="Reverse direction" onclick={() => reverse(d.key)}>⇄</button>
+            <legend>{row.label}</legend>
+            <button class="reverse" type="button" aria-pressed={back} aria-label="Reverse direction for {row.label}" title="Reverse direction" onclick={() => reverse(row.id, row.label)}>⇄</button>
             {#each SIBLING_PRESETS as p (p.id)}
                 <label class:on={cur === p.id}>
-                    <input type="radio" name="keys-{d.key}" checked={cur === p.id} onchange={() => choose(d.key, p.id)} />
+                    <input type="radio" name="keys-{uid}-{row.id}" checked={cur === p.id} onchange={() => choose(row.id, row.label, p.id)} />
                     {short(p.label, back)}
                 </label>
             {/each}
