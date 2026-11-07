@@ -1,984 +1,305 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import { appState } from '../../../store/appState';
-    import type { ScaffoldConfig, SyntheticDataConfig, PrepState, SchemaState, VariableMeta, GroupShapeConfig, DimensionGroupConfig, BonusRect } from '../../../store/appState';
-    import { defaultGroupShapeConfig } from '../../../store/appState';
-    import type { SkeletonNode } from '../../../store/types';
-    import { extractValues, extractXYValues } from '../../../utils/valueExtractor';
-    import { latestView } from '../../../store/scaffoldRuntime';
-    import { runEstimateAndApply } from '../../../utils/paddingEstimator';
-    import { logAction, logActionDebounced } from '../../../store/historyStore';
-    import { detectFieldsForChartType } from '../../../utils/prepAdapter';
+    import { app, commit, edit } from '../../../model/state.svelte';
+    import type { Doc, GroupShapeConfig, ScaffoldConfig } from '../../../model/doc';
+    import { CHART_TYPES, detectFields } from '../../../utils/vegaBuilder';
+    import { runFit } from '../../../utils/paddingEstimator';
+    import OutlineControls from '../OutlineControls.svelte';
 
-    // ── Store sync ────────────────────────────────────────────────────────────
-    let config = $state<ScaffoldConfig | null>(null);
-    let prepState = $state<PrepState | null>(null);
-    let schemaState = $state<SchemaState | null>(null);
-    let committedScaffoldNodes = $state<SkeletonNode[]>([]);
-    let allNodes = $state<SkeletonNode[]>([]);
-    let uploadedData = $state<Record<string, unknown>[] | null>(null);
-
-    const _unsub = appState.subscribe(s => {
-        config = s.scaffoldConfig;
-        prepState = s.prepState;
-        schemaState = s.schemaState;
-        committedScaffoldNodes = [...s.nodes.values()].filter(n => n.source === 'scaffold');
-        allNodes = [...s.nodes.values()];
-        uploadedData = s.uploadedData;
-    });
-    onDestroy(_unsub);
-
-    // Derived node lists for Group Shapes panel
-    const dimensionNodes = $derived(allNodes.filter(n => n.dnLevel === 1));
-    const divisionNodes  = $derived(allNodes.filter(n => n.dnLevel === 2));
-    const divisionsByDimension = $derived(() => {
-        const map = new Map<string, SkeletonNode[]>();
-        for (const n of divisionNodes) {
-            const key = n.dimensionKey ?? 'unknown';
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(n);
-        }
-        return map;
-    });
-
-    // ── Done ──────────────────────────────────────────────────────────────────
-    function handleDone() {
-        logAction('Applied scaffold positions');
-        appState.update(s => ({ ...s, scaffoldModeActive: false }));
-    }
-
-    // ── Extract values ────────────────────────────────────────────────────────
-    function handleExtractValues() {
-        if (!latestView) {
-            window.alert('No scaffold render available. Try re-entering scaffold mode to regenerate the chart.');
-            return;
-        }
-        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
-        const cfg = s.scaffoldConfig;
-        if (!cfg) return;
-
-        const nodes = [...s.nodes.values()];
-        const updated = cfg.chartType === 'scatter'
-            ? extractXYValues(latestView, nodes, cfg)
-            : extractValues(latestView, nodes, cfg, extractCalibNodeId, extractCalibValue);
-
-        appState.update(st => {
-            const nextNodes = new Map(st.nodes);
-            for (const node of updated) nextNodes.set(node.id, node);
-            return { ...st, nodes: nextNodes };
-        });
-
-        logAction('Extracted values from scaffold');
-    }
-
-    // ── Estimate padding (CV) ───────────────────────────────────────────────────
-    let estimatingPadding = $state(false);
-    async function handleEstimatePadding() {
-        const s = (() => { let val: import('../../../store/appState').AppState; appState.subscribe(v => val = v)(); return val!; })();
-        const cfg = s.scaffoldConfig;
-        if (!cfg || !s.imageDataUrl || !s.imageWidth || !s.imageHeight) {
-            window.alert('Need a rendered scaffold and an uploaded image first.');
-            return;
-        }
-        estimatingPadding = true;
-        try {
-            await runEstimateAndApply(cfg, [...s.nodes.values()], {
-                dataUrl: s.imageDataUrl,
-                width: s.imageWidth,
-                height: s.imageHeight
-            });
-            logAction('Estimated padding');
-        } finally {
-            estimatingPadding = false;
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const chartTypeLabel = $derived.by(() => {
-        const ct = config?.chartType ?? prepState?.qaProgress?.chapters?.[0]?.answers?.['chart-type'];
-        return ct ? String(ct) : 'unknown';
-    });
-
-    const showSeriesFields = $derived(
-        config?.chartType === 'stacked-bar' ||
-        config?.chartType === 'clustered-bar' ||
-        config?.chartType === 'line' ||
-        config?.chartType === 'area'
+    const raw = $derived(app.doc.scaffold);
+    const config = $derived(app.scaffold);
+    const gs = $derived(app.doc.recipe.groups);
+    const dims = $derived(app.doc.recipe.dimensions);
+    const rootId = $derived(app.doc.recipe.root.id);
+    const rootPin = $derived(app.doc.overrides.nodes[rootId]?.geo);
+    const nodes = $derived([...app.graph.nodes.values()]);
+    const series = $derived(['stacked-bar', 'clustered-bar', 'line', 'area'].includes(config?.chartType ?? ''));
+    const columns = $derived(
+        config?.dataMode === 'synthetic' && config.syntheticConfig
+            ? [config.syntheticConfig.xField, config.syntheticConfig.yField, config.syntheticConfig.colorField].filter(Boolean) as string[]
+            : app.doc.data.fields.filter(f => !f.removed).map(f => f.key)
     );
+    const syntheticKeys = $derived((series ? ['categories', 'seriesNames'] : ['categories']) as ('categories' | 'seriesNames')[]);
+    const barKeys = $derived((config?.chartType === 'clustered-bar' ? ['barInnerPadding', 'groupPadding'] : ['barInnerPadding']) as ('barInnerPadding' | 'groupPadding')[]);
+    const numericalColumns = $derived(app.doc.data.fields.filter(f => !f.removed && f.type === 'numerical').map(f => f.key));
+    const extent = (field: string | undefined, fn: (...v: number[]) => number) => {
+        const vals = app.rows.map(r => Number(r[field ?? ''])).filter(n => !isNaN(n));
+        return vals.length ? String(fn(...vals)) : 'auto';
+    };
 
-    // Available column names for field mapping dropdowns.
-    // CSV mode: derived from the first uploaded data row.
-    // Synthetic mode: the field names used in the generated data.
-    const availableColumns = $derived.by(() => {
-        if (config?.dataMode === 'csv') {
-            return uploadedData?.[0] ? Object.keys(uploadedData[0]) : [];
-        }
-        const sc = config?.syntheticConfig;
-        if (!sc) return [];
-        return [sc.xField, sc.yField, ...(sc.colorField ? [sc.colorField] : [])];
-    });
+    const set = (label: string, mutate: (c: ScaffoldConfig, d: Doc) => void) => edit(label, d => mutate(d.scaffold!, d), true);
+    const num = (v: string) => (v === '' ? undefined : Number(v));
+    const setGroups = (patch: Partial<GroupShapeConfig>) => edit('Group shapes changed', d => Object.assign(d.recipe.groups, patch), true);
+    const fit = $derived(app.ui.fit);
+    const bonus = (field: 'dimensionBonusRects' | 'divisionBonusRects', key: string, patch: Partial<GroupShapeConfig['divisionBonusRects'][string]>, at = { x: 10, y: 10 }) =>
+        edit('Group shapes changed', d => {
+            const prev = d.recipe.groups[field][key] ?? { enabled: true, ...at, width: 80, height: 40 };
+            d.recipe.groups[field][key] = { ...prev, ...patch };
+        }, true);
 
-    // ── Scatter axis domain auto-extent (shown as placeholder text) ──────────
-    function scatterExtent(field: string | undefined, fn: (vals: number[]) => number): string {
-        if (!field || !uploadedData) return 'auto';
-        const vals = uploadedData.map(r => Number(r[field])).filter(n => !isNaN(n));
-        return vals.length ? String(fn(vals)) : 'auto';
-    }
-    const autoXMin = $derived(scatterExtent(config?.xField, vals => Math.min(...vals)));
-    const autoXMax = $derived(scatterExtent(config?.xField, vals => Math.max(...vals)));
-    const autoYMin = $derived(scatterExtent(config?.yField, vals => Math.min(...vals)));
-    const autoYMax = $derived(scatterExtent(config?.yField, vals => Math.max(...vals)));
-
-    // ── Extract values state ──────────────────────────────────────────────────
-    let extractCalibNodeId = $state('');
-    let extractCalibValue = $state<number>(0);
-    const showExtractForm = $derived(committedScaffoldNodes.length > 0 && config?.dataMode === 'synthetic');
-
-    // ── Param updaters ────────────────────────────────────────────────────────
-    function patchConfig(patch: Partial<ScaffoldConfig>) {
-        appState.update(s => ({
-            ...s,
-            scaffoldConfig: s.scaffoldConfig ? { ...s.scaffoldConfig, ...patch } : s.scaffoldConfig
-        }));
-        logActionDebounced('Scaffold config changed');
+    function changeChartType(chartType: string) {
+        const f = detectFields(chartType, dims, app.doc.data.fields);
+        commit(`Chart type changed to ${chartType}`, d => ({ ...d, scaffold: { ...d.scaffold!, chartType, xField: f.xField, yField: f.yField, colorField: f.colorField } }));
     }
 
-    function patchMarkParams(patch: Partial<ScaffoldConfig['markParams']>) {
-        appState.update(s => ({
-            ...s,
-            scaffoldConfig: s.scaffoldConfig
-                ? { ...s.scaffoldConfig, markParams: { ...s.scaffoldConfig.markParams, ...patch } }
-                : s.scaffoldConfig
-        }));
-        logActionDebounced('Scaffold config changed');
-    }
-
-    // ── Chart type change ─────────────────────────────────────────────────────
-    function handleChartTypeChange(newType: string) {
-        const navAnswers = prepState?.qaProgress?.chapters.find(c => c.id === 'navigation')?.answers ?? {};
-
-        // Build allColumns from user-confirmed variable types in insertion order.
-        // Falls back to row-scan (CSV) or syntheticConfig fields when prep hasn't been run.
-        let allColumns: { key: string; type: 'categorical' | 'numerical' }[] =
-            (prepState?.variables ?? [])
-                .filter((v: VariableMeta) => !v.removed)
-                .map((v: VariableMeta) => ({ key: v.key, type: v.type }));
-
-        if (allColumns.length === 0 && config?.dataMode === 'csv' && uploadedData?.[0]) {
-            const row = uploadedData[0];
-            allColumns = Object.keys(row).map(k => ({
-                key: k,
-                type: (typeof row[k] === 'number' ? 'numerical' : 'categorical') as 'categorical' | 'numerical'
-            }));
-        } else if (allColumns.length === 0 && config?.syntheticConfig) {
-            const sc = config.syntheticConfig;
-            allColumns = [
-                { key: sc.xField, type: 'categorical' },
-                { key: sc.yField, type: 'numerical' },
-                ...(sc.colorField ? [{ key: sc.colorField, type: 'categorical' as const }] : [])
-            ];
-        }
-
-        // Build enriched dims from included schema dimensions with wizard nav-direction answers
-        let dims: { key: string; type: 'categorical' | 'numerical'; navIndex?: number | null; navPreset?: string }[] = [];
-        if (schemaState) {
-            const includedDims = schemaState.dimensions.filter(d => d.included);
-            dims = (includedDims.length > 0 ? includedDims : schemaState.dimensions).map(d => ({
-                key: d.key,
-                type: d.type,
-                navIndex: d.navIndex,
-                navPreset: typeof navAnswers[`nav-within-${d.key}`] === 'string'
-                    ? (navAnswers[`nav-within-${d.key}`] as string)
-                    : undefined
-            }));
-        }
-
-        const detected = detectFieldsForChartType(newType, dims, allColumns);
-        patchConfig({ chartType: newType, ...detected });
-        logAction(`Chart type changed to ${newType}`);
-    }
-
-    // ── Group shape helpers ───────────────────────────────────────────────────
-
-    function patchGroupShapes(patch: Partial<GroupShapeConfig>) {
-        appState.update(s => {
-            if (!s.scaffoldConfig) return s;
-            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
-            return {
-                ...s,
-                scaffoldConfig: { ...s.scaffoldConfig, groupShapes: { ...prev, ...patch } }
-            };
-        });
-        logActionDebounced('Group shapes changed');
-    }
-
-    function patchDimConfig(dimKey: string, changes: Partial<DimensionGroupConfig>) {
-        appState.update(s => {
-            if (!s.scaffoldConfig) return s;
-            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
-            const dimType = schemaState?.dimensions.find(d => d.key === dimKey)?.type ?? 'categorical';
-            const existing = prev.perDimension[dimKey] ?? (
-                dimType === 'numerical'
-                    ? { strategy: 'unionOfAll' as const, padding: 8, divisionStrategy: 'rangeRect' as const, divisionPadding: 0 }
-                    : { strategy: 'unionOfAll' as const, padding: 8, divisionStrategy: 'convexHull' as const, divisionPadding: 0 }
-            );
-            return {
-                ...s,
-                scaffoldConfig: {
-                    ...s.scaffoldConfig,
-                    groupShapes: { ...prev, perDimension: { ...prev.perDimension, [dimKey]: { ...existing, ...changes } } }
-                }
-            };
-        });
-        logActionDebounced('Group shapes changed');
-    }
-
-    function localDimConfig(dimKey: string, dimType: 'categorical' | 'numerical'): DimensionGroupConfig {
-        const existing = gs.perDimension?.[dimKey];
-        if (existing) return existing;
-        return dimType === 'numerical'
-            ? { strategy: 'unionOfAll', padding: 8, divisionStrategy: 'rangeRect', divisionPadding: 0 }
-            : { strategy: 'unionOfAll', padding: 8, divisionStrategy: 'convexHull', divisionPadding: 0 };
-    }
-
-    const numericalColumns = $derived.by(() => {
-        if (prepState?.variables) {
-            return prepState.variables.filter(v => !v.removed && v.type === 'numerical').map(v => v.key);
-        }
-        if (config?.dataMode === 'csv' && uploadedData?.[0]) {
-            return Object.entries(uploadedData[0])
-                .filter(([, v]) => typeof v === 'number')
-                .map(([k]) => k);
-        }
-        return [];
-    });
-
-    function toggleBonusRect(
-        level: 'dimension' | 'division',
-        key: string,
-        enabled: boolean,
-        fallbackX: number,
-        fallbackY: number
-    ) {
-        appState.update(s => {
-            if (!s.scaffoldConfig) return s;
-            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
-            const field = level === 'dimension' ? 'dimensionBonusRects' : 'divisionBonusRects';
-            const existing = prev[field][key];
-            const updated: BonusRect = existing
-                ? { ...existing, enabled }
-                : { enabled, x: fallbackX, y: fallbackY, width: 80, height: 40 };
-            return {
-                ...s,
-                scaffoldConfig: {
-                    ...s.scaffoldConfig,
-                    groupShapes: { ...prev, [field]: { ...prev[field], [key]: updated } }
-                }
-            };
-        });
-        logActionDebounced('Group shapes changed');
-    }
-
-    function patchBonusRect(
-        level: 'dimension' | 'division',
-        key: string,
-        patch: Partial<BonusRect>
-    ) {
-        appState.update(s => {
-            if (!s.scaffoldConfig) return s;
-            const prev = s.scaffoldConfig.groupShapes ?? defaultGroupShapeConfig();
-            const field = level === 'dimension' ? 'dimensionBonusRects' : 'divisionBonusRects';
-            const existing = prev[field][key] ?? { enabled: true, x: 0, y: 0, width: 80, height: 40 };
-            return {
-                ...s,
-                scaffoldConfig: {
-                    ...s.scaffoldConfig,
-                    groupShapes: { ...prev, [field]: { ...prev[field], [key]: { ...existing, ...patch } } }
-                }
-            };
-        });
-        logActionDebounced('Group shapes changed');
-    }
-
-    // Convenience getter so template can reference gs without null checks
-    const gs = $derived(config?.groupShapes ?? defaultGroupShapeConfig());
-
-    function patchSyntheticConfig(patch: Partial<SyntheticDataConfig>) {
-        appState.update(s => {
-            if (!s.scaffoldConfig) return s;
-            const prev = s.scaffoldConfig.syntheticConfig ?? {
-                categories: [], xField: 'category', yField: 'value', seriesNames: [], colorField: 'series'
-            };
-            return {
-                ...s,
-                scaffoldConfig: { ...s.scaffoldConfig, syntheticConfig: { ...prev, ...patch } }
-            };
-        });
-        logActionDebounced('Scaffold config changed');
-    }
-
-    function updateCategories(raw: string) {
-        const cats = raw.split(',').map(s => s.trim()).filter(Boolean);
-        patchSyntheticConfig({ categories: cats });
-    }
-
-    function updateSeriesNames(raw: string) {
-        const names = raw.split(',').map(s => s.trim()).filter(Boolean);
-        patchSyntheticConfig({ seriesNames: names });
-    }
-
-    function applyExtractValues() {
-        if (!extractCalibNodeId || extractCalibValue <= 0) return;
-        handleExtractValues();
-    }
 </script>
 
-{#if config}
-<aside class="scaffold-panel" aria-label="Scaffold mode controls">
+{#snippet numberRow(label: string, value: number | undefined, onset: (v: number | undefined) => void, attrs: { xs?: boolean; step?: number | string; min?: number; placeholder?: string; unit?: string } = {})}
+    <label class="param-row">
+        <span class="param-label" class:xs={attrs.xs}>{label}</span>
+        <input type="number" class="param-input" class:sm={attrs.xs} step={attrs.step ?? 1} min={attrs.min} placeholder={attrs.placeholder} value={value ?? ''} oninput={e => onset(num(e.currentTarget.value))} />
+        {#if attrs.unit}<span class="param-val">{attrs.unit}</span>{/if}
+    </label>
+{/snippet}
 
-    <!-- Header -->
-    <div class="panel-header">
-        <span class="panel-title">Scaffold</span>
-        <span class="chart-type-badge">{chartTypeLabel}</span>
-        <span class="data-mode-badge" class:synthetic={config.dataMode === 'synthetic'}>
-            {config.dataMode === 'synthetic' ? 'No data' : 'CSV data'}
-        </span>
+{#snippet fieldSelect(label: string, value: string | undefined, onset: (v: string | undefined) => void, allowNone = false)}
+    <label class="param-row">
+        <span class="param-label">{label}</span>
+        <select class="param-select" value={value === undefined ? '__auto' : value} onchange={e => onset(e.currentTarget.value === '__auto' ? undefined : e.currentTarget.value)}>
+            <option value="__auto">Auto</option>
+            {#if allowNone}<option value="">None</option>{/if}
+            {#each columns as col (col)}<option value={col}>{col}</option>{/each}
+        </select>
+    </label>
+{/snippet}
+
+{#snippet rectInputs(r: { x: number; y: number; width: number; height: number }, onset: (patch: Record<string, number>) => void)}
+    <div class="bonus-rect-inputs">
+        {#each [['X', 'x'], ['Y', 'y'], ['W', 'width'], ['H', 'height']] as [label, k] (k)}
+            {@render numberRow(label, r[k as 'x'], v => v !== undefined && onset({ [k]: v }), { xs: true })}
+        {/each}
     </div>
+{/snippet}
 
-    <!-- Chart type override -->
-    <section class="param-section">
-        <h3 class="section-heading">Chart type</h3>
-        <div class="param-grid">
-            <label class="param-row">
-                <span class="param-label">Type</span>
-                <select class="param-select"
-                    value={config.chartType}
-                    onchange={(e) => handleChartTypeChange(e.currentTarget.value)}
-                >
-                    <option value="bar">Bar</option>
-                    <option value="stacked-bar">Stacked bar</option>
-                    <option value="clustered-bar">Clustered bar</option>
-                    <option value="scatter">Scatter</option>
-                    <option value="line">Line</option>
-                    <option value="area">Area</option>
-                </select>
-            </label>
+{#if config && raw}
+    <aside class="scaffold-panel" aria-label="Scaffold mode controls">
+        <div class="panel-header">
+            <span class="panel-title">Scaffold</span>
+            <span class="chart-type-badge">{config.chartType}</span>
+            <span class="data-mode-badge" class:synthetic={config.dataMode === 'synthetic'}>{config.dataMode === 'synthetic' ? 'No data' : 'CSV data'}</span>
         </div>
-    </section>
 
-    <!-- Chart position & size -->
-    <section class="param-section">
-        <h3 class="section-heading">Position &amp; size</h3>
-        <div class="param-grid">
-            <label class="param-row">
-                <span class="param-label">Offset X</span>
-                <input type="number" class="param-input" step="1"
-                    value={config.offsetX}
-                    oninput={(e) => patchConfig({ offsetX: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Offset Y</span>
-                <input type="number" class="param-input" step="1"
-                    value={config.offsetY}
-                    oninput={(e) => patchConfig({ offsetY: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Width</span>
-                <input type="number" class="param-input" step="10" min="50"
-                    value={config.plotWidth}
-                    oninput={(e) => patchConfig({ plotWidth: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Height</span>
-                <input type="number" class="param-input" step="10" min="50"
-                    value={config.plotHeight}
-                    oninput={(e) => patchConfig({ plotHeight: +e.currentTarget.value })}
-                />
-            </label>
-        </div>
-    </section>
-
-    <!-- Axis padding -->
-    <section class="param-section">
-        <h3 class="section-heading">Axis padding</h3>
-        <div class="param-grid">
-            <label class="param-row">
-                <span class="param-label">Left</span>
-                <input type="number" class="param-input" step="5" min="0"
-                    value={config.paddingLeft}
-                    oninput={(e) => patchConfig({ paddingLeft: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Top</span>
-                <input type="number" class="param-input" step="5" min="0"
-                    value={config.paddingTop}
-                    oninput={(e) => patchConfig({ paddingTop: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Right</span>
-                <input type="number" class="param-input" step="5" min="0"
-                    value={config.paddingRight}
-                    oninput={(e) => patchConfig({ paddingRight: +e.currentTarget.value })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">Bottom</span>
-                <input type="number" class="param-input" step="5" min="0"
-                    value={config.paddingBottom}
-                    oninput={(e) => patchConfig({ paddingBottom: +e.currentTarget.value })}
-                />
-            </label>
-        </div>
-        <button
-            type="button"
-            class="estimate-padding-btn"
-            onclick={handleEstimatePadding}
-            disabled={estimatingPadding}
-            title="Detect the chart marks in the image and align the scaffold padding to them"
-        >
-            {estimatingPadding ? 'Estimating…' : 'Estimate padding'}
-        </button>
-    </section>
-
-    <!-- Field mapping (Vega encoding channels) -->
-    <section class="param-section">
-        <h3 class="section-heading">Field mapping</h3>
-        <div class="param-grid">
-            <label class="param-row">
-                <span class="param-label">x</span>
-                <select class="param-select"
-                    value={config.xField ?? ''}
-                    onchange={(e) => patchConfig({ xField: e.currentTarget.value || undefined })}
-                >
-                    <option value="">— auto —</option>
-                    {#each availableColumns as col}
-                        <option value={col}>{col}</option>
-                    {/each}
-                </select>
-            </label>
-            <label class="param-row">
-                <span class="param-label">y</span>
-                <select class="param-select"
-                    value={config.yField ?? ''}
-                    onchange={(e) => patchConfig({ yField: e.currentTarget.value || undefined })}
-                >
-                    <option value="">— auto —</option>
-                    {#each availableColumns as col}
-                        <option value={col}>{col}</option>
-                    {/each}
-                </select>
-            </label>
-            <label class="param-row">
-                <span class="param-label">color</span>
-                <select class="param-select"
-                    value={config.colorField ?? ''}
-                    onchange={(e) => patchConfig({ colorField: e.currentTarget.value || undefined })}
-                >
-                    <option value="">— none —</option>
-                    {#each availableColumns as col}
-                        <option value={col}>{col}</option>
-                    {/each}
-                </select>
-            </label>
-            <label class="param-row">
-                <span class="param-label">Sort</span>
-                <select class="param-select"
-                    value={config.sortX ?? 'none'}
-                    onchange={(e) => patchConfig({ sortX: e.currentTarget.value as 'none' | 'ascending' | 'descending' })}
-                >
-                    <option value="none">Data order</option>
-                    <option value="ascending">Ascending</option>
-                    <option value="descending">Descending</option>
-                </select>
-            </label>
-        </div>
-    </section>
-
-    <!-- Axis domain overrides (scatter only) -->
-    {#if config.chartType === 'scatter'}
-    <section class="param-section">
-        <h3 class="section-heading">Axis domain</h3>
-        <p class="section-note">Leave blank to use data extent. Override if the image's axes differ from the data range.</p>
-        <div class="param-grid">
-            <label class="param-row">
-                <span class="param-label">x min</span>
-                <input type="number" class="param-input"
-                    value={config.xDomainMin ?? ''}
-                    placeholder={autoXMin}
-                    oninput={(e) => patchConfig({ xDomainMin: e.currentTarget.value !== '' ? Number(e.currentTarget.value) : undefined })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">x max</span>
-                <input type="number" class="param-input"
-                    value={config.xDomainMax ?? ''}
-                    placeholder={autoXMax}
-                    oninput={(e) => patchConfig({ xDomainMax: e.currentTarget.value !== '' ? Number(e.currentTarget.value) : undefined })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">y min</span>
-                <input type="number" class="param-input"
-                    value={config.yDomainMin ?? ''}
-                    placeholder={autoYMin}
-                    oninput={(e) => patchConfig({ yDomainMin: e.currentTarget.value !== '' ? Number(e.currentTarget.value) : undefined })}
-                />
-            </label>
-            <label class="param-row">
-                <span class="param-label">y max</span>
-                <input type="number" class="param-input"
-                    value={config.yDomainMax ?? ''}
-                    placeholder={autoYMax}
-                    oninput={(e) => patchConfig({ yDomainMax: e.currentTarget.value !== '' ? Number(e.currentTarget.value) : undefined })}
-                />
-            </label>
-        </div>
-    </section>
-    {/if}
-
-    <!-- Mark params (chart-type-specific) -->
-    <section class="param-section">
-        <h3 class="section-heading">Mark params</h3>
-        <div class="param-grid">
-            {#if config.chartType === 'bar' || config.chartType === 'stacked-bar' || config.chartType === 'clustered-bar'}
+        <section class="param-section">
+            <h3 class="section-heading">Chart type</h3>
+            <div class="param-grid">
                 <label class="param-row">
-                    <span class="param-label">Orientation</span>
-                    <select class="param-select"
-                        value={config.barOrientation ?? 'vertical'}
-                        onchange={(e) => {
-                            const next = e.currentTarget.value as 'vertical' | 'horizontal';
-                            if (next !== (config.barOrientation ?? 'vertical')) {
-                                patchConfig({ barOrientation: next });
-                            }
-                        }}
-                    >
-                        <option value="vertical">Vertical</option>
-                        <option value="horizontal">Horizontal</option>
+                    <span class="param-label">Type</span>
+                    <select class="param-select" value={config.chartType} onchange={e => changeChartType(e.currentTarget.value)}>
+                        {#each CHART_TYPES as t (t)}<option value={t}>{t.replace('-', ' ')}</option>{/each}
                     </select>
                 </label>
-                <label class="param-row">
-                    <span class="param-label">Bar spacing</span>
-                    <input type="range" class="param-slider" min="0" max="0.9" step="0.05"
-                        value={config.markParams.barInnerPadding ?? 0.1}
-                        oninput={(e) => patchMarkParams({ barInnerPadding: +e.currentTarget.value })}
-                    />
-                    <span class="param-val">{(config.markParams.barInnerPadding ?? 0.1).toFixed(2)}</span>
-                </label>
-                {#if config.chartType === 'clustered-bar'}
-                    <label class="param-row">
-                        <span class="param-label">Group spacing</span>
-                        <input type="range" class="param-slider" min="0" max="0.9" step="0.05"
-                            value={config.markParams.groupPadding ?? 0.05}
-                            oninput={(e) => patchMarkParams({ groupPadding: +e.currentTarget.value })}
-                        />
-                        <span class="param-val">{(config.markParams.groupPadding ?? 0.05).toFixed(2)}</span>
-                    </label>
-                {/if}
-            {/if}
-            {#if config.chartType === 'scatter'}
-                <label class="param-row">
-                    <span class="param-label">Point size</span>
-                    <input type="number" class="param-input" step="100" min="1"
-                        value={config.markParams.pointSize ?? 300}
-                        oninput={(e) => { const v = Number(e.currentTarget.value); if (!isNaN(v) && v > 0) patchMarkParams({ pointSize: v }); }}
-                    />
-                </label>
-                {#if numericalColumns.length > 0}
-                    <label class="param-row">
-                        <span class="param-label">Scale by</span>
-                        <select class="param-select"
-                            value={config.markParams.pointSizeField ?? ''}
-                            onchange={(e) => patchMarkParams({ pointSizeField: e.currentTarget.value || undefined })}
-                        >
-                            <option value="">— static —</option>
-                            {#each numericalColumns as col}
-                                <option value={col}>{col}</option>
-                            {/each}
-                        </select>
-                    </label>
-                {/if}
-            {/if}
-            {#if config.chartType === 'line' || config.chartType === 'area'}
-                <label class="param-row">
-                    <span class="param-label">Stroke width</span>
-                    <input type="number" class="param-input" step="0.5" min="0.5" max="10"
-                        value={config.markParams.strokeWidth ?? 2}
-                        oninput={(e) => patchMarkParams({ strokeWidth: +e.currentTarget.value })}
-                    />
-                </label>
-                <label class="param-row">
-                    <span class="param-label">Show points</span>
-                    <input type="checkbox"
-                        checked={config.markParams.showPoints !== false}
-                        onchange={(e) => patchMarkParams({ showPoints: e.currentTarget.checked })}
-                    />
-                </label>
-                {#if config.markParams.showPoints !== false}
-                    <label class="param-row">
-                        <span class="param-label">Point size</span>
-                        <input type="number" class="param-input" step="10" min="10" max="200"
-                            value={config.markParams.pointSize ?? 50}
-                            oninput={(e) => patchMarkParams({ pointSize: +e.currentTarget.value })}
-                        />
-                    </label>
-                {/if}
-            {/if}
-            {#if config.chartType === 'area'}
-                <label class="param-row">
-                    <span class="param-label">Fill opacity</span>
-                    <input type="range" class="param-slider" min="0.05" max="1" step="0.05"
-                        value={config.markParams.fillOpacity ?? 0.4}
-                        oninput={(e) => patchMarkParams({ fillOpacity: +e.currentTarget.value })}
-                    />
-                    <span class="param-val">{(config.markParams.fillOpacity ?? 0.4).toFixed(2)}</span>
-                </label>
-            {/if}
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <!-- Synthetic data fields (no-data path) -->
-    {#if config.dataMode === 'synthetic'}
         <section class="param-section">
-            <h3 class="section-heading">Categories</h3>
-            <p class="section-hint">Comma-separated list</p>
-            <textarea class="categories-input"
-                rows="2"
-                placeholder="A, B, C"
-                value={config.syntheticConfig?.categories?.join(', ') ?? ''}
-                oninput={(e) => updateCategories(e.currentTarget.value)}
-            ></textarea>
-            {#if showSeriesFields}
-                <h3 class="section-heading" style="margin-top: 8px">Series names</h3>
-                <textarea class="categories-input"
-                    rows="2"
-                    placeholder="Series 1, Series 2"
-                    value={config.syntheticConfig?.seriesNames?.join(', ') ?? ''}
-                    oninput={(e) => updateSeriesNames(e.currentTarget.value)}
-                ></textarea>
+            <h3 class="section-heading">Position &amp; size</h3>
+            <div class="param-grid">
+                {#each [['Offset X', 'offsetX'], ['Offset Y', 'offsetY'], ['Width', 'plotWidth'], ['Height', 'plotHeight']] as const as [label, k] (k)}
+                    {@render numberRow(label, config[k], v => set('Scaffold config changed', c => (c[k] = v ?? 0)))}
+                {/each}
+            </div>
+        </section>
+
+        <section class="param-section">
+            <h3 class="section-heading">Axis padding</h3>
+            <div class="param-grid">
+                {#each ['Left', 'Top', 'Right', 'Bottom'] as const as side (side)}
+                    {@render numberRow(side, config[`padding${side}`], v => set('Scaffold config changed', c => (c[`padding${side}`] = Math.max(0, v ?? 0))), { step: 5, min: 0 })}
+                {/each}
+            </div>
+            {#if app.doc.image && !app.doc.image.built}
+                <button type="button" class="estimate-padding-btn" onclick={() => runFit(true)} disabled={fit?.state === 'running' || fit?.state === 'checking'} title="Detect the chart marks in the image and align the scaffold padding to them">
+                    {fit?.state === 'running' ? 'Fitting…' : 'Fit to image again'}
+                </button>
+            {/if}
+            {#if fit}
+                <p class="fit-status" class:failed={fit.state === 'failed'} role="status">
+                    {#if fit.state === 'failed'}<span aria-hidden="true">⚠ </span>{:else if fit.state === 'ok'}<span aria-hidden="true">✓ </span>{/if}{fit.message}
+                </p>
             {/if}
         </section>
-    {/if}
 
-    <!-- Group Shapes -->
-    <section class="param-section">
-        <h3 class="section-heading">Group Shapes</h3>
-        <p class="section-hint">Compute SVG paths for root, dimension, and division nodes.</p>
+        <section class="param-section">
+            <h3 class="section-heading">Field mapping</h3>
+            <p class="section-note">Auto shows {config.xField ?? 'nothing'} / {config.yField ?? 'nothing'}{series ? ` / ${config.colorField || 'none'}` : ''}.</p>
+            <div class="param-grid">
+                {@render fieldSelect('x', raw.xField, v => set('Scaffold fields changed', c => (c.xField = v)))}
+                {@render fieldSelect('y', raw.yField, v => set('Scaffold fields changed', c => (c.yField = v)))}
+                {@render fieldSelect('color', raw.colorField, v => set('Scaffold fields changed', c => (c.colorField = v)), true)}
+                <label class="param-row">
+                    <span class="param-label">Sort</span>
+                    <select class="param-select" value={config.sortX ?? 'none'} onchange={e => set('Scaffold config changed', c => (c.sortX = e.currentTarget.value as ScaffoldConfig['sortX']))}>
+                        <option value="none">Data order</option>
+                        <option value="ascending">Ascending</option>
+                        <option value="descending">Descending</option>
+                    </select>
+                </label>
+            </div>
+        </section>
 
-        <!-- Root node -->
-        <div class="group-subsection">
-            <label class="subsection-toggle">
-                <input type="checkbox"
-                    checked={gs.rootEnabled}
-                    onchange={(e) => patchGroupShapes({ rootEnabled: e.currentTarget.checked })}
-                />
-                <span class="subsection-label">Root node</span>
-            </label>
-            {#if gs.rootEnabled}
-                <div class="param-grid gs-indent">
+        {#if config.chartType === 'scatter'}
+            <section class="param-section">
+                <h3 class="section-heading">Axis domain</h3>
+                <p class="section-note">Leave blank to use data extent. Override if the image's axes differ from the data range.</p>
+                <div class="param-grid">
+                    {@render numberRow('x min', config.xDomainMin, v => set('Scaffold config changed', c => (c.xDomainMin = v)), { placeholder: extent(config.xField, Math.min), step: 'any' })}
+                    {@render numberRow('x max', config.xDomainMax, v => set('Scaffold config changed', c => (c.xDomainMax = v)), { placeholder: extent(config.xField, Math.max), step: 'any' })}
+                    {@render numberRow('y min', config.yDomainMin, v => set('Scaffold config changed', c => (c.yDomainMin = v)), { placeholder: extent(config.yField, Math.min), step: 'any' })}
+                    {@render numberRow('y max', config.yDomainMax, v => set('Scaffold config changed', c => (c.yDomainMax = v)), { placeholder: extent(config.yField, Math.max), step: 'any' })}
+                </div>
+            </section>
+        {/if}
+
+        <section class="param-section">
+            <h3 class="section-heading">Mark params</h3>
+            <div class="param-grid">
+                {#if config.chartType.includes('bar')}
                     <label class="param-row">
-                        <span class="param-label">Strategy</span>
-                        <select class="param-select"
-                            value={gs.rootStrategy}
-                            onchange={(e) => patchGroupShapes({ rootStrategy: e.currentTarget.value as GroupShapeConfig['rootStrategy'] })}
-                        >
-                            <option value="convexHull">Convex hull</option>
-                            <option value="unionOfAll">Union of all</option>
-                            <option value="boundingRect">Bounding rect</option>
+                        <span class="param-label">Orientation</span>
+                        <select class="param-select" value={config.barOrientation ?? 'vertical'} onchange={e => set('Scaffold config changed', c => (c.barOrientation = e.currentTarget.value as 'vertical'))}>
+                            <option value="vertical">Vertical</option>
+                            <option value="horizontal">Horizontal</option>
                         </select>
                     </label>
-                    <label class="param-row" class:muted={!!gs.rootBoundingRectOverride}>
-                        <span class="param-label">Padding</span>
-                        <input type="number" class="param-input" min="0" step="2"
-                            value={gs.rootPadding}
-                            disabled={!!gs.rootBoundingRectOverride}
-                            oninput={(e) => patchGroupShapes({ rootPadding: +e.currentTarget.value })}
-                        />
-                        <span class="param-val">px</span>
+                    {#each barKeys as k (k)}
+                        {@const v = config.markParams[k] ?? (k === 'groupPadding' ? 0.05 : 0.1)}
+                        <label class="param-row">
+                            <span class="param-label">{k === 'groupPadding' ? 'Group spacing' : 'Bar spacing'}</span>
+                            <input type="range" class="param-slider" min="0" max="0.9" step="0.05" value={v} oninput={e => set('Scaffold config changed', c => (c.markParams[k] = +e.currentTarget.value))} />
+                            <span class="param-val">{v.toFixed(2)}</span>
+                        </label>
+                    {/each}
+                {/if}
+                {#if config.chartType === 'scatter'}
+                    {@render numberRow('Point size', config.markParams.pointSize ?? 30, v => v && v > 0 && set('Scaffold config changed', c => (c.markParams.pointSize = v)), { step: 10, min: 1 })}
+                    {#if numericalColumns.length}
+                        <label class="param-row">
+                            <span class="param-label">Scale by</span>
+                            <select class="param-select" value={config.markParams.pointSizeField ?? ''} onchange={e => set('Scaffold config changed', c => (c.markParams.pointSizeField = e.currentTarget.value || undefined))}>
+                                <option value="">Static</option>
+                                {#each numericalColumns as col (col)}<option value={col}>{col}</option>{/each}
+                            </select>
+                        </label>
+                    {/if}
+                {/if}
+                {#if config.chartType === 'line' || config.chartType === 'area'}
+                    {@render numberRow('Stroke width', config.markParams.strokeWidth ?? 2, v => set('Scaffold config changed', c => (c.markParams.strokeWidth = v)), { step: 0.5, min: 0.5 })}
+                    {@render numberRow('Point size', config.markParams.pointSize ?? 300, v => set('Scaffold config changed', c => (c.markParams.pointSize = v)), { step: 10, min: 10 })}
+                {/if}
+                {#if config.chartType === 'area'}
+                    <label class="param-row">
+                        <span class="param-label">Fill opacity</span>
+                        <input type="range" class="param-slider" min="0.05" max="1" step="0.05" value={config.markParams.fillOpacity ?? 0.4} oninput={e => set('Scaffold config changed', c => (c.markParams.fillOpacity = +e.currentTarget.value))} />
+                        <span class="param-val">{(config.markParams.fillOpacity ?? 0.4).toFixed(2)}</span>
                     </label>
-                    {#if gs.rootStrategy === 'boundingRect' && gs.rootBoundingRectOverride}
-                        {@const ovr = gs.rootBoundingRectOverride}
-                        <label class="param-row">
-                            <span class="param-label xs">X</span>
-                            <input type="number" class="param-input sm" step="1"
-                                value={ovr.x}
-                                oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v)) patchGroupShapes({ rootBoundingRectOverride: { ...ovr, x: v } }); }}
-                            />
-                        </label>
-                        <label class="param-row">
-                            <span class="param-label xs">Y</span>
-                            <input type="number" class="param-input sm" step="1"
-                                value={ovr.y}
-                                oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v)) patchGroupShapes({ rootBoundingRectOverride: { ...ovr, y: v } }); }}
-                            />
-                        </label>
-                        <label class="param-row">
-                            <span class="param-label xs">W</span>
-                            <input type="number" class="param-input sm" step="1" min="1"
-                                value={ovr.width}
-                                oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v) && v > 0) patchGroupShapes({ rootBoundingRectOverride: { ...ovr, width: v } }); }}
-                            />
-                        </label>
-                        <label class="param-row">
-                            <span class="param-label xs">H</span>
-                            <input type="number" class="param-input sm" step="1" min="1"
-                                value={ovr.height}
-                                oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v) && v > 0) patchGroupShapes({ rootBoundingRectOverride: { ...ovr, height: v } }); }}
-                            />
-                        </label>
-                        <div class="param-row">
-                            <button class="btn-xs" type="button"
-                                onclick={() => patchGroupShapes({ rootBoundingRectOverride: undefined })}>
-                                Reset to auto
-                            </button>
+                {/if}
+            </div>
+        </section>
+
+        {#if config.dataMode === 'synthetic'}
+            <section class="param-section">
+                <h3 class="section-heading">Categories</h3>
+                <p class="section-hint">Comma-separated list</p>
+                {#each syntheticKeys as k (k)}
+                    <textarea
+                        class="categories-input"
+                        rows="2"
+                        aria-label={k === 'categories' ? 'Categories' : 'Series names'}
+                        placeholder={k === 'categories' ? 'A, B, C' : 'Series 1, Series 2'}
+                        value={config.syntheticConfig?.[k]?.join(', ') ?? ''}
+                        oninput={e => set('Scaffold config changed', c => (c.syntheticConfig![k] = e.currentTarget.value.split(',').map(s => s.trim()).filter(Boolean)))}
+                    ></textarea>
+                {/each}
+            </section>
+        {/if}
+
+        <section class="param-section">
+            <h3 class="section-heading">Group Shapes</h3>
+            <p class="section-hint">Outlines for root, dimension, and division nodes, computed from the data marks.</p>
+
+            {#if app.doc.recipe.root.enabled}
+                <div class="group-subsection">
+                    <label class="subsection-toggle">
+                        <input type="checkbox" checked={gs.rootEnabled} onchange={e => setGroups({ rootEnabled: e.currentTarget.checked })} />
+                        <span class="subsection-label">Root node</span>
+                    </label>
+                    {#if gs.rootEnabled}
+                        <div class="param-grid gs-indent">
+                            <OutlineControls part="root" />
+                            {#if rootPin}
+                                {@render rectInputs(rootPin, patch => edit('Resized root outline', d => (d.overrides.nodes[rootId].geo = { ...rootPin, ...patch }), true))}
+                                <button class="btn-xs" type="button" onclick={() => edit('Reset root outline', d => delete d.overrides.nodes[rootId].geo)}>Reset to auto</button>
+                            {/if}
                         </div>
                     {/if}
                 </div>
             {/if}
-        </div>
 
-        <!-- Per-dimension outlines (dimensions + their divisions together) -->
-        <div class="group-subsection">
-            <div class="subsection-row">
-                <label class="subsection-toggle">
-                    <input type="checkbox"
-                        checked={gs.dimensionEnabled}
-                        onchange={(e) => patchGroupShapes({ dimensionEnabled: e.currentTarget.checked })}
-                    />
-                    <span class="subsection-label">Dimensions</span>
-                </label>
-                <label class="subsection-toggle subsection-toggle-secondary">
-                    <input type="checkbox"
-                        checked={gs.divisionEnabled}
-                        onchange={(e) => patchGroupShapes({ divisionEnabled: e.currentTarget.checked })}
-                    />
-                    <span class="subsection-label">Divisions</span>
-                </label>
-            </div>
-            {#if gs.dimensionEnabled || gs.divisionEnabled}
-                {#if dimensionNodes.length > 0}
-                    {#each dimensionNodes as dimNode (dimNode.id)}
-                        {@const dimKey = dimNode.dimensionKey ?? dimNode.id}
-                        {@const dimType = schemaState?.dimensions.find(d => d.key === dimKey)?.type ?? 'categorical'}
-                        {@const dimCfg = localDimConfig(dimKey, dimType)}
-                        {@const dimBr = gs.dimensionBonusRects[dimKey]}
-                        {@const divs = divisionsByDimension().get(dimKey) ?? []}
+            <div class="group-subsection">
+                <div class="subsection-row">
+                    <label class="subsection-toggle">
+                        <input type="checkbox" checked={gs.dimensionEnabled} onchange={e => setGroups({ dimensionEnabled: e.currentTarget.checked })} />
+                        <span class="subsection-label">Dimensions</span>
+                    </label>
+                    <label class="subsection-toggle subsection-toggle-secondary">
+                        <input type="checkbox" checked={gs.divisionEnabled} onchange={e => setGroups({ divisionEnabled: e.currentTarget.checked })} />
+                        <span class="subsection-label">Divisions</span>
+                    </label>
+                </div>
+                {#if gs.dimensionEnabled || gs.divisionEnabled}
+                    {#each dims as dim (dim.key)}
+                        {@const divs = nodes.filter(n => n.kind === 'division' && n.dimensionKey === dim.key)}
                         <div class="per-dim-section">
                             <p class="dim-heading">
-                                <span>{dimNode.label}</span>
-                                <span class="dim-type-badge">{dimType}</span>
+                                <span>{dim.key}</span><span class="dim-type-badge">{dim.type}</span>
                             </p>
-                            {#if gs.dimensionEnabled}
-                                <div class="param-grid gs-indent">
-                                    <label class="param-row">
-                                        <span class="param-label">Style</span>
-                                        <select class="param-select"
-                                            value={dimCfg.strategy}
-                                            onchange={(e) => patchDimConfig(dimKey, { strategy: e.currentTarget.value as DimensionGroupConfig['strategy'] })}
-                                        >
-                                            <option value="convexHull">Convex hull</option>
-                                            <option value="unionOfAll">Union of all</option>
-                                        </select>
-                                    </label>
-                                    <label class="param-row">
-                                        <span class="param-label">Padding</span>
-                                        <input type="number" class="param-input" min="0" step="2"
-                                            value={dimCfg.padding}
-                                            oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v)) patchDimConfig(dimKey, { padding: v }); }}
-                                        />
-                                        <span class="param-val">px</span>
-                                    </label>
-                                </div>
-                            {/if}
-                            {#if gs.divisionEnabled}
-                                <p class="divisions-heading gs-indent">Divisions:</p>
-                                <div class="param-grid gs-indent">
-                                    <label class="param-row">
-                                        <span class="param-label">Style</span>
-                                        <select class="param-select"
-                                            aria-label="Divisions: Style"
-                                            value={dimCfg.divisionStrategy}
-                                            onchange={(e) => patchDimConfig(dimKey, { divisionStrategy: e.currentTarget.value as DimensionGroupConfig['divisionStrategy'] })}
-                                        >
-                                            <option value="convexHull">Convex hull</option>
-                                            <option value="unionOfAll">Union of all</option>
-                                            {#if dimType === 'numerical'}
-                                                <option value="rangeBounds">Range bounds</option>
-                                                <option value="rangeRect">Range rect</option>
+                            <div class="gs-indent">
+                                {#if gs.dimensionEnabled}<OutlineControls part="dimension" {dim} />{/if}
+                                {#if gs.divisionEnabled}<OutlineControls part="division" {dim} />{/if}
+                            </div>
+                            <details class="bonus-rect-disclosure gs-indent">
+                                <summary>add extra geometries</summary>
+                                <div class="bonus-rect-list">
+                                    {#each [...(gs.dimensionEnabled ? [['dimensionBonusRects', dim.key, dim.key]] : []), ...(gs.divisionEnabled ? divs.map(n => ['divisionBonusRects', n.id, n.name]) : [])] as [field, key, name] (key)}
+                                        {@const br = gs[field as 'divisionBonusRects'][key]}
+                                        <div class="bonus-rect-item">
+                                            <label class="bonus-rect-toggle">
+                                                <input type="checkbox" checked={br?.enabled ?? false} onchange={e => bonus(field as 'divisionBonusRects', key, { enabled: e.currentTarget.checked }, { x: config.offsetX + 10, y: config.offsetY + 10 })} />
+                                                <span class="bonus-rect-label">{name}</span>
+                                                <span class="bonus-rect-hint">bonus rect</span>
+                                            </label>
+                                            {#if br?.enabled}
+                                                {@render rectInputs(br, patch => bonus(field as 'divisionBonusRects', key, patch))}
                                             {/if}
-                                        </select>
-                                    </label>
-                                    <label class="param-row">
-                                        <span class="param-label">Padding</span>
-                                        <input type="number" class="param-input" min="0" step="2"
-                                            aria-label="Divisions: Padding"
-                                            value={dimCfg.divisionPadding}
-                                            oninput={(e) => { const v = +e.currentTarget.value; if (!isNaN(v)) patchDimConfig(dimKey, { divisionPadding: v }); }}
-                                        />
-                                        <span class="param-val">px</span>
-                                    </label>
+                                        </div>
+                                    {/each}
                                 </div>
-                                {#if divs.length === 0}
-                                    <p class="section-hint gs-indent">No division nodes found. Apply scaffold first.</p>
-                                {/if}
-                            {/if}
-                            {#if gs.dimensionEnabled || (gs.divisionEnabled && divs.length > 0)}
-                                <details class="bonus-rect-disclosure gs-indent">
-                                    <summary>add extra geometries</summary>
-                                    <div class="bonus-rect-list">
-                                        {#if gs.dimensionEnabled}
-                                            <div class="bonus-rect-item">
-                                                <label class="bonus-rect-toggle">
-                                                    <input type="checkbox"
-                                                        checked={dimBr?.enabled ?? false}
-                                                        onchange={(e) => toggleBonusRect('dimension', dimKey, e.currentTarget.checked, (config?.offsetX ?? 0) + 10, (config?.offsetY ?? 0) + 10)}
-                                                    />
-                                                    <span class="bonus-rect-label">{dimNode.label}</span>
-                                                    <span class="bonus-rect-hint">bonus rect</span>
-                                                </label>
-                                                {#if dimBr?.enabled}
-                                                    <div class="bonus-rect-inputs">
-                                                        <label class="param-row">
-                                                            <span class="param-label xs">X</span>
-                                                            <input type="number" class="param-input sm" step="1"
-                                                                value={dimBr.x}
-                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { x: +e.currentTarget.value })}
-                                                            />
-                                                        </label>
-                                                        <label class="param-row">
-                                                            <span class="param-label xs">Y</span>
-                                                            <input type="number" class="param-input sm" step="1"
-                                                                value={dimBr.y}
-                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { y: +e.currentTarget.value })}
-                                                            />
-                                                        </label>
-                                                        <label class="param-row">
-                                                            <span class="param-label xs">W</span>
-                                                            <input type="number" class="param-input sm" step="1" min="1"
-                                                                value={dimBr.width}
-                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { width: +e.currentTarget.value })}
-                                                            />
-                                                        </label>
-                                                        <label class="param-row">
-                                                            <span class="param-label xs">H</span>
-                                                            <input type="number" class="param-input sm" step="1" min="1"
-                                                                value={dimBr.height}
-                                                                oninput={(e) => patchBonusRect('dimension', dimKey, { height: +e.currentTarget.value })}
-                                                            />
-                                                        </label>
-                                                    </div>
-                                                {/if}
-                                            </div>
-                                        {/if}
-                                        {#if gs.divisionEnabled && divs.length > 0}
-                                            <p class="bonus-rect-sublabel">divisions:</p>
-                                            {#each divs as divNode (divNode.id)}
-                                                {@const divBr = gs.divisionBonusRects[divNode.id]}
-                                                <div class="bonus-rect-item">
-                                                    <label class="bonus-rect-toggle">
-                                                        <input type="checkbox"
-                                                            checked={divBr?.enabled ?? false}
-                                                            onchange={(e) => toggleBonusRect('division', divNode.id, e.currentTarget.checked, divNode.x, divNode.y)}
-                                                        />
-                                                        <span class="bonus-rect-label">{divNode.label}</span>
-                                                        <span class="bonus-rect-hint">bonus rect</span>
-                                                    </label>
-                                                    {#if divBr?.enabled}
-                                                        <div class="bonus-rect-inputs">
-                                                            <label class="param-row">
-                                                                <span class="param-label xs">X</span>
-                                                                <input type="number" class="param-input sm" step="1"
-                                                                    value={divBr.x}
-                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { x: +e.currentTarget.value })}
-                                                                />
-                                                            </label>
-                                                            <label class="param-row">
-                                                                <span class="param-label xs">Y</span>
-                                                                <input type="number" class="param-input sm" step="1"
-                                                                    value={divBr.y}
-                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { y: +e.currentTarget.value })}
-                                                                />
-                                                            </label>
-                                                            <label class="param-row">
-                                                                <span class="param-label xs">W</span>
-                                                                <input type="number" class="param-input sm" step="1" min="1"
-                                                                    value={divBr.width}
-                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { width: +e.currentTarget.value })}
-                                                                />
-                                                            </label>
-                                                            <label class="param-row">
-                                                                <span class="param-label xs">H</span>
-                                                                <input type="number" class="param-input sm" step="1" min="1"
-                                                                    value={divBr.height}
-                                                                    oninput={(e) => patchBonusRect('division', divNode.id, { height: +e.currentTarget.value })}
-                                                                />
-                                                            </label>
-                                                        </div>
-                                                    {/if}
-                                                </div>
-                                            {/each}
-                                        {/if}
-                                    </div>
-                                </details>
-                            {/if}
+                            </details>
                         </div>
+                    {:else}
+                        <p class="section-hint gs-indent">No dimensions yet. Add some in the schema panel.</p>
                     {/each}
-                {:else}
-                    <p class="section-hint gs-indent">No dimension nodes found. Apply scaffold first.</p>
                 {/if}
-            {/if}
-        </div>
-    </section>
-
-    <!-- Done button -->
-    <div class="panel-actions">
-        <button class="btn-primary" type="button" onclick={handleDone}>
-            Done
-        </button>
-    </div>
-
-    <!-- Extract values (post-commit, synthetic only) -->
-    {#if showExtractForm}
-        <section class="param-section extract-section">
-            <h3 class="section-heading">Extract values</h3>
-            <p class="section-hint">
-                Provide one known value to calibrate all marks.
-            </p>
-            <label class="param-row">
-                <span class="param-label">Node</span>
-                <select class="param-select"
-                    bind:value={extractCalibNodeId}
-                >
-                    <option value="">— choose —</option>
-                    {#each committedScaffoldNodes.filter(n => n.renderProperties.shape !== 'path') as node (node.id)}
-                        <option value={node.id}>{node.label}</option>
-                    {/each}
-                </select>
-            </label>
-            <label class="param-row">
-                <span class="param-label">Known value</span>
-                <input type="number" class="param-input" step="any"
-                    bind:value={extractCalibValue}
-                    placeholder="e.g. 42"
-                />
-            </label>
-            <button class="btn-ghost btn-sm" type="button"
-                disabled={!extractCalibNodeId || extractCalibValue <= 0}
-                onclick={applyExtractValues}
-            >
-                Apply
-            </button>
+            </div>
         </section>
-    {/if}
 
-</aside>
+        <div class="panel-actions">
+            <button class="btn-primary" type="button" onclick={() => (app.ui.scaffoldMode = false)}>Done</button>
+        </div>
+    </aside>
 {/if}
 
 <style>
+    .fit-status {
+        margin: 6px 0 0;
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+    }
+
+    .fit-status.failed {
+        color: #b71c1c;
+        font-weight: 600;
+    }
+
     .scaffold-panel {
         display: flex;
         flex-direction: column;
@@ -1108,12 +429,6 @@
         color: var(--dn-text);
     }
 
-    .field-input {
-        width: 110px;
-        font-family: var(--dn-font-mono);
-        font-size: 0.75rem;
-    }
-
     .categories-input {
         width: 100%;
         box-sizing: border-box;
@@ -1137,9 +452,6 @@
         justify-content: center;
     }
 
-    .extract-section {
-        background: #f0fdf4;
-    }
 
     /* Group Shapes section */
     .group-subsection {
@@ -1205,12 +517,6 @@
         flex: 1;
         font-size: 0.8125rem;
     }
-    .bonus-rect-sublabel {
-        font-size: 0.75rem;
-        color: var(--dn-text-muted);
-        margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.25);
-    }
-
     .bonus-rect-hint {
         font-size: 0.7rem;
         color: var(--dn-text-muted);
@@ -1235,12 +541,6 @@
         width: 54px;
     }
 
-    .divisions-heading {
-        margin-bottom: 0;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dn-text-muted);
-    }
 
     .dim-heading {
         margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.25);
@@ -1287,15 +587,10 @@
         color: var(--dn-text-muted);
     }
 
-    .param-row.muted .param-label,
-    .param-row.muted .param-val {
-        opacity: 0.45;
-    }
-
     .btn-xs {
         font-size: 0.7rem;
         padding: 2px 8px;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 3px;
         background: var(--dn-bg);
         color: var(--dn-text-muted);
@@ -1309,7 +604,7 @@
         width: 100%;
         font-size: 0.75rem;
         padding: 5px 10px;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 4px;
         background: var(--dn-bg);
         color: var(--dn-text);

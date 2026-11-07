@@ -328,25 +328,19 @@
                 </div>
 
                 <div class="help-section">
-                    <h3>How does panning and selection work?</h3>
+                    <h3>How do the tools work?</h3>
+                    <p>A tool stays on until you pick another one, like in most design tools.</p>
                     <ul>
+                        <li><strong>Select nodes</strong> and <strong>Select edges</strong>: click to select, or drag a box. Hold Shift to add or remove one item.</li>
+                        <li><strong>Add node</strong>: every click places a node. Press Enter on the canvas to place one in the middle.</li>
                         <li>
-                            <strong>Select mode</strong> — click a node or edge to select it; hold Shift and click to
-                            add to the selection; drag an empty area to draw a lasso and select everything inside.
+                            <strong>Add edge</strong>: drag from one node to another. If nodes are selected, an edge from outside the selection fans out to
+                            every selected node. An edge between two selected nodes asks whether to make them a dimension.
                         </li>
-                        <li>
-                            <strong>Pan mode</strong> — drag the canvas to pan. You can also hold <kbd>Space</kbd> and
-                            drag in any mode to pan without switching modes.
-                        </li>
-                        <li>
-                            <strong>Zoom</strong> — use the zoom input in the toolbar, or pinch on a trackpad.
-                            "Reset zoom" returns the view to 100%.
-                        </li>
-                        <li>
-                            <strong>Add Node / Add Edge</strong> — click the toolbar buttons to enter drawing mode,
-                            then click the canvas to place a node or click two nodes to connect them with an edge.
-                        </li>
+                        <li><strong>Pan</strong>: drag to move. Hold <kbd>Space</kbd> to pan with any tool. <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> with <kbd>+</kbd> or <kbd>-</kbd> zooms.</li>
+                        <li><strong>Swap</strong>: trades the chart view and the structure view, so you can reorder groups and add nodes by level.</li>
                     </ul>
+                    <p>Nodes with a red star have no description yet. Select one to fill it in.</p>
                 </div>
 
                 <div class="help-section">
@@ -365,24 +359,17 @@
                 </div>
 
                 <div class="help-section">
-                    <h3>Why would I want to "pair" edges?</h3>
+                    <h3>Which rules does a new edge get?</h3>
                     <p>
-                        When you add an edge, the toolbar offers an <strong>Add pairs</strong> checkbox. When
-                        checked, adding an edge A → B also automatically creates the reverse edge B → A (with
-                        the opposite direction). This ensures navigation works in both directions without you
-                        needing to draw each edge twice.
-                    </p>
-                    <p>
-                        Visually, edges that have a reverse counterpart are rendered as <em>curved bezier arcs</em>
-                        rather than straight lines, so they don't overlap each other on the canvas. This makes it
-                        easier to see bidirectional relationships in your structure.
+                        Pick them in <strong>Edge rules</strong> in the toolbar. A pair like ↑ / ↓ lets users move both ways along one edge, and paired
+                        edges are drawn as curves. Select several edges to edit their rules together.
                     </p>
                 </div>
 
                 <div class="help-section">
                     <h3>What do the tool options do?</h3>
                     <p>
-                        The <strong>Tool Options</strong> dropdown in the canvas toolbar controls what's visible
+                        The <strong>Display</strong> dropdown in the canvas toolbar controls what's visible
                         while you edit:
                     </p>
                     <ul>

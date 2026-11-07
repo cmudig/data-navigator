@@ -1,54 +1,23 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import { appState, type PrepState } from '../../../store/appState';
+    import { app, edit } from '../../../model/state.svelte';
     import CreateDataWizard from './CreateDataWizard.svelte';
     import ComputedVariableModal from './ComputedVariableModal.svelte';
 
-    // ─── Store mirrors ────────────────────────────────────────────────────────
-    let data = $state<Record<string, unknown>[] | null>(null);
-    let prep = $state<PrepState | null>(null);
-
-    const unsub = appState.subscribe(s => {
-        data = s.uploadedData ?? s.prepState?.customData ?? null;
-        prep = s.prepState;
-    });
-    onDestroy(unsub);
-
-    // ─── Modal state ──────────────────────────────────────────────────────────
+    const data = $derived(app.doc.data.rows ? app.prepared : null);
+    const fields = $derived(app.doc.data.fields.filter(f => !f.removed));
+    const activeKeys = $derived(fields.map(f => f.key));
+    const previewRows = $derived(data?.slice(0, 10) ?? []);
     let showCreateDataWizard = $state(false);
     let showComputedVariableModal = $state(false);
-
-    // ─── Derived ──────────────────────────────────────────────────────────────
-    // Active (non-removed) column keys, falling back to raw data keys if prep not initialized
-    const activeKeys = $derived(
-        prep?.variables.filter(v => !v.removed).map(v => v.key)
-        ?? (data ? Object.keys(data[0] ?? {}) : [])
-    );
-
-    // First 10 rows from uploaded data
-    const previewRows = $derived(data?.slice(0, 10) ?? []);
-
-    // ─── Draft rows (manually added by user) ─────────────────────────────────
     let draftRows = $state<Record<string, string>[]>([]);
 
-    function addDraftRow() {
-        const blank: Record<string, string> = {};
-        for (const key of activeKeys) blank[key] = '';
-        draftRows = [...draftRows, blank];
-    }
-
-    function updateDraftCell(rowIndex: number, key: string, value: string) {
-        draftRows = draftRows.map((r, i) =>
-            i === rowIndex ? { ...r, [key]: value } : r
-        );
-    }
-
-    function openCreateDataWizard() {
-        showCreateDataWizard = true;
-    }
-
-    function openComputedVariableModal() {
-        showComputedVariableModal = true;
+    const addDraftRow = () => (draftRows = [...draftRows, Object.fromEntries(activeKeys.map(k => [k, '']))]);
+    const updateDraftCell = (i: number, key: string, v: string) => (draftRows[i][key] = v);
+    function saveDraftRows() {
+        const types = Object.fromEntries(fields.map(f => [f.key, f.type]));
+        const added = draftRows.map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, types[k] === 'numerical' && v !== '' ? Number(v) : v])));
+        edit(`Prep: added ${added.length} rows`, d => (d.data.rows = [...(d.data.rows ?? []), ...added]));
+        draftRows = [];
     }
 </script>
 
@@ -60,8 +29,8 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        {#each activeKeys as key}
-                            {@const varMeta = prep?.variables.find(v => v.key === key)}
+                        {#each activeKeys as key (key)}
+                            {@const varMeta = fields.find(v => v.key === key)}
                             <th scope="col">
                                 {#if varMeta}
                                     <span
@@ -77,7 +46,7 @@
                         <th scope="col" class="col-add">
                             <button
                                 class="btn-add-col"
-                                onclick={openComputedVariableModal}
+                                onclick={() => (showComputedVariableModal = true)}
                                 aria-label="Add a computed variable column"
                                 title="Add a computed variable"
                             >+</button>
@@ -121,6 +90,9 @@
                             >
                                 + row
                             </button>
+                            {#if draftRows.length}
+                                <button class="btn-add-row" onclick={saveDraftRows}>Add {draftRows.length} row{draftRows.length > 1 ? 's' : ''} to the data</button>
+                            {/if}
                         </td>
                     </tr>
                 </tbody>
@@ -128,7 +100,7 @@
         </div>
     {:else}
         <div class="no-data-state">
-            <button class="btn-create-data btn-primary" onclick={openCreateDataWizard}>
+            <button class="btn-create-data btn-primary" onclick={() => (showCreateDataWizard = true)}>
                 + Create data
             </button>
             <p class="no-data-hint">
@@ -231,7 +203,7 @@
         color: #1e40af;
     }
 
-    .dark .col-badge-num {
+    :global(.dark) .col-badge-num {
         background: rgba(30, 64, 175, 0.25);
         color: #93c5fd;
     }
@@ -241,7 +213,7 @@
         color: #9d174d;
     }
 
-    .dark .col-badge-cat {
+    :global(.dark) .col-badge-cat {
         background: rgba(157, 23, 77, 0.25);
         color: #f9a8d4;
     }
@@ -259,7 +231,7 @@
 
     .btn-add-col {
         background: none;
-        border: 1px dashed var(--dn-border);
+        border: 1px dashed var(--dn-control);
         border-radius: 4px;
         width: 28px;
         height: 28px;

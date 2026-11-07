@@ -2,55 +2,18 @@
     import VariablePanel from '../components/prep/VariablePanel.svelte';
     import DataTablePreview from '../components/prep/DataTablePreview.svelte';
     import QAEngine from '../components/prep/QAEngine.svelte';
-    import { appState } from '../../store/appState';
-    import { applyPrepToSchema, seedScaffoldConfig } from '../../utils/prepAdapter';
-    import { logAction } from '../../store/historyStore';
+    import { app } from '../../model/state.svelte';
 
     let activePreviewTab = $state(0);
     let tabListEl: HTMLElement | undefined = $state();
 
-    function continueToEditor() {
-        appState.update(s => ({
-            ...s,
-            schemaState: applyPrepToSchema(s.prepState!, s.schemaState),
-            scaffoldConfig: seedScaffoldConfig(
-                s.prepState!,
-                s.scaffoldConfig,
-                s.imageWidth,
-                s.imageHeight,
-                s.uploadedData !== null && s.uploadedData.length > 0,
-                s.schemaState
-            ),
-            currentStep: 2,
-        }));
-        logAction('Completed Prep — entered Editor');
-    }
-
-    function focusPreviewTab(index: number) {
-        const id = index === 0 ? 'preview-tab-data' : 'preview-tab-image';
-        tabListEl?.querySelector<HTMLElement>(`#${id}`)?.focus();
-    }
-
     function onPreviewTabKeydown(e: KeyboardEvent) {
-        const target = e.target as HTMLElement;
-        if (target.getAttribute('role') !== 'tab') return;
-        if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            activePreviewTab = Math.min(activePreviewTab + 1, 1);
-            focusPreviewTab(activePreviewTab);
-        } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            activePreviewTab = Math.max(activePreviewTab - 1, 0);
-            focusPreviewTab(activePreviewTab);
-        } else if (e.key === 'Home') {
-            e.preventDefault();
-            activePreviewTab = 0;
-            focusPreviewTab(0);
-        } else if (e.key === 'End') {
-            e.preventDefault();
-            activePreviewTab = 1;
-            focusPreviewTab(1);
-        }
+        if ((e.target as HTMLElement).getAttribute('role') !== 'tab') return;
+        const next = { ArrowRight: 1, End: 1, ArrowLeft: 0, Home: 0 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        activePreviewTab = next;
+        tabListEl?.querySelector<HTMLElement>(next ? '#preview-tab-image' : '#preview-tab-data')?.focus();
     }
 </script>
 
@@ -62,10 +25,11 @@
         <VariablePanel />
     </div>
     <div class="prep-panel prep-top-right">
-        <QAEngine onComplete={continueToEditor} />
+        <QAEngine />
     </div>
     <div class="prep-panel prep-bottom-left">
-        {#if $appState.imageDataUrl}
+        {#if app.doc.data.rows || app.doc.image}
+            {@const img = app.doc.image}
             <div class="preview-tab-container">
                 <div
                     class="preview-tab-list"
@@ -91,7 +55,7 @@
                         aria-controls="preview-panel-image"
                         tabindex={activePreviewTab === 1 ? 0 : -1}
                         onclick={() => activePreviewTab = 1}
-                    >Image</button>
+                    >{img && !img.built ? 'Image' : 'Built chart'}</button>
                 </div>
                 <div
                     id="preview-panel-data"
@@ -109,7 +73,11 @@
                     aria-labelledby="preview-tab-image"
                     hidden={activePreviewTab !== 1}
                 >
-                    <img src={$appState.imageDataUrl} alt="Uploaded chart" class="image-preview" />
+                    {#if img}
+                        <img src={img.url} alt={img.built ? 'Chart built from your data' : 'Uploaded chart'} class="image-preview" />
+                    {:else}
+                        <p class="preview-note">No chart yet. Answer the first prep question to build one from your data.</p>
+                    {/if}
                 </div>
             </div>
         {:else}
@@ -197,6 +165,12 @@
         flex: 1;
         overflow: auto;
         min-height: 0;
+    }
+
+    .preview-note {
+        padding: var(--dn-space) calc(var(--dn-space) * 2);
+        color: var(--dn-text-muted);
+        font-size: 0.875rem;
     }
 
     .image-preview {

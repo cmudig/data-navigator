@@ -1,52 +1,15 @@
 <script lang="ts">
-    import { appState } from '../../store/appState';
+    import { app, goTo } from '../../model/state.svelte';
 
-    type Props = {
-        beforeNavigate?: (targetStep: number) => boolean;
-    };
-    const { beforeNavigate }: Props = $props();
-
-    const steps = [
-        { label: 'Upload',    index: 0 },
-        { label: 'Prep', index: 1 },
-        { label: 'Editor',    index: 2 },
-        { label: 'Testing',   index: 3 },
-        { label: 'Export',    index: 4 },
-    ];
-
-    let currentStep = $state(0);
-    appState.subscribe(s => { currentStep = s.currentStep; });
-
-    function goTo(index: number) {
-        if (beforeNavigate && !beforeNavigate(index)) return;
-        appState.update(s => ({ ...s, currentStep: index }));
-    }
+    const steps = ['Upload', 'Prep', 'Editor', 'Testing', 'Export'].map((label, index) => ({ label, index }));
+    const currentStep = $derived(app.ui.step);
 
     function onKeydown(e: KeyboardEvent, index: number) {
-        if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            const next = Math.min(index + 1, steps.length - 1);
-            goTo(next);
-            focusTab(next);
-        } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            const prev = Math.max(index - 1, 0);
-            goTo(prev);
-            focusTab(prev);
-        } else if (e.key === 'Home') {
-            e.preventDefault();
-            goTo(0);
-            focusTab(0);
-        } else if (e.key === 'End') {
-            e.preventDefault();
-            goTo(steps.length - 1);
-            focusTab(steps.length - 1);
-        }
-    }
-
-    function focusTab(index: number) {
-        const el = document.getElementById(`tab-${index}`);
-        el?.focus();
+        const target = { ArrowRight: Math.min(index + 1, steps.length - 1), ArrowLeft: Math.max(index - 1, 0), Home: 0, End: steps.length - 1 }[e.key];
+        if (target === undefined) return;
+        e.preventDefault();
+        goTo(target);
+        document.getElementById(`tab-${target}`)?.focus();
     }
 </script>
 

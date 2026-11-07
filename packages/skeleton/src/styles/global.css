@@ -18,6 +18,8 @@
     --dn-bg: #ffffff;
     --dn-surface: #f6f6f7;
     --dn-border: #e2e2e3;
+    --dn-control: #8a8a8f;
+    --dn-control-darker: #686870;
 
     /* Text */
     --dn-text: #213547;
@@ -41,6 +43,7 @@
     --dn-bg: #1b1b1f;
     --dn-surface: #242429;
     --dn-border: #3c3c43;
+    --dn-control: #80808a;
     --dn-text: #f0f0f0;
     --dn-text-muted: #adbac7;
 }
@@ -244,7 +247,7 @@ button {
     padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
     background: transparent;
     color: var(--dn-text-muted);
-    border: 1px solid var(--dn-border);
+    border: 1px solid var(--dn-control);
     font-family: var(--dn-font);
     font-size: 0.875rem;
     font-weight: 500;
@@ -276,4 +279,17 @@ button {
         animation-duration: 0.01ms !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+dialog.modal {
+    padding: 0;
+    color: var(--dn-text);
+}
+
+dialog.modal:not([open]) {
+    display: none;
+}
+
+dialog.modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
 }

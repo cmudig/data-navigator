@@ -204,6 +204,20 @@ export function analyzePlotPixels(
         return { comp, raw: c };
     });
 
+    const frame = findFrame(data, dw, dh, bg);
+    if (frame) {
+        const m = 0.015 * Math.max(dw, dh);
+        for (const t of tagged) {
+            const cx = t.raw.sumX / t.raw.area;
+            const cy = t.raw.sumY / t.raw.area;
+            if (
+                t.comp.klass === 'mark' &&
+                (cx < frame.x0 - m || cx > frame.x1 + m || cy < frame.y0 - m || cy > frame.y1 + m)
+            )
+                t.comp.klass = 'label';
+        }
+    }
+
     const components = tagged.map(t => t.comp);
     const markPairs = tagged.filter(t => t.comp.klass === 'mark');
 
@@ -230,6 +244,50 @@ export function analyzePlotPixels(
     }
 
     return { x, y, all: components };
+}
+
+// The plot frame: the lowest long dark horizontal run (x axis) and the leftmost long dark vertical run (y axis).
+// Marks outside it are titles, tick labels or legends. Coloured pixels never count, so bars on the axis do not shift it.
+function findFrame(data: Uint8ClampedArray | Uint8Array, dw: number, dh: number, bg: number) {
+    const ink = (x: number, y: number) => {
+        const i = (y * dw + x) * 4;
+        return (
+            data[i + 3] >= 16 &&
+            saturation(data[i], data[i + 1], data[i + 2]) <= SAT_T &&
+            Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - bg) > DARK_T
+        );
+    };
+    const longest = (n: number, at: (k: number) => boolean) => {
+        let best = [0, 0];
+        let start = -1;
+        let gap = 0;
+        for (let k = 0; k <= n; k++) {
+            if (k < n && at(k)) {
+                if (start < 0) start = k;
+                gap = 0;
+            } else if (start >= 0 && (k === n || ++gap > 2)) {
+                const end = k - gap;
+                if (end - start > best[1] - best[0]) best = [start, end];
+                start = -1;
+                gap = 0;
+            }
+        }
+        return best;
+    };
+    let x0 = -1;
+    let y0 = 0;
+    let y1 = -1;
+    let x1 = dw - 1;
+    for (let y = dh - 1; y >= dh * 0.3 && y1 < 0; y--) {
+        const [a, b] = longest(dw, x => ink(x, y));
+        if (b - a >= dw * 0.5) ((y1 = y), (x1 = b));
+    }
+    for (let x = 0; x < dw * 0.7 && x0 < 0; x++) {
+        const [a, b] = longest(dh, y => ink(x, y));
+        if (b - a >= dh * 0.5) ((x0 = x), (y0 = a));
+    }
+    if (x0 < 0 && y1 < 0) return null;
+    return { x0: Math.max(0, x0), x1, y0, y1: y1 < 0 ? dh - 1 : y1 };
 }
 
 const LEGEND_AREA_FRAC = 0.15; // marks smaller than this × median area are dropped

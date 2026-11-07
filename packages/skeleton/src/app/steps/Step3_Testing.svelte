@@ -1,719 +1,294 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-    import dataNavigator from 'data-navigator';
     import 'data-navigator/text-chat.css';
+    import { keyLabel } from 'data-navigator';
     import { Inspector } from '@data-navigator/inspector';
     import '@data-navigator/inspector/style.css';
-    import { appState, type RenderConfig } from '../../store/appState';
-    import type { SkeletonNode, SkeletonEdge } from '../../store/types';
-    import { toStructure, validateStructure, type DNStructure, type StructureInput } from '../../utils/dnAdapter';
+    import { untrack } from 'svelte';
+    import { app } from '../../model/state.svelte';
+    import { mount } from '../../runtime/dn-runtime.js';
+    import NavKeysPanel from '../components/NavKeysPanel.svelte';
+    import AssistantPanel from '../components/AssistantPanel.svelte';
+    import NodeEditor from '../components/NodeEditor.svelte';
 
-    // ─── Store mirrors ──────────────────────────────────────────────────────────
-    let nodes        = $state(new Map<string, SkeletonNode>());
-    let edges        = $state(new Map<string, SkeletonEdge>());
-    let entryNodeId  = $state<string | null>(null);
-    let imageDataUrl = $state<string | null>(null);
-    let imageWidth   = $state<number | null>(null);
-    let imageHeight  = $state<number | null>(null);
-    let uploadedData = $state.raw<Record<string, unknown>[] | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let renderConfig = $state<RenderConfig>({ positionUnit: 'px', showOverlay: false, semanticNames: [] });
-    // Raw DN result from SchemaPanel — canonical navigation structure with correct
-    // per-node edge membership. null when no schema has been built yet.
-    let appDnStructure = $state<Record<string, unknown> | null>(null);
-
-    let graphMode    = $state<'force' | 'tree'>('force');
-
-    // Last-seen references to avoid proxy churn on unchanged Maps
-    let _lastNodes = new Map<string, SkeletonNode>();
-    let _lastEdges = new Map<string, SkeletonEdge>();
-
-    const _unsub = appState.subscribe(s => {
-        if (s.nodes !== _lastNodes) { _lastNodes = s.nodes; nodes = s.nodes; }
-        if (s.edges !== _lastEdges) { _lastEdges = s.edges; edges = s.edges; }
-        entryNodeId    = s.entryNodeId;
-        imageDataUrl   = s.imageDataUrl;
-        imageWidth     = s.imageWidth;
-        imageHeight    = s.imageHeight;
-        uploadedData   = s.uploadedData;
-        renderConfig   = s.renderConfig;
-        graphMode      = s.schemaState.graphMode as 'force' | 'tree';
-        appDnStructure = s.dnStructure;
+    const structure = $derived.by(() => {
+        const s = app.structure;
+        if (!app.missing.size) return s;
+        const nodes = { ...s.nodes };
+        for (const id of app.missing)
+            nodes[id] = { ...nodes[id], semantics: { ...nodes[id].semantics, label: `Missing description: ${app.graph.nodes.get(id)?.name ?? id} has no descriptive text yet.` } };
+        return { ...s, nodes };
     });
-    onDestroy(_unsub);
+    const nodes = $derived([...app.graph.nodes.values()]);
+    const edges = $derived([...app.graph.edges.values()]);
+    const canvasWidth = $derived(app.size.width);
+    const canvasHeight = $derived(app.size.height);
+    const imageDataUrl = $derived(app.doc.image?.url ?? null);
+    let scalerWidth = $state(0);
+    let innerHeight = $state(900);
+    const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth, Math.max(160, innerHeight - 460) / canvasHeight) : 1);
 
-    // ─── UI control state ───────────────────────────────────────────────────────
-    let navMode       = $state<'text' | 'keyboard'>('text');
-    let showAllNodes  = $state(false);
-    let showAllEdges  = $state(false);
+    let navMode = $state<'text' | 'keyboard'>('text');
+    let showAllNodes = $state(false);
+    let showAllEdges = $state(false);
+    let current = $state.raw<any>(null);
+    let eventLog = $state<{ id: number; kind: string; time: number; label?: string; key?: string; moved?: boolean }[]>([]);
+    let counter = 0;
+    const log = (e: Omit<(typeof eventLog)[number], 'id' | 'time'>) => (eventLog = [{ ...e, id: counter++, time: Date.now() }, ...eventLog].slice(0, 50));
 
-    // ─── Navigation state ───────────────────────────────────────────────────────
-    let currentNodeId    = $state<string | null>(null);
-    let focusedNodeData  = $state<Record<string, unknown> | null>(null);
-    let focusedNodeLabel = $state<string>('');
+    let root: HTMLDivElement | undefined = $state();
+    let chatEl: HTMLDivElement | undefined = $state();
+    let inspectorEl: HTMLDivElement | undefined = $state();
+    let nav: ReturnType<typeof mount> | null = $state.raw(null);
+    let inspector: ReturnType<typeof Inspector> | null = null;
 
-    interface NavDirection { rule: string; key: string; destLabel: string; }
-    let focusedNodeDirections = $state<NavDirection[]>([]);
+    let lastId = $state<string | null>(null);
+    let updating = false;
+    let chartFocused = $state(false);
+    const entryOk = $derived(!!app.entry && !!structure.nodes[app.entry]);
 
-    type EventKind = 'enter' | 'navigate' | 'exit' | 'select' | 'hover' | 'keypress';
-    interface EventLogEntry {
-        id: number; kind: EventKind; timestamp: number;
-        nodeLabel?: string; key?: string; direction?: string; navigated?: boolean;
-    }
-    let eventLog: EventLogEntry[] = $state([]);
-    let _logCounter = 0;
-
-    function logEvent(entry: Omit<EventLogEntry, 'id' | 'timestamp'>) {
-        const e: EventLogEntry = { ...entry, id: _logCounter++, timestamp: Date.now() };
-        eventLog = [e, ...eventLog].slice(0, 50);
+    function drawInspector(s: any) {
+        if (!inspectorEl) return;
+        inspectorEl.innerHTML = '';
+        inspector = Inspector({ structure: s, container: inspectorEl, size: { width: 340, height: 280 }, colorBy: 'dimensionLevel', mode: app.ui.schema.graphMode, nodeRadius: 6, showConsoleMenu: { data: app.rows } } as any);
+        if (current) inspector.highlight(current.renderId || current.id);
     }
 
-    // ─── Imperative DN handles (non-reactive) ───────────────────────────────────
-    let dnRenderer: ReturnType<typeof dataNavigator.rendering> | null = null;
-    let dnInput:    ReturnType<typeof dataNavigator.input> | null = null;
-    let dnTextChat: { destroy: () => void } | null = null;
-    let dnInspector: ReturnType<typeof Inspector> | null = null;
-    const nodeElements = new Map<string, HTMLElement>();
-    let renderedNodeId: string | null = null;
-
-    // ─── Derived ────────────────────────────────────────────────────────────────
-    const canvasWidth  = $derived(imageWidth  ?? 800);
-    const canvasHeight = $derived(imageHeight ?? 600);
-
-    let canvasScalerWidth = $state(0);
-    const canvasScale = $derived(
-        canvasScalerWidth > 0 && canvasWidth > 0
-            ? Math.min(1, canvasScalerWidth / canvasWidth)
-            : 1
-    );
-
-    const dnStructure = $derived.by<DNStructure | null>(() => {
-        if (nodes.size === 0) return null;
-        // Always call toStructure() to get elementData (spatial positions for the
-        // rendering overlay). We need it even when appDnStructure is present.
-        const skelStructure = toStructure({ nodes, edges } satisfies StructureInput);
-        if (!skelStructure) return null;
-        // Prefer the raw DN result stored by SchemaPanel — it has correct per-node
-        // edge membership set by addEdgeToNode() in the DN library. The skeleton
-        // reconstruction in toStructure() cannot reproduce this correctly.
-        // Fall back to the skeleton-reconstructed structure for purely manual graphs.
-        if (appDnStructure) {
-            return {
-                ...appDnStructure,
-                elementData: skelStructure.elementData,
-            } as DNStructure;
-        }
-        return skelStructure;
+    $effect(() => {
+        const entry = app.entry;
+        const chat = navMode === 'text' ? chatEl : undefined;
+        if (!root || !entryOk || !entry) return;
+        const m = untrack(() =>
+            mount({
+                structure,
+                container: root!,
+                entry,
+                chat,
+                suffix: 'test',
+                description: 'Navigate the data structure',
+                onFocus: (n: any) => {
+                    current = n;
+                    lastId = n.id;
+                    inspector?.highlight(n.renderId || n.id);
+                    if (!updating) log({ kind: 'navigate', label: n.semantics?.label });
+                },
+                onExit: () => {
+                    current = null;
+                    inspector?.clear();
+                    log({ kind: 'exit' });
+                },
+                onKey: (e: KeyboardEvent, _rule: string, next: unknown) => log({ kind: 'keypress', key: e.key, moved: !!next }),
+                chatOptions: {
+                    data: app.rows,
+                    onClick: (n: any) => log({ kind: 'select', label: n.semantics?.label }),
+                    onHover: (n: any) => log({ kind: 'hover', label: n.semantics?.label })
+                }
+            })
+        );
+        nav = m;
+        untrack(() => drawInspector(structure));
+        return () => {
+            m.destroy();
+            inspector?.destroy();
+            nav = null;
+            current = null;
+            lastId = null;
+        };
     });
 
-    const warnings = $derived.by(() =>
-        validateStructure({ nodes, edges, entryNodeId } satisfies StructureInput)
-    );
-
-    const edgeLines = $derived.by(() => {
-        if (!showAllEdges) return [];
-        // A bidirectional edge has 2+ navigationRuleNames — it renders as 2 arrows.
-        // This matches GraphCanvas: one edge ID, two visual curves (forward + reverse).
-        return [...edges.values()].flatMap(e => {
-            const src = nodes.get(e.sourceId);
-            const tgt = nodes.get(e.targetId);
-            if (!src || !tgt) return [];
-            const sc = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
-            const tc = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
-            const dx = tc.x - sc.x, dy = tc.y - sc.y;
-            const len = Math.sqrt(dx * dx + dy * dy) || 1;
-            const mx = (sc.x + tc.x) / 2, my = (sc.y + tc.y) / 2;
-            const isPaired = (e.navigationRuleNames?.length ?? 0) > 1;
-            const cpx = isPaired ? mx + (dy / len) * 30 : mx;
-            const cpy = isPaired ? my + (-dx / len) * 30 : my;
-            const lx = isPaired ? (sc.x + 2 * cpx + tc.x) / 4 : mx;
-            const ly = isPaired ? (sc.y + 2 * cpy + tc.y) / 4 : my;
-            const fwd = { id: e.id, isPaired, sc, tc, cpx, cpy, lx, ly,
-                          label: e.navigationRuleNames?.[0] ?? e.direction };
-            if (!isPaired) return [fwd];
-            // Reverse arrow for the bidirectional edge (tgt → src, opposite offset)
-            const cpx_bwd = mx - (dy / len) * 30;
-            const cpy_bwd = my + (dx / len) * 30;
-            const lx_bwd = (tc.x + 2 * cpx_bwd + sc.x) / 4;
-            const ly_bwd = (tc.y + 2 * cpy_bwd + sc.y) / 4;
-            const bwd = { id: `${e.id}__bwd`, isPaired, sc: tc, tc: sc,
-                          cpx: cpx_bwd, cpy: cpy_bwd, lx: lx_bwd, ly: ly_bwd,
-                          label: e.navigationRuleNames?.[1] ?? e.direction };
-            return [fwd, bwd];
+    $effect(() => {
+        const s = structure;
+        untrack(() => {
+            if (!nav) return;
+            updating = true;
+            nav.update(s);
+            updating = false;
+            if (current && !s.nodes[current.id]) current = null;
+            drawInspector(s);
         });
     });
 
-    const keyboardInstructions = $derived.by(() => {
-        if (!dnStructure?.navigationRules) return [];
-        const grouped = new Map<string, string[]>();
-        for (const [rule, obj] of Object.entries(dnStructure.navigationRules)) {
-            const key = (obj as { key?: string }).key ?? rule;
-            if (!grouped.has(key)) grouped.set(key, []);
-            grouped.get(key)!.push(rule);
-        }
-        return [...grouped.entries()].map(([key, rules]) => ({
-            key,
-            rule: rules.join(' / ')
-        }));
-    });
-
-    // ─── Navigation callbacks ───────────────────────────────────────────────────
-    function setFocusedElement(nodeId: string | null, renderId?: string) {
-        for (const el of nodeElements.values()) el.classList.remove('nav-focused');
-        if (nodeId && renderId) {
-            const el = nodeElements.get(nodeId) ?? document.getElementById(renderId) as HTMLElement | null;
-            el?.classList.add('nav-focused');
-        }
+    function refocus() {
+        if (!nav || !lastId || !structure.nodes[lastId]) return;
+        nav.focus(lastId, true);
+        log({ kind: 'refocus' });
     }
 
-    function handleNavigate(node: Record<string, unknown>) {
-        const id  = node.id as string;
-        // Use || (not ??) so both "" (leaf default) and undefined (root) fall back to id
-        const rId = ((node.renderId as string) || id);
-        // Read the pre-resolved label from elementData — raw DN nodes have no semantics
-        const label = dnStructure?.elementData?.[rId]?.semantics?.label
-            ?? (node.semantics as { label?: string })?.label
-            ?? id;
-
-        // Remove previously rendered node (on-demand lifecycle)
-        if (renderedNodeId && renderedNodeId !== rId) {
-            try { dnRenderer?.remove?.(renderedNodeId); } catch { /* ignore */ }
-        }
-        renderedNodeId = rId;
-
-        // Render new node on-demand — ensure renderId is correct on the node object
-        const nodeForRenderer = (node.renderId as string) === rId
-            ? node
-            : { ...node, renderId: rId };
-        try { dnRenderer?.render?.(nodeForRenderer as Parameters<NonNullable<typeof dnRenderer>['render']>[0]); } catch { /* ignore */ }
-
-        // Focus it in keyboard mode
-        if (navMode === 'keyboard') {
-            dnInput?.focus(rId);
-        }
-
-        currentNodeId    = id;
-        focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
-        focusedNodeLabel = label;
-
-        // Build per-direction navigation targets. Mirror input.ts: first valid edge
-        // per rule wins (input.ts breaks after the first match, so later edges for
-        // the same rule — e.g. the far side of a circular sibling ring — are never
-        // reached and must not appear here either).
-        const edgeIds = (node.edges as string[] | undefined) ?? [];
-        const dirs: NavDirection[] = [];
-        const seenRules = new Set<string>();
-        const edgeMap = dnStructure?.edges as Record<string, { source: string; target: string; navigationRules: string[] }> | undefined;
-        const navRuleMap = dnStructure?.navigationRules as Record<string, { key: string; direction: string }> | undefined;
-        const nodeMap = dnStructure?.nodes as Record<string, { renderId?: string }> | undefined;
-        for (const edgeId of edgeIds) {
-            const edge = edgeMap?.[edgeId];
-            if (!edge) continue;
-            for (const ruleName of edge.navigationRules) {
-                if (seenRules.has(ruleName)) continue; // first match wins
-                const navRule = navRuleMap?.[ruleName];
-                if (!navRule) continue;
-                // DN logic: resolvedNodes[navRule.direction] is the destination,
-                // but only when that node is NOT the current focus.
-                // direction='target' → dest = edge.target (valid when current = source)
-                // direction='source' → dest = edge.source (valid when current = target)
-                let destId: string | null = null;
-                if (navRule.direction === 'target' && edge.target !== id) destId = edge.target;
-                else if (navRule.direction === 'source' && edge.source !== id) destId = edge.source;
-                if (!destId) continue;
-                seenRules.add(ruleName);
-                const destRenderId = (nodeMap?.[destId]?.renderId as string) || destId;
-                const destLabel = dnStructure?.elementData?.[destRenderId]?.semantics?.label ?? destId;
-                dirs.push({ rule: ruleName, key: navRule.key, destLabel });
-            }
-        }
-        focusedNodeDirections = dirs;
-
-        setFocusedElement(id, rId);
-        dnInspector?.highlight(rId);
-        logEvent({ kind: 'navigate', nodeLabel: label });
-    }
-
-    function handleExit() {
-        // Remove currently rendered node
-        if (renderedNodeId) {
-            try { dnRenderer?.remove?.(renderedNodeId); } catch { /* ignore */ }
-            renderedNodeId = null;
-        }
-        currentNodeId    = null;
-        focusedNodeData  = null;
-        focusedNodeLabel = '';
-        focusedNodeDirections = [];
-        setFocusedElement(null);
-        dnInspector?.clear();
-        if (dnRenderer?.exitElement) {
-            dnRenderer.exitElement.style.display = 'block';
-            dnInput?.focus(dnRenderer.exitElement.id);
-        }
-        logEvent({ kind: 'exit' });
-    }
-
-    function handleSelect(node: Record<string, unknown>) {
-        const id  = node.id as string;
-        const rId = ((node.renderId as string) || id);
-        const label = dnStructure?.elementData?.[rId]?.semantics?.label
-            ?? (node.semantics as { label?: string })?.label
-            ?? id;
-        focusedNodeData  = (node.data as Record<string, unknown>) ?? null;
-        focusedNodeLabel = label;
-        logEvent({ kind: 'select', nodeLabel: label });
-    }
-
-    function handleHover(node: Record<string, unknown>) {
-        const id  = node.id as string;
-        const rId = ((node.renderId as string) || id);
-        const label = dnStructure?.elementData?.[rId]?.semantics?.label
-            ?? (node.semantics as { label?: string })?.label
-            ?? id;
-        logEvent({ kind: 'hover', nodeLabel: label });
-    }
-
-    function enterNavigation() {
-        if (!dnInput || !dnStructure) return;
-        const entryNode = dnInput.enter() as Record<string, unknown> | undefined;
-        if (!entryNode) return;
-        handleNavigate(entryNode);
-        if (navMode === 'keyboard') {
-            const entryRId = ((entryNode.renderId as string) || (entryNode.id as string));
-            dnInput.focus(entryRId);
-        }
-        const entryRId = ((entryNode.renderId as string) || (entryNode.id as string));
-        const entryLabel = dnStructure?.elementData?.[entryRId]?.semantics?.label
-            ?? (entryNode.semantics as { label?: string })?.label;
-        logEvent({ kind: 'enter', nodeLabel: entryLabel });
-    }
-
-    function handleKeydown(e: KeyboardEvent) {
-        if (!dnInput || !dnStructure) return;
-        const direction = dnInput.keydownValidator(e) as string | undefined;
-
-        if (direction) {
-            e.preventDefault();
-            if (!currentNodeId) {
-                if (e.key === 'Enter') enterNavigation();
-                logEvent({ kind: 'keypress', key: e.key, direction, navigated: false });
-                return;
-            }
-            const next = dnInput.move(currentNodeId, direction) as Record<string, unknown> | undefined;
-            logEvent({ kind: 'keypress', key: e.key, direction, navigated: !!next });
-            if (next) {
-                handleNavigate(next);
-                dnInput.focus((next.renderId as string) ?? (next.id as string));
-            } else if (direction === 'exit') {
-                handleExit();
-            }
-        } else {
-            // Non-navigation key — log it so the user can see all keypresses
-            logEvent({ kind: 'keypress', key: e.key, direction: undefined, navigated: false });
-        }
-    }
-
-    function resetNavigation() {
-        if (renderedNodeId) {
-            try { dnRenderer?.remove?.(renderedNodeId); } catch { /* ignore */ }
-            renderedNodeId = null;
-        }
-        currentNodeId    = null;
-        focusedNodeData  = null;
-        focusedNodeLabel = '';
-        focusedNodeDirections = [];
-        eventLog         = [];
-        setFocusedElement(null);
-        dnInspector?.clear();
-    }
-
-    // ─── DN helpers ─────────────────────────────────────────────────────────────
-    function initTextChat(structure: DNStructure) {
-        if (!entryNodeId) return;
-        const chatEl = document.getElementById('dn-test-chat');
-        if (chatEl) chatEl.innerHTML = '';
-        try {
-            dnTextChat = dataNavigator.textChat({
-                structure: structure as any,
-                container: 'dn-test-chat',
-                entryPoint: entryNodeId,
-                onNavigate: handleNavigate as (n: unknown) => void,
-                onExit:     handleExit,
-                onClick:    handleSelect as (n: unknown) => void,
-                onHover:    handleHover as (n: unknown) => void,
-                data: uploadedData ?? undefined,
-            });
-        } catch (err) {
-            console.error('[Step3] textChat init failed:', err);
-        }
-    }
-
-    function initInspector(structure: DNStructure, mode: 'force' | 'tree') {
-        const container = document.getElementById('dn-test-inspector');
-        if (!container) return;
-        container.innerHTML = '';
-        console.log('[Testing] Inspector input — nodes:', Object.keys(structure.nodes).length, 'edges:', Object.keys(structure.edges ?? {}).length);
-        console.log('[Testing] Inspector input (full):', structure);
-        try {
-            dnInspector = Inspector({
-                structure: structure as any,
-                container,
-                size: { width: 340, height: 280 },
-                colorBy: 'dimensionLevel',
-                mode,
-                nodeRadius: 6,
-                showConsoleMenu: { data: uploadedData ?? [] },
-            } as any);
-        } catch (err) {
-            console.error('[Step3] Inspector init failed:', err);
-        }
-    }
-
-    // ─── Full lifecycle effect (runs on structure change) ───────────────────────
-    $effect(() => {
-        const structure = dnStructure;
-
-        // Teardown
-        dnTextChat?.destroy();
-        dnInspector?.destroy();
-        dnTextChat    = null;
-        dnInspector   = null;
-        dnRenderer    = null;
-        dnInput       = null;
-        renderedNodeId = null;
-        nodeElements.clear();
-        currentNodeId    = null;
-        focusedNodeData  = null;
-        focusedNodeLabel = '';
-        focusedNodeDirections = [];
-
-        const canvasEl = document.getElementById('dn-test-canvas-root');
-        if (canvasEl) {
-            canvasEl.querySelectorAll('.dn-wrapper, .dn-exit-position').forEach(el => el.remove());
-        }
-
-        if (!structure || !entryNodeId) return;
-
-        // 1. Renderer — no entry button (keyboard mode has its own button in the right panel)
-        try {
-            dnRenderer = dataNavigator.rendering({
-                elementData: structure.elementData as Parameters<typeof dataNavigator.rendering>[0]['elementData'],
-                suffixId: 'test-0',
-                root: {
-                    id: 'dn-test-canvas-root',
-                    description: 'Navigate the data structure',
-                    width:  `${canvasWidth}px`,
-                    height: `${canvasHeight}px`,
-                },
-                defaults: { cssClass: 'dn-node-overlay' },
-                entryButton: { include: false },
-                exitElement:  { include: true },
-            });
-            dnRenderer.initialize();
-            // No pre-render — nodes are rendered on-demand as user navigates
-        } catch (err) {
-            console.error('[Step3] Renderer init failed:', err);
-            return;
-        }
-
-        // 2. Input handler
-        try {
-            dnInput = dataNavigator.input({
-                structure: structure as any,
-                navigationRules: structure.navigationRules as Parameters<typeof dataNavigator.input>[0]['navigationRules'],
-                entryPoint: entryNodeId,
-                exitPoint:  dnRenderer?.exitElement?.id,
-            });
-        } catch (err) {
-            console.error('[Step3] Input handler init failed:', err);
-        }
-
-        // 3. Text chat (text mode only)
-        if (navMode === 'text') initTextChat(structure);
-
-        // 4. Inspector
-        initInspector(structure, graphMode);
-    });
-
-    // ─── Mode-switch effect (no full reinit) ────────────────────────────────────
-    $effect(() => {
-        const mode = navMode;
-        if (!dnStructure || !entryNodeId || !dnRenderer) return;
-        if (mode === 'text') {
-            if (!dnTextChat) initTextChat(dnStructure);
-        } else {
-            dnTextChat?.destroy();
-            dnTextChat = null;
-            const chatEl = document.getElementById('dn-test-chat');
-            if (chatEl) chatEl.innerHTML = '';
-        }
-    });
-
-    // ─── Document keydown listener (keyboard mode only) ─────────────────────────
-    $effect(() => {
-        if (navMode !== 'keyboard') return;
-        document.addEventListener('keydown', handleKeydown);
-        return () => document.removeEventListener('keydown', handleKeydown);
-    });
-
-    onDestroy(() => {
-        dnTextChat?.destroy();
-        dnInspector?.destroy();
-    });
-
-    function formatTime(ts: number): string {
-        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
+    const directions = $derived(
+        current && nav
+            ? Object.entries<any>(structure.navigationRules)
+                  .map(([rule, k]) => ({ rule, key: keyLabel(k.key), dest: nav!.input.move(current.id, rule) }))
+                  .filter(d => d.dest && d.rule !== 'exit')
+            : []
+    );
+    const keyboardInstructions = $derived(Object.entries<any>(structure.navigationRules).map(([rule, k]) => ({ rule, key: keyLabel(k.key) })));
+    const dash = (d: string) => (d === 'dashed' ? '6,3' : d === 'dotted' ? '2,2' : undefined);
+    const center = (g: { x: number; y: number; width: number; height: number }) => ({ x: g.x + g.width / 2, y: g.y + g.height / 2 });
+    const formatTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 </script>
 
-<!-- LEFT: Inspector -->
 <aside class="inspector-panel" aria-label="Structure inspector">
-    <div class="inspector-header">
-        <span class="inspector-title">Schema</span>
-    </div>
-    <div class="inspector-graph-section">
-        <div id="dn-test-inspector" class="inspector-container"></div>
-    </div>
+    <div class="inspector-header"><span class="inspector-title">Schema</span></div>
+    <div class="inspector-graph-section"><div bind:this={inspectorEl} class="inspector-container"></div></div>
+    <NavKeysPanel />
+    <AssistantPanel />
 </aside>
 
-<!-- CENTER: Output + Canvas -->
+<svelte:window bind:innerHeight onfocusin={() => (chartFocused = !!root?.contains(document.activeElement))} onfocusout={() => queueMicrotask(() => (chartFocused = !!root?.contains(document.activeElement)))} />
+
 <div class="workspace-canvas--mild center-content">
-    <!-- Warnings bar (entry node only) -->
-    {#if warnings.length > 0}
+    <h2 id="step-heading-3" class="visually-hidden" tabindex="-1">Testing</h2>
+    {#if app.warnings.length}
         <div class="warnings-bar" role="alert" aria-live="polite">
-            {#each warnings as w}
-                <span class="warning-chip">{w.message}</span>
-            {/each}
+            {#each app.warnings as w (w)}<span class="warning-chip">{w}</span>{/each}
         </div>
     {/if}
-            <!-- Canvas visibility controls + screen reader output -->
-            <div class="canvas-controls">
-                <label class="check-label">
-                    <input type="checkbox" bind:checked={showAllNodes} /> Show nodes
-                </label>
-                <label class="check-label">
-                    <input type="checkbox" bind:checked={showAllEdges} /> Show edges
-                </label>
-            </div>
+    <div class="canvas-controls">
+        <label class="check-label"><input type="checkbox" bind:checked={showAllNodes} /> Show nodes</label>
+        <label class="check-label"><input type="checkbox" bind:checked={showAllEdges} /> Show edges</label>
+    </div>
 
-            <div
-                class="canvas-scaler"
-                bind:clientWidth={canvasScalerWidth}
-                style="height: {canvasHeight * canvasScale}px;"
-            >
-            <div
-                id="dn-test-canvas-root"
-                class="canvas-root"
-                style="width:{canvasWidth}px; height:{canvasHeight}px; --canvas-scale:{canvasScale}; transform: scale({canvasScale}); transform-origin: top left;"
-            >
-                {#if imageDataUrl}
-                    <img
-                        src={imageDataUrl}
-                        alt=""
-                        aria-hidden="true"
-                        class="canvas-bg"
-                        width={canvasWidth}
-                        height={canvasHeight}
-                    />
-                {:else}
-                    <div class="canvas-placeholder">
-                        <span>No image uploaded</span>
-                    </div>
-                {/if}
-
-                <!-- SVG shapes overlay — matches editor rendering (show-nodes toggle) -->
-                {#if showAllNodes}
-                    <svg class="shapes-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
-                        {#each [...nodes.values()] as node (node.id)}
-                            {#if node.renderProperties.shape === 'rect'}
-                                <rect
-                                    x={node.x} y={node.y}
-                                    width={node.width} height={node.height}
-                                    rx="4"
-                                    fill={node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                                    fill-opacity={node.renderProperties.opacity}
-                                    stroke={node.renderProperties.strokeColor}
-                                    stroke-width={node.renderProperties.strokeWidth}
-                                    stroke-dasharray={node.renderProperties.strokeDash === 'dashed' ? '6,3'
-                                                    : node.renderProperties.strokeDash === 'dotted' ? '2,2'
-                                                    : undefined}
-                                />
-                            {:else if node.renderProperties.shape === 'ellipse'}
-                                <ellipse
-                                    cx={node.x + node.width / 2} cy={node.y + node.height / 2}
-                                    rx={node.width / 2} ry={node.height / 2}
-                                    fill={node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                                    fill-opacity={node.renderProperties.opacity}
-                                    stroke={node.renderProperties.strokeColor}
-                                    stroke-width={node.renderProperties.strokeWidth}
-                                    stroke-dasharray={node.renderProperties.strokeDash === 'dashed' ? '6,3'
-                                                    : node.renderProperties.strokeDash === 'dotted' ? '2,2'
-                                                    : undefined}
-                                />
-                            {:else if node.renderProperties.shape === 'path' && node.pathData}
-                                <path
-                                    d={node.pathData}
-                                    fill={node.renderProperties.fillEnabled ? node.renderProperties.fill : 'none'}
-                                    fill-opacity={node.renderProperties.opacity}
-                                    stroke={node.renderProperties.strokeColor}
-                                    stroke-width={node.renderProperties.strokeWidth}
-                                />
-                            {/if}
-                        {/each}
-                    </svg>
-                {/if}
-
-                <!-- Edge SVG overlay -->
-                {#if showAllEdges && edgeLines.length > 0}
-                    <svg class="edge-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
-                        <defs>
-                            <marker id="dn-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                                <path d="M0,0 L0,6 L6,3 z" fill="var(--dn-accent)" opacity="0.7" />
-                            </marker>
-                        </defs>
-                        {#each edgeLines as edge (edge.id)}
-                            {#if edge.isPaired}
-                                <path
-                                    d="M {edge.sc.x} {edge.sc.y} Q {edge.cpx} {edge.cpy} {edge.tc.x} {edge.tc.y}"
-                                    fill="none" stroke="var(--dn-accent)" stroke-width="1.5" opacity="0.5"
-                                    marker-end="url(#dn-arrow)"
-                                />
-                            {:else}
-                                <line
-                                    x1={edge.sc.x} y1={edge.sc.y} x2={edge.tc.x} y2={edge.tc.y}
-                                    stroke="var(--dn-accent)" stroke-width="1.5" opacity="0.5"
-                                    marker-end="url(#dn-arrow)"
-                                />
-                            {/if}
-                            <text
-                                x={edge.lx} y={edge.ly - 5}
-                                font-size="10" fill="var(--dn-accent)" text-anchor="middle"
-                                paint-order="stroke" stroke="var(--dn-bg, white)" stroke-width="3"
-                            >{edge.label}</text>
-                        {/each}
-                    </svg>
-                {/if}
-
-                <!-- DN wrapper + nodes appended by renderer.initialize() -->
-            </div>
-            </div><!-- /.canvas-scaler -->
-
-            <!-- Screen reader announcement (above canvas) -->
-            {#if focusedNodeLabel || focusedNodeData || focusedNodeDirections.length > 0}
-                <div class="sr-announcement">
-                    <div class="sr-section">
-                        <span class="sr-label">Screen reader announcement:</span>
-                        <span class="sr-value">{focusedNodeLabel || '—'}</span>
-                    </div>
-                    {#if focusedNodeDirections.length > 0 || (focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0)}
-                        <details>
-                            <summary>Info for current node</summary>
-                            {#if focusedNodeDirections.length > 0}
-                                <h4 class="sr-subheading">Navigation</h4>
-                                <table class="output-table">
-                                    <tbody>
-                                        {#each focusedNodeDirections as dir}
-                                            <tr>
-                                                <th scope="row">{dir.rule} (<kbd>{dir.key}</kbd>)</th>
-                                                <td>→ {dir.destLabel}</td>
-                                            </tr>
-                                        {/each}
-                                    </tbody>
-                                </table>
-                            {/if}
-                            {#if focusedNodeData && Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')).length > 0}
-                                <h4 class="sr-subheading">Node data</h4>
-                                <table class="output-table">
-                                    <tbody>
-                                        {#each Object.entries(focusedNodeData).filter(([k]) => !k.startsWith('_')) as [key, val]}
-                                            <tr>
-                                                <th scope="row">{key}</th>
-                                                <td>{typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}</td>
-                                            </tr>
-                                        {/each}
-                                    </tbody>
-                                </table>
-                            {/if}
-                        </details>
-                    {/if}
-                </div>
+    <div class="canvas-scaler" bind:clientWidth={scalerWidth} style="height: {canvasHeight * canvasScale}px;">
+        <div bind:this={root} id="dn-test-canvas-root" class="canvas-root" style="width:{canvasWidth}px; height:{canvasHeight}px; --canvas-scale:{canvasScale}; transform: scale({canvasScale}); transform-origin: top left;">
+            {#if imageDataUrl}
+                <img src={imageDataUrl} alt="" aria-hidden="true" class="canvas-bg" width={canvasWidth} height={canvasHeight} />
+            {:else}
+                <div class="canvas-placeholder"><span>No image uploaded</span></div>
             {/if}
+            {#if showAllNodes}
+                <svg class="shapes-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
+                    {#each nodes as n (n.id)}
+                        {@const fill = n.style.fillEnabled ? n.style.fill : 'none'}
+                        {#if n.geo.path}
+                            <path d={n.geo.path} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                        {:else if n.style.shape === 'ellipse'}
+                            <ellipse cx={center(n.geo).x} cy={center(n.geo).y} rx={n.geo.width / 2} ry={n.geo.height / 2} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                        {:else}
+                            <rect {...n.geo} rx="4" {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                        {/if}
+                    {/each}
+                </svg>
+            {/if}
+            {#if showAllEdges}
+                <svg class="edge-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
+                    <defs>
+                        <marker id="dn-test-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L6,3 z" fill="var(--dn-accent)" opacity="0.7" />
+                        </marker>
+                    </defs>
+                    {#each edges as e (e.id)}
+                        {@const a = app.graph.nodes.get(e.source)}
+                        {@const b = app.graph.nodes.get(e.target)}
+                        {#if a && b}
+                            {@const sc = center(a.geo)}
+                            {@const tc = center(b.geo)}
+                            <line x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y} stroke="var(--dn-accent)" stroke-width="1.5" opacity="0.5" marker-end="url(#dn-test-arrow)" />
+                            <text x={(sc.x + tc.x) / 2} y={(sc.y + tc.y) / 2 - 5} font-size="10" fill="var(--dn-accent)" text-anchor="middle" paint-order="stroke" stroke="var(--dn-bg, white)" stroke-width="3">{e.rules.join(' / ')}</text>
+                        {/if}
+                    {/each}
+                </svg>
+            {/if}
+        </div>
+    </div>
 
-    {#if nodes.size === 0}
+    {#if current}
+        <div class="sr-announcement">
+            <div class="sr-section" class:sr-warn={app.missing.has(current.id)}>
+                <span class="sr-label">{#if app.missing.has(current.id)}<span aria-hidden="true">⚠ </span>Warning. {/if}Screen reader announcement:</span>
+                <span class="sr-value">{current.semantics?.label}</span>
+            </div>
+            <div class="node-panels">
+            <details class="node-panel">
+                <summary>Info for current node</summary>
+                {#if directions.length}
+                    <h4 class="sr-subheading">Navigation</h4>
+                    <table class="output-table">
+                        <tbody>
+                            {#each directions as d (d.rule)}
+                                <tr><th scope="row">{d.rule} (<kbd>{d.key}</kbd>)</th><td>→ {d.dest.semantics?.label}</td></tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                {/if}
+                {#if current.dimensionLevel === undefined && !current.manual}
+                    <h4 class="sr-subheading">Node data</h4>
+                    <table class="output-table">
+                        <tbody>
+                            {#each Object.entries(current.data ?? {}).filter(([k]) => !k.startsWith('_')) as [key, val] (key)}
+                                <tr><th scope="row">{key}</th><td>{String(val)}</td></tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                {/if}
+            </details>
+            <details class="node-panel">
+                <summary>Edit structure at this node</summary>
+                <NodeEditor node={current} />
+            </details>
+            </div>
+        </div>
+    {/if}
+
+    {#if nodes.length === 0}
         <p class="empty-hint">Build your node graph in the Editor step, then return here to test.</p>
     {/if}
 </div>
 
-<!-- RIGHT: Mode toggle + Chat or Keyboard + Events -->
 <aside class="log-panel" aria-label="Navigation log and output">
-            <!-- Keyboard mode toggle -->
-            <label class="kbd-toggle-label check-label">
-                <input
-                    type="checkbox"
-                    checked={navMode === 'keyboard'}
-                    onchange={(e) => { navMode = (e.currentTarget as HTMLInputElement).checked ? 'keyboard' : 'text'; }}
-                />
-                Enable keyboard navigation
-            </label>
-
-            {#if navMode === 'text'}
-                <div class="panel-heading">Text navigation</div>
-                <div id="dn-test-chat" class="chat-container"></div>
-            {:else}
-                <div class="panel-heading">Keyboard navigation</div>
-                <div class="kbd-enter-area">
-                    <button
-                        class="btn-primary"
-                        type="button"
-                        onclick={enterNavigation}
-                        disabled={!dnStructure || !entryNodeId}
-                    >
-                        Enter navigation area
-                    </button>
-                </div>
-                {#if keyboardInstructions.length > 0}
-                    <table class="keys-table">
-                        <thead><tr><th>Key</th><th>Direction / Rule</th></tr></thead>
-                        <tbody>
-                            {#each keyboardInstructions as item}
-                                <tr><td><kbd>{item.key}</kbd></td><td>{item.rule}</td></tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                {:else}
-                    <p class="keys-empty">No navigation rules. Add edges with directions in the Editor.</p>
-                {/if}
-            {/if}
-
-            <div class="panel-heading">Events</div>
-            <div class="event-log" aria-live="off" aria-label="Navigation events">
-                {#if eventLog.length === 0}
-                    <p class="log-empty">No events yet. Start navigating to see events here.</p>
-                {:else}
-                    {#each eventLog as entry (entry.id)}
-                        <div class="log-entry log-{entry.kind}">
-                            <span class="log-kind">{entry.kind}</span>
-                            {#if entry.nodeLabel}
-                                <span class="log-label" title={entry.nodeLabel}>{entry.nodeLabel}</span>
-                            {/if}
-                            {#if entry.key}
-                                <kbd class="log-key">{entry.key}</kbd>
-                            {/if}
-                            {#if entry.kind === 'keypress'}
-                                <span class="log-navigated" class:yes={entry.navigated} class:no={!entry.navigated}>
-                                    {entry.navigated ? '✓' : '✗'}
-                                </span>
-                            {/if}
-                            <time class="log-time" datetime={new Date(entry.timestamp).toISOString()}>
-                                {formatTime(entry.timestamp)}
-                            </time>
-                        </div>
-                    {/each}
-                {/if}
+    <label class="kbd-toggle-label check-label">
+        <input type="checkbox" checked={navMode === 'keyboard'} onchange={e => (navMode = e.currentTarget.checked ? 'keyboard' : 'text')} />
+        Enable keyboard navigation
+    </label>
+    {#if navMode === 'text'}
+        <div class="panel-heading">Text navigation</div>
+        <div bind:this={chatEl} id="dn-test-chat" class="chat-container"></div>
+    {:else}
+        <div class="panel-heading">Keyboard navigation</div>
+        <div class="kbd-enter-area">
+            <button class="btn-primary" type="button" onclick={() => (nav?.enter(), log({ kind: 'enter' }))} disabled={!nav}>Enter navigation area</button>
+            <button class="btn-ghost" type="button" onclick={refocus} disabled={chartFocused || !lastId || !nav}>Re-focus last element</button>
         </div>
+        <table class="keys-table">
+            <thead><tr><th>Key</th><th>Rule</th></tr></thead>
+            <tbody>
+                {#each keyboardInstructions as item (item.rule)}<tr><td><kbd>{item.key}</kbd></td><td>{item.rule}</td></tr>{/each}
+            </tbody>
+        </table>
+    {/if}
+
+    <div class="panel-heading">Events</div>
+    <div class="event-log" aria-live="off" aria-label="Navigation events">
+        {#each eventLog as entry (entry.id)}
+            <div class="log-entry log-{entry.kind}">
+                <span class="log-kind">{entry.kind}</span>
+                {#if entry.label}<span class="log-label" title={entry.label}>{entry.label}</span>{/if}
+                {#if entry.key}<kbd class="log-key">{entry.key}</kbd>{/if}
+                {#if entry.kind === 'keypress'}<span class="log-navigated" class:yes={entry.moved} class:no={!entry.moved}>{entry.moved ? '✓' : '✗'}</span>{/if}
+                <time class="log-time" datetime={new Date(entry.time).toISOString()}>{formatTime(entry.time)}</time>
+            </div>
+        {:else}
+            <p class="log-empty">No events yet. Start navigating to see events here.</p>
+        {/each}
+    </div>
 </aside>
 
 <style>
+    .sr-section.sr-warn {
+        background: #fff4f2;
+        border-color: #c62828;
+        border-style: dashed;
+        color: #8e1b1b;
+    }
+
+    .sr-warn .sr-label,
+    .sr-warn .sr-value {
+        color: inherit;
+    }
+
+    :global(.dark) .sr-section.sr-warn {
+        background: #3a1513;
+        color: #ffb4a9;
+    }
+
     /* ─── Canvas controls (show nodes/edges, above canvas) ─────────── */
     .canvas-controls {
         display: flex;
@@ -742,12 +317,12 @@
 
     /* ─── Inspector panel (left) ─────────────────────────────────────────────── */
     .inspector-panel {
-        width: 360px;
+        width: 390px;
         flex-shrink: 0;
         border-right: 1px solid var(--dn-border);
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow-y: auto;
         background: var(--dn-surface);
         height: 100%;
         font-size: 0.875rem;
@@ -776,8 +351,7 @@
     }
 
     .inspector-graph-section {
-        flex: 1;
-        overflow-y: auto;
+        flex: none;
         background: var(--dn-bg);
         min-height: 0;
     }
@@ -796,6 +370,28 @@
     }
 
     /* ─── Screen reader announcement (below canvas) ──────────────────────────── */
+    .node-panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+        .node-panels {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .node-panel {
+        min-width: 0;
+    }
+
+    .node-panel > summary {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
     .sr-announcement {
         width: 100%;
         padding: 8px 10px;
@@ -978,6 +574,9 @@
 
     /* Keyboard mode: enter button area */
     .kbd-enter-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
         padding: 10px;
         flex-shrink: 0;
         border-bottom: 1px solid var(--dn-border);
@@ -1179,12 +778,10 @@
     }
 
     :global(#dn-test-canvas-root .dn-node:focus),
-    :global(#dn-test-canvas-root .dn-node.nav-focused) {
+    :global(#dn-test-canvas-root .dn-node.dn-current) {
         opacity: 1;
         pointer-events: auto;
-        /* Divide by --canvas-scale so the outline stays ~2px wide visually at any zoom */
-        /* outline: calc(2px / var(--canvas-scale, 1)) solid var(--dn-accent); */
-        outline-offset: calc(2px / var(--canvas-scale, 1));
+        outline: none;
     }
 
     :global(#dn-test-canvas-root .dn-node-svg) {
@@ -1236,7 +833,7 @@
     }
 
     :global(#dn-test-chat .dn-text-chat-form button) {
-        border-left-color: var(--dn-border);
+        border-left-color: var(--dn-control);
     }
 
     /* ─── Text chat dark mode ────────────────────────────────────────────────── */
@@ -1307,7 +904,7 @@
 
     :global(.dark #dn-test-inspector .dn-menu-log-btn) {
         background: var(--dn-surface);
-        border-color: var(--dn-border);
+        border-color: var(--dn-control);
         color: var(--dn-text-muted);
     }
 

@@ -54,7 +54,7 @@
 </script>
 
 <figure class="guide-graphic" class:hide-root={!showRoot}>
-    <figcaption class="visually-hidden">{descriptions[variant]}</figcaption>
+    <figcaption class="visually-hidden">{descriptions[variant]}{!showRoot && variant.startsWith('tree-') ? ' This structure has no root node, so the top circle is hidden.' : ''}</figcaption>
     {#if variant === 'stack'}
         <svg width="250" height="173" viewBox="0 0 250 173" fill="none" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <rect width="250" height="173" fill="white"/>

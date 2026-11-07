@@ -1,335 +1,188 @@
-/**
- * paddingEstimator — turns "where are the real marks in the image" (from
- * markDetection) plus "where are the scaffold marks right now" (from the leaf
- * nodes positioned by the Vega render) into a new `padding{Left,Right,Top,Bottom}`
- * for the scaffold, holding offsetX/offsetY/plotWidth/plotHeight fixed.
- *
- * Coordinate model (see appState.ScaffoldConfig): a scaffold mark at normalized
- * inner fraction f lands at image-x = offsetX + paddingLeft + f * innerW, where
- * innerW = plotWidth - paddingLeft - paddingRight (and analogously for y, which
- * is image-y-down). f is invariant to padding changes, so we:
- *   1. snapshot the two extreme scaffold marks per axis and their f BEFORE
- *      touching the config,
- *   2. detect the corresponding extreme marks in the image,
- *   3. solve, per axis, for the padding that maps fLo↦detLo and fHi↦detHi.
- *
- * Why bbox centroids work for every chart type (incl. the bar value axis):
- * under a padding change the value→pixel mapping rescales by the same factor as
- * the inner size, so a mark's centroid fraction f = centroid / inner depends only
- * on the data, not on padding. Degenerate axes (all marks at one value) collapse
- * fLo≈fHi and are rejected by the |Δf| guard rather than producing garbage.
- */
+import type { Geo, ScaffoldConfig } from '../model/doc';
+import { app, commit, undo } from '../model/state.svelte';
+import { detectMarks, type DetectedComponent } from './markDetection';
 
-import type { ScaffoldConfig } from '../store/appState';
-import type { SkeletonNode } from '../store/types';
-import { appState } from '../store/appState';
-import {
-    setPendingPaddingVerification,
-    setPaddingEstimateInFlight,
-    type PaddingVerificationTargets
-} from '../store/scaffoldRuntime';
-import { detectMarks } from './markDetection';
-
-const MIN_DF = 0.15; // minimum |fHi - fLo| for a well-conditioned axis solve
-
-// ── Scaffold-side snapshot ────────────────────────────────────────────────────
-
-export interface AxisExtremes {
-    fLo: number; // normalized inner fraction of the "low" extreme mark
-    fHi: number; // ...of the "high" extreme mark
-    loCenter: number; // current image-space centre of the low extreme (for verify/logging)
-    hiCenter: number; // ...of the high extreme
-}
-
-export interface ScaffoldExtremes {
-    x: AxisExtremes | null; // leftmost / rightmost (by centre x)
-    y: AxisExtremes | null; // topmost / bottommost (by centre y)
-    innerW0: number;
-    innerH0: number;
-    leafCount: number;
-}
-
-/**
- * Snapshot the extreme leaf marks (dnLevel === 3) per axis and their padding-
- * invariant fractions, using the CURRENT config. Call this BEFORE patching.
- */
-export function scaffoldExtremeAnchors(config: ScaffoldConfig, nodes: SkeletonNode[]): ScaffoldExtremes {
-    const innerW0 = config.plotWidth - config.paddingLeft - config.paddingRight;
-    const innerH0 = config.plotHeight - config.paddingTop - config.paddingBottom;
-    const leaves = nodes.filter(n => n.dnLevel === 3);
-
-    if (leaves.length < 2 || innerW0 <= 0 || innerH0 <= 0) {
-        return { x: null, y: null, innerW0, innerH0, leafCount: leaves.length };
-    }
-
-    const items = leaves.map(n => ({ cx: n.x + n.width / 2, cy: n.y + n.height / 2 }));
-    let minXi = 0;
-    let maxXi = 0;
-    let minYi = 0;
-    let maxYi = 0;
-    items.forEach((it, i) => {
-        if (it.cx < items[minXi].cx) minXi = i;
-        if (it.cx > items[maxXi].cx) maxXi = i;
-        if (it.cy < items[minYi].cy) minYi = i;
-        if (it.cy > items[maxYi].cy) maxYi = i;
-    });
-
-    const fx = (cx: number) => (cx - config.offsetX - config.paddingLeft) / innerW0;
-    const fy = (cy: number) => (cy - config.offsetY - config.paddingTop) / innerH0;
-
-    return {
-        x: {
-            fLo: fx(items[minXi].cx),
-            fHi: fx(items[maxXi].cx),
-            loCenter: items[minXi].cx,
-            hiCenter: items[maxXi].cx
-        },
-        y: {
-            fLo: fy(items[minYi].cy),
-            fHi: fy(items[maxYi].cy),
-            loCenter: items[minYi].cy,
-            hiCenter: items[maxYi].cy
-        },
-        innerW0,
-        innerH0,
-        leafCount: leaves.length
-    };
-}
-
-// ── Pure axis solver ──────────────────────────────────────────────────────────
-
-export interface AxisSolve {
-    ok: boolean;
-    padLo?: number;
-    padHi?: number;
+// A mark edge or centre at inner fraction f lands at offset + padLo + f * inner, and f does not change with padding.
+// Points anchor on centres, rects on edges (stacked segments merge into one blob), lines on their long strokes.
+const MIN_DF = 0.15;
+type Span = { lo: number; hi: number };
+type Box = { x: number; y: number; width: number; height: number };
+export interface Fit {
+    patch: Partial<ScaffoldConfig> | null;
     warnings: string[];
+    target: { x: Span; y: Span } | null;
+    points: boolean;
 }
 
-/**
- * Solve one axis. `offset`/`outer` are offsetX/plotWidth (x) or offsetY/plotHeight (y);
- * `padLo`/`padHi` map to left/right or top/bottom respectively.
- */
 export function solveAxisPadding(
-    label: 'x' | 'y',
     fLo: number,
     fHi: number,
     detLo: number,
     detHi: number,
     offset: number,
     outer: number
-): AxisSolve {
-    const warnings: string[] = [];
+) {
     const df = fHi - fLo;
-    if (Math.abs(df) < MIN_DF) {
-        warnings.push(`${label}: ill-conditioned (|Δf|=${df.toFixed(3)} < ${MIN_DF}) — skipped`);
-        return { ok: false, warnings };
-    }
-
-    const innerNew = (detHi - detLo) / df;
-    if (!isFinite(innerNew) || innerNew <= 0) {
-        warnings.push(`${label}: invalid inner size (${innerNew.toFixed(1)}) — skipped`);
-        return { ok: false, warnings };
-    }
-    if (innerNew > outer) {
-        warnings.push(
-            `${label}: detected spread needs inner=${innerNew.toFixed(0)} > outer=${outer} — resize the outer box first`
-        );
-        return { ok: false, warnings };
-    }
-
-    let padLo = detLo - offset - fLo * innerNew;
-    let padHi = outer - innerNew - padLo;
-
-    if (padLo < 0 && padHi < 0) {
-        warnings.push(`${label}: both paddings negative — resize the outer box first`);
-        return { ok: false, warnings };
-    }
-    if (padLo < 0) {
-        padLo = 0;
-        padHi = outer - innerNew;
-        warnings.push(`${label}: clamped low padding to 0`);
-    } else if (padHi < 0) {
-        padHi = 0;
-        padLo = outer - innerNew;
-        warnings.push(`${label}: clamped high padding to 0`);
-    }
-
-    return { ok: true, padLo: Math.round(padLo), padHi: Math.round(padHi), warnings };
+    if (Math.abs(df) < MIN_DF) return 'the marks are too close together on this axis';
+    const inner = (detHi - detLo) / df;
+    if (!isFinite(inner) || inner <= 0) return 'the marks found in the image do not match the scaffold';
+    if (inner > outer) return 'the marks need a wider box than the scaffold has; enlarge the width or height first';
+    let lo = detLo - offset - fLo * inner;
+    let hi = outer - inner - lo;
+    if (lo < 0 && hi < 0) return 'both paddings came out negative; move or resize the box first';
+    if (lo < 0) [lo, hi] = [0, outer - inner];
+    else if (hi < 0) [lo, hi] = [outer - inner, 0];
+    return [Math.round(lo), Math.round(hi)] as [number, number];
 }
 
-// ── Orchestration ─────────────────────────────────────────────────────────────
+const median = (v: number[]) => [...v].sort((a, b) => a - b)[v.length >> 1];
+const spread = (v: number[]) => (Math.max(...v) - Math.min(...v)) / (median(v) || 1);
+const shrink = (g: Box, p: number) => ({ x: g.x + p, y: g.y + p, width: g.width - 2 * p, height: g.height - 2 * p });
 
-export interface ImageRef {
-    dataUrl: string;
-    width: number;
-    height: number;
+function extents(boxes: Box[], centres: boolean) {
+    const ax = (k: 'x' | 'y', size: 'width' | 'height'): Span =>
+        centres
+            ? {
+                  lo: Math.min(...boxes.map(b => b[k] + b[size] / 2)),
+                  hi: Math.max(...boxes.map(b => b[k] + b[size] / 2))
+              }
+            : { lo: Math.min(...boxes.map(b => b[k])), hi: Math.max(...boxes.map(b => b[k] + b[size])) };
+    return { x: ax('x', 'width'), y: ax('y', 'height') };
 }
 
-export interface EstimateResult {
-    patch: Partial<ScaffoldConfig> | null;
-    warnings: string[];
-    verification: PaddingVerificationTargets | null;
+function keepLike(marks: DetectedComponent[], leaves: Box[], points: boolean) {
+    const fits = (v: number, want: number) => v >= want * 0.35 && v <= want * 2.8;
+    const w = median(leaves.map(g => g.width));
+    const h = median(leaves.map(g => g.height));
+    const kept = points
+        ? marks.filter(m => fits(Math.max(m.bbox.width, m.bbox.height), Math.max(w, h)))
+        : spread(leaves.map(g => g.width)) <= spread(leaves.map(g => g.height))
+          ? marks.filter(m => fits(m.bbox.width, w))
+          : marks.filter(m => fits(m.bbox.height, h));
+    return kept.length >= 2 ? kept : marks;
 }
 
-/**
- * Full estimate: snapshot scaffold anchors → detect image marks → solve both axes.
- * Returns a config patch (or null if nothing solvable) and the detected targets
- * to verify against after re-render. Does NOT mutate state.
- */
+const isLine = (c: ScaffoldConfig) => c.chartType === 'line' || c.chartType === 'area';
+const isPoints = (leaves: Geo[]) => leaves.every(g => g.path?.includes('A'));
+const anchors = (c: ScaffoldConfig, leaves: Geo[], pad: number) => {
+    const points = isPoints(leaves);
+    return extents(points ? leaves : leaves.map(g => shrink(g, pad)), points || isLine(c));
+};
+
 export async function estimatePadding(
-    config: ScaffoldConfig,
-    nodes: SkeletonNode[],
-    image: ImageRef
-): Promise<EstimateResult> {
-    const warnings: string[] = [];
-
-    const scaffold = scaffoldExtremeAnchors(config, nodes);
-    console.log('[padding] scaffold anchors', {
-        innerW0: scaffold.innerW0,
-        innerH0: scaffold.innerH0,
-        leafCount: scaffold.leafCount,
-        x: scaffold.x,
-        y: scaffold.y
-    });
-    if (!scaffold.x && !scaffold.y) {
-        warnings.push('Not enough scaffold marks (need ≥2 leaves) or invalid inner size');
-        return { patch: null, warnings, verification: null };
-    }
-
-    const plotRect = {
-        x: config.offsetX,
-        y: config.offsetY,
-        width: config.plotWidth,
-        height: config.plotHeight
-    };
-    const detected = await detectMarks(image.dataUrl, image.width, image.height, plotRect, config.chartType);
-    console.log('[detect] components', detected.all);
-    console.log('[detect] corners', { x: detected.x, y: detected.y });
-
-    if (!detected.x && !detected.y) {
-        console.log('[detect] STOP: no mark candidates for either axis');
-        warnings.push('No mark candidates detected for either axis — stopping');
-        return { patch: null, warnings, verification: null };
-    }
-
+    c: ScaffoldConfig,
+    leaves: Geo[],
+    image: { url: string; width: number; height: number },
+    pad = 0
+): Promise<Fit> {
+    const fail = (w: string): Fit => ({ patch: null, warnings: [w], target: null, points: false });
+    const innerW = c.plotWidth - c.paddingLeft - c.paddingRight;
+    const innerH = c.plotHeight - c.paddingTop - c.paddingBottom;
+    if (leaves.length < 2 || innerW <= 0 || innerH <= 0)
+        return fail('The scaffold needs at least two data marks and a positive plot area.');
+    const points = isPoints(leaves);
+    const line = isLine(c);
+    const plot = { x: c.offsetX, y: c.offsetY, width: c.plotWidth, height: c.plotHeight };
+    const detected = await detectMarks(image.url, image.width, image.height, plot, c.chartType);
+    const want = anchors(c, leaves, pad);
+    const all = detected.all.filter(m => m.klass === 'mark');
+    const widest = Math.max(0, ...all.map(m => m.bbox.width));
+    const marks = line
+        ? all.filter(m => m.bbox.width >= widest * 0.3)
+        : keepLike(
+              all,
+              leaves.map(g => shrink(g, points ? 0 : pad)),
+              points
+          );
+    if (marks.length < (line ? 1 : 2)) return fail('Could not find enough data marks in the image.');
+    const got = extents(
+        marks.map(m => m.bbox),
+        points && !line
+    );
+    const fx = (v: number) => (v - c.offsetX - c.paddingLeft) / innerW;
+    const fy = (v: number) => (v - c.offsetY - c.paddingTop) / innerH;
+    const rx = solveAxisPadding(fx(want.x.lo), fx(want.x.hi), got.x.lo, got.x.hi, c.offsetX, c.plotWidth);
+    const ry = solveAxisPadding(fy(want.y.lo), fy(want.y.hi), got.y.lo, got.y.hi, c.offsetY, c.plotHeight);
     const patch: Partial<ScaffoldConfig> = {};
-    const verification: PaddingVerificationTargets = { x: null, y: null };
+    const warnings: string[] = [];
+    if (typeof rx === 'string') warnings.push(`Left and right: ${rx}.`);
+    else [patch.paddingLeft, patch.paddingRight] = rx;
+    if (typeof ry === 'string') warnings.push(`Top and bottom: ${ry}.`);
+    else [patch.paddingTop, patch.paddingBottom] = ry;
+    return { patch: Object.keys(patch).length ? patch : null, warnings, target: got, points };
+}
 
-    if (scaffold.x && detected.x) {
-        const r = solveAxisPadding(
-            'x',
-            scaffold.x.fLo,
-            scaffold.x.fHi,
-            detected.x.lo.x,
-            detected.x.hi.x,
-            config.offsetX,
-            config.plotWidth
-        );
-        warnings.push(...r.warnings);
-        if (r.ok) {
-            patch.paddingLeft = r.padLo;
-            patch.paddingRight = r.padHi;
-            verification.x = { detLo: detected.x.lo.x, detHi: detected.x.hi.x };
-        }
-    } else {
-        warnings.push('x: missing scaffold or detected corner — skipped');
+export function residual(c: ScaffoldConfig, fit: Fit, leaves: Geo[], pad = 0) {
+    if (!fit.target) return Infinity;
+    const now = anchors(c, leaves, pad);
+    const t = fit.target;
+    const axes = (['x', 'y'] as const).filter(a => fit.patch?.[a === 'x' ? 'paddingLeft' : 'paddingTop'] !== undefined);
+    return Math.max(0, ...axes.flatMap(a => [Math.abs(now[a].lo - t[a].lo), Math.abs(now[a].hi - t[a].hi)]));
+}
+
+const leafGeos = () => [...app.graph.nodes.values()].filter(n => n.kind === 'leaf' && !n.pinned).map(n => n.geo);
+const leafPad = () => app.pattern.recipe.groups.leafPadding ?? 0;
+const fitKey = (c: ScaffoldConfig) =>
+    JSON.stringify([
+        c.chartType,
+        c.xField,
+        c.yField,
+        c.colorField,
+        c.offsetX,
+        c.offsetY,
+        c.plotWidth,
+        c.plotHeight,
+        app.doc.image?.width,
+        app.doc.image?.url.length
+    ]);
+
+export async function runFit(force = false) {
+    const c = app.scaffold;
+    const image = app.doc.image;
+    if (!c || !image || image.built || !c.xField || !c.yField) return;
+    const key = fitKey(c);
+    const prev = app.ui.fit;
+    if (!force && (prev?.key === key || prev?.state === 'running')) return;
+    const leaves = leafGeos();
+    if (leaves.length < 2) return;
+    app.ui.fit = { key, state: 'running', message: 'Fitting the scaffold to the image…' };
+    const fit = await estimatePadding(c, leaves, image, leafPad());
+    if (!fit.patch) {
+        app.ui.fit = {
+            key,
+            state: 'failed',
+            message: `Could not fit the scaffold to the image. ${fit.warnings.join(' ')}`
+        };
+        return;
     }
-
-    if (scaffold.y && detected.y) {
-        const r = solveAxisPadding(
-            'y',
-            scaffold.y.fLo,
-            scaffold.y.fHi,
-            detected.y.lo.y,
-            detected.y.hi.y,
-            config.offsetY,
-            config.plotHeight
-        );
-        warnings.push(...r.warnings);
-        if (r.ok) {
-            patch.paddingTop = r.padLo;
-            patch.paddingBottom = r.padHi;
-            verification.y = { detLo: detected.y.lo.y, detHi: detected.y.hi.y };
-        }
-    } else {
-        warnings.push('y: missing scaffold or detected corner — skipped');
-    }
-
-    if (Object.keys(patch).length === 0) {
-        console.log('[padding] no solvable axis — no patch applied');
-        return { patch: null, warnings, verification: null };
-    }
-
-    console.log('[padding] solved patch', patch);
-    return {
-        patch,
-        warnings,
-        verification: verification.x || verification.y ? verification : null
+    const before = {
+        paddingLeft: c.paddingLeft,
+        paddingRight: c.paddingRight,
+        paddingTop: c.paddingTop,
+        paddingBottom: c.paddingBottom
     };
+    commit('Fitted padding to image', d => ({ ...d, scaffold: { ...d.scaffold!, ...fit.patch } }));
+    app.ui.fit = { key, state: 'checking', message: 'Checking the fit…', fit, before, partial: fit.warnings.join(' ') };
 }
 
-/**
- * Shared core for both the auto-trigger (ScaffoldOverlay) and the manual button
- * (ScaffoldPanel): run the estimate, then — if solvable — stash the verification
- * targets and apply the padding patch. Applying the patch triggers exactly one
- * re-render, whose completion consumes `pendingPaddingVerification` to log the
- * residual. Returns the warnings for the caller to surface.
- */
-export async function runEstimateAndApply(
-    config: ScaffoldConfig,
-    nodes: SkeletonNode[],
-    image: ImageRef
-): Promise<string[]> {
-    setPaddingEstimateInFlight(true);
-    try {
-        const { patch, warnings, verification } = await estimatePadding(config, nodes, image);
-        warnings.forEach(w => console.warn('[padding]', w));
-        if (!patch) return warnings;
-
-        // Set verification BEFORE patching so the render the patch triggers can consume it.
-        setPendingPaddingVerification(verification);
-        appState.update(s => ({
-            ...s,
-            scaffoldConfig: s.scaffoldConfig ? { ...s.scaffoldConfig, ...patch } : s.scaffoldConfig
-        }));
-        return warnings;
-    } catch (err) {
-        // Detection failures (e.g. image load) must not throw into the render
-        // pipeline or leave an unhandled rejection — log and stop.
-        console.warn('[padding] estimate failed:', err);
-        return [`estimate failed: ${String(err)}`];
-    } finally {
-        setPaddingEstimateInFlight(false);
-    }
-}
-
-/**
- * One-shot verification, called from the render that follows a padding patch.
- * Re-reads the extreme scaffold marks (now repositioned with the new padding)
- * and logs how far they land from the detected targets.
- */
-export function verifyPadding(
-    targets: PaddingVerificationTargets,
-    config: ScaffoldConfig,
-    nodes: SkeletonNode[]
-): void {
-    const scaffold = scaffoldExtremeAnchors(config, nodes);
-    const threshold = Math.max(3, 0.01 * Math.max(config.plotWidth, config.plotHeight));
-
-    if (targets.x && scaffold.x) {
-        const loErr = Math.abs(scaffold.x.loCenter - targets.x.detLo);
-        const hiErr = Math.abs(scaffold.x.hiCenter - targets.x.detHi);
-        const pass = loErr <= threshold && hiErr <= threshold;
-        console.log(
-            `[verify] residual x: lo=${loErr.toFixed(1)}px hi=${hiErr.toFixed(1)}px — ${pass ? 'PASS' : 'FAIL'} (threshold ${threshold.toFixed(1)}px)`
-        );
-    }
-    if (targets.y && scaffold.y) {
-        const loErr = Math.abs(scaffold.y.loCenter - targets.y.detLo);
-        const hiErr = Math.abs(scaffold.y.hiCenter - targets.y.detHi);
-        const pass = loErr <= threshold && hiErr <= threshold;
-        console.log(
-            `[verify] residual y: lo=${loErr.toFixed(1)}px hi=${hiErr.toFixed(1)}px — ${pass ? 'PASS' : 'FAIL'} (threshold ${threshold.toFixed(1)}px)`
-        );
-    }
+export function checkFit() {
+    const f = app.ui.fit;
+    const c = app.scaffold;
+    if (f?.state !== 'checking' || !f.fit || !c) return;
+    const r = residual(c, f.fit, leafGeos(), leafPad());
+    const limit = Math.max(4, 0.01 * Math.max(c.plotWidth, c.plotHeight));
+    if (r > limit) {
+        if (app.past.at(-1)?.label === 'Fitted padding to image') undo();
+        else commit('Undid padding fit', d => ({ ...d, scaffold: { ...d.scaffold!, ...f.before } }));
+        app.ui.fit = {
+            key: f.key,
+            state: 'failed',
+            message: `The fit missed the marks by ${Math.round(r)} px, so it was undone. Adjust the padding by hand, or try again after fixing the fields.`
+        };
+    } else
+        app.ui.fit = {
+            key: f.key,
+            state: 'ok',
+            message: `Fitted to the image within ${Math.max(1, Math.round(r))} px. ${f.partial ?? ''}`.trim()
+        };
 }

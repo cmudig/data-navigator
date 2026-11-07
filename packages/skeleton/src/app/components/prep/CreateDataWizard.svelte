@@ -1,306 +1,179 @@
 <script lang="ts">
-    import { appState, type VariableMeta, type PrepState, type QAChapterId } from '../../../store/appState';
-    import { logAction } from '../../../store/historyStore';
+    import { app, commit } from '../../../model/state.svelte';
+    import { emptyDoc, guessId, type Field, type Row } from '../../../model/doc';
 
-    type Props = { onclose: () => void };
-    const { onclose }: Props = $props();
+    const { onclose }: { onclose: () => void } = $props();
 
-    // ─── Local column definition for Stage 1 ─────────────────────────────────
-    interface ColDef {
-        name: string;
-        type: 'numerical' | 'categorical';
-    }
+    let dialog: HTMLDialogElement;
+    $effect(() => dialog.showModal());
 
     let stage = $state<1 | 2>(1);
-    let columns = $state<ColDef[]>([{ name: '', type: 'categorical' }]);
-
-    // Stage 2 draft rows
+    let columns = $state<{ name: string; type: Field['type'] }[]>([{ name: '', type: 'categorical' }]);
     let draftRows = $state<Record<string, string>[]>([]);
-
-    // ─── Focus trap ──────────────────────────────────────────────────────────
-    let dialogEl: HTMLElement | undefined = $state();
+    const namedColumns = $derived(columns.filter(c => c.name.trim()));
+    const canAdvance = $derived(namedColumns.length > 0);
+    const dirty = $derived(namedColumns.length > 0);
 
     $effect(() => {
-        if (dialogEl) {
-            const first = dialogEl.querySelector<HTMLElement>(
-                'button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
-            first?.focus();
-        }
+        stage;
+        dialog.querySelector<HTMLElement>('.modal-body input, .modal-body button')?.focus();
     });
 
-    function onKeydown(e: KeyboardEvent) {
-        if (e.key === 'Escape') { onclose(); return; }
-        if (e.key === 'Tab' && dialogEl) {
-            const focusables = [...dialogEl.querySelectorAll<HTMLElement>(
-                'button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            )];
-            if (focusables.length === 0) return;
-            const first = focusables[0];
-            const last = focusables[focusables.length - 1];
-            if (e.shiftKey) {
-                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-            } else {
-                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-            }
-        }
-    }
-
-    // ─── Stage 1 helpers ─────────────────────────────────────────────────────
-    const namedColumns = $derived(columns.filter(c => c.name.trim() !== ''));
-    const canAdvance = $derived(namedColumns.length > 0);
-
-    function addColumn() {
-        columns = [...columns, { name: '', type: 'categorical' }];
-    }
-
-    function removeColumn(index: number) {
-        columns = columns.filter((_, i) => i !== index);
-    }
-
-    function updateColumnName(index: number, value: string) {
-        columns = columns.map((c, i) => i === index ? { ...c, name: value } : c);
-    }
-
-    function toggleColumnType(index: number) {
-        columns = columns.map((c, i) =>
-            i === index ? { ...c, type: c.type === 'numerical' ? 'categorical' : 'numerical' } : c
-        );
-    }
+    const addColumn = () => (columns = [...columns, { name: '', type: 'categorical' }]);
+    const removeColumn = (i: number) => (columns = columns.filter((_, j) => j !== i));
+    const updateColumnName = (i: number, name: string) => (columns[i].name = name);
+    const toggleColumnType = (i: number) => (columns[i].type = columns[i].type === 'numerical' ? 'categorical' : 'numerical');
+    const blank = () => Object.fromEntries(namedColumns.map(c => [c.name.trim(), '']));
+    const addRow = () => (draftRows = [...draftRows, blank()]);
+    const updateCell = (i: number, col: string, v: string) => (draftRows[i][col] = v);
 
     function goToStage2() {
         if (!canAdvance) return;
-        // Initialize blank draft row
-        const blank: Record<string, string> = {};
-        for (const col of namedColumns) blank[col.name] = '';
-        draftRows = [blank];
+        draftRows = [blank()];
         stage = 2;
     }
 
-    // ─── Stage 2 helpers ─────────────────────────────────────────────────────
-    function addRow() {
-        const blank: Record<string, string> = {};
-        for (const col of namedColumns) blank[col.name] = '';
-        draftRows = [...draftRows, blank];
+    function close() {
+        if (dirty && !confirm('Discard this data table?')) return;
+        dialog.close();
     }
 
-    function updateCell(rowIndex: number, col: string, value: string) {
-        draftRows = draftRows.map((r, i) => i === rowIndex ? { ...r, [col]: value } : r);
-    }
-
-    // ─── Finish: write to store ───────────────────────────────────────────────
     function finish() {
-        const vars: VariableMeta[] = namedColumns.map((col, i) => ({
-            key: col.name,
-            type: col.type,
-            isId: i === 0, // first column is treated as ID by default
-            isDimension: false,
-            removed: false,
-        }));
-
-        // Convert draft rows to Record<string, unknown>[]
-        const customData: Record<string, unknown>[] = draftRows.map(row => {
-            const out: Record<string, unknown> = {};
-            for (const col of namedColumns) {
-                const raw = row[col.name] ?? '';
-                out[col.name] = col.type === 'numerical' && raw !== '' ? Number(raw) : raw;
-            }
-            return out;
-        });
-
-        const colCount = namedColumns.length;
-        const rowCount = draftRows.length;
-        appState.update(s => {
-            const existing = s.prepState;
-            const initial: PrepState = existing ?? {
-                hasRun: false,
-                variables: [],
-                customVariables: [],
-                customData: null,
-                qaProgress: {
-                    currentChapterId: 'top-level-access' as QAChapterId,
-                    currentQuestionId: '',
-                    chapters: [
-                        { id: 'top-level-access', completed: false, answers: {}, invalidated: false },
-                        { id: 'dimensions',        completed: false, answers: {}, invalidated: false },
-                        { id: 'navigation',        completed: false, answers: {}, invalidated: false },
-                        { id: 'leaf-node-patterns', completed: false, answers: {}, invalidated: false },
-                    ],
-                    invalidatedQuestions: [],
-                },
-                labelConfig: {
-                    level0: { template: '', name: 'root', includeIndex: false, includeParentName: false, omitKeyNames: false },
-                    perDimension: {},
-                    perDivision: {},
-                    leaves: { template: '', name: 'data point', includeIndex: false, includeParentName: false, omitKeyNames: false },
-                },
-            };
-            return {
-                ...s,
-                prepState: {
-                    ...initial,
-                    variables: vars,
-                    customData: customData.length > 0 ? customData : null,
-                },
-            };
-        });
-        logAction(`Prep: created data (${colCount} cols, ${rowCount} rows)`);
-
-        onclose();
+        const fields: Field[] = namedColumns.map(c => ({ key: c.name.trim(), type: c.type }));
+        const rows: Row[] = draftRows.map(r => Object.fromEntries(fields.map(f => [f.key, f.type === 'numerical' && r[f.key] !== '' ? Number(r[f.key]) : r[f.key]])));
+        commit(`Prep: created data (${fields.length} columns, ${rows.length} rows)`, d => ({ ...emptyDoc(), image: d.image, data: { rows, name: 'Custom data', fields, idKey: guessId(rows, fields) } }));
+        columns = [];
+        dialog.close();
     }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="modal-backdrop" role="presentation" onclick={onclose}>
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cdw-title"
-        tabindex="-1"
-        bind:this={dialogEl}
-        onkeydown={onKeydown}
-        onclick={(e) => e.stopPropagation()}
-    >
-        <div class="modal-header">
-            <h2 id="cdw-title" class="modal-title">
-                {stage === 1 ? 'Set up your data table' : 'Add rows to your data'}
-            </h2>
-            <button class="btn-close" onclick={onclose} aria-label="Close dialog">&times;</button>
+<dialog class="modal" bind:this={dialog} aria-labelledby="cdw-title" onclose={onclose} oncancel={e => dirty && !confirm('Discard this data table?') && e.preventDefault()}>
+    <div class="modal-header">
+        <h2 id="cdw-title" class="modal-title">
+            {stage === 1 ? 'Set up your data table' : 'Add rows to your data'}
+        </h2>
+        <button class="btn-close" onclick={close} aria-label="Close dialog">&times;</button>
+    </div>
+
+    {#if stage === 1}
+        <!-- ── Stage 1: Define columns ── -->
+        <div class="modal-body">
+            <p class="stage-hint">
+                Let's set up your data table. First, what columns (variables) will your data have?
+            </p>
+
+            <div class="col-list" role="list" aria-label="Column definitions">
+                {#each columns as col, i (i)}
+                    <div class="col-row" role="listitem">
+                        <label class="visually-hidden" for="col-name-{i}">Column {i + 1} name</label>
+                        <input
+                            id="col-name-{i}"
+                            type="text"
+                            class="col-name-input"
+                            placeholder="Column name"
+                            value={col.name}
+                            oninput={(e) => updateColumnName(i, (e.target as HTMLInputElement).value)}
+                        />
+
+                        <button
+                            class="type-toggle"
+                            class:type-toggle-num={col.type === 'numerical'}
+                            class:type-toggle-cat={col.type === 'categorical'}
+                            onclick={() => toggleColumnType(i)}
+                            aria-label="Type: {col.type === 'numerical' ? 'Numerical' : 'Categorical'}. Click to toggle."
+                            title="Toggle between numerical and categorical"
+                        >
+                            {col.type === 'numerical' ? 'NUM' : 'CAT'}
+                        </button>
+
+                        <button
+                            class="btn-remove-col"
+                            onclick={() => removeColumn(i)}
+                            aria-label="Remove column {col.name || i + 1}"
+                            disabled={columns.length === 1}
+                        >
+                            &#x2715;
+                        </button>
+                    </div>
+                {/each}
+            </div>
+
+            <button class="btn-add-col" onclick={addColumn}>
+                + Add a column
+            </button>
         </div>
 
-        {#if stage === 1}
-            <!-- ── Stage 1: Define columns ── -->
-            <div class="modal-body">
-                <p class="stage-hint">
-                    Let's set up your data table. First, what columns (variables) will your data have?
-                </p>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick={close}>Cancel</button>
+            <button
+                class="btn-primary"
+                onclick={goToStage2}
+                disabled={!canAdvance}
+                aria-disabled={!canAdvance}
+            >
+                Next: add rows
+            </button>
+        </div>
 
-                <div class="col-list" role="list" aria-label="Column definitions">
-                    {#each columns as col, i (i)}
-                        <div class="col-row" role="listitem">
-                            <label class="visually-hidden" for="col-name-{i}">Column {i + 1} name</label>
-                            <input
-                                id="col-name-{i}"
-                                type="text"
-                                class="col-name-input"
-                                placeholder="Column name"
-                                value={col.name}
-                                oninput={(e) => updateColumnName(i, (e.target as HTMLInputElement).value)}
-                            />
+    {:else}
+        <!-- ── Stage 2: Add rows ── -->
+        <div class="modal-body modal-body-table">
+            <p class="stage-hint">
+                Now add some rows to your data table. You can also add more rows later.
+            </p>
 
-                            <button
-                                class="type-toggle"
-                                class:type-toggle-num={col.type === 'numerical'}
-                                class:type-toggle-cat={col.type === 'categorical'}
-                                onclick={() => toggleColumnType(i)}
-                                aria-label="Type: {col.type === 'numerical' ? 'Numerical' : 'Categorical'} — click to toggle"
-                                title="Toggle between numerical and categorical"
-                            >
-                                {col.type === 'numerical' ? 'NUM' : 'CAT'}
-                            </button>
-
-                            <button
-                                class="btn-remove-col"
-                                onclick={() => removeColumn(i)}
-                                aria-label="Remove column {col.name || i + 1}"
-                                disabled={columns.length === 1}
-                            >
-                                &#x2715;
-                            </button>
-                        </div>
-                    {/each}
-                </div>
-
-                <button class="btn-add-col" onclick={addColumn}>
-                    + Add a column
-                </button>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick={onclose}>Cancel</button>
-                <button
-                    class="btn-primary"
-                    onclick={goToStage2}
-                    disabled={!canAdvance}
-                    aria-disabled={!canAdvance}
-                >
-                    Next: add rows
-                </button>
-            </div>
-
-        {:else}
-            <!-- ── Stage 2: Add rows ── -->
-            <div class="modal-body modal-body-table">
-                <p class="stage-hint">
-                    Now add some rows to your data table. You can also add more rows later.
-                </p>
-
-                <div class="table-scroll" role="region" aria-label="Data entry table">
-                    <table class="entry-table">
-                        <thead>
+            <div class="table-scroll" role="region" aria-label="Data entry table">
+                <table class="entry-table">
+                    <thead>
+                        <tr>
+                            {#each namedColumns as col (col.name)}
+                                <th scope="col">
+                                    <span
+                                        class="col-badge col-badge-{col.type === 'numerical' ? 'num' : 'cat'}"
+                                        aria-label="{col.type === 'numerical' ? 'Numerical' : 'Categorical'}"
+                                    >
+                                        {col.type === 'numerical' ? 'NUM' : 'CAT'}
+                                    </span>
+                                    {col.name}
+                                </th>
+                            {/each}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each draftRows as row, ri}
                             <tr>
-                                {#each namedColumns as col}
-                                    <th scope="col">
-                                        <span
-                                            class="col-badge col-badge-{col.type === 'numerical' ? 'num' : 'cat'}"
-                                            aria-label="{col.type === 'numerical' ? 'Numerical' : 'Categorical'}"
-                                        >
-                                            {col.type === 'numerical' ? 'NUM' : 'CAT'}
-                                        </span>
-                                        {col.name}
-                                    </th>
+                                {#each namedColumns as col (col.name)}
+                                    <td>
+                                        <input
+                                            type={col.type === 'numerical' ? 'number' : 'text'}
+                                            class="entry-cell"
+                                            value={row[col.name]}
+                                            aria-label="{col.name}, row {ri + 1}"
+                                            oninput={(e) => updateCell(ri, col.name, (e.target as HTMLInputElement).value)}
+                                        />
+                                    </td>
                                 {/each}
                             </tr>
-                        </thead>
-                        <tbody>
-                            {#each draftRows as row, ri}
-                                <tr>
-                                    {#each namedColumns as col}
-                                        <td>
-                                            <input
-                                                type={col.type === 'numerical' ? 'number' : 'text'}
-                                                class="entry-cell"
-                                                value={row[col.name]}
-                                                aria-label="{col.name}, row {ri + 1}"
-                                                oninput={(e) => updateCell(ri, col.name, (e.target as HTMLInputElement).value)}
-                                            />
-                                        </td>
-                                    {/each}
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-
-                <button class="btn-add-row" onclick={addRow}>
-                    + Add a row
-                </button>
+                        {/each}
+                    </tbody>
+                </table>
             </div>
 
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick={() => { stage = 1; }}>Back</button>
-                <button class="btn-primary" onclick={finish}>
-                    Done — use this data
-                </button>
-            </div>
-        {/if}
-    </div>
-</div>
+            <button class="btn-add-row" onclick={addRow}>
+                + Add a row
+            </button>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick={() => { stage = 1; }}>Back</button>
+            <button class="btn-primary" onclick={finish}>
+                Done, use this data
+            </button>
+        </div>
+    {/if}
+</dialog>
 
 <style>
-    /* ── Backdrop ── */
-    .modal-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
     /* ── Modal shell ── */
     .modal {
         background: var(--dn-bg);
@@ -452,7 +325,7 @@
     .btn-add-col {
         align-self: flex-start;
         background: none;
-        border: 1px dashed var(--dn-border);
+        border: 1px dashed var(--dn-control);
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1.5);
         font-size: 0.8125rem;
         font-family: var(--dn-font);
@@ -588,7 +461,7 @@
     .btn-secondary {
         background: var(--dn-surface);
         color: var(--dn-text);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
         border-radius: var(--dn-radius);
         font-size: 0.875rem;

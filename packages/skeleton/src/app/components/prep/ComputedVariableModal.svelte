@@ -1,393 +1,78 @@
 <script lang="ts">
-    import { appState, type PrepState, type VariableMeta, type FormulaToken, type ComputedVariable } from '../../../store/appState';
-    import { logAction } from '../../../store/historyStore';
+    import { app, edit } from '../../../model/state.svelte';
+    import type { FormulaToken } from '../../../model/doc';
+    import { evalFormula } from '../../../runtime/dn-runtime.js';
 
-    type Props = { onclose: () => void };
-    const { onclose }: Props = $props();
+    const { onclose }: { onclose: () => void } = $props();
 
-    // ─── Store snapshot ──────────────────────────────────────────────────────
-    // appState.subscribe calls the callback synchronously on first call, so prep
-    // is correctly initialized before any reactive reads.
-    import { onDestroy } from 'svelte';
-    let prep = $state<PrepState | null>(null);
-    const unsub = appState.subscribe(s => { prep = s.prepState; });
-    onDestroy(unsub);
-
-    // ─── Derived helpers ─────────────────────────────────────────────────────
-    const activeVars = $derived(prep?.variables.filter(v => !v.removed) ?? []);
-    const numVars = $derived(activeVars.filter(v => v.type === 'numerical'));
-    const hasId = $derived(activeVars.some(v => v.isId));
-
-    // Working dataset: uploaded or custom
-    let workingData = $state<Record<string, unknown>[]>([]);
-    const unsubData = appState.subscribe(s => {
-        workingData = s.uploadedData ?? s.prepState?.customData ?? [];
+    let dialog: HTMLDialogElement;
+    $effect(() => dialog.showModal());
+    $effect(() => {
+        step;
+        dialog.querySelector<HTMLElement>('.modal-body input, .modal-body button')?.focus();
     });
-    onDestroy(unsubData);
 
-    // ─── Step state ──────────────────────────────────────────────────────────
-    // Step A: ID check (skipped if ID already exists)
-    // Step B: variable name
-    // Step C: formula editor
-    type Step = 'id-check' | 'name' | 'formula';
-    // Compute initial step from the synchronous prep snapshot — avoids referencing
-    // $derived hasId during $state initialization (captures only initial value).
-    const initHasId = prep?.variables?.filter(v => !v.removed).some(v => v.isId) ?? false;
-    let step = $state<Step>(initHasId ? 'name' : 'id-check');
-
-    // Step A choice
-    let idChoice = $state<'auto' | 'manual' | null>(null);
-
-    // Step B
+    const activeVars = $derived(app.doc.data.fields.filter(f => !f.removed));
+    const numVars = $derived(activeVars.filter(v => v.type === 'numerical'));
+    const rows = $derived(app.prepared);
+    let step = $state<'name' | 'formula'>('name');
     let varName = $state('');
     let varNameError = $state('');
-
-    // Step C
     let tokens = $state<FormulaToken[]>([]);
-
-    // Literal number input
     let literalNum = $state('');
-
-    // If-cond sub-editor
     let ifField = $state('');
     let ifOp = $state('>');
     let ifThreshold = $state('');
     let ifThenField = $state('');
     let ifElseField = $state('');
 
-    // ─── Focus trap ──────────────────────────────────────────────────────────
-    let dialogEl: HTMLElement | undefined = $state();
-
-    $effect(() => {
-        if (dialogEl) {
-            const first = dialogEl.querySelector<HTMLElement>(
-                'button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
-            first?.focus();
-        }
-    });
-
-    function onKeydown(e: KeyboardEvent) {
-        if (e.key === 'Escape') { onclose(); return; }
-        if (e.key === 'Tab' && dialogEl) {
-            const focusables = [...dialogEl.querySelectorAll<HTMLElement>(
-                'button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            )];
-            if (focusables.length === 0) return;
-            const first = focusables[0];
-            const last = focusables[focusables.length - 1];
-            if (e.shiftKey) {
-                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-            } else {
-                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-            }
-        }
-    }
-
-    // ─── Step A: Create auto-ID ───────────────────────────────────────────────
-    function createAutoId() {
-        appState.update(s => {
-            if (!s.prepState) return s;
-            const idVar: VariableMeta = {
-                key: '_id',
-                type: 'numerical',
-                isId: true,
-                isDimension: false,
-                removed: false,
-            };
-            // Add _id column to customData or uploadedData rows
-            const base = s.uploadedData ?? s.prepState.customData ?? [];
-            const withId = base.map((row, i) => ({ _id: i, ...row }));
-            return {
-                ...s,
-                prepState: {
-                    ...s.prepState,
-                    variables: [idVar, ...s.prepState.variables],
-                    customData: s.uploadedData ? s.prepState.customData : withId,
-                },
-                ...(s.uploadedData ? { uploadedData: withId } : {}),
-            };
-        });
-        logAction('Prep: auto-created _id column');
-        step = 'name';
-    }
-
-    // ─── Step B: Validate name ────────────────────────────────────────────────
     function validateAndAdvance() {
         const name = varName.trim();
-        if (!name) { varNameError = 'Please enter a name for your new variable.'; return; }
-        const taken = activeVars.some(v => v.key === name);
-        if (taken) { varNameError = `A variable named "${name}" already exists. Choose a different name.`; return; }
-        varNameError = '';
-        step = 'formula';
+        varNameError = !name ? 'Please enter a name for your new variable.' : app.doc.data.fields.some(f => f.key === name) ? `A variable named "${name}" already exists. Choose a different name.` : '';
+        if (!varNameError) step = 'formula';
     }
 
-    // ─── Step C: Token building ───────────────────────────────────────────────
-    function addToken(token: FormulaToken) {
-        tokens = [...tokens, token];
-    }
-
-    function removeToken(index: number) {
-        tokens = tokens.filter((_, i) => i !== index);
-    }
-
-    function addOp(op: string) {
-        addToken({ kind: 'op', value: op });
-    }
-
-    function addFieldRow(fieldName: string) {
-        addToken({ kind: 'field_row', value: fieldName });
-    }
-
-    function addFieldSum(fieldName: string) {
-        addToken({ kind: 'field_sum', value: fieldName });
-    }
-
-    function addFieldMean(fieldName: string) {
-        addToken({ kind: 'field_mean', value: fieldName });
-    }
-
-    function addCountAll() {
-        addToken({ kind: 'count_all', value: 'count_all' });
-    }
-
+    const add = (kind: FormulaToken['kind'], value: string) => (tokens = [...tokens, { kind, value }]);
     function addLiteralNum() {
-        const n = String(literalNum).trim();
-        if (!n || isNaN(Number(n))) return;
-        addToken({ kind: 'literal_num', value: n });
+        if (literalNum === '' || isNaN(Number(literalNum))) return;
+        add('literal_num', String(literalNum));
         literalNum = '';
     }
-
     function addIfCond() {
-        if (!ifField || !ifThreshold) return;
-        // Encode as a single if_cond token: value encodes "field op threshold"
-        // then/else are follow-up tokens. We encode the whole condition as a
-        // structured string so the evaluator can parse it.
-        const condStr = `${ifField} ${ifOp} ${ifThreshold} ? ${ifThenField || '0'} : ${ifElseField || '0'}`;
-        addToken({ kind: 'if_cond', value: condStr });
-        ifField = '';
+        if (!ifField || ifThreshold === '') return;
+        add('if_cond', `${ifField} ${ifOp} ${ifThreshold} ? ${ifThenField || '0'} : ${ifElseField || '0'}`);
+        ifField = ifThreshold = ifThenField = ifElseField = '';
         ifOp = '>';
-        ifThreshold = '';
-        ifThenField = '';
-        ifElseField = '';
+    }
+    const LABELS: Partial<Record<FormulaToken['kind'], (v: string) => string>> = { field_row: v => `[${v}]`, field_sum: v => `sum(${v})`, field_mean: v => `mean(${v})`, count_all: () => 'count(all rows)', if_cond: v => `if(${v})` };
+    const tokenLabel = (t: FormulaToken) => LABELS[t.kind]?.(t.value) ?? t.value;
+    const show = (v: unknown) => (typeof v === 'number' ? String(+v.toFixed(4)) : v == null ? '(empty)' : String(v));
+    const results = $derived(tokens.length ? rows.map(r => evalFormula($state.snapshot(tokens), r, rows)) : []);
+    const livePreview = $derived(results.slice(0, 5).map(show));
+
+    function close() {
+        if (tokens.length && !confirm('Discard this variable?')) return;
+        dialog.close();
     }
 
-    // ─── Token label helper ───────────────────────────────────────────────────
-    function tokenLabel(t: FormulaToken): string {
-        switch (t.kind) {
-            case 'field_row':   return `[${t.value}]`;
-            case 'field_sum':   return `sum(${t.value})`;
-            case 'field_mean':  return `mean(${t.value})`;
-            case 'count_all':   return `count(all rows)`;
-            case 'literal_num': return t.value;
-            case 'op':          return t.value;
-            case 'if_cond':     return `if(${t.value})`;
-            default:            return t.value;
-        }
-    }
-
-    // ─── Live preview evaluator (first 5 rows) ────────────────────────────────
-    function evaluateTokens(row: Record<string, unknown>, allRows: Record<string, unknown>[]): unknown {
-        if (tokens.length === 0) return '';
-
-        // Build a simple left-to-right reducer
-        // Supports: field_row, field_sum, field_mean, count_all, count_cat,
-        //           literal_num, literal_str, op (applied between adjacent values),
-        //           if_cond (evaluated inline)
-        const values: unknown[] = [];
-        const ops: string[] = [];
-
-        for (const token of tokens) {
-            switch (token.kind) {
-                case 'field_row':
-                    values.push(row[token.value] ?? '');
-                    break;
-                case 'field_sum': {
-                    const sum = allRows.reduce((acc, r) => acc + (Number(r[token.value]) || 0), 0);
-                    values.push(sum);
-                    break;
-                }
-                case 'field_mean': {
-                    const total = allRows.reduce((acc, r) => acc + (Number(r[token.value]) || 0), 0);
-                    values.push(allRows.length > 0 ? total / allRows.length : 0);
-                    break;
-                }
-                case 'count_all':
-                    values.push(allRows.length);
-                    break;
-                case 'literal_num':
-                    values.push(Number(token.value));
-                    break;
-                case 'op':
-                    ops.push(token.value);
-                    break;
-                case 'if_cond': {
-                    // Parse: "field op threshold ? thenVal : elseVal"
-                    const match = token.value.match(/^(.+?)\s*(>|<|>=|<=|===|!=)\s*(.+?)\s*\?\s*(.+?)\s*:\s*(.+)$/);
-                    if (match) {
-                        const [, field, op2, thresh, thenV, elseV] = match;
-                        const fieldVal = Number(row[field.trim()] ?? 0);
-                        const threshVal = Number(thresh.trim());
-                        let condition = false;
-                        if (op2 === '>')  condition = fieldVal > threshVal;
-                        if (op2 === '<')  condition = fieldVal < threshVal;
-                        if (op2 === '>=') condition = fieldVal >= threshVal;
-                        if (op2 === '<=') condition = fieldVal <= threshVal;
-                        if (op2 === '===') condition = fieldVal === threshVal;
-                        if (op2 === '!=') condition = fieldVal !== threshVal;
-                        const result = condition
-                            ? (isNaN(Number(thenV)) ? thenV.trim() : Number(thenV.trim()))
-                            : (isNaN(Number(elseV)) ? elseV.trim() : Number(elseV.trim()));
-                        values.push(result);
-                    } else {
-                        values.push(0);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Apply ops left-to-right (interleaved between values)
-        if (values.length === 0) return '';
-        let result = values[0];
-        for (let i = 0; i < ops.length && i + 1 < values.length; i++) {
-            const a = Number(result);
-            const b = Number(values[i + 1]);
-            switch (ops[i]) {
-                case '+': result = a + b; break;
-                case '-': result = a - b; break;
-                case '*': result = a * b; break;
-                case '/': result = b !== 0 ? a / b : 'Division by zero'; break;
-                default:  result = `${result} ${ops[i]} ${values[i + 1]}`;
-            }
-        }
-        return result;
-    }
-
-    const livePreview = $derived(
-        workingData.slice(0, 5).map(row => {
-            try {
-                const val = evaluateTokens(row, workingData);
-                return typeof val === 'number' ? val.toFixed(4).replace(/\.?0+$/, '') : String(val);
-            } catch {
-                return '(error)';
-            }
-        })
-    );
-
-    // ─── Finish: save computed variable ──────────────────────────────────────
     function addVariable() {
-        const name = varName.trim();
-        if (!name) return;
-
-        const newVar: VariableMeta = {
-            key: name,
-            type: 'numerical', // computed variables are numerical by default
-            isId: false,
-            isDimension: false,
-            removed: false,
-        };
-
-        const computedVar: ComputedVariable = {
-            key: name,
-            tokens: [...tokens],
-        };
-
-        appState.update(s => {
-            if (!s.prepState) return s;
-
-            // Synthesize computed column values into working dataset
-            const base = s.uploadedData ?? s.prepState.customData ?? [];
-            const withCol = base.map(row => ({
-                ...row,
-                [name]: (() => {
-                    try { return evaluateTokens(row, base); } catch { return null; }
-                })(),
-            }));
-
-            return {
-                ...s,
-                prepState: {
-                    ...s.prepState,
-                    variables: [...s.prepState.variables, newVar],
-                    customVariables: [...s.prepState.customVariables, computedVar],
-                    customData: s.uploadedData ? s.prepState.customData : withCol,
-                },
-                ...(s.uploadedData ? { uploadedData: withCol } : {}),
-            };
-        });
-        logAction(`Prep: added computed variable — ${name}`);
-
-        onclose();
+        const key = varName.trim();
+        const formula = $state.snapshot(tokens);
+        const type = results.every(v => v === null || v === '' || !isNaN(Number(v))) ? 'numerical' : 'categorical';
+        edit(`Prep: added computed variable ${key}`, d => d.data.fields.push({ key, type, formula }));
+        tokens = [];
+        dialog.close();
     }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="modal-backdrop" role="presentation" onclick={onclose}>
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cvm-title"
-        tabindex="-1"
-        bind:this={dialogEl}
-        onkeydown={onKeydown}
-        onclick={(e) => e.stopPropagation()}
-    >
-        <div class="modal-header">
-            <h2 id="cvm-title" class="modal-title">Add a variable</h2>
-            <button class="btn-close" onclick={onclose} aria-label="Close dialog">&times;</button>
-        </div>
+<dialog class="modal" bind:this={dialog} aria-labelledby="cvm-title" onclose={onclose} oncancel={e => tokens.length && !confirm('Discard this variable?') && e.preventDefault()}>
+    <div class="modal-header">
+        <h2 id="cvm-title" class="modal-title">Add a variable</h2>
+        <button class="btn-close" onclick={close} aria-label="Close dialog">&times;</button>
+    </div>
 
-        <div class="modal-body">
-
-            {#if step === 'id-check'}
-                <!-- ── Step A: ID check ── -->
-                <div class="step-section">
-                    <p class="step-question">
-                        Before creating a computed variable, your dataset needs a unique identifier for each row.
-                    </p>
-                    <p class="step-hint">
-                        A unique ID lets the tool keep track of each individual data point accurately.
-                    </p>
-                    <div class="id-choice-btns">
-                        <button
-                            class="btn-choice"
-                            class:btn-choice-selected={idChoice === 'auto'}
-                            onclick={() => { idChoice = 'auto'; }}
-                            aria-pressed={idChoice === 'auto'}
-                        >
-                            <span class="choice-label">Yes, create one automatically</span>
-                            <span class="choice-desc">Adds a column called "_id" with numbers 0, 1, 2… for each row.</span>
-                        </button>
-                        <button
-                            class="btn-choice"
-                            class:btn-choice-selected={idChoice === 'manual'}
-                            onclick={() => { idChoice = 'manual'; }}
-                            aria-pressed={idChoice === 'manual'}
-                        >
-                            <span class="choice-label">No, I'll handle it myself</span>
-                            <span class="choice-desc">Close this dialog and add an ID column manually.</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="modal-footer-inline">
-                    <button class="btn-secondary" onclick={onclose}>Cancel</button>
-                    <button
-                        class="btn-primary"
-                        disabled={idChoice === null}
-                        onclick={() => {
-                            if (idChoice === 'auto') createAutoId();
-                            else onclose();
-                        }}
-                    >
-                        Continue
-                    </button>
-                </div>
-
-            {:else if step === 'name'}
+    <div class="modal-body">
+            {#if step === 'name'}
                 <!-- ── Step B: Variable name ── -->
                 <div class="step-section">
                     <label class="step-question" for="cvm-var-name">
@@ -410,7 +95,7 @@
                 </div>
 
                 <div class="modal-footer-inline">
-                    <button class="btn-secondary" onclick={onclose}>Cancel</button>
+                    <button class="btn-secondary" onclick={close}>Cancel</button>
                     <button class="btn-primary" onclick={validateAndAdvance}>
                         Next: build formula
                     </button>
@@ -438,7 +123,7 @@
                                     {tokenLabel(token)}
                                     <button
                                         class="token-remove"
-                                        onclick={() => removeToken(i)}
+                                        onclick={() => (tokens = tokens.filter((_, j) => j !== i))}
                                         aria-label="Remove {tokenLabel(token)} from formula"
                                     >&#x2715;</button>
                                 </span>
@@ -461,10 +146,10 @@
                         <section class="block-section" aria-labelledby="block-row-label">
                             <h4 class="block-section-label" id="block-row-label">Data values (current row)</h4>
                             <div class="chip-group">
-                                {#each activeVars as v}
+                                {#each activeVars as v (v.key)}
                                     <button
                                         class="chip chip-field"
-                                        onclick={() => addFieldRow(v.key)}
+                                        onclick={() => add('field_row', v.key)}
                                         aria-label="Add {v.key} (current row value)"
                                     >
                                         [{v.key}]
@@ -478,17 +163,17 @@
                             <section class="block-section" aria-labelledby="block-agg-label">
                                 <h4 class="block-section-label" id="block-agg-label">Aggregate values (across all rows)</h4>
                                 <div class="chip-group">
-                                    {#each numVars as v}
+                                    {#each numVars as v (v.key)}
                                         <button
                                             class="chip chip-agg"
-                                            onclick={() => addFieldSum(v.key)}
+                                            onclick={() => add('field_sum', v.key)}
                                             aria-label="Add sum of {v.key}"
                                         >
                                             sum({v.key})
                                         </button>
                                         <button
                                             class="chip chip-agg"
-                                            onclick={() => addFieldMean(v.key)}
+                                            onclick={() => add('field_mean', v.key)}
                                             aria-label="Add mean of {v.key}"
                                         >
                                             mean({v.key})
@@ -496,7 +181,7 @@
                                     {/each}
                                     <button
                                         class="chip chip-agg"
-                                        onclick={addCountAll}
+                                        onclick={() => add('count_all', 'count_all')}
                                         aria-label="Add total row count"
                                     >
                                         count(all rows)
@@ -512,7 +197,7 @@
                                 {#each ['+', '-', '/', '*'] as op}
                                     <button
                                         class="chip chip-op"
-                                        onclick={() => addOp(op)}
+                                        onclick={() => add('op', op)}
                                         aria-label="Add operator {op}"
                                     >
                                         {op}
@@ -528,7 +213,7 @@
                                 <label class="picker-label" for="if-field">If column</label>
                                 <select id="if-field" class="picker-select" bind:value={ifField}>
                                     <option value="">— pick a column —</option>
-                                    {#each numVars as v}
+                                    {#each numVars as v (v.key)}
                                         <option value={v.key}>{v.key}</option>
                                     {/each}
                                 </select>
@@ -552,7 +237,7 @@
                                     bind:value={ifThreshold}
                                 />
 
-                                <label class="picker-label" for="if-then">then result</label>
+                                <label class="picker-label" for="if-then">then result <span class="step-hint">(a column name or a value)</span></label>
                                 <input
                                     id="if-then"
                                     type="text"
@@ -619,22 +304,10 @@
                 </div>
             {/if}
 
-        </div>
     </div>
-</div>
+</dialog>
 
 <style>
-    /* ── Backdrop ── */
-    .modal-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
     /* ── Modal shell ── */
     .modal {
         background: var(--dn-bg);
@@ -724,7 +397,7 @@
 
     .btn-choice {
         background: var(--dn-surface);
-        border: 2px solid var(--dn-border);
+        border: 2px solid var(--dn-control);
         border-radius: var(--dn-radius);
         padding: calc(var(--dn-space) * 1.25) calc(var(--dn-space) * 1.5);
         text-align: left;
@@ -1087,7 +760,7 @@
     .btn-secondary {
         background: var(--dn-surface);
         color: var(--dn-text);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
         border-radius: var(--dn-radius);
         font-size: 0.875rem;
