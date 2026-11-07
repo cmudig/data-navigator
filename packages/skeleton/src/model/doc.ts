@@ -277,7 +277,8 @@ export function presetFor(channel: Channel | undefined, used: Set<string>) {
     );
 }
 
-export const presetOf = (nav: Pair) => SIBLING_PRESETS.find(p => p.names[0] === nav[0] && p.names[1] === nav[1]);
+export const presetOf = (nav: Pair) =>
+    SIBLING_PRESETS.find(p => p.names.includes(nav[0]) && p.names.includes(nav[1]) && nav[0] !== nav[1]);
 
 export function inferType(rows: Row[], key: string): FieldType {
     const vals = rows.map(r => r[key]).filter(v => v !== null && v !== undefined && v !== '');

@@ -278,7 +278,7 @@
 
     /* ─── Inspector panel (left) ─────────────────────────────────────────────── */
     .inspector-panel {
-        width: 360px;
+        width: 390px;
         flex-shrink: 0;
         border-right: 1px solid var(--dn-border);
         display: flex;

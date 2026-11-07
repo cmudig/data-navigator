@@ -7,7 +7,7 @@
     const { id, targets } = app.ui.connect!;
     const t = app.tree;
     const name = (n: string) => app.graph.nodes.get(n)?.name ?? n;
-    let yes = $state(true);
+    let yes = $state(false);
     let target = $state(targets.length === 1 ? targets[0] : '');
     let how = $state<'sibling' | 'parent'>('sibling');
 

@@ -1,8 +1,8 @@
 {
-    "$about": "Default outline, padding, point size and key choices. Layers merge in order: defaults, marks, groupings (pattern first, then each grouping kind), charts, chart channels. Later layers win, and anything set by hand in the Scaffold panel wins over all of them. Strategies: boundingRect, convexHull, unionOfAll, line (follows a line), and for number bins rangeRect or rangeBounds. Padding is in image pixels. Nav lists key presets in order of preference: leftright, updown, brackets.",
+    "$about": "Default outline, padding, point size and key choices. Layers merge in order: defaults, marks, groupings (pattern first, then each grouping kind), charts, chart channels. Later layers win, and anything set by hand in the Scaffold panel wins over all of them. Strategies: boundingRect (meant for the root), convexHull, unionOfAll (a good default for groups), line (follows a line, the core offsetLinePath), and for number bins rangeRect or rangeBounds. Padding is in image pixels. Nav lists key presets in order of preference: leftright, updown, brackets.",
     "defaults": {
         "root": { "strategy": "boundingRect", "padding": 16 },
-        "dimension": { "strategy": "boundingRect", "padding": 12 },
+        "dimension": { "strategy": "unionOfAll", "padding": 12 },
         "division": { "strategy": "convexHull", "padding": 6 },
         "leaf": { "padding": 0, "pointSize": 900 },
         "nav": {
@@ -39,38 +39,38 @@
         "area": { "division": { "strategy": "line", "padding": 14 }, "leaf": { "padding": 4, "pointSize": 300 } },
         "arc": { "division": { "strategy": "unionOfAll", "padding": 4 }, "leaf": { "padding": 2 } },
         "tick": { "division": { "strategy": "convexHull", "padding": 6 }, "leaf": { "padding": 2 } },
-        "rule": { "division": { "strategy": "boundingRect", "padding": 6 }, "leaf": { "padding": 2 } },
-        "text": { "division": { "strategy": "boundingRect", "padding": 4 }, "leaf": { "padding": 2 } },
+        "rule": { "division": { "strategy": "unionOfAll", "padding": 6 }, "leaf": { "padding": 2 } },
+        "text": { "division": { "strategy": "unionOfAll", "padding": 4 }, "leaf": { "padding": 2 } },
         "geoshape": {
             "dimension": { "padding": 8 },
             "division": { "strategy": "unionOfAll", "padding": 2 },
             "leaf": { "padding": 0 }
         },
-        "image": { "division": { "strategy": "boundingRect", "padding": 4 }, "leaf": { "padding": 2 } }
+        "image": { "division": { "strategy": "unionOfAll", "padding": 4 }, "leaf": { "padding": 2 } }
     },
     "groupings": {
         "$about": "One entry per way a dimension groups or aggregates data, plus the Data Navigator patterns. Pattern entries apply to every dimension in the chart; grouping kinds apply to the dimensions that have them.",
         "category": { "division": { "strategy": "convexHull", "padding": 6 } },
         "ordinal": { "division": { "strategy": "convexHull", "padding": 6 } },
         "numericBins": {
-            "dimension": { "strategy": "boundingRect", "padding": 8 },
+            "dimension": { "strategy": "unionOfAll", "padding": 8 },
             "division": { "strategy": "rangeRect", "padding": 0 }
         },
         "series": {
-            "dimension": { "strategy": "boundingRect", "padding": 12 },
+            "dimension": { "strategy": "unionOfAll", "padding": 12 },
             "division": { "strategy": "unionOfAll", "padding": 4 }
         },
         "stack": { "division": { "strategy": "unionOfAll", "padding": 4 } },
         "cluster": { "division": { "strategy": "unionOfAll", "padding": 4 } },
         "facet": {
-            "dimension": { "strategy": "boundingRect", "padding": 16 },
-            "division": { "strategy": "boundingRect", "padding": 12 }
+            "dimension": { "strategy": "unionOfAll", "padding": 16 },
+            "division": { "strategy": "unionOfAll", "padding": 12 }
         },
         "list": {
-            "dimension": { "strategy": "boundingRect", "padding": 12 },
+            "dimension": { "strategy": "unionOfAll", "padding": 12 },
             "division": { "strategy": "convexHull", "padding": 4 }
         },
-        "aggregate": { "division": { "strategy": "boundingRect", "padding": 6 } },
+        "aggregate": { "division": { "strategy": "unionOfAll", "padding": 6 } },
         "pattern:list": { "root": { "strategy": "boundingRect", "padding": 16 } },
         "pattern:tree": { "root": { "strategy": "boundingRect", "padding": 16 } },
         "pattern:dualTree": { "root": { "strategy": "boundingRect", "padding": 16 } },
@@ -89,11 +89,11 @@
             "mark": "bar",
             "channels": {
                 "x": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "convexHull", "padding": 6 }
                 },
                 "color": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "unionOfAll", "padding": 4 }
                 }
             }
@@ -102,11 +102,11 @@
             "mark": "bar",
             "channels": {
                 "x": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "convexHull", "padding": 6 }
                 },
                 "color": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "unionOfAll", "padding": 4 }
                 }
             }
@@ -116,7 +116,7 @@
             "mark": "line",
             "channels": {
                 "x": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "convexHull", "padding": 12 }
                 },
                 "color": {
@@ -129,7 +129,7 @@
             "mark": "area",
             "channels": {
                 "x": {
-                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "dimension": { "strategy": "unionOfAll", "padding": 12 },
                     "division": { "strategy": "convexHull", "padding": 12 }
                 },
                 "color": {
