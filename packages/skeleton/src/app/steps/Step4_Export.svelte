@@ -1,4 +1,5 @@
 <script lang="ts">
+    import AssistantPanel from '../components/AssistantPanel.svelte';
     import 'data-navigator/text-chat.css';
     import { app } from '../../model/state.svelte';
     import { VERSIONS, generalize, literalFiles, patternFiles, type Framework, type Target } from '../../export/exporters';
@@ -176,6 +177,7 @@
             </div>
         </section>
     {/if}
+    <AssistantPanel />
 </div>
 
 <style>
@@ -235,7 +237,7 @@
         font: inherit;
         font-size: 0.8125rem;
         padding: 4px 10px;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         background: var(--dn-surface);
         color: var(--dn-text);
         border-radius: var(--dn-radius) var(--dn-radius) 0 0;

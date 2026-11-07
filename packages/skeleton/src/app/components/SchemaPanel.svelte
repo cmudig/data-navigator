@@ -315,7 +315,7 @@
         display: flex; align-items: center; justify-content: center;
         padding: 0;
         background: transparent;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: calc(var(--dn-radius) / 2);
         color: var(--dn-text-muted);
         cursor: pointer;

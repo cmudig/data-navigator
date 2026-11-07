@@ -397,7 +397,7 @@
 
     .btn-choice {
         background: var(--dn-surface);
-        border: 2px solid var(--dn-border);
+        border: 2px solid var(--dn-control);
         border-radius: var(--dn-radius);
         padding: calc(var(--dn-space) * 1.25) calc(var(--dn-space) * 1.5);
         text-align: left;
@@ -760,7 +760,7 @@
     .btn-secondary {
         background: var(--dn-surface);
         color: var(--dn-text);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
         border-radius: var(--dn-radius);
         font-size: 0.875rem;

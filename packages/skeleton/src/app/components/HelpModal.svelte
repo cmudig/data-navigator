@@ -679,7 +679,7 @@
     /* ── Tab list ── */
     .tab-list {
         display: flex;
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
         flex-shrink: 0;
         overflow-x: auto;
         scrollbar-width: none;

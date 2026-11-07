@@ -1,12 +1,15 @@
 <script lang="ts">
     import './styles/global.css';
-    import { app, goTo, undo, redo, load, stepFor } from './model/state.svelte';
+    import { app, commit, goTo, undo, redo, load, stepFor } from './model/state.svelte';
     import { saveDoc, loadDoc } from './utils/saveLoad';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
     import ScaffoldPanel from './app/components/scaffold/ScaffoldPanel.svelte';
-    import { buildVegaSpec, renderHidden, toImage } from './utils/vegaBuilder';
+    import { buildVegaSpec, renderHidden, seedScaffold, toImage } from './utils/vegaBuilder';
+    import { checkFit, runFit } from './utils/paddingEstimator';
+    import { untrack } from 'svelte';
+    import { pointSize } from './model/assumptions';
     import { vega } from './runtime/adapters.js';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
     import SkipPrepModal from './app/components/SkipPrepModal.svelte';
@@ -54,17 +57,29 @@
         };
     });
 
+    $effect(() => {
+        const d = app.doc;
+        if (app.ui.step === 2 && d.image && !d.image.built && d.data.rows?.length && d.recipe.dimensions.length && !d.scaffold)
+            untrack(() => commit('Started scaffold', x => ({ ...x, scaffold: seedScaffold(x) })));
+    });
+
+    $effect(() => {
+        const ready = app.measure;
+        const step = app.ui.step;
+        if (ready) untrack(() => app.doc.scaffold && (app.ui.fit?.state === 'checking' ? checkFit() : step === 2 && runFit()));
+    });
+
     let release: (() => void) | null = null;
     $effect(() => {
         const cfg = app.scaffold;
         const built = app.built;
         const rows = app.vegaRows;
-        const spec = built ? app.chartSpec! : cfg && buildVegaSpec(cfg, rows);
+        const spec = cfg ? buildVegaSpec(cfg, rows, pointSize(app.doc)) : built && app.measureSpec;
         if (!spec) {
             app.measure = app.view = null;
             return;
         }
-        const offset = built || !cfg ? [0, 0] : [cfg.offsetX, cfg.offsetY];
+        const offset = cfg ? [cfg.offsetX, cfg.offsetY] : [0, 0];
         let stale = false;
         const timer = setTimeout(async () => {
             try {

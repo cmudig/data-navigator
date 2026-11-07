@@ -119,6 +119,14 @@ class Store {
         ordering: null as Ordering | null,
         connect: null as { id: string; targets: string[] } | null,
         skipPrep: null as number | null,
+        fit: null as {
+            key: string;
+            state: 'running' | 'checking' | 'ok' | 'failed';
+            message: string;
+            fit?: any;
+            before?: any;
+            partial?: string;
+        } | null,
         live: ''
     });
 
@@ -129,6 +137,9 @@ class Store {
     vegaRows = $derived(stamp(this.pattern, this.prepared));
     chartSpec = $derived(chartSpec(this.doc.chart.build, this.doc.data.fields, this.vegaRows));
     built = $derived(!!this.chartSpec && !!this.doc.image?.built);
+    measureSpec = $derived(
+        this.built ? chartSpec(this.doc.chart.build, this.doc.data.fields, this.vegaRows, true) : null
+    );
     size = $derived({ width: this.doc.image?.width ?? 1200, height: this.doc.image?.height ?? 800 });
 
     structure = $derived.by(() => {
@@ -321,6 +332,7 @@ export function load(doc: Doc) {
     app.future = [];
     app.ui.selected = [];
     app.ui.selectedEdges = [];
+    app.ui.fit = null;
 }
 
 export function undo() {

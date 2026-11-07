@@ -1,6 +1,7 @@
 import {
     SIBLING_PRESETS,
     newDim,
+    presetFor,
     presetOf,
     syncKeys,
     template,
@@ -9,6 +10,7 @@ import {
     type LabelTemplate,
     type Row
 } from './doc';
+import { PATTERN_LABELS, patternName } from './assumptions';
 import { computeDimensionSuggestion } from '../app/components/prep/dimensionSuggestions';
 import { CHART_TYPES as BUILD_TYPES, guessBuild, ordinalLike, specType, specWarning } from '../utils/vegaBuilder';
 
@@ -151,7 +153,7 @@ export function questions(d: Doc): Question[] {
             hideImage: true,
             get: x => x.chart.build?.mode ?? '',
             set: (x, v) => {
-                x.chart.build = v === 'encode' && !x.chart.build?.x ? { ...guess } : { ...x.chart.build, mode: v };
+                x.chart.build = { ...x.chart.build, mode: v };
                 x.chart.type = specType(x.chart.build);
             }
         });
@@ -171,7 +173,10 @@ export function questions(d: Doc): Question[] {
                     }))
                 ],
                 get: x => x.chart.build?.[key] ?? (optional && x.chart.build?.type ? '__none' : ''),
-                set: (x, v) => (x.chart.build = { ...x.chart.build!, [key]: v === '__none' ? undefined : v })
+                set: (x, v) => {
+                    x.chart.build = { ...x.chart.build!, [key]: v === '__none' ? undefined : v };
+                    x.chart.type = specType(x.chart.build);
+                }
             });
         if (b?.mode === 'encode') {
             add({
@@ -188,7 +193,7 @@ export function questions(d: Doc): Question[] {
                 get: x => x.chart.build?.type ?? '',
                 set: (x, v) => {
                     x.chart.build = { ...x.chart.build!, type: v };
-                    x.chart.type = v;
+                    x.chart.type = specType(x.chart.build);
                 }
             });
             pick('x', 'Which column goes along the x axis?');
@@ -327,13 +332,21 @@ export function questions(d: Doc): Question[] {
         id: 'id-column',
         chapter: 1,
         input: 'radio',
-        question: 'Which column uniquely identifies each row?',
+        question: uniqueCols.length
+            ? 'Which column uniquely identifies each row?'
+            : 'No column has a different value in every row, so none can be used as an ID. How should rows be identified?',
         hint: 'IDs keep each data point stable when the data changes. Only columns where every value is different can be used.',
         options: [
             ...uniqueCols.map(f => ({ value: f.key, label: f.key, suggested: f.key === uniqueCols[0]?.key })),
             ...(fields.some(f => f.key === '_id')
                 ? []
-                : [{ value: '__create', label: 'Add a numbered "_id" column (1, 2, 3…)' }]),
+                : [
+                      {
+                          value: '__create',
+                          label: 'Add a numbered "_id" column (1, 2, 3…)',
+                          suggested: !uniqueCols.length
+                      }
+                  ]),
             {
                 value: '__none',
                 label: 'None. Number the rows behind the scenes.',
@@ -380,17 +393,17 @@ export function questions(d: Doc): Question[] {
         set: (x, keys: string[]) => {
             const r = x.recipe;
             const kept = r.dimensions.filter(dd => keys.includes(dd.key));
+            const g = x.chart.build?.mode === 'encode' ? x.chart.build : guessBuild(x.data.fields, x.data.rows ?? []);
             for (const key of keys.filter(k => !kept.some(dd => dd.key === k))) {
+                const channel = key === g.x ? 'x' : key === g.y ? 'y' : key === g.color ? 'color' : undefined;
                 const used = new Set(kept.map(dd => dd.nav.sibling[0]));
-                const free = SIBLING_PRESETS.findIndex(p => !used.has(p.names[0]));
-                kept.push(
-                    newDim(
-                        key,
-                        x.data.fields.find(f => f.key === key)!.type,
-                        free >= 0 ? free : kept.length,
-                        x.data.rows ?? []
-                    )
+                const dim = newDim(
+                    key,
+                    x.data.fields.find(f => f.key === key)!.type,
+                    presetFor(channel, used),
+                    x.data.rows ?? []
                 );
+                kept.push(channel ? { ...dim, channel } : dim);
             }
             r.dimensions = kept;
             r.childmost = kept.filter(dd => dd.type === 'categorical').length >= 2 ? 'across' : 'within';
@@ -654,16 +667,6 @@ export function questions(d: Doc): Question[] {
     return qs;
 }
 
-function patternName(dims: Dim[]) {
-    const cats = dims.filter(x => x.type === 'categorical').length;
-    const nums = dims.length - cats;
-    if (dims.length === 1) return dims[0].compress ? 'list' : 'tree';
-    if (cats === 2 && !nums) return 'dual tree';
-    if (nums === 2 && !cats) return '2D spatial';
-    if (nums === 2 && cats === 1) return 'spatial plus';
-    return 'custom';
-}
-
 export function prepDefaults(x: Doc): string[] {
     const notes: string[] = [];
     const rows = x.data.rows ?? [];
@@ -678,17 +681,19 @@ export function prepDefaults(x: Doc): string[] {
         const keys = [...new Set(b.type === 'scatter' ? [b.x, b.y, b.color] : [b.x, b.color])].filter(
             (k): k is string => !!k && fields.some(f => f.key === k)
         );
-        r.dimensions = keys.map((k, i) =>
-            newDim(
-                k,
-                b.type !== 'scatter' && ordinalLike(rows, k) ? 'categorical' : fields.find(f => f.key === k)!.type,
-                i,
-                rows
-            )
-        );
+        const used = new Set<string>();
+        r.dimensions = keys.map(k => {
+            const channel = k === b.x ? 'x' : k === b.y ? 'y' : 'color';
+            const type =
+                b.type !== 'scatter' && ordinalLike(rows, k) ? 'categorical' : fields.find(f => f.key === k)!.type;
+            const d: Dim = { ...newDim(k, type, presetFor(channel, used), rows), channel };
+            used.add(d.nav.sibling[0]);
+            return d;
+        });
         r.childmost = r.dimensions.filter(dd => dd.type === 'categorical').length >= 2 ? 'across' : 'within';
         finish(x);
-        if (keys.length) notes.push(`Dimensions: ${keys.join(', ')} (${patternName(r.dimensions)} pattern)`);
+        if (keys.length)
+            notes.push(`Dimensions: ${keys.join(', ')} (${PATTERN_LABELS[patternName(r.dimensions)]} pattern)`);
     }
     const dimKeys = r.dimensions.map(dd => dd.key);
     if (!r.root.enabled && !x.meta.seen.includes('root-node')) {

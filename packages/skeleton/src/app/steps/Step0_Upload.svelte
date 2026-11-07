@@ -534,7 +534,7 @@
 
     .preview-table-wrapper {
         overflow-x: auto;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: calc(var(--dn-radius) / 2);
     }
 
@@ -549,7 +549,7 @@
     .preview-table td {
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
         text-align: left;
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
         white-space: nowrap;
         max-width: 120px;
         overflow: hidden;

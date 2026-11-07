@@ -1,4 +1,5 @@
 import { createValidId } from 'data-navigator';
+import { navPrefs, resolveGroups } from './assumptions';
 import { dimId, divId } from '../runtime/dn-runtime.js';
 
 export type Row = Record<string, unknown>;
@@ -44,7 +45,9 @@ export interface Dim {
     nav: { sibling: Pair; drill: Pair };
     divisionIds?: Record<string, string>;
     order?: string[];
+    channel?: Channel;
 }
+export type Channel = 'x' | 'y' | 'color';
 export interface NavKey {
     key: string;
     direction: 'source' | 'target';
@@ -57,16 +60,18 @@ export interface BonusRect {
     width: number;
     height: number;
 }
+export type GroupStrategy = 'convexHull' | 'unionOfAll' | 'boundingRect' | 'line';
 export interface DimensionGroupConfig {
-    strategy: 'convexHull' | 'unionOfAll';
+    strategy: GroupStrategy;
     padding: number;
-    divisionStrategy: 'convexHull' | 'unionOfAll' | 'rangeBounds' | 'rangeRect';
+    divisionStrategy: GroupStrategy | 'rangeBounds' | 'rangeRect';
     divisionPadding: number;
 }
 export interface GroupShapeConfig {
     rootEnabled: boolean;
-    rootStrategy: 'convexHull' | 'unionOfAll' | 'boundingRect';
-    rootPadding: number;
+    rootStrategy?: 'convexHull' | 'unionOfAll' | 'boundingRect';
+    rootPadding?: number;
+    leafPadding?: number;
     dimensionEnabled: boolean;
     divisionEnabled: boolean;
     perDimension: Record<string, DimensionGroupConfig>;
@@ -211,8 +216,6 @@ export const defaultStyle = (): Style => ({
 
 export const defaultGroups = (): GroupShapeConfig => ({
     rootEnabled: true,
-    rootStrategy: 'boundingRect',
-    rootPadding: 16,
     dimensionEnabled: true,
     divisionEnabled: true,
     perDimension: {},
@@ -263,6 +266,16 @@ const DEFAULT_KEYS: Record<string, string> = {
     'drill-in': 'Enter',
     'drill-out': 'Backspace'
 };
+
+export function presetFor(channel: Channel | undefined, used: Set<string>) {
+    const id = (navPrefs()[channel ?? 'x'] ?? navPrefs().x).find(
+        p => !used.has(SIBLING_PRESETS.find(x => x.id === p)!.names[0])
+    );
+    return Math.max(
+        0,
+        SIBLING_PRESETS.findIndex(p => p.id === (id ?? 'leftright'))
+    );
+}
 
 export const presetOf = (nav: Pair) => SIBLING_PRESETS.find(p => p.names[0] === nav[0] && p.names[1] === nav[1]);
 
@@ -325,7 +338,7 @@ export const patternOf = (d: Doc) => ({
     v: 2,
     idKey: d.data.idKey,
     fields: d.data.fields.filter(f => f.formula),
-    recipe: d.recipe,
+    recipe: { ...d.recipe, groups: resolveGroups(d) },
     overrides: d.overrides,
     entry: d.entry,
     chart: { type: d.chart.type }

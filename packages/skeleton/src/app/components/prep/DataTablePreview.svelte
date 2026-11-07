@@ -161,7 +161,7 @@
     .data-table th,
     .data-table td {
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
         text-align: left;
         white-space: nowrap;
         vertical-align: middle;
@@ -174,7 +174,7 @@
         z-index: 1;
         font-weight: 600;
         color: var(--dn-text);
-        border-bottom: 2px solid var(--dn-border);
+        border-bottom: 2px solid var(--dn-control);
     }
 
     .data-table td {
@@ -231,7 +231,7 @@
 
     .btn-add-col {
         background: none;
-        border: 1px dashed var(--dn-border);
+        border: 1px dashed var(--dn-control);
         border-radius: 4px;
         width: 28px;
         height: 28px;

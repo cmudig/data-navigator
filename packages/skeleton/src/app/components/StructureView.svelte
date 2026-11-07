@@ -21,7 +21,7 @@
     let boxH = $state(0);
     let size = $state({ w: 0, h: 0 });
     let pos = $state<Record<string, Pt>>({});
-    let edgePaths = $state<Record<string, string>>({});
+    let edgePaths = $state<Record<string, { d: string; w: number }>>({});
     let g = $state<Gesture | null>(null);
     let hoverRow = $state<{ level: number; group?: string } | null>(null);
     let rowPick = $state<number | null>(null);
@@ -37,27 +37,55 @@
     const mode = $derived(editor ? 'tree' : app.ui.schema.graphMode);
     const sig = $derived(Object.keys(s.nodes).join() + '|' + Object.entries<any>(s.edges).map(([k, e]) => k + e.navigationRules).join() + mode + hideLeaves);
 
+    let native = new Set<string>();
+
     function forInspector() {
         const rank: Record<string, number> = {};
         for (const kids of Object.values(t.children)) kids.forEach((k, i) => (rank[k] = i));
+        const dims: Record<string, any> = { ...s.dimensions };
+        native = new Set();
         const entries = Object.entries<any>(s.nodes)
             .filter(([, n]) => !hideLeaves || n.dimensionLevel !== undefined || n.manual)
-            .map(([id, n]) => [id, n.manual ? { ...n, data: undefined } : n] as const)
+            .map(([id, n]) => {
+                if (!n.manual) return [id, n] as const;
+                const lv = t.level[id];
+                const pn = s.nodes[t.parent[id]];
+                const div = lv >= 3 && pn?.dimensionLevel === 2 && Object.keys(dims).length === 1 && dims[pn.derivedNode]?.divisions[pn.id];
+                if (div) {
+                    const dim = dims[pn.derivedNode];
+                    dims[pn.derivedNode] = { ...dim, divisions: { ...dim.divisions, [pn.id]: { ...div, values: { ...div.values, [id]: {} } } } };
+                }
+                const as =
+                    lv === 1 && !pn
+                        ? { dimensionLevel: 1 }
+                        : lv === 1 && pn?.dimensionLevel === 0
+                          ? { dimensionLevel: 1 }
+                          : lv === 2 && pn?.dimensionLevel === 1
+                            ? { dimensionLevel: 2, derivedNode: pn.derivedNode }
+                            : div
+                              ? { data: n.data ?? {} }
+                              : null;
+                if (as) native.add(id);
+                return [id, { ...n, data: undefined, ...as }] as const;
+            })
             .sort((a, b) => (rank[a[0]] ?? 0) - (rank[b[0]] ?? 0));
-        return { ...s, nodes: Object.fromEntries(entries) };
+        return { ...s, dimensions: dims, nodes: Object.fromEntries(entries) };
     }
 
     function place(svg: SVGSVGElement, prefix: string) {
         const out: Record<string, Pt> = {};
+        const fill: Record<number, string> = {};
         svg.querySelectorAll('circle').forEach(c => {
             const d = (c as any).__data__;
-            if (d?.id && s.nodes[d.id] && !s.nodes[d.id].manual) out[d.id] = { x: d.x, y: d.y };
+            if (!d?.id || !s.nodes[d.id] || (s.nodes[d.id].manual && !native.has(d.id))) return;
+            out[d.id] = { x: d.x, y: d.y };
+            fill[t.level[d.id] ?? 3] ??= c.getAttribute('fill') ?? '';
         });
         const rows: Record<number, number[]> = {};
         for (const id in out) (rows[t.level[id] ?? 3] ??= []).push(out[id].y);
         const rowY = (l: number): number => (rows[l]?.length ? rows[l].sort((a, b) => a - b)[rows[l].length >> 1] : l <= 0 ? 30 : rowY(l - 1) + 60);
         const gap = R * 3;
-        const manual = Object.keys(s.nodes).filter(id => s.nodes[id].manual && (!hideLeaves || (t.level[id] ?? 0) < 3));
+        const manual = Object.keys(s.nodes).filter(id => s.nodes[id].manual && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3));
         for (let pass = 0; pass < 3; pass++)
             for (const id of manual) {
                 if (out[id] && pass) continue;
@@ -78,18 +106,21 @@
             const c = svg.ownerDocument.getElementById(`${prefix}svg${id}`);
             c?.setAttribute('cx', String(out[id].x));
             c?.setAttribute('cy', String(out[id].y));
+            if (fill[t.level[id] ?? 1]) c?.setAttribute('fill', fill[t.level[id] ?? 1]);
         }
-        const paths: Record<string, string> = {};
+        const paths: Record<string, { d: string; w: number }> = {};
         for (const [id, e] of Object.entries<any>(s.edges)) {
             const a = out[e.source];
             const b = out[e.target];
             if (!a || !b) continue;
             const line = svg.ownerDocument.getElementById(`${prefix}svgedge${e.source}-${e.target}`);
             const arc = e.navigationRules.map((r: string) => svg.ownerDocument.getElementById(`${prefix}svgedge${e.source}-${e.target}-${r}`)).find(Boolean);
-            const manualEnd = s.nodes[e.source].manual || s.nodes[e.target].manual;
-            if (line && manualEnd) for (const [k, v] of [['x1', a.x], ['y1', a.y], ['x2', b.x], ['y2', b.y]] as const) line.setAttribute(k, String(v));
-            if (arc && manualEnd) arc.setAttribute('d', `M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 18} ${b.x} ${b.y}`);
-            paths[id] = arc && !line ? arc.getAttribute('d')! : `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+            const patched = manual.includes(e.source) || manual.includes(e.target);
+            if (line && patched) for (const [k, v] of [['x1', a.x], ['y1', a.y], ['x2', b.x], ['y2', b.y]] as const) line.setAttribute(k, String(v));
+            if (arc && patched) arc.setAttribute('d', `M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 18} ${b.x} ${b.y}`);
+            const el = line ?? arc;
+            const w = parseFloat(el?.getAttribute('stroke-width') ?? (el ? getComputedStyle(el).strokeWidth : '') ?? '') || 1.5;
+            paths[id] = { d: arc && !line ? arc.getAttribute('d')! : `M ${a.x} ${a.y} L ${b.x} ${b.y}`, w };
         }
         pos = out;
         edgePaths = paths;
@@ -411,8 +442,14 @@
                     {/each}
                 {/if}
 
-                {#each Object.entries(edgePaths) as [id, d] (id)}
-                    <path class="edge-hit" class:sel={selectedEdges.has(id)} class:live={tool === 'selectEdges'} data-edge={id} {d} />
+                {#each Object.entries(edgePaths) as [id, p] (id)}
+                    {@const ed = s.edges[id]}
+                    {@const touch = ed && (selected.has(ed.source) || selected.has(ed.target))}
+                    {@const near = ed && (app.ui.hovered === ed.source || app.ui.hovered === ed.target)}
+                    {#if touch || near}
+                        <path class="edge-near" d={p.d} stroke-width={p.w + (touch ? 1 : 0)} />
+                    {/if}
+                    <path class="edge-hit" class:sel={selectedEdges.has(id)} class:live={tool === 'selectEdges'} data-edge={id} d={p.d} />
                 {/each}
 
                 {#each ids as id (id)}
@@ -522,6 +559,13 @@
         fill: none;
         stroke: transparent;
         stroke-width: 10;
+        pointer-events: none;
+    }
+
+    .edge-near {
+        fill: none;
+        stroke: var(--dn-text);
+        stroke-opacity: 0.85;
         pointer-events: none;
     }
 

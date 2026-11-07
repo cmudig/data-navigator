@@ -5,6 +5,8 @@
     import '@data-navigator/inspector/style.css';
     import { app } from '../../model/state.svelte';
     import { mount } from '../../runtime/dn-runtime.js';
+    import NavKeysPanel from '../components/NavKeysPanel.svelte';
+    import AssistantPanel from '../components/AssistantPanel.svelte';
 
     const structure = $derived.by(() => {
         const s = app.structure;
@@ -20,7 +22,8 @@
     const canvasHeight = $derived(app.size.height);
     const imageDataUrl = $derived(app.doc.image?.url ?? null);
     let scalerWidth = $state(0);
-    const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth) : 1);
+    let innerHeight = $state(900);
+    const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth, Math.max(160, innerHeight - 360) / canvasHeight) : 1);
 
     let navMode = $state<'text' | 'keyboard'>('text');
     let showAllNodes = $state(false);
@@ -94,7 +97,11 @@
 <aside class="inspector-panel" aria-label="Structure inspector">
     <div class="inspector-header"><span class="inspector-title">Schema</span></div>
     <div class="inspector-graph-section"><div bind:this={inspectorEl} class="inspector-container"></div></div>
+    <NavKeysPanel />
+    <AssistantPanel />
 </aside>
+
+<svelte:window bind:innerHeight />
 
 <div class="workspace-canvas--mild center-content">
     <h2 id="step-heading-3" class="visually-hidden" tabindex="-1">Testing</h2>
@@ -276,7 +283,7 @@
         border-right: 1px solid var(--dn-border);
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow-y: auto;
         background: var(--dn-surface);
         height: 100%;
         font-size: 0.875rem;
@@ -305,8 +312,7 @@
     }
 
     .inspector-graph-section {
-        flex: 1;
-        overflow-y: auto;
+        flex: none;
         background: var(--dn-bg);
         min-height: 0;
     }
@@ -382,7 +388,7 @@
     .output-table td {
         padding: 3px 6px;
         text-align: left;
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
     }
 
     .output-table th {
@@ -415,7 +421,7 @@
         padding: 1px 5px;
         margin: 0px 2px;
         background: var(--dn-surface);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 3px;
         color: var(--dn-text);
     }
@@ -479,7 +485,7 @@
     /* Keyboard nav toggle at top of right panel */
     .kbd-toggle-label {
         padding: 6px 10px;
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
         flex-shrink: 0;
         font-weight: 500;
     }
@@ -509,7 +515,7 @@
     .kbd-enter-area {
         padding: 10px;
         flex-shrink: 0;
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
     }
 
     .btn-primary {
@@ -554,7 +560,7 @@
         font-size: 0.72rem;
         padding: 1px 5px;
         background: var(--dn-surface);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 3px;
         color: var(--dn-text);
     }
@@ -763,7 +769,7 @@
     }
 
     :global(#dn-test-chat .dn-text-chat-form button) {
-        border-left-color: var(--dn-border);
+        border-left-color: var(--dn-control);
     }
 
     /* ─── Text chat dark mode ────────────────────────────────────────────────── */
@@ -834,7 +840,7 @@
 
     :global(.dark #dn-test-inspector .dn-menu-log-btn) {
         background: var(--dn-surface);
-        border-color: var(--dn-border);
+        border-color: var(--dn-control);
         color: var(--dn-text-muted);
     }
 

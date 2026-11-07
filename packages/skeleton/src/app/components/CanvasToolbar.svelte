@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { app, fitView, zoomTo, type Tool, type ToolOptions } from '../../model/state.svelte';
+    import { app, commit, type Tool, type ToolOptions } from '../../model/state.svelte';
+    import { seedScaffold } from '../../utils/vegaBuilder';
 
     const TOOLS: [Tool, string][] = [
         ['selectNodes', 'Select nodes'],
@@ -27,10 +28,11 @@
     const edgeTypes = $derived([...new Set([...app.graph.edges.values()].map(e => e.rules[0]).filter(Boolean))]);
     const levelShown: Record<string, keyof ToolOptions> = { root: 'showLevel0Node', dimension: 'showLevel1Nodes', division: 'showLevel2Nodes', leaf: 'showLevel3Nodes' };
     const levelFill: Record<string, keyof ToolOptions> = { root: 'level0BackfillColor', dimension: 'level1BackfillColor', division: 'level2BackfillColor', leaf: 'level3BackfillColor' };
-    let zoomInput = $state(100);
-    $effect(() => {
-        zoomInput = Math.round(app.ui.view.scale * 100);
-    });
+
+    function toggleScaffold() {
+        if (!app.doc.scaffold) commit('Started scaffold', d => ({ ...d, scaffold: seedScaffold(d, app.built ? app.view : null) }));
+        app.ui.scaffoldMode = !app.ui.scaffoldMode;
+    }
 
     function setTool<K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) {
         const t = app.ui.tools;
@@ -50,7 +52,7 @@
             {#if t === 'selectNodes'}
                 <circle cx="11" cy="14" r="2" /><circle cx="15" cy="10" r="2" /><circle cx="15.5" cy="15.5" r="1.6" />
             {:else}
-                <path d="M9.5 16.5 L16.5 9.5 M11.5 17 L17 11.5 M9 13.5 L13.5 9" />
+                <path d="M8.5 17.5 L17.5 8.5 M12.5 17.8 L17.8 12.5" />
             {/if}
         {:else if t === 'addNode'}
             <circle cx="9" cy="9" r="6.5" /><path d="M9 5.5 V12.5 M5.5 9 H12.5" />
@@ -68,15 +70,18 @@
             {@render icon(t)}{label}
         </button>
     {/each}
-    <label class="toolbar-option">
-        Edge rules
-        <select value={JSON.stringify(app.ui.edgeRules)} onchange={e => (app.ui.edgeRules = JSON.parse(e.currentTarget.value))}>
-            {#each RULES as [label, rules] (label)}<option value={JSON.stringify(rules)}>{label}</option>{/each}
-        </select>
-    </label>
+
+    {#if app.ui.tool === 'addEdge'}
+        <label class="toolbar-option">
+            Edge rules
+            <select value={JSON.stringify(app.ui.edgeRules)} onchange={e => (app.ui.edgeRules = JSON.parse(e.currentTarget.value))}>
+                {#each RULES as [label, rules] (label)}<option value={JSON.stringify(rules)}>{label}</option>{/each}
+            </select>
+        </label>
+    {/if}
     {#if spatial}
         <details class="tool-options">
-            <summary class="btn-ghost btn-sm">Display</summary>
+            <summary class="btn-ghost btn-sm">Display options</summary>
             <div class="tool-options-panel">
                 <label><input type="checkbox" checked={tools.showNodeLabels} onchange={e => setTool('showNodeLabels', e.currentTarget.checked)} /> Node labels</label>
                 <label><input type="checkbox" checked={tools.showEdgeLabels} onchange={e => setTool('showEdgeLabels', e.currentTarget.checked)} /> Edge labels</label>
@@ -103,17 +108,11 @@
             </div>
         </details>
     {/if}
-    <span class="spacer"></span>
-    <button class="btn-ghost btn-sm tool" class:active={app.ui.tool === 'pan'} type="button" aria-pressed={app.ui.tool === 'pan'} onclick={() => (app.ui.tool = 'pan')}>
-        {@render icon('pan')}Pan
-    </button>
-    <button class="btn-ghost btn-sm" type="button" aria-label="Zoom out" onclick={() => zoomTo(app.ui.view.scale / 1.25)}>−</button>
-    <label class="zoom">
-        <span class="visually-hidden">Zoom percentage</span>
-        <input type="number" min="10" max="800" step="10" bind:value={zoomInput} onchange={() => zoomTo(zoomInput / 100)} />%
-    </label>
-    <button class="btn-ghost btn-sm" type="button" aria-label="Zoom in" onclick={() => zoomTo(app.ui.view.scale * 1.25)}>+</button>
-    <button class="btn-ghost btn-sm" type="button" onclick={fitView}>Fit</button>
+    {#if spatial}
+        <button class="btn-ghost btn-sm" class:active={app.ui.scaffoldMode} type="button" aria-pressed={app.ui.scaffoldMode} onclick={toggleScaffold}>
+            {app.ui.scaffoldMode ? '✕ Close scaffold' : '⊡ Scaffold'}
+        </button>
+    {/if}
 </div>
 <p class="tool-hint" aria-live="polite">{HINTS[app.ui.space ? 'pan' : app.ui.tool]}</p>
 
@@ -126,12 +125,18 @@
         flex-shrink: 0;
     }
 
+    .canvas-toolbar :global(.btn-sm) {
+        padding: 4px 8px;
+        min-width: 32px;
+    }
+
     .tool {
         display: inline-flex;
         align-items: center;
         gap: 6px;
     }
 
+    .active,
     .tool.active {
         background: var(--dn-accent-soft);
         color: var(--dn-accent);
@@ -139,12 +144,8 @@
         box-shadow: inset 0 -2px 0 var(--dn-accent);
     }
 
-    .spacer {
-        flex: 1;
-    }
 
-    .toolbar-option,
-    .zoom {
+    .toolbar-option {
         display: inline-flex;
         align-items: center;
         gap: 4px;
@@ -152,10 +153,6 @@
         color: var(--dn-text-muted);
     }
 
-    .zoom input {
-        width: 4rem;
-        text-align: right;
-    }
 
     .tool-hint {
         margin: calc(var(--dn-space) * 0.5) 0 calc(var(--dn-space) * 0.75);

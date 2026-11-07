@@ -1,0 +1,172 @@
+{
+    "$about": "Default outline, padding, point size and key choices. Layers merge in order: defaults, marks, groupings (pattern first, then each grouping kind), charts, chart channels. Later layers win, and anything set by hand in the Scaffold panel wins over all of them. Strategies: boundingRect, convexHull, unionOfAll, line (follows a line), and for number bins rangeRect or rangeBounds. Padding is in image pixels. Nav lists key presets in order of preference: leftright, updown, brackets.",
+    "defaults": {
+        "root": { "strategy": "boundingRect", "padding": 16 },
+        "dimension": { "strategy": "boundingRect", "padding": 12 },
+        "division": { "strategy": "convexHull", "padding": 6 },
+        "leaf": { "padding": 0, "pointSize": 900 },
+        "nav": {
+            "x": ["leftright", "updown", "brackets"],
+            "y": ["updown", "leftright", "brackets"],
+            "color": ["updown", "brackets", "leftright"]
+        }
+    },
+    "marks": {
+        "$about": "One entry per Vega mark type. A chart's mark sets the base look of every group.",
+        "bar": { "division": { "strategy": "convexHull", "padding": 6 }, "leaf": { "padding": 0 } },
+        "rect": {
+            "dimension": { "padding": 8 },
+            "division": { "strategy": "unionOfAll", "padding": 2 },
+            "leaf": { "padding": 0 }
+        },
+        "point": {
+            "dimension": { "strategy": "unionOfAll", "padding": 8 },
+            "division": { "strategy": "convexHull", "padding": 10 },
+            "leaf": { "padding": 4, "pointSize": 900 }
+        },
+        "circle": {
+            "dimension": { "strategy": "unionOfAll", "padding": 8 },
+            "division": { "strategy": "convexHull", "padding": 10 },
+            "leaf": { "padding": 4, "pointSize": 900 }
+        },
+        "square": {
+            "dimension": { "strategy": "unionOfAll", "padding": 8 },
+            "division": { "strategy": "convexHull", "padding": 10 },
+            "leaf": { "padding": 4, "pointSize": 900 }
+        },
+        "line": { "division": { "strategy": "line", "padding": 14 }, "leaf": { "padding": 4, "pointSize": 300 } },
+        "trail": { "division": { "strategy": "line", "padding": 14 }, "leaf": { "padding": 4, "pointSize": 300 } },
+        "area": { "division": { "strategy": "line", "padding": 14 }, "leaf": { "padding": 4, "pointSize": 300 } },
+        "arc": { "division": { "strategy": "unionOfAll", "padding": 4 }, "leaf": { "padding": 2 } },
+        "tick": { "division": { "strategy": "convexHull", "padding": 6 }, "leaf": { "padding": 2 } },
+        "rule": { "division": { "strategy": "boundingRect", "padding": 6 }, "leaf": { "padding": 2 } },
+        "text": { "division": { "strategy": "boundingRect", "padding": 4 }, "leaf": { "padding": 2 } },
+        "geoshape": {
+            "dimension": { "padding": 8 },
+            "division": { "strategy": "unionOfAll", "padding": 2 },
+            "leaf": { "padding": 0 }
+        },
+        "image": { "division": { "strategy": "boundingRect", "padding": 4 }, "leaf": { "padding": 2 } }
+    },
+    "groupings": {
+        "$about": "One entry per way a dimension groups or aggregates data, plus the Data Navigator patterns. Pattern entries apply to every dimension in the chart; grouping kinds apply to the dimensions that have them.",
+        "category": { "division": { "strategy": "convexHull", "padding": 6 } },
+        "ordinal": { "division": { "strategy": "convexHull", "padding": 6 } },
+        "numericBins": {
+            "dimension": { "strategy": "boundingRect", "padding": 8 },
+            "division": { "strategy": "rangeRect", "padding": 0 }
+        },
+        "series": {
+            "dimension": { "strategy": "boundingRect", "padding": 12 },
+            "division": { "strategy": "unionOfAll", "padding": 4 }
+        },
+        "stack": { "division": { "strategy": "unionOfAll", "padding": 4 } },
+        "cluster": { "division": { "strategy": "unionOfAll", "padding": 4 } },
+        "facet": {
+            "dimension": { "strategy": "boundingRect", "padding": 16 },
+            "division": { "strategy": "boundingRect", "padding": 12 }
+        },
+        "list": {
+            "dimension": { "strategy": "boundingRect", "padding": 12 },
+            "division": { "strategy": "convexHull", "padding": 4 }
+        },
+        "aggregate": { "division": { "strategy": "boundingRect", "padding": 6 } },
+        "pattern:list": { "root": { "strategy": "boundingRect", "padding": 16 } },
+        "pattern:tree": { "root": { "strategy": "boundingRect", "padding": 16 } },
+        "pattern:dualTree": { "root": { "strategy": "boundingRect", "padding": 16 } },
+        "pattern:spatial": { "root": { "strategy": "boundingRect", "padding": 16 } },
+        "pattern:spatialPlus": { "root": { "strategy": "boundingRect", "padding": 16 } },
+        "pattern:frame": { "root": { "strategy": "boundingRect", "padding": 24 } }
+    },
+    "charts": {
+        "$about": "One entry per chart type. 'mark' picks the mark entry. 'channels' holds choices for the dimension on x, y or color.",
+        "bar": { "mark": "bar", "channels": { "x": { "division": { "strategy": "convexHull", "padding": 6 } } } },
+        "horizontal-bar": {
+            "mark": "bar",
+            "channels": { "y": { "division": { "strategy": "convexHull", "padding": 6 } } }
+        },
+        "stacked-bar": {
+            "mark": "bar",
+            "channels": {
+                "x": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "convexHull", "padding": 6 }
+                },
+                "color": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "unionOfAll", "padding": 4 }
+                }
+            }
+        },
+        "clustered-bar": {
+            "mark": "bar",
+            "channels": {
+                "x": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "convexHull", "padding": 6 }
+                },
+                "color": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "unionOfAll", "padding": 4 }
+                }
+            }
+        },
+        "histogram": { "mark": "bar", "channels": { "x": { "division": { "strategy": "rangeRect", "padding": 0 } } } },
+        "line": {
+            "mark": "line",
+            "channels": {
+                "x": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "convexHull", "padding": 12 }
+                },
+                "color": {
+                    "dimension": { "strategy": "unionOfAll", "padding": 8 },
+                    "division": { "strategy": "line", "padding": 14 }
+                }
+            }
+        },
+        "area": {
+            "mark": "area",
+            "channels": {
+                "x": {
+                    "dimension": { "strategy": "boundingRect", "padding": 12 },
+                    "division": { "strategy": "convexHull", "padding": 12 }
+                },
+                "color": {
+                    "dimension": { "strategy": "unionOfAll", "padding": 8 },
+                    "division": { "strategy": "line", "padding": 14 }
+                }
+            }
+        },
+        "scatter": {
+            "mark": "point",
+            "channels": {
+                "color": {
+                    "dimension": { "strategy": "unionOfAll", "padding": 8 },
+                    "division": { "strategy": "convexHull", "padding": 10 }
+                }
+            }
+        },
+        "bubble": {
+            "mark": "circle",
+            "channels": {
+                "color": {
+                    "dimension": { "strategy": "unionOfAll", "padding": 8 },
+                    "division": { "strategy": "convexHull", "padding": 10 }
+                }
+            }
+        },
+        "heatmap": {
+            "mark": "rect",
+            "channels": {
+                "x": { "division": { "strategy": "unionOfAll", "padding": 2 } },
+                "y": { "division": { "strategy": "unionOfAll", "padding": 2 } }
+            }
+        },
+        "pie": { "mark": "arc", "channels": { "color": { "division": { "strategy": "unionOfAll", "padding": 4 } } } },
+        "donut": { "mark": "arc", "channels": { "color": { "division": { "strategy": "unionOfAll", "padding": 4 } } } },
+        "treemap": { "mark": "rect" },
+        "map": { "mark": "geoshape" },
+        "network": { "mark": "point" }
+    }
+}

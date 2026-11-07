@@ -30,13 +30,36 @@ export function resolveFields(cfg: ScaffoldConfig, doc: Doc): ScaffoldConfig {
     };
 }
 
-export function seedScaffold(doc: Doc): ScaffoldConfig {
+export function seedScaffold(doc: Doc, view?: any): ScaffoldConfig {
     const chartType = CHART_TYPES.includes(doc.chart.type) ? doc.chart.type : 'bar';
     const w = doc.image?.width ?? 800;
     const h = doc.image?.height ?? 600;
     const small = w < 200 || h < 200;
     const series = ['stacked-bar', 'clustered-bar', 'line', 'area'].includes(chartType);
     const hasData = !!doc.data.rows?.length;
+    const b = doc.chart.build;
+    if (view && b?.mode === 'encode') {
+        const [ox, oy] = view.origin();
+        const p = view.padding();
+        const left = Math.round(ox + p.left);
+        const top = Math.round(oy + p.top);
+        return {
+            chartType: specType(b) || chartType,
+            offsetX: 0,
+            offsetY: 0,
+            plotWidth: w,
+            plotHeight: h,
+            paddingLeft: left,
+            paddingTop: top,
+            paddingRight: Math.round(w - left - view.width()),
+            paddingBottom: Math.round(h - top - view.height()),
+            markParams: {},
+            dataMode: 'csv',
+            xField: b.x,
+            yField: b.y,
+            colorField: b.color ?? ''
+        };
+    }
     return {
         chartType,
         offsetX: 0,
@@ -70,7 +93,7 @@ export function buildSyntheticData(cfg: NonNullable<ScaffoldConfig['syntheticCon
     );
 }
 
-export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
+export function buildVegaSpec(c: ScaffoldConfig, data: Row[], size = 900): VegaLiteSpec {
     const mp = c.markParams;
     const x = c.xField ?? 'x';
     const y = c.yField ?? 'value';
@@ -116,7 +139,7 @@ export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
             })
         ],
         scatter: [
-            { type: 'point', color: '#6366f1', ...(mp.pointSizeField ? {} : { size: mp.pointSize ?? 30 }) },
+            { type: 'point', color: '#6366f1', ...(mp.pointSizeField ? {} : { size: mp.pointSize ?? size }) },
             {
                 x: { field: x, type: 'quantitative', scale: domain(c.xDomainMin, c.xDomainMax) },
                 y: { field: y, type: 'quantitative', scale: domain(c.yDomainMin, c.yDomainMax) },
@@ -125,7 +148,7 @@ export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
             }
         ],
         line: [
-            { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? 300 } },
+            { type: 'line', strokeWidth: mp.strokeWidth ?? 2, point: { size: mp.pointSize ?? size } },
             { x: cat, y: { field: y, type: 'quantitative' }, ...color }
         ],
         area: [
@@ -133,7 +156,7 @@ export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
                 type: 'area',
                 fillOpacity: mp.fillOpacity ?? 0.4,
                 strokeWidth: mp.strokeWidth ?? 1.5,
-                point: { size: mp.pointSize ?? 300 }
+                point: { size: mp.pointSize ?? size }
             },
             { x: cat, y: { field: y, type: 'quantitative' }, ...color }
         ]
@@ -204,7 +227,12 @@ const parse = (text = '') => {
     }
 };
 
-export function chartSpec(b: ChartBuild | undefined, fields: Field[], rows: Row[]): VegaLiteSpec | null {
+export function chartSpec(
+    b: ChartBuild | undefined,
+    fields: Field[],
+    rows: Row[],
+    measure = false
+): VegaLiteSpec | null {
     if (!b || b.mode === 'none') return null;
     let spec: VegaLiteSpec | null;
     if (b.mode === 'spec') {
@@ -216,14 +244,15 @@ export function chartSpec(b: ChartBuild | undefined, fields: Field[], rows: Row[
         if (!b.x || !b.y) return null;
         const num = (k: string) => fields.find(f => f.key === k)?.type === 'numerical';
         const scatter = b.type === 'scatter';
-        const x = { field: b.x, type: scatter && num(b.x) ? 'quantitative' : 'ordinal', sort: null };
-        const y = { field: b.y, type: num(b.y) ? 'quantitative' : 'ordinal' };
+        const zero = scatter ? { scale: { zero: false } } : {};
+        const x = { field: b.x, type: scatter && num(b.x) ? 'quantitative' : 'ordinal', sort: null, ...zero };
+        const y = { field: b.y, type: num(b.y) ? 'quantitative' : 'ordinal', ...zero };
         const color = b.color ? { color: { field: b.color, type: 'nominal', sort: null } } : {};
         const marks: Record<string, unknown> = {
             bar: 'bar',
             'stacked-bar': 'bar',
             'clustered-bar': 'bar',
-            scatter: { type: 'point', filled: true, size: 60 },
+            scatter: { type: 'point', filled: true, size: measure ? 900 : 60 },
             line: { type: 'line', point: true },
             area: { type: 'area', line: true, point: true, fillOpacity: 0.4 }
         };
@@ -234,7 +263,9 @@ export function chartSpec(b: ChartBuild | undefined, fields: Field[], rows: Row[
                 y,
                 ...color,
                 ...(b.type === 'clustered-bar' && b.color ? { xOffset: { field: b.color, type: 'nominal' } } : {}),
-                ...(b.type === 'stacked-bar' ? { order: { field: '_dn_row', type: 'quantitative' } } : {})
+                ...((b.type === 'stacked-bar' || b.type === 'bar') && b.color
+                    ? { order: { field: '_dn_row', type: 'quantitative' } }
+                    : {})
             }
         };
     }
@@ -251,7 +282,7 @@ export function chartSpec(b: ChartBuild | undefined, fields: Field[], rows: Row[
 
 export function specType(b: ChartBuild | undefined) {
     if (!b || b.mode === 'none') return '';
-    if (b.mode === 'encode') return b.type ?? '';
+    if (b.mode === 'encode') return b.type === 'bar' && b.color ? 'stacked-bar' : (b.type ?? '');
     const spec = parse(b.spec);
     const m = spec?.mark as string | { type: string } | undefined;
     const mark = typeof m === 'string' ? m : m?.type;

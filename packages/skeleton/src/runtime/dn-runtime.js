@@ -521,10 +521,13 @@ export function shiftPath(d, dx, dy) {
     });
 }
 
-export const groupDefaults = type =>
-    type === 'numerical'
-        ? { strategy: 'unionOfAll', padding: 8, divisionStrategy: 'rangeRect', divisionPadding: 0 }
-        : { strategy: 'unionOfAll', padding: 8, divisionStrategy: 'convexHull', divisionPadding: 0 };
+const FALLBACK = { strategy: 'boundingRect', padding: 8, divisionStrategy: 'convexHull', divisionPadding: 6 };
+const padLeaf = (g, p) =>
+    !g || !p
+        ? g
+        : g.r !== undefined
+          ? { ...g, r: g.r + p }
+          : { ...g, x: g.x - p, y: g.y - p, width: g.width + 2 * p, height: g.height + 2 * p };
 
 function axisFit(leaves, key) {
     const pts = leaves.filter(l => isNum(l.row[key]));
@@ -539,16 +542,16 @@ function axisFit(leaves, key) {
     return fx.r2 >= fy.r2 ? { axis: 'x', ...fx } : { axis: 'y', ...fy };
 }
 
-function shapeFor(strategy, leaves, pad, line) {
+function shapeFor(strategy, leaves, pad) {
     if (!leaves.length) return '';
     const gs = leaves.map(l => l.g);
-    if (line)
+    if (strategy === 'line' && gs.length > 1)
         return offsetLinePath(
             [...gs].sort((a, b) => a.x - b.x).map(g => ({ x: g.x + g.width / 2, y: g.y + g.height / 2 })),
             pad
         );
     if (strategy === 'boundingRect') return boundingRectPath(gs, pad);
-    if (gs.every(g => g.circle))
+    if (strategy !== 'unionOfAll' && gs.every(g => g.circle))
         return convexHullOfCircles(
             gs.map(g => g.circle),
             pad
@@ -572,12 +575,11 @@ export function applyGeometry(s, pattern, measure, frame) {
                   }
                 : g;
     }
-    const line = ['line', 'area'].includes(pattern.chart?.type);
     const c = s.context || context(s, pattern);
     const leaves = {};
     for (const n of Object.values(s.nodes)) {
         if (n.manual || n.dimensionLevel !== undefined || c.info[n.id]) continue;
-        const g = measure && toGeometry(measure(n.data, n.id));
+        const g = measure && toGeometry(padLeaf(measure(n.data, n.id), gc?.leafPadding));
         if (g) leaves[n.id] = { row: n.data, g };
     }
     const all = Object.values(leaves);
@@ -588,10 +590,10 @@ export function applyGeometry(s, pattern, measure, frame) {
     const divPaths = {};
     for (const dim of c.dims) {
         const d = r.dimensions.find(x => x.key === dim.dimensionKey);
-        const cfg = gc.perDimension[d.key] ?? groupDefaults(d.type);
+        const cfg = gc.perDimension[d.key] ?? FALLBACK;
         const fit = d.type === 'numerical' && cfg.divisionStrategy.startsWith('range') ? axisFit(all, d.key) : null;
         for (const div of Object.values(dim.divisions)) {
-            if (!c.info[div.id] || !gc.divisionEnabled) continue;
+            if (div.id === dim.nodeId || !c.info[div.id] || !gc.divisionEnabled) continue;
             const ls = c.info[div.id].leaves.map(id => leaves[id]).filter(Boolean);
             let path;
             let box = grow(boxOf(ls.map(l => l.g)), cfg.divisionPadding);
@@ -607,13 +609,7 @@ export function applyGeometry(s, pattern, measure, frame) {
                         : fit.axis === 'x'
                           ? `M${a},${plot.y}L${a},${plot.y + plot.height}M${b},${plot.y}L${b},${plot.y + plot.height}`
                           : `M${plot.x},${a}L${plot.x + plot.width},${a}M${plot.x},${b}L${plot.x + plot.width},${b}`;
-            } else
-                path = shapeFor(
-                    cfg.divisionStrategy,
-                    ls,
-                    cfg.divisionPadding,
-                    line && ls.length > 1 && new Set(ls.map(l => Math.round(l.g.x))).size > 1
-                );
+            } else path = shapeFor(cfg.divisionStrategy, ls, cfg.divisionPadding);
             const bonus = gc.divisionBonusRects[div.id];
             if (bonus?.enabled && path) {
                 path += rectPath(bonus);
@@ -630,7 +626,7 @@ export function applyGeometry(s, pattern, measure, frame) {
         let path =
             cfg.strategy === 'unionOfAll' && own.length
                 ? own.map(p => p.path).join(' ')
-                : shapeFor('convexHull', ls, cfg.padding, line);
+                : shapeFor(cfg.strategy, ls, cfg.padding);
         let box =
             cfg.strategy === 'unionOfAll' && own.length
                 ? boxOf(own.map(p => p.box))
@@ -643,7 +639,11 @@ export function applyGeometry(s, pattern, measure, frame) {
         set(dim.nodeId, path, box);
     }
     if (gc.rootEnabled && r.root.enabled)
-        set(r.root.id, shapeFor(gc.rootStrategy, all, gc.rootPadding, line), grow(plot, gc.rootPadding));
+        set(
+            r.root.id,
+            shapeFor(gc.rootStrategy ?? 'boundingRect', all, gc.rootPadding ?? 16),
+            grow(plot, gc.rootPadding ?? 16)
+        );
     return s;
 }
 

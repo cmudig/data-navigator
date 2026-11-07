@@ -407,7 +407,7 @@
         font-size: 0.8125rem;
         font-family: var(--dn-font);
         background: none;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: var(--dn-radius);
         color: var(--dn-text-muted);
         cursor: pointer;
@@ -514,7 +514,7 @@
     /* "Hide field names" sits below a divider to signal it affects chip behavior */
     .lb-omit-toggle {
         padding-top: calc(var(--dn-space) * 0.75);
-        border-top: 1px solid var(--dn-border);
+        border-top: 1px solid var(--dn-control);
         margin-top: calc(var(--dn-space) * 0.25);
     }
 

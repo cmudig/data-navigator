@@ -1,9 +1,8 @@
 <script lang="ts">
     import { app, commit, edit } from '../../../model/state.svelte';
-    import type { DimensionGroupConfig, Doc, GroupShapeConfig, ScaffoldConfig } from '../../../model/doc';
-    import { groupDefaults } from '../../../runtime/dn-runtime.js';
+    import type { Dim, DimensionGroupConfig, Doc, GroupShapeConfig, ScaffoldConfig } from '../../../model/doc';
     import { CHART_TYPES, detectFields } from '../../../utils/vegaBuilder';
-    import { estimatePadding } from '../../../utils/paddingEstimator';
+    import { runFit } from '../../../utils/paddingEstimator';
 
     const raw = $derived(app.doc.scaffold);
     const config = $derived(app.scaffold);
@@ -29,9 +28,18 @@
     const set = (label: string, mutate: (c: ScaffoldConfig, d: Doc) => void) => edit(label, d => mutate(d.scaffold!, d), true);
     const num = (v: string) => (v === '' ? undefined : Number(v));
     const setGroups = (patch: Partial<GroupShapeConfig>) => edit('Group shapes changed', d => Object.assign(d.recipe.groups, patch), true);
-    const dimConfig = (key: string, type: 'categorical' | 'numerical'): DimensionGroupConfig => gs.perDimension[key] ?? groupDefaults(type);
-    const setDim = (key: string, type: 'categorical' | 'numerical', patch: Partial<DimensionGroupConfig>) =>
-        edit('Group shapes changed', d => (d.recipe.groups.perDimension[key] = { ...dimConfig(key, type), ...patch }), true);
+    const STYLES = [
+        ['boundingRect', 'Bounding rect'],
+        ['convexHull', 'Convex hull'],
+        ['unionOfAll', 'Union of parts'],
+        ['line', 'Follow the line']
+    ];
+    const resolved = $derived(app.pattern.recipe.groups);
+    const fit = $derived(app.ui.fit);
+    const dimConfig = (dim: Dim): DimensionGroupConfig => resolved.perDimension[dim.key];
+    const resetDim = (dim: Dim) => edit('Group shapes reset', d => delete d.recipe.groups.perDimension[dim.key]);
+    const setDim = (dim: Dim, patch: Partial<DimensionGroupConfig>) =>
+        edit('Group shapes changed', d => (d.recipe.groups.perDimension[dim.key] = { ...dimConfig(dim), ...patch }), true);
     const bonus = (field: 'dimensionBonusRects' | 'divisionBonusRects', key: string, patch: Partial<GroupShapeConfig['divisionBonusRects'][string]>, at = { x: 10, y: 10 }) =>
         edit('Group shapes changed', d => {
             const prev = d.recipe.groups[field][key] ?? { enabled: true, ...at, width: 80, height: 40 };
@@ -43,18 +51,6 @@
         commit(`Chart type changed to ${chartType}`, d => ({ ...d, scaffold: { ...d.scaffold!, chartType, xField: f.xField, yField: f.yField, colorField: f.colorField } }));
     }
 
-    let estimating = $state(false);
-    async function handleEstimatePadding() {
-        if (!config || !app.doc.image) return alert('Need a rendered scaffold and an uploaded image first.');
-        estimating = true;
-        try {
-            const patch = await estimatePadding(config, nodes.filter(n => n.kind === 'leaf').map(n => n.geo), app.doc.image);
-            if (patch) commit('Estimated padding', d => ({ ...d, scaffold: { ...d.scaffold!, ...patch } }));
-            else alert('Could not find enough marks in the image to fit the padding.');
-        } finally {
-            estimating = false;
-        }
-    }
 </script>
 
 {#snippet numberRow(label: string, value: number | undefined, onset: (v: number | undefined) => void, attrs: { xs?: boolean; step?: number | string; min?: number; placeholder?: string; unit?: string } = {})}
@@ -120,9 +116,16 @@
                     {@render numberRow(side, config[`padding${side}`], v => set('Scaffold config changed', c => (c[`padding${side}`] = Math.max(0, v ?? 0))), { step: 5, min: 0 })}
                 {/each}
             </div>
-            <button type="button" class="estimate-padding-btn" onclick={handleEstimatePadding} disabled={estimating} title="Detect the chart marks in the image and align the scaffold padding to them">
-                {estimating ? 'Estimating…' : 'Estimate padding'}
-            </button>
+            {#if app.doc.image && !app.doc.image.built}
+                <button type="button" class="estimate-padding-btn" onclick={() => runFit(true)} disabled={fit?.state === 'running' || fit?.state === 'checking'} title="Detect the chart marks in the image and align the scaffold padding to them">
+                    {fit?.state === 'running' ? 'Fitting…' : 'Fit to image again'}
+                </button>
+            {/if}
+            {#if fit}
+                <p class="fit-status" class:failed={fit.state === 'failed'} role="status">
+                    {#if fit.state === 'failed'}<span aria-hidden="true">⚠ </span>{:else if fit.state === 'ok'}<span aria-hidden="true">✓ </span>{/if}{fit.message}
+                </p>
+            {/if}
         </section>
 
         <section class="param-section">
@@ -233,13 +236,14 @@
                         <div class="param-grid gs-indent">
                             <label class="param-row">
                                 <span class="param-label">Strategy</span>
-                                <select class="param-select" value={gs.rootStrategy} onchange={e => setGroups({ rootStrategy: e.currentTarget.value as GroupShapeConfig['rootStrategy'] })}>
-                                    <option value="convexHull">Convex hull</option>
-                                    <option value="unionOfAll">Union of all</option>
-                                    <option value="boundingRect">Bounding rect</option>
+                                <select class="param-select" value={resolved.rootStrategy} onchange={e => setGroups({ rootStrategy: e.currentTarget.value as GroupShapeConfig['rootStrategy'] })}>
+                                    {#each STYLES.slice(0, 3) as [v, label] (v)}<option value={v}>{label}</option>{/each}
                                 </select>
                             </label>
-                            {@render numberRow('Padding', gs.rootPadding, v => setGroups({ rootPadding: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
+                            {@render numberRow('Padding', resolved.rootPadding, v => setGroups({ rootPadding: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
+                            {#if gs.rootStrategy !== undefined || gs.rootPadding !== undefined}
+                                <button class="btn-xs" type="button" onclick={() => edit('Group shapes reset', d => (delete d.recipe.groups.rootStrategy, delete d.recipe.groups.rootPadding))}>Use defaults</button>
+                            {/if}
                             {#if rootPin}
                                 {@render rectInputs(rootPin, patch => edit('Resized root outline', d => (d.overrides.nodes[rootId].geo = { ...rootPin, ...patch }), true))}
                                 <button class="btn-xs" type="button" onclick={() => edit('Reset root outline', d => delete d.overrides.nodes[rootId].geo)}>Reset to auto</button>
@@ -262,26 +266,28 @@
                 </div>
                 {#if gs.dimensionEnabled || gs.divisionEnabled}
                     {#each dims as dim (dim.key)}
-                        {@const cfg = dimConfig(dim.key, dim.type)}
+                        {@const cfg = dimConfig(dim)}
                         {@const divs = nodes.filter(n => n.kind === 'division' && n.dimensionKey === dim.key)}
                         <div class="per-dim-section">
-                            <p class="dim-heading"><span>{dim.key}</span><span class="dim-type-badge">{dim.type}</span></p>
+                            <p class="dim-heading">
+                                <span>{dim.key}</span><span class="dim-type-badge">{dim.type}</span>
+                                {#if gs.perDimension[dim.key]}<button class="btn-xs" type="button" onclick={() => resetDim(dim)}>Use defaults</button>{/if}
+                            </p>
                             {#each [['dimensionEnabled', 'strategy', 'padding', ''], ['divisionEnabled', 'divisionStrategy', 'divisionPadding', 'Divisions: ']] as const as [on, sk, pk, prefix] (sk)}
                                 {#if gs[on]}
                                     {#if prefix}<p class="divisions-heading gs-indent">Divisions:</p>{/if}
                                     <div class="param-grid gs-indent">
                                         <label class="param-row">
                                             <span class="param-label">Style</span>
-                                            <select class="param-select" aria-label="{prefix}Style" value={cfg[sk]} onchange={e => setDim(dim.key, dim.type, { [sk]: e.currentTarget.value })}>
-                                                <option value="convexHull">Convex hull</option>
-                                                <option value="unionOfAll">Union of all</option>
+                                            <select class="param-select" aria-label="{dim.key} {prefix}style" value={cfg[sk]} onchange={e => setDim(dim, { [sk]: e.currentTarget.value })}>
+                                                {#each STYLES as [v, label] (v)}<option value={v}>{label}</option>{/each}
                                                 {#if prefix && dim.type === 'numerical'}
                                                     <option value="rangeBounds">Range bounds</option>
                                                     <option value="rangeRect">Range rect</option>
                                                 {/if}
                                             </select>
                                         </label>
-                                        {@render numberRow('Padding', cfg[pk], v => setDim(dim.key, dim.type, { [pk]: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
+                                        {@render numberRow('Padding', cfg[pk], v => setDim(dim, { [pk]: v ?? 0 }), { step: 2, min: 0, unit: 'px' })}
                                     </div>
                                 {/if}
                             {/each}
@@ -318,6 +324,17 @@
 {/if}
 
 <style>
+    .fit-status {
+        margin: 6px 0 0;
+        font-size: 0.8125rem;
+        color: var(--dn-text-muted);
+    }
+
+    .fit-status.failed {
+        color: #b71c1c;
+        font-weight: 600;
+    }
+
     .scaffold-panel {
         display: flex;
         flex-direction: column;
@@ -614,7 +631,7 @@
     .btn-xs {
         font-size: 0.7rem;
         padding: 2px 8px;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 3px;
         background: var(--dn-bg);
         color: var(--dn-text-muted);
@@ -628,7 +645,7 @@
         width: 100%;
         font-size: 0.75rem;
         padding: 5px 10px;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: 4px;
         background: var(--dn-bg);
         color: var(--dn-text);

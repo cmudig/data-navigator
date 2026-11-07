@@ -14,7 +14,8 @@
 
     const initial = (question: NonNullable<typeof q>) => {
         const v = question.get(app.doc);
-        if ((question.input !== 'radio' && question.input !== 'dropdown') || v) return v;
+        const fresh = !app.doc.meta.seen.includes(question.id) && question.options?.some(o => o.suggested);
+        if ((question.input !== 'radio' && question.input !== 'dropdown') || (v && !fresh)) return v;
         const opts = question.options ?? [];
         const pick = opts.find(o => o.suggested && !o.disabled) ?? (question.input === 'radio' ? opts.find(o => !o.disabled) : null);
         return pick?.value ?? '';
@@ -149,7 +150,7 @@
         gap: calc(var(--dn-space) * 0.4);
         padding: calc(var(--dn-space) * 0.625) calc(var(--dn-space) * 0.5);
         border-radius: var(--dn-radius);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         background: none;
         cursor: pointer;
         font-family: var(--dn-font);
@@ -231,7 +232,7 @@
 
     .qa-btn-back {
         background: none;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         color: var(--dn-text-muted);
     }
     .qa-btn-back:not(:disabled):hover {
@@ -243,7 +244,7 @@
     .qa-btn-skip {
         margin-left: auto;
         background: transparent;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         color: var(--dn-text);
     }
 

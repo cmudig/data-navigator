@@ -365,7 +365,7 @@
     .btn-add-var {
         align-self: flex-start;
         background: none;
-        border: 1px dashed var(--dn-border);
+        border: 1px dashed var(--dn-control);
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1.5);
         font-size: 0.8125rem;
         font-family: var(--dn-font);

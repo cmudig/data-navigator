@@ -67,8 +67,13 @@
     const inside = (p: Pt, q: Geo) => p.x >= q.x && p.x <= q.x + q.width && p.y >= q.y && p.y <= q.y + q.height;
     const overlaps = (a: Geo, b: Geo) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
     const area = (q: Geo) => q.width * q.height;
-    const nodeAt = (p: Pt, skip: string[] = []) =>
-        visible.filter(n => !skip.includes(n.id) && inside(p, n.geo)).sort((a, b) => area(a.geo) - area(b.geo))[0]?.id ?? null;
+    const within = (p: Pt, id: string) => {
+        const el = svgEl?.querySelector<SVGGeometryElement>(`[data-node="${CSS.escape(id)}"] .shape`);
+        return el ? el.isPointInFill(new DOMPoint(p.x, p.y)) || el.isPointInStroke(new DOMPoint(p.x, p.y)) : false;
+    };
+    const under = (p: Pt, skip: string[] = []) =>
+        visible.filter(n => !skip.includes(n.id) && inside(p, n.geo) && within(p, n.id)).sort((a, b) => area(a.geo) - area(b.geo));
+    const nodeAt = (p: Pt, skip: string[] = []) => under(p, skip)[0]?.id ?? null;
     const box = (a: Pt, b: Pt) => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(b.x - a.x), height: Math.abs(b.y - a.y) });
     const toggle = (cur: Set<string>, ids: string[]) => {
         const out = new Set(cur);
@@ -149,7 +154,7 @@
             Object.assign(g, delta(e.clientX - g.s.x, e.clientY - g.s.y), { moved: true });
             const id = g.ids[0];
             const solo = g.ids.length === 1 && app.graph.nodes.get(id)?.kind === 'manual';
-            targets = solo ? visible.filter(n => n.id !== id && inside(p, n.geo)).map(n => n.id) : [];
+            targets = solo ? under(p, [id]).map(n => n.id) : [];
         }
     }
 
@@ -324,6 +329,7 @@
                 {@const missing = editor && app.missing.has(node.id)}
                 <g
                     class="node"
+                    data-node={node.id}
                     class:hovered={app.ui.hovered === node.id && !isSel}
                     class:source={edgeSource === node.id}
                     role="button"
@@ -343,7 +349,19 @@
                         <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={st.fillEnabled ? tools.nodeFillOpacity : 0} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
                     {/if}
                     {#if targets.includes(node.id)}
-                        <rect class="drop-target" x={q.x - 3 * k} y={q.y - 3 * k} width={q.width + 6 * k} height={q.height + 6 * k} rx="6" stroke-width={k} stroke-dasharray="{4 * k} {3 * k}" />
+                        {@const pad = 6 * k}
+                        {#if shape === 'path'}
+                            <path
+                                class="drop-target"
+                                d={q.path ?? ''}
+                                transform="translate({cx} {cy}) scale({(q.width + 2 * pad) / q.width} {(q.height + 2 * pad) / q.height}) translate({-cx} {-cy})"
+                                vector-effect="non-scaling-stroke" stroke-dasharray="{4 * k} {3 * k}"
+                            />
+                        {:else if shape === 'ellipse'}
+                            <ellipse class="drop-target" {cx} {cy} rx={q.width / 2 + pad} ry={q.height / 2 + pad} vector-effect="non-scaling-stroke" stroke-dasharray="{4 * k} {3 * k}" />
+                        {:else}
+                            <rect class="drop-target" x={q.x - pad} y={q.y - pad} width={q.width + 2 * pad} height={q.height + 2 * pad} rx="6" vector-effect="non-scaling-stroke" stroke-dasharray="{4 * k} {3 * k}" />
+                        {/if}
                     {/if}
                     {#if tools.showNodeLabels}
                         <text x={cx} y={cy} class="node-label" font-size={12 * (editor ? 1 : k)} fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor}>{node.name}</text>
@@ -473,6 +491,7 @@
     .drop-target {
         fill: none;
         stroke: var(--dn-text);
+        stroke-width: 1px;
         pointer-events: none;
     }
 

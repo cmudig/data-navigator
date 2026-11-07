@@ -325,7 +325,7 @@
     .btn-add-col {
         align-self: flex-start;
         background: none;
-        border: 1px dashed var(--dn-border);
+        border: 1px dashed var(--dn-control);
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1.5);
         font-size: 0.8125rem;
         font-family: var(--dn-font);
@@ -360,7 +360,7 @@
     .entry-table th,
     .entry-table td {
         padding: calc(var(--dn-space) * 0.5) calc(var(--dn-space) * 1);
-        border-bottom: 1px solid var(--dn-border);
+        border-bottom: 1px solid var(--dn-control);
         text-align: left;
         white-space: nowrap;
     }
@@ -371,7 +371,7 @@
         background: var(--dn-surface);
         font-weight: 600;
         color: var(--dn-text);
-        border-bottom: 2px solid var(--dn-border);
+        border-bottom: 2px solid var(--dn-control);
     }
 
     .col-badge {
@@ -461,7 +461,7 @@
     .btn-secondary {
         background: var(--dn-surface);
         color: var(--dn-text);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 2);
         border-radius: var(--dn-radius);
         font-size: 0.875rem;

@@ -432,7 +432,7 @@
     .qa-expand-btn {
         align-self: flex-start;
         background: none;
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: var(--dn-radius);
         padding: calc(var(--dn-space) * 0.375) calc(var(--dn-space) * 0.75);
         font-size: 0.8125rem;
@@ -475,7 +475,7 @@
         align-items: center;
         gap: calc(var(--dn-space) * 0.75);
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: var(--dn-radius);
         background: var(--dn-surface);
     }
@@ -505,7 +505,7 @@
 
     .qa-drag-btn {
         background: var(--dn-surface);
-        border: 1px solid var(--dn-border);
+        border: 1px solid var(--dn-control);
         border-radius: var(--dn-radius);
         padding: 2px 8px;
         cursor: pointer;
