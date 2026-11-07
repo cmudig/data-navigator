@@ -28,7 +28,8 @@
         <QAEngine />
     </div>
     <div class="prep-panel prep-bottom-left">
-        {#if app.doc.image}
+        {#if app.doc.data.rows || app.doc.image}
+            {@const img = app.doc.image}
             <div class="preview-tab-container">
                 <div
                     class="preview-tab-list"
@@ -54,7 +55,7 @@
                         aria-controls="preview-panel-image"
                         tabindex={activePreviewTab === 1 ? 0 : -1}
                         onclick={() => activePreviewTab = 1}
-                    >Image</button>
+                    >{img && !img.built ? 'Image' : 'Built chart'}</button>
                 </div>
                 <div
                     id="preview-panel-data"
@@ -72,7 +73,11 @@
                     aria-labelledby="preview-tab-image"
                     hidden={activePreviewTab !== 1}
                 >
-                    <img src={app.doc.image.url} alt="Uploaded chart" class="image-preview" />
+                    {#if img}
+                        <img src={img.url} alt={img.built ? 'Chart built from your data' : 'Uploaded chart'} class="image-preview" />
+                    {:else}
+                        <p class="preview-note">No chart yet. Answer the first prep question to build one from your data.</p>
+                    {/if}
                 </div>
             </div>
         {:else}
@@ -160,6 +165,12 @@
         flex: 1;
         overflow: auto;
         min-height: 0;
+    }
+
+    .preview-note {
+        padding: var(--dn-space) calc(var(--dn-space) * 2);
+        color: var(--dn-text-muted);
+        font-size: 0.875rem;
     }
 
     .image-preview {

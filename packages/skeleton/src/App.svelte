@@ -1,14 +1,15 @@
 <script lang="ts">
     import './styles/global.css';
-    import { app, goTo, undo, redo, load } from './model/state.svelte';
+    import { app, goTo, undo, redo, load, stepFor } from './model/state.svelte';
     import { saveDoc, loadDoc } from './utils/saveLoad';
     import StepNav from './app/components/StepNav.svelte';
     import PropertiesPanel from './app/components/PropertiesPanel.svelte';
     import SchemaPanel from './app/components/SchemaPanel.svelte';
     import ScaffoldPanel from './app/components/scaffold/ScaffoldPanel.svelte';
-    import { buildVegaSpec, renderHidden } from './utils/vegaBuilder';
+    import { buildVegaSpec, renderHidden, toImage } from './utils/vegaBuilder';
     import { vega } from './runtime/adapters.js';
     import EntryNodeModal from './app/components/EntryNodeModal.svelte';
+    import SkipPrepModal from './app/components/SkipPrepModal.svelte';
     import Step0_Upload from './app/steps/Step0_Upload.svelte';
     import Step1_Prep from './app/steps/Step1_Prep.svelte';
     import Step2_Editor from './app/steps/Step2_Editor.svelte';
@@ -22,26 +23,57 @@
     const ActiveStep = $derived(steps[step]);
     const isFullWidth = $derived(step !== 2);
     const scaffoldModeActive = $derived(app.ui.scaffoldMode);
-    const showSchemaPanel = $derived(step === 2 && !!app.doc.data.rows);
+    const showSchemaPanel = $derived(step === 2);
     let historyOpen = $state(false);
 
-    let release: (() => void) | null = null;
+    let builtKey = '';
     $effect(() => {
-        const cfg = app.scaffold;
-        const rows = app.vegaRows;
-        if (!cfg) {
-            app.measure = app.view = null;
+        const spec = app.chartSpec;
+        const img = app.doc.image;
+        if (img && !img.built) return;
+        const key = spec ? JSON.stringify(spec) : '';
+        if (key === builtKey && (!!img) === !!spec) return;
+        builtKey = key;
+        if (!spec) {
+            if (img) app.doc = { ...app.doc, image: null };
             return;
         }
         let stale = false;
         const timer = setTimeout(async () => {
             try {
-                const { view, cleanup } = await renderHidden(buildVegaSpec(cfg, rows));
+                const image = await toImage(spec);
+                if (!stale) app.doc = { ...app.doc, image: { ...image, built: true } };
+            } catch (e) {
+                builtKey = '';
+                app.error = String(e);
+            }
+        }, 200);
+        return () => {
+            stale = true;
+            clearTimeout(timer);
+        };
+    });
+
+    let release: (() => void) | null = null;
+    $effect(() => {
+        const cfg = app.scaffold;
+        const built = app.built;
+        const rows = app.vegaRows;
+        const spec = built ? app.chartSpec! : cfg && buildVegaSpec(cfg, rows);
+        if (!spec) {
+            app.measure = app.view = null;
+            return;
+        }
+        const offset = built || !cfg ? [0, 0] : [cfg.offsetX, cfg.offsetY];
+        let stale = false;
+        const timer = setTimeout(async () => {
+            try {
+                const { view, cleanup } = await renderHidden(spec);
                 if (stale) return cleanup();
                 release?.();
                 release = cleanup;
                 app.view = view;
-                app.measure = vega(view, { key: (d: any) => d._dn_row, offset: [cfg.offsetX, cfg.offsetY] })();
+                app.measure = vega(view, { key: (d: any) => d._dn_row, offset })();
                 app.error = '';
             } catch (e) {
                 app.error = String(e);
@@ -107,6 +139,7 @@
     async function handleLoadFile(file: File) {
         try {
             load(await loadDoc(file));
+            goTo(stepFor(app.doc), true);
             showStatus(`Loaded ${file.name}.`);
         } catch (e) {
             showStatus(`Load failed: ${(e as Error).message}`);
@@ -278,6 +311,10 @@
     />
 {/if}
 
+{#if app.ui.skipPrep !== null}
+    <SkipPrepModal onclose={() => (app.ui.skipPrep = null)} />
+{/if}
+
 {#if app.ui.entryGate}
     <EntryNodeModal
         onclose={() => (app.ui.entryGate = false)}
@@ -414,6 +451,9 @@
 
     :global(.workspace > aside) {
         min-height: 0;
+    }
+
+    :global(.workspace > aside:not(.workspace-panel)) {
         overflow: hidden;
     }
 </style>

@@ -3,6 +3,7 @@
     import type { Geo, LabelTemplate, Style } from '../../model/doc';
     import { shiftPath, templateFor } from '../../runtime/dn-runtime.js';
     import LabelBuilder from './prep/LabelBuilder.svelte';
+    import { parentGroup, structureOrder } from '../../model/edits';
 
     const LEVEL: Record<string, 0 | 1 | 2 | 3> = { root: 0, dimension: 1, division: 2, leaf: 3, manual: 3 };
     const nodes = $derived(app.graph.nodes);
@@ -15,7 +16,8 @@
     const keys = $derived(app.structure.navigationRules);
     let posUnit = $state<'px' | '%'>('px');
     let bulkTemplate = $state('');
-    let bulkRules = $state('');
+    let addRule = $state('');
+    let firstChild = $state('');
     let applyMsg = $state('');
 
     const toUnit = (v: number, axis: 'width' | 'height') => (posUnit === '%' ? Math.round((v / app.size[axis]) * 10000) / 100 : Math.round(v));
@@ -78,6 +80,32 @@
         });
         applyMsg = `Applied to ${ids.length} edge${ids.length > 1 ? 's' : ''}.`;
     }
+    const groups = $derived(Object.entries(Object.groupBy(selEdges, e => e.rules.join(', '))).map(([sig, es]) => ({ sig, ids: es!.map(e => e.id), rules: es![0].rules })));
+    const fan = $derived.by(() => {
+        if (selEdges.length < 2 || selNodes.length) return null;
+        const side = selEdges.every(e => e.source === selEdges[0].source) ? 0 : selEdges.every(e => e.target === selEdges[0].target) ? 1 : -1;
+        if (side < 0) return null;
+        const hub = side ? selEdges[0].target : selEdges[0].source;
+        const kids = selEdges.map(e => (side ? e.source : e.target));
+        return new Set(kids).size === kids.length ? { hub, kids: structureOrder(kids) } : null;
+    });
+    const setKey = (name: string, patch: Partial<{ key: string; direction: 'source' | 'target' }>) =>
+        edit('Updated key', d => (d.recipe.keys[name] = { key: keys[name]?.key ?? '', direction: keys[name]?.direction ?? 'target', ...patch }), true);
+    function appendRule(ids: string[], rule: string) {
+        if (!rule.trim()) return;
+        edit(`Added rule to ${ids.length} edges`, d => {
+            for (const id of ids) {
+                const rules = [...new Set([...edges.get(id)!.rules, rule.trim()])];
+                if (d.overrides.added.edges[id]) d.overrides.added.edges[id].rules = rules;
+                else d.overrides.edges[id] = { ...d.overrides.edges[id], rules };
+            }
+        });
+        addRule = '';
+        applyMsg = `Added "${rule}" to ${ids.length} edges.`;
+    }
+    const connectTo = (id: string) =>
+        (app.ui.connect = { id, targets: [...nodes.values()].filter(n => n.id !== id && n.kind !== 'leaf').map(n => n.id) });
+
     function bulkLabel() {
         const ids = selNodes.map(n => n.id);
         edit(`Set label on ${ids.length} nodes`, d => {
@@ -97,6 +125,31 @@
             }
         });
 </script>
+
+{#snippet rulesEditor(ids: string[], rules: string[], uid: string)}
+    {@const first = edges.get(ids[0])}
+    <div class="field">
+        <label for="rules-{uid}">Navigation rules <span class="field-sub">(comma-separated)</span></label>
+        {#key ids.join() + rules.join()}
+            <input id="rules-{uid}" type="text" value={rules.join(', ')} onchange={e => setRules(ids, parseRules(e.currentTarget.value))} />
+        {/key}
+    </div>
+    <ul class="kv-list" aria-label="Keys for these rules">
+        {#each rules as r (r)}
+            <li class="kv-row rule-row">
+                <span class="kv-input">{r}</span>
+                <label class="visually-hidden" for="key-{uid}-{r}">Key for {r}</label>
+                <input id="key-{uid}-{r}" class="kv-input" type="text" placeholder="no key" value={keys[r]?.key ?? ''} aria-invalid={!keys[r]?.key} onchange={e => setKey(r, { key: e.currentTarget.value })} />
+                <label class="visually-hidden" for="dir-{uid}-{r}">Where {r} goes</label>
+                <select id="dir-{uid}-{r}" value={keys[r]?.direction ?? 'target'} onchange={e => setKey(r, { direction: e.currentTarget.value as 'source' | 'target' })}>
+                    <option value="target">to {ids.length > 1 ? 'target' : nodes.get(first!.target)?.name}</option>
+                    <option value="source">to {ids.length > 1 ? 'source' : nodes.get(first!.source)?.name}</option>
+                </select>
+            </li>
+            {#if !keys[r]?.key}<li class="field-sub">⚠ "{r}" has no key yet, so keyboard users cannot follow it.</li>{/if}
+        {/each}
+    </ul>
+{/snippet}
 
 <div class="visually-hidden" aria-live="polite" aria-atomic="true">{applyMsg}</div>
 
@@ -132,6 +185,9 @@
             <input id="node-is-entry" type="checkbox" checked={isEntry} onchange={e => setEntry(node.id, e.currentTarget.checked)} />
         </div>
         <p class="field-sub">Announced as: {node.label}</p>
+        {#if isManual}
+            <button class="btn-ghost btn-sm" type="button" onclick={() => connectTo(node.id)}>Connect to…</button>
+        {/if}
     </section>
 
     <details class="panel-section">
@@ -157,9 +213,13 @@
         </div>
     </details>
 
-    <section class="panel-section" aria-labelledby="section-semantics">
+    {@const missing = app.missing.has(node.id)}
+    <section class="panel-section" class:missing aria-labelledby="section-semantics">
         <h3 id="section-semantics" class="section-heading">Semantics</h3>
-        <LabelBuilder level={LEVEL[node.kind]} value={template} nodeId={node.id} dimensionKey={node.dimensionKey} onchange={setTemplate} />
+        {#if missing}
+            <p id="missing-note" class="missing-note"><span aria-hidden="true">⚠</span> Important descriptive text has not yet been set.</p>
+        {/if}
+        <LabelBuilder level={LEVEL[node.kind]} value={template} nodeId={node.id} dimensionKey={node.dimensionKey} onchange={setTemplate} missing={missing ? 'missing-note' : undefined} />
         {#if nov?.semantics}
             <button class="btn-ghost btn-sm" type="button" onclick={() => resetTemplate(node.id)}>Use the shared label for this level</button>
         {/if}
@@ -250,17 +310,7 @@
 {:else if edge}
     <section class="panel-section" aria-labelledby="section-edge">
         <h3 id="section-edge" class="section-heading">Edge</h3>
-        <div class="field">
-            <label for="edge-nav-rules">Navigation rules <span class="field-sub">(comma-separated, e.g. down, up)</span></label>
-            {#key edge.id}
-                <input id="edge-nav-rules" type="text" value={edge.rules.join(', ')} onchange={e => setRules([edge.id], parseRules(e.currentTarget.value))} />
-            {/key}
-        </div>
-        <ul class="kv-list" aria-label="Keys for these rules">
-            {#each edge.rules as r (r)}
-                <li class="kv-row"><span class="kv-input">{r}</span><span class="kv-input">{keys[r]?.key || 'no key'} ({keys[r]?.direction === 'source' ? `to ${nodes.get(edge.source)?.name}` : `to ${nodes.get(edge.target)?.name}`})</span></li>
-            {/each}
-        </ul>
+        {@render rulesEditor([edge.id], edge.rules, 'one')}
         <div class="field">
             <span class="field-label-only">From</span>
             <button class="btn-ghost btn-sm" type="button" onclick={() => select([edge.source])}>{nodes.get(edge.source)?.name ?? edge.source}</button>
@@ -287,16 +337,81 @@
     {#if selEdges.length}
         <section class="panel-section" aria-labelledby="section-multi-edge">
             <h3 id="section-multi-edge" class="section-heading">{selEdges.length} Edges Selected</h3>
-            <div class="field">
-                <label for="bulk-rules">Set navigation rules for all</label>
-                <input id="bulk-rules" type="text" placeholder="down, up" bind:value={bulkRules} />
-                <button class="btn-primary btn-sm" type="button" onclick={() => setRules(selEdges.map(e => e.id), parseRules(bulkRules))}>Apply</button>
-            </div>
+            {#if groups.length === 1}
+                <p class="field-sub">All selected edges share the same rules. Edits apply to every one.</p>
+                {@render rulesEditor(groups[0].ids, groups[0].rules, 'all')}
+            {:else}
+                <p class="missing-note" role="status"><span aria-hidden="true">⚠</span> These edges use {groups.length} different sets of rules, so they can't be overwritten together. Edit each set below, or add a rule to all.</p>
+                <div class="field">
+                    <label for="add-rule-all">Add a rule to all {selEdges.length} edges</label>
+                    <input id="add-rule-all" type="text" placeholder="e.g. forward" bind:value={addRule} onkeydown={e => e.key === 'Enter' && appendRule(selEdges.map(x => x.id), addRule)} />
+                    <button class="btn-primary btn-sm" type="button" onclick={() => appendRule(selEdges.map(x => x.id), addRule)}>Add</button>
+                </div>
+                {#each groups as grp, i (grp.sig)}
+                    <details class="rule-group" open={i === 0}>
+                        <summary>{grp.sig || 'no rules'} ({grp.ids.length} edge{grp.ids.length > 1 ? 's' : ''})</summary>
+                        {@render rulesEditor(grp.ids, grp.rules, `g${i}`)}
+                        <button class="btn-ghost btn-sm" type="button" onclick={() => select([], grp.ids)}>Select only these</button>
+                    </details>
+                {/each}
+            {/if}
+            {#if fan}
+                {@const first = fan.kids.includes(firstChild) ? firstChild : fan.kids[0]}
+                <div class="field fan">
+                    <p class="field-sub">These edges all meet at {nodes.get(fan.hub)?.name}. Turn them into a parent group: {nodes.get(fan.hub)?.name} drills in to the first child, and every child drills out to it.</p>
+                    <label for="first-child">First child</label>
+                    <select id="first-child" value={first} onchange={e => (firstChild = e.currentTarget.value)}>
+                        {#each fan.kids as k (k)}<option value={k}>{nodes.get(k)?.name ?? k}</option>{/each}
+                    </select>
+                    <button class="btn-primary btn-sm" type="button" onclick={() => parentGroup(selEdges.map(x => x.id), fan.hub, fan.kids, first)}>Create parent grouping</button>
+                </div>
+            {/if}
         </section>
     {/if}
 {/if}
 
 <style>
+    .missing {
+        outline: 1px solid #c62828;
+        outline-offset: 4px;
+        border-radius: 2px;
+    }
+
+    .missing-note {
+        margin: 0 0 var(--dn-space);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #b71c1c;
+    }
+
+    :global(.dark) .missing-note {
+        color: #ff8a80;
+    }
+
+    .kv-row.rule-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px 0;
+        border-top: 1px solid var(--dn-border);
+    }
+
+    .rule-row select {
+        grid-column: 1 / -1;
+        font-size: 0.75rem;
+    }
+
+    .rule-group {
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        padding: var(--dn-space);
+        margin-top: var(--dn-space);
+    }
+
+    .fan {
+        margin-top: calc(var(--dn-space) * 1.5);
+    }
+
     /* ── Section layout ── */
     .panel-section {
         padding: calc(var(--dn-space) * 1.5) 0;

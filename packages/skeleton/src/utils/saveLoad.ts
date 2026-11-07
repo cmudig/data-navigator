@@ -63,5 +63,6 @@ export async function loadDoc(file: Blob): Promise<Doc> {
     if (saved.version !== '2' || !saved.doc) throw new Error('Unrecognized save file format.');
     const doc: Doc = saved.doc;
     doc.image = doc.image && url ? { ...doc.image, url } : null;
+    doc.overrides.order ??= {};
     return doc;
 }

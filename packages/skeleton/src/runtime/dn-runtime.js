@@ -151,15 +151,23 @@ export function stamp(pattern, rows) {
     });
 }
 
+export const firstValue = (div, key) => String(Object.values(div.values || {})[0]?.[key] ?? '');
+
 export function toOptions(pattern, rows) {
     const r = pattern.recipe;
     const values = r.dimensions.map(d => {
         const operations = { compressSparseDivisions: d.compress };
         if (d.type === 'numerical') {
             operations.createNumericalSubdivisions = d.subdivisions || 1;
+        } else if (d.order?.length) {
+            const at = div => {
+                const i = d.order.indexOf(firstValue(div, d.key));
+                return i < 0 ? Infinity : i;
+            };
+            operations.sortFunction = (a, b) => at(a) - at(b);
         } else if (d.sort !== 'none') {
-            const first = div => String(Object.values(div.values || {})[0]?.[d.key] ?? '');
-            operations.sortFunction = (a, b) => (d.sort === 'ascending' ? 1 : -1) * first(a).localeCompare(first(b));
+            operations.sortFunction = (a, b) =>
+                (d.sort === 'ascending' ? 1 : -1) * firstValue(a, d.key).localeCompare(firstValue(b, d.key));
         }
         return {
             dimensionKey: d.key,
@@ -225,15 +233,16 @@ export function buildStructure(pattern, rows) {
         s.nodes[e.source].edges.push(id);
         if (e.source !== e.target) s.nodes[e.target].edges.push(id);
     }
-    for (const [id, e] of Object.entries(ov.edges || {})) {
-        if (!s.edges[id]) continue;
-        if (e.removed) unlink(s, id);
-        else if (e.rules) s.edges[id].navigationRules = e.rules;
-    }
     for (const [id, n] of Object.entries(ov.nodes || {})) {
         if (!n.removed || !s.nodes[id]) continue;
         s.nodes[id].edges.slice().forEach(e => unlink(s, e));
         delete s.nodes[id];
+    }
+    applyOrder(s, ov.order || {}, r);
+    for (const [id, e] of Object.entries(ov.edges || {})) {
+        if (!s.edges[id]) continue;
+        if (e.removed) unlink(s, id);
+        else if (e.rules) s.edges[id].navigationRules = e.rules;
     }
     const rules = { exit: { key: 'Escape', direction: 'target' } };
     for (const e of Object.values(s.edges))
@@ -242,6 +251,93 @@ export function buildStructure(pattern, rows) {
     s.navigationRules = rules;
     describe(s, pattern, data);
     return s;
+}
+
+const isDrill = r => r.startsWith('drill');
+const link = (s, id, source, target, rules) => {
+    const e = s.edges[id];
+    if (e) return void (e.navigationRules = [...new Set([...e.navigationRules, ...rules])]);
+    s.edges[id] = { edgeId: id, source, target, navigationRules: rules };
+    s.nodes[source].edges.push(id);
+    s.nodes[target].edges.push(id);
+};
+
+/** @returns {{ parent: Record<string, string>, children: Record<string, string[]> }} */
+export function tree(s) {
+    const parent = {};
+    const kids = {};
+    for (const e of Object.values(s.edges)) {
+        if (e.source === e.target || !s.nodes[e.source] || !s.nodes[e.target]) continue;
+        if (!e.navigationRules.some(isDrill)) continue;
+        parent[e.target] ??= e.source;
+        (kids[e.source] ??= []).includes(e.target) || kids[e.source].push(e.target);
+    }
+    const top = Object.values(s.nodes)
+        .filter(n => n.dimensionLevel === 1 && !parent[n.id])
+        .map(n => n.id);
+    if (top.length) kids[''] = top;
+    const children = {};
+    for (const [p, ids] of Object.entries(kids)) {
+        const set = new Set(ids);
+        const next = {};
+        const hasPrev = new Set();
+        for (const e of Object.values(s.edges))
+            if (set.has(e.source) && set.has(e.target) && !e.navigationRules.some(isDrill)) {
+                next[e.source] ??= e.target;
+                hasPrev.add(e.target);
+            }
+        const first = s.nodes[p]?.edges.map(id => s.edges[id]).find(e => e?.source === p && set.has(e.target))?.target;
+        const out = [];
+        let cur = first ?? ids.find(id => !hasPrev.has(id)) ?? ids[0];
+        while (cur && !out.includes(cur)) (out.push(cur), (cur = next[cur]));
+        children[p] = out.length === ids.length ? out : ids;
+    }
+    return { parent, children };
+}
+
+function applyOrder(s, order, recipe) {
+    for (const [p, ids] of Object.entries(order)) {
+        if (p && !s.nodes[p]) continue;
+        const current = tree(s).children[p] ?? [];
+        const list = [...ids.filter(id => s.nodes[id]), ...current.filter(id => !ids.includes(id))];
+        if (list.length < 2) continue;
+        const set = new Set(list);
+        let pair = null;
+        const linked = new Set();
+        const hasPrev = new Set();
+        for (const [id, e] of Object.entries(s.edges)) {
+            if (!set.has(e.source) || !set.has(e.target) || e.navigationRules.some(isDrill)) continue;
+            pair ??= e.navigationRules.slice(0, 2);
+            linked.add(e.source).add(e.target);
+            hasPrev.add(e.target);
+            e.navigationRules = e.navigationRules.filter(r => !pair.includes(r));
+            if (!e.navigationRules.length) unlink(s, id);
+        }
+        const wrap = linked.size > 1 && [...linked].every(id => hasPrev.has(id));
+        const dim = recipe.dimensions.find(d => s.nodes[p]?.derivedNode === d.key);
+        pair ??= p ? (dim?.nav.sibling ?? ['left', 'right']) : recipe.level1.nav;
+        list.slice(1).forEach((id, i) => link(s, `${list[i]}-${id}`, list[i], id, pair));
+        if (wrap) link(s, `${list.at(-1)}-${list[0]}`, list.at(-1), list[0], pair);
+        if (!p) continue;
+        const P = s.nodes[p];
+        const drill = Object.values(s.edges).find(
+            e => e.source === p && set.has(e.target) && e.navigationRules.some(isDrill)
+        );
+        const rules = drill?.navigationRules.filter(isDrill) ?? ['drill-out', 'drill-in'];
+        const out = rules.find(r => r.startsWith('drill-out')) ?? 'drill-out';
+        const inn = rules.find(r => !r.startsWith('drill-out')) ?? 'drill-in';
+        for (const id of list) {
+            const eid = Object.keys(s.edges).find(k => s.edges[k].source === p && s.edges[k].target === id);
+            if (eid) s.edges[eid].navigationRules = [...new Set([...s.edges[eid].navigationRules, out])];
+            else link(s, `${p}-${id}`, p, id, [out]);
+        }
+        const firstEdge = `${p}-${list[0]}`;
+        const firstId = s.edges[firstEdge]
+            ? firstEdge
+            : Object.keys(s.edges).find(k => s.edges[k].source === p && s.edges[k].target === list[0]);
+        s.edges[firstId].navigationRules = [...new Set([...s.edges[firstId].navigationRules, inn])];
+        P.edges = [firstId, ...P.edges.filter(id => id !== firstId)];
+    }
 }
 
 export function context(s, pattern) {

@@ -43,6 +43,7 @@ export interface Dim {
     extents: Extents;
     nav: { sibling: Pair; drill: Pair };
     divisionIds?: Record<string, string>;
+    order?: string[];
 }
 export interface NavKey {
     key: string;
@@ -152,6 +153,7 @@ export interface AddedNode {
     label: string;
     geo: Geo;
     data?: Row;
+    level?: number;
 }
 export interface AddedEdge {
     source: string;
@@ -162,13 +164,23 @@ export interface Overrides {
     nodes: Record<string, NodeOverride>;
     edges: Record<string, { removed?: true; rules?: string[] }>;
     added: { nodes: Record<string, AddedNode>; edges: Record<string, AddedEdge> };
+    order: Record<string, string[]>;
+}
+
+export interface ChartBuild {
+    mode: 'encode' | 'spec' | 'none';
+    type?: string;
+    x?: string;
+    y?: string;
+    color?: string;
+    spec?: string;
 }
 
 export interface Doc {
     v: 2;
-    image: { url: string; width: number; height: number } | null;
+    image: { url: string; width: number; height: number; built?: true } | null;
     data: { rows: Row[] | null; name: string; fields: Field[]; idKey: string | null };
-    chart: { type: string; description: string };
+    chart: { type: string; description: string; build?: ChartBuild };
     recipe: Recipe;
     scaffold: ScaffoldConfig | null;
     overrides: Overrides;
@@ -225,7 +237,7 @@ export const emptyDoc = (): Doc => ({
     chart: { type: '', description: '' },
     recipe: emptyRecipe(),
     scaffold: null,
-    overrides: { nodes: {}, edges: {}, added: { nodes: {}, edges: {} } },
+    overrides: { nodes: {}, edges: {}, added: { nodes: {}, edges: {} }, order: {} },
     entry: null,
     meta: { seen: [], prepDone: false }
 });
@@ -429,7 +441,7 @@ export function migrate(v1: any, imageUrl: string | null): Doc {
 }
 
 export const newId = (prefix: string, taken: Record<string, unknown>) => {
-    let i = Object.keys(taken).length + 1;
+    let i = 1;
     while (taken[createValidId(`${prefix} ${i}`)]) i++;
     return createValidId(`${prefix} ${i}`);
 };

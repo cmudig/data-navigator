@@ -1,6 +1,14 @@
 import { tick } from 'svelte';
-import { applyGeometry, buildStructure, prepareRows, stamp, toGeometry } from '../runtime/dn-runtime.js';
-import { resolveFields } from '../utils/vegaBuilder';
+import {
+    applyGeometry,
+    buildStructure,
+    prepareRows,
+    stamp,
+    templateFor,
+    toGeometry,
+    tree
+} from '../runtime/dn-runtime.js';
+import { chartSpec, resolveFields } from '../utils/vegaBuilder';
 import { defaultStyle, emptyDoc, keyConflicts, patternOf, type Doc, type Geo, type Row, type Style } from './doc';
 
 export type Kind = 'root' | 'dimension' | 'division' | 'leaf' | 'manual';
@@ -30,6 +38,14 @@ interface Entry {
     label: string;
     doc: Doc;
     time: number;
+}
+
+export type Tool = 'selectNodes' | 'selectEdges' | 'addNode' | 'addEdge' | 'pan';
+export interface Ordering {
+    ids: string[];
+    order: string[];
+    mode: 'structure' | 'spatial' | 'click' | 'draw' | null;
+    ask: boolean;
 }
 
 export const defaultTools = () => ({
@@ -94,7 +110,16 @@ class Store {
         entryGate: false,
         qa: '',
         schema: { collapsed: false, graphMode: 'tree' as 'tree' | 'force', hideLeafNodes: false },
-        tools: defaultTools()
+        tools: defaultTools(),
+        tool: 'selectNodes' as Tool,
+        edgeRules: ['up', 'down'] as string[],
+        swapped: false,
+        view: { tx: 0, ty: 0, scale: 1, w: 0, h: 0, cw: 0, ch: 0 },
+        space: false,
+        ordering: null as Ordering | null,
+        connect: null as { id: string; targets: string[] } | null,
+        skipPrep: null as number | null,
+        live: ''
     });
 
     pattern = $derived(patternOf(this.doc));
@@ -102,12 +127,14 @@ class Store {
     scaffold = $derived(this.doc.scaffold && resolveFields(this.doc.scaffold, this.doc));
     prepared = $derived<Row[]>(prepareRows(this.pattern, this.rows));
     vegaRows = $derived(stamp(this.pattern, this.prepared));
+    chartSpec = $derived(chartSpec(this.doc.chart.build, this.doc.data.fields, this.vegaRows));
+    built = $derived(!!this.chartSpec && !!this.doc.image?.built);
     size = $derived({ width: this.doc.image?.width ?? 1200, height: this.doc.image?.height ?? 800 });
 
     structure = $derived.by(() => {
         const p = this.pattern;
         const pins = p.overrides.nodes;
-        const m = this.doc.scaffold ? this.measure : null;
+        const m = this.doc.scaffold || this.built ? this.measure : null;
         let s: any;
         try {
             s = buildStructure(p, this.rows);
@@ -161,7 +188,7 @@ class Store {
             const ext = info?.extents;
             const name =
                 kind === 'manual'
-                    ? ov.added.nodes[id].label
+                    ? ov.added.nodes[id].label || id
                     : kind === 'root'
                       ? id
                       : kind === 'dimension'
@@ -191,6 +218,37 @@ class Store {
             if (typeof e.source === 'string' && typeof e.target === 'string')
                 edges.set(id, { id, source: e.source, target: e.target, rules: e.navigationRules, manual: !!e.manual });
         return { nodes, edges };
+    });
+
+    tree = $derived.by(() => {
+        const s = this.structure;
+        const t = tree(s);
+        const level: Record<string, number> = {};
+        const added = this.doc.overrides.added.nodes;
+        for (const n of Object.values<any>(s.nodes)) if (!n.manual) level[n.id] = n.dimensionLevel ?? 3;
+        for (let pass = 0; pass < 4; pass++)
+            for (const id in added) {
+                if (!s.nodes[id] || level[id] !== undefined) continue;
+                const p = t.parent[id];
+                const kid = t.children[id]?.find(k => level[k] !== undefined);
+                const l = added[id].level ?? (p ? level[p] + 1 : kid ? level[kid] - 1 : undefined);
+                if (l !== undefined && !isNaN(l)) level[id] = l;
+            }
+        const group = (id: string) => t.parent[id] ?? (t.children['']?.includes(id) ? '' : undefined);
+        return { ...t, level, group };
+    });
+
+    missing = $derived.by(() => {
+        const s = this.structure;
+        const p = this.pattern;
+        const out = new Set<string>();
+        if (!s.context) return out;
+        for (const n of Object.values<any>(s.nodes)) {
+            const lv = n.manual ? -1 : (n.dimensionLevel ?? 3);
+            if (lv === 3 || (lv > 0 && !p.overrides.nodes[n.id]?.semantics)) continue;
+            if (!String(templateFor(n, p, s.context).template ?? '').trim()) out.add(n.id);
+        }
+        return out;
     });
 
     conflicts = $derived(keyConflicts(this.structure.navigationRules));
@@ -286,16 +344,14 @@ export function select(nodes: string[] = [], edges: string[] = []) {
     app.ui.selectedEdges = edges;
 }
 
-export async function goTo(step: number) {
+export const stepFor = (d: Doc) => (!d.data.rows && !d.image ? 0 : d.meta.prepDone ? 2 : 1);
+
+export async function goTo(step: number, force = false) {
     const ui = app.ui;
     if (step === ui.step) return;
-    if (step === 2 && ui.step === 1 && !app.doc.meta.prepDone && app.doc.data.rows) {
-        if (
-            !confirm(
-                "You haven't finished prepping your data. The Editor will start from the answers so far. Continue?"
-            )
-        )
-            return;
+    if (!force && step >= 2 && ui.step === 1 && !app.doc.meta.prepDone && app.doc.data.rows) {
+        ui.skipPrep = step;
+        return;
     }
     if (step >= 3 && !app.entry) {
         ui.entryGate = true;
@@ -305,4 +361,20 @@ export async function goTo(step: number) {
     ui.scaffoldMode = ui.scaffoldMode && step === 2;
     await tick();
     document.getElementById(`step-heading-${step}`)?.focus();
+}
+
+export function zoomTo(scale: number) {
+    const v = app.ui.view;
+    const next = Math.max(0.1, Math.min(8, scale));
+    v.tx = v.w / 2 - (v.w / 2 - v.tx) * (next / v.scale);
+    v.ty = v.h / 2 - (v.h / 2 - v.ty) * (next / v.scale);
+    v.scale = next;
+}
+
+export function fitView() {
+    const v = app.ui.view;
+    if (!v.w || !v.h || !v.cw || !v.ch) return;
+    v.scale = Math.min(v.w / v.cw, v.h / v.ch) * 0.95;
+    v.tx = (v.w - v.cw * v.scale) / 2;
+    v.ty = (v.h - v.ch * v.scale) / 2;
 }

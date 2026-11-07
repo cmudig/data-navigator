@@ -11,8 +11,9 @@
         nodeId?: string;
         suggestedFields?: { key: string; rank?: string }[];
         suggestedAggField?: string;
+        missing?: string;
     }
-    const { value, level, onchange, dimensionKey, nodeId, suggestedFields = [], suggestedAggField }: Props = $props();
+    const { value, level, onchange, dimensionKey, nodeId, suggestedFields = [], suggestedAggField, missing }: Props = $props();
 
     const fields = $derived(app.doc.data.fields.filter(f => !f.removed).map(f => f.key));
     const numeric = $derived(app.doc.data.fields.filter(f => !f.removed && f.type === 'numerical').map(f => f.key));
@@ -139,17 +140,17 @@
     {/if}
 
     <div class="lb-template-row">
-        <label class="lb-label" for="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}">Label template</label>
+        <label class="lb-label" for="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}">Label template{#if missing && !value.template}<span class="req" aria-hidden="true"> *</span>{/if}</label>
         <div class="lb-template-controls">
-            <input id="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-template-input" value={value.template} oninput={e => set({ template: e.currentTarget.value })} placeholder={'e.g. {value:"name"}: {value:"score"}'} />
+            <input id="lb-template-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-template-input" aria-invalid={!!missing && !value.template} aria-describedby={missing && !value.template ? missing : undefined} value={value.template} oninput={e => set({ template: e.currentTarget.value })} placeholder={'e.g. {value:"name"}: {value:"score"}'} />
             <button class="lb-clear-btn" type="button" onclick={() => set({ template: '' })} aria-label="Clear label template">Clear</button>
         </div>
     </div>
 
     <div class="lb-options">
         <div class="lb-noun-row">
-            <label class="lb-label" for="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}">What is this item called?</label>
-            <input id="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-noun-input" value={value.name} oninput={e => set({ name: e.currentTarget.value })} placeholder={['root', 'group', 'subgroup', 'data point'][level]} />
+            <label class="lb-label" for="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}">What is this item called?{#if missing && !value.name}<span class="req" aria-hidden="true"> *</span>{/if}</label>
+            <input id="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-noun-input" aria-invalid={!!missing && !value.name} aria-describedby={missing && !value.name ? missing : undefined} value={value.name} oninput={e => set({ name: e.currentTarget.value })} placeholder={['root', 'group', 'subgroup', 'data point'][level]} />
         </div>
         {#if level === 2 || level === 3 || (level === 1 && dims.length > 1)}
             <label class="lb-checkbox-label">
@@ -195,6 +196,15 @@
 </div>
 
 <style>
+    .req {
+        color: #c62828;
+        font-weight: 700;
+    }
+
+    [aria-invalid='true'] {
+        border-color: #c62828 !important;
+    }
+
     .label-builder {
         display: flex;
         flex-direction: column;

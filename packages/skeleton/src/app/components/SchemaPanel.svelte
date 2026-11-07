@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
-    import { Inspector } from '@data-navigator/inspector';
-    import { app, edit, select } from '../../model/state.svelte';
+    import { app, edit } from '../../model/state.svelte';
     import { SIBLING_PRESETS, newDim, presetOf, syncKeys, template, type Dim, type Doc, type LabelTemplate } from '../../model/doc';
     import LabelBuilder from './prep/LabelBuilder.svelte';
+    import SpatialView from './SpatialView.svelte';
+    import StructureView from './StructureView.svelte';
 
     const ui = $derived(app.ui.schema);
     const r = $derived(app.doc.recipe);
@@ -11,7 +11,6 @@
     const s = $derived(app.structure);
     const conflicts = $derived(app.conflicts);
     let allowMore = $state(false);
-    let container: HTMLDivElement | undefined = $state();
 
     const recipe = (label: string, mutate: (r: Doc['recipe']) => void, coalesce = false) =>
         edit(label, d => {
@@ -50,46 +49,6 @@
     };
     const divValue = (key: string, div: any) => String(Object.values<any>(div.values)[0]?.[key] ?? div.id);
 
-    const sig = $derived(Object.keys(s.nodes).join() + '|' + Object.keys(s.edges).join() + ui.graphMode + ui.hideLeafNodes);
-    let inspector: ReturnType<typeof Inspector> | null = null;
-    $effect(() => {
-        sig;
-        const el = container;
-        if (!el) return;
-        untrack(() => {
-            const nodes = ui.hideLeafNodes ? Object.fromEntries(Object.entries<any>(s.nodes).filter(([, n]) => n.dimensionLevel !== undefined || n.manual)) : s.nodes;
-            el.innerHTML = '';
-            inspector = Inspector({ structure: { ...s, nodes }, container: el, size: { width: 360, height: 350 }, mode: ui.graphMode, colorBy: 'dimensionLevel', nodeRadius: 6 });
-            el.querySelectorAll('circle').forEach(c => {
-                const id = (c as any).__data__?.id;
-                if (!id) return;
-                (c as SVGElement).style.cursor = 'pointer';
-                c.addEventListener('click', e => {
-                    const me = e as MouseEvent;
-                    if (!(me.metaKey || me.ctrlKey || me.shiftKey)) return select([id]);
-                    const ids = new Set(app.ui.selected);
-                    ids.has(id) ? ids.delete(id) : ids.add(id);
-                    select([...ids]);
-                });
-                c.addEventListener('mouseenter', () => (app.ui.hovered = id));
-                c.addEventListener('mouseleave', () => (app.ui.hovered = null));
-            });
-        });
-        return () => inspector?.destroy();
-    });
-
-    $effect(() => {
-        const sel = new Set(app.ui.selected);
-        const hov = app.ui.hovered;
-        sig;
-        container?.querySelectorAll('circle').forEach(c => {
-            const id = (c as any).__data__?.id;
-            if (!id) return;
-            const [stroke, width] = sel.has(id) ? ['var(--dn-accent)', '3'] : hov === id ? ['var(--dn-accent-mid)', '2.5'] : ['#fff', '1.5'];
-            c.setAttribute('stroke', stroke);
-            c.setAttribute('stroke-width', width);
-        });
-    });
 </script>
 
 {#snippet keyInput(name: string, label: string)}
@@ -123,11 +82,15 @@
 
     {#if !ui.collapsed}
         <div class="schema-graph-section">
-            {#if Object.keys(s.nodes).length}
-                <div class="schema-inspector-container" bind:this={container} role="img" aria-label="Structure graph. Click nodes to select them on the canvas."></div>
-            {:else}
-                <div class="graph-empty-state"><p class="graph-empty">{app.rows.length ? 'Select a dimension below to build the structure.' : 'Upload data to see the navigation structure.'}</p></div>
-            {/if}
+            <div class="viewer-canvas" role="region" aria-label="Viewer canvas: {app.ui.swapped ? 'spatial' : 'structure'} view. Selection only.">
+                {#key app.ui.swapped}
+                    {#if app.ui.swapped}<SpatialView canvas="viewer" />{:else}<StructureView canvas="viewer" />{/if}
+                {/key}
+                <button class="btn-ghost btn-sm swap" type="button" aria-pressed={app.ui.swapped} onclick={() => (app.ui.swapped = !app.ui.swapped)} title="Swap the editor and viewer canvases">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5 H13 L10 2 M14 11 H3 L6 14" /></svg>
+                    Swap
+                </button>
+            </div>
         </div>
 
         <div class="schema-builder-section">
@@ -369,34 +332,29 @@
         border-bottom: 1px solid var(--dn-border);
         background: var(--dn-bg);
     }
-    /* ── Inspector container ── */
-    .schema-inspector-container {
-        width: 100%;
-        height: 350px;
-        overflow: hidden;
+    .viewer-canvas {
         position: relative;
-    }
-    :global(.schema-inspector-container .dn-inspector-wrapper) {
-        width: 100%;
-    }
-    :global(.schema-inspector-container .dn-inspector-tooltip) {
-        font-size: 0.75rem;
-        font-family: var(--dn-font);
-        background: var(--dn-bg);
-        border: 1px solid var(--dn-border);
-        border-radius: var(--dn-radius);
-        color: var(--dn-text);
-        padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);
-        width: 160px;
+        display: flex;
+        height: 350px;
     }
 
-    .graph-empty { margin: 0; font-size: 0.8125rem; color: var(--dn-text-muted); }
-    .graph-empty-state {
-        height: 350px;
-        display: flex;
+    .swap {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        display: inline-flex;
         align-items: center;
-        justify-content: center;
-        padding: calc(var(--dn-space) * 2);
+        gap: 4px;
+        background: var(--dn-bg);
+    }
+
+    .swap[aria-pressed='true'] {
+        color: var(--dn-accent);
+        border-color: var(--dn-accent);
+    }
+
+    :global(.viewer-canvas .dn-inspector-tooltip) {
+        display: none;
     }
 
     /* ── Builder section ── */

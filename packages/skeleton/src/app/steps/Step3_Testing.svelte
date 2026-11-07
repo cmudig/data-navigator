@@ -6,7 +6,14 @@
     import { app } from '../../model/state.svelte';
     import { mount } from '../../runtime/dn-runtime.js';
 
-    const structure = $derived(app.structure);
+    const structure = $derived.by(() => {
+        const s = app.structure;
+        if (!app.missing.size) return s;
+        const nodes = { ...s.nodes };
+        for (const id of app.missing)
+            nodes[id] = { ...nodes[id], semantics: { ...nodes[id].semantics, label: `Missing description: ${app.graph.nodes.get(id)?.name ?? id} has no descriptive text yet.` } };
+        return { ...s, nodes };
+    });
     const nodes = $derived([...app.graph.nodes.values()]);
     const edges = $derived([...app.graph.edges.values()]);
     const canvasWidth = $derived(app.size.width);
@@ -146,8 +153,8 @@
 
     {#if current}
         <div class="sr-announcement">
-            <div class="sr-section">
-                <span class="sr-label">Screen reader announcement:</span>
+            <div class="sr-section" class:sr-warn={app.missing.has(current.id)}>
+                <span class="sr-label">{#if app.missing.has(current.id)}<span aria-hidden="true">⚠ </span>Warning. {/if}Screen reader announcement:</span>
                 <span class="sr-value">{current.semantics?.label}</span>
             </div>
             <details>
@@ -219,6 +226,23 @@
 </aside>
 
 <style>
+    .sr-section.sr-warn {
+        background: #fff4f2;
+        border-color: #c62828;
+        border-style: dashed;
+        color: #8e1b1b;
+    }
+
+    .sr-warn .sr-label,
+    .sr-warn .sr-value {
+        color: inherit;
+    }
+
+    :global(.dark) .sr-section.sr-warn {
+        background: #3a1513;
+        color: #ffb4a9;
+    }
+
     /* ─── Canvas controls (show nodes/edges, above canvas) ─────────── */
     .canvas-controls {
         display: flex;

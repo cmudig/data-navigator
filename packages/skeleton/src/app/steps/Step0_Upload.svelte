@@ -17,13 +17,16 @@
 
     const BASE = import.meta.env.BASE_URL;
     const EXAMPLES = [
-        { label: 'Bar Chart', image: 'skeleton_starter.png', data: 'skeleton_starter.json' },
-        { label: 'Stacked Bar Chart', image: 'stack.png', data: 'stack.json' },
-        { label: 'Line Chart', image: 'line.png', data: 'line.json' },
-        { label: 'Scatter Plot', image: 'scatter.png', data: 'scatter.json' }
+        { group: 'Data only', label: 'City climate', data: 'climate.json', step: 1 },
+        { group: 'Unprepped', label: 'Bar Chart', image: 'skeleton_starter.png', data: 'skeleton_starter.json', step: 1 },
+        { group: 'Unprepped', label: 'Stacked Bar Chart', image: 'stack.png', data: 'stack.json', step: 1 },
+        { group: 'Unprepped', label: 'Line Chart', image: 'line.png', data: 'line.json', step: 1 },
+        { group: 'Unprepped', label: 'Scatter Plot', image: 'scatter.png', data: 'scatter.json', step: 1 },
+        { group: 'Prep done', label: 'Scatter Plot', session: '2026-07-skeleton-sample-editor-view.zip', step: 2 },
+        { group: 'Ready to test', label: 'Scatter Plot', session: '2026-07-skeleton-sample-scaffolded-view.zip', step: 3 }
     ];
-    const PREP_DONE_SESSIONS = [{ label: 'Scatter Plot', file: '2026-07-skeleton-sample-editor-view.zip' }];
-    const FULLY_READY_SESSIONS = [{ label: 'Scatter Plot', file: '2026-07-skeleton-sample-scaffolded-view.zip' }];
+    type Example = (typeof EXAMPLES)[number];
+    const GROUPS = [...new Set(EXAMPLES.map(e => e.group))];
 
     const readAs = (blob: Blob, how: 'text' | 'url') =>
         new Promise<string>((res, rej) => {
@@ -61,40 +64,35 @@
         return true;
     }
 
-    async function loadExample(imageFile: string, dataFile: string) {
+    async function loadExample(ex: Example) {
         imageStatus = dataStatus = 'Loading example…';
         try {
-            const [img, data] = await Promise.all([fetch(BASE + imageFile), fetch(BASE + dataFile)]);
-            if (!img.ok || !data.ok) throw new Error(`HTTP ${img.ok ? data.status : img.status}`);
-            const rows: Row[] = await data.json();
-            if (!setData(rows, dataFile)) return (imageStatus = dataStatus = '');
-            dataStatus = `Example dataset loaded (${rows.length} rows).`;
-            await setImage(await img.blob(), imageFile);
+            if (ex.session) {
+                const res = await fetch(BASE + ex.session);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                load(await loadDoc(await res.blob()));
+                imageStatus = `Loaded session ${ex.session}.`;
+            } else {
+                const [img, data] = await Promise.all([ex.image && fetch(BASE + ex.image), fetch(BASE + ex.data)]);
+                if ((img && !img.ok) || !data.ok) throw new Error(`HTTP ${data.ok ? img && img.status : data.status}`);
+                const rows: Row[] = await data.json();
+                if (!setData(rows, ex.data!)) return (imageStatus = dataStatus = '');
+                dataStatus = `Example dataset loaded (${rows.length} rows).`;
+                if (img) await setImage(await img.blob(), ex.image!);
+                else imageStatus = '';
+            }
+            goTo(ex.step, true);
         } catch (e) {
             imageStatus = `Error loading example: ${(e as Error).message}`;
             dataStatus = '';
         }
     }
 
-    async function loadSessionExample(file: string) {
-        imageStatus = 'Loading session…';
-        dataStatus = '';
-        try {
-            const res = await fetch(BASE + file);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            load(await loadDoc(await res.blob()));
-            imageStatus = `Loaded session ${file}.`;
-        } catch (e) {
-            imageStatus = `Error loading session: ${(e as Error).message}`;
-        }
-    }
-
     function onExampleChange(e: Event) {
         const el = e.target as HTMLSelectElement;
-        const val = el.value;
+        const ex = EXAMPLES[+el.value];
         el.value = '';
-        if (val.startsWith('session:')) loadSessionExample(val.slice(8));
-        else if (val) loadExample(...(val.split('|') as [string, string]));
+        if (ex) loadExample(ex);
     }
 
     function parseCSVLine(line: string): string[] {
@@ -314,22 +312,15 @@
         <label for="example-select" class="examples-label">Load an example</label>
         <select id="example-select" class="examples-select" onchange={onExampleChange}>
             <option value="">— choose an example —</option>
-            <optgroup label="Unprepped">
-                {#each EXAMPLES as ex}
-                    <option value="{ex.image}|{ex.data}">{ex.label}</option>
-                {/each}
-            </optgroup>
-            <optgroup label="Prep Done">
-                {#each PREP_DONE_SESSIONS as s}
-                    <option value="session:{s.file}">{s.label}</option>
-                {/each}
-            </optgroup>
-            <optgroup label="Ready to Test">
-                {#each FULLY_READY_SESSIONS as s}
-                    <option value="session:{s.file}">{s.label}</option>
-                {/each}
-            </optgroup>
+            {#each GROUPS as group (group)}
+                <optgroup label={group}>
+                    {#each EXAMPLES as ex, i (i)}
+                        {#if ex.group === group}<option value={i}>{ex.label}</option>{/if}
+                    {/each}
+                </optgroup>
+            {/each}
         </select>
+        <button class="btn-ghost btn-sm" type="button" onclick={() => loadExample(EXAMPLES[0])}>Try sample data</button>
     </div>
 
     <!-- aria-live status regions (screen-reader announcements) -->

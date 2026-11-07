@@ -104,7 +104,9 @@
                 <input id="qa-{q.id}" type="text" class="qa-input" value={typeof value === 'string' ? value : ''} placeholder={q.placeholder ?? ''} oninput={e => onchange(e.currentTarget.value)} />
             {:else if q.input === 'textarea'}
                 <label class="visually-hidden" for="qa-{q.id}">Your answer</label>
-                <textarea id="qa-{q.id}" class="qa-textarea" rows={4} placeholder={q.placeholder ?? ''} value={typeof value === 'string' ? value : ''} oninput={e => onchange(e.currentTarget.value)}></textarea>
+                <textarea id="qa-{q.id}" class="qa-textarea" class:qa-code={!!q.link} rows={q.link ? 10 : 4} placeholder={q.placeholder ?? ''} value={typeof value === 'string' ? value : ''} oninput={e => onchange(e.currentTarget.value)}></textarea>
+                {#if q.link}<a href={q.link.href} target="_blank" rel="noopener noreferrer">{q.link.label} (opens in a new tab)</a>{/if}
+                {#if q.check?.(value)}<p class="qa-multiselect-warning" role="status"><span aria-hidden="true">⚠ </span>{q.check(value)}</p>{/if}
             {:else if q.input === 'dropdown'}
                 <label class="visually-hidden" for="qa-{q.id}">Choose one</label>
                 <select id="qa-{q.id}" class="qa-select" value={value ?? ''} onchange={e => onchange(e.currentTarget.value)}>
@@ -287,6 +289,11 @@
 
     .qa-input,
     .qa-select,
+    .qa-code {
+        font-family: var(--dn-font-mono);
+        font-size: 0.8125rem;
+    }
+
     .qa-textarea {
         width: 100%;
         padding: calc(var(--dn-space) * 0.75) calc(var(--dn-space) * 1);

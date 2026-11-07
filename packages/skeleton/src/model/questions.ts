@@ -10,6 +10,7 @@ import {
     type Row
 } from './doc';
 import { computeDimensionSuggestion } from '../app/components/prep/dimensionSuggestions';
+import { CHART_TYPES as BUILD_TYPES, guessBuild, ordinalLike, specType, specWarning } from '../utils/vegaBuilder';
 
 export type Input = 'info' | 'radio' | 'dropdown' | 'text' | 'textarea' | 'multiselect' | 'order' | 'label';
 export interface Option {
@@ -45,6 +46,8 @@ export interface Question {
     };
     visuals: Visual[];
     hideImage?: boolean;
+    link?: { href: string; label: string };
+    check?: (v: unknown) => string;
     get: (d: Doc) => unknown;
     set?: (d: Doc, v: any) => void;
 }
@@ -131,6 +134,86 @@ export function questions(d: Doc): Question[] {
     const qs: Question[] = [];
     const add = (q: Omit<Question, 'visuals'> & { visuals?: Visual[] }) => qs.push({ visuals: [], ...q });
 
+    const b = d.chart.build;
+    if (rows.length && (!d.image || d.image.built)) {
+        const guess = guessBuild(fields, rows);
+        add({
+            id: 'build-chart',
+            chapter: 0,
+            input: 'radio',
+            question: 'No image was loaded. Do you want to build a chart with your dataset?',
+            hint: 'Skeleton can draw a chart from your data. Its marks line up with the navigation nodes exactly, so you can skip most of the scaffold work later.',
+            options: [
+                { value: 'encode', label: 'Yes, pick a chart type and encodings', suggested: true },
+                { value: 'spec', label: 'Yes, paste a Vega-Lite spec' },
+                { value: 'none', label: 'No, continue without a chart' }
+            ],
+            hideImage: true,
+            get: x => x.chart.build?.mode ?? '',
+            set: (x, v) => {
+                x.chart.build = v === 'encode' && !x.chart.build?.x ? { ...guess } : { ...x.chart.build, mode: v };
+                x.chart.type = specType(x.chart.build);
+            }
+        });
+        const pick = (key: 'x' | 'y' | 'color', question: string, optional = false) =>
+            add({
+                id: `build-${key}`,
+                chapter: 0,
+                input: 'dropdown',
+                question,
+                required: !optional,
+                options: [
+                    ...(optional ? [{ value: '__none', label: 'None' }] : []),
+                    ...fields.map(f => ({
+                        value: f.key,
+                        label: `${f.key} (${f.type})`,
+                        suggested: f.key === guess[key]
+                    }))
+                ],
+                get: x => x.chart.build?.[key] ?? (optional && x.chart.build?.type ? '__none' : ''),
+                set: (x, v) => (x.chart.build = { ...x.chart.build!, [key]: v === '__none' ? undefined : v })
+            });
+        if (b?.mode === 'encode') {
+            add({
+                id: 'build-type',
+                chapter: 0,
+                input: 'dropdown',
+                required: true,
+                question: 'What kind of chart should we build?',
+                options: BUILD_TYPES.map(value => ({
+                    value,
+                    label: CHART_TYPES[value],
+                    suggested: value === guess.type
+                })),
+                get: x => x.chart.build?.type ?? '',
+                set: (x, v) => {
+                    x.chart.build = { ...x.chart.build!, type: v };
+                    x.chart.type = v;
+                }
+            });
+            pick('x', 'Which column goes along the x axis?');
+            pick('y', 'Which column goes along the y axis?');
+            pick('color', 'Which column, if any, sets the color of each series?', true);
+        }
+        if (b?.mode === 'spec')
+            add({
+                id: 'build-spec',
+                chapter: 0,
+                input: 'textarea',
+                required: true,
+                question: 'Paste your Vega-Lite spec.',
+                hint: 'Skeleton replaces any data in the spec with your dataset, so field names must match your columns.',
+                link: { href: 'https://vega.github.io/editor/', label: 'Open the Vega-Lite editor' },
+                placeholder: '{ "mark": "bar", "encoding": { ... } }',
+                check: v => specWarning({ mode: 'spec', spec: String(v ?? '') }),
+                get: x => x.chart.build?.spec ?? '',
+                set: (x, v) => {
+                    x.chart.build = { ...x.chart.build!, spec: String(v) };
+                    x.chart.type = specType(x.chart.build) || x.chart.type;
+                }
+            });
+    }
+
     add({
         id: 'welcome',
         chapter: 0,
@@ -181,24 +264,25 @@ export function questions(d: Doc): Question[] {
         set: (x, v) => (x.recipe.root.enabled = v === 'yes')
     });
     const known = d.chart.type in CHART_TYPES;
-    add({
-        id: 'chart-type',
-        chapter: 0,
-        input: 'dropdown',
-        question: 'What type of chart or visualization is this?',
-        hint: root
-            ? 'This is announced in the opening description so screen reader users know what kind of chart they are exploring.'
-            : 'This helps us suggest options later.',
-        options: [
-            ...Object.entries(CHART_TYPES).map(([value, label]) => ({ value, label })),
-            { value: 'custom', label: 'Custom...' }
-        ],
-        hideImage: true,
-        get: x => (!x.chart.type ? '' : x.chart.type in CHART_TYPES ? x.chart.type : 'custom'),
-        set: (x, v) =>
-            (x.chart.type = v === 'custom' && !(x.chart.type in CHART_TYPES) && x.chart.type ? x.chart.type : v)
-    });
-    if (d.chart.type && !known)
+    if (!b || b.mode === 'none')
+        add({
+            id: 'chart-type',
+            chapter: 0,
+            input: 'dropdown',
+            question: 'What type of chart or visualization is this?',
+            hint: root
+                ? 'This is announced in the opening description so screen reader users know what kind of chart they are exploring.'
+                : 'This helps us suggest options later.',
+            options: [
+                ...Object.entries(CHART_TYPES).map(([value, label]) => ({ value, label })),
+                { value: 'custom', label: 'Custom...' }
+            ],
+            hideImage: true,
+            get: x => (!x.chart.type ? '' : x.chart.type in CHART_TYPES ? x.chart.type : 'custom'),
+            set: (x, v) =>
+                (x.chart.type = v === 'custom' && !(x.chart.type in CHART_TYPES) && x.chart.type ? x.chart.type : v)
+        });
+    if (d.chart.type && !known && (!b || b.mode === 'none'))
         add({
             id: 'chart-type-custom',
             chapter: 0,
@@ -568,4 +652,69 @@ export function questions(d: Doc): Question[] {
         set: (x, v: LabelTemplate) => (x.recipe.labels.leaves = v)
     });
     return qs;
+}
+
+function patternName(dims: Dim[]) {
+    const cats = dims.filter(x => x.type === 'categorical').length;
+    const nums = dims.length - cats;
+    if (dims.length === 1) return dims[0].compress ? 'list' : 'tree';
+    if (cats === 2 && !nums) return 'dual tree';
+    if (nums === 2 && !cats) return '2D spatial';
+    if (nums === 2 && cats === 1) return 'spatial plus';
+    return 'custom';
+}
+
+export function prepDefaults(x: Doc): string[] {
+    const notes: string[] = [];
+    const rows = x.data.rows ?? [];
+    const fields = x.data.fields.filter(f => !f.removed);
+    const r = x.recipe;
+    const b = x.chart.build?.mode === 'encode' ? x.chart.build : guessBuild(fields, rows);
+    if (!x.chart.type) {
+        x.chart.type = b.type ?? 'bar';
+        notes.push(`Chart type: ${chartLabel(x)}`);
+    }
+    if (!r.dimensions.length) {
+        const keys = [...new Set(b.type === 'scatter' ? [b.x, b.y, b.color] : [b.x, b.color])].filter(
+            (k): k is string => !!k && fields.some(f => f.key === k)
+        );
+        r.dimensions = keys.map((k, i) =>
+            newDim(
+                k,
+                b.type !== 'scatter' && ordinalLike(rows, k) ? 'categorical' : fields.find(f => f.key === k)!.type,
+                i,
+                rows
+            )
+        );
+        r.childmost = r.dimensions.filter(dd => dd.type === 'categorical').length >= 2 ? 'across' : 'within';
+        finish(x);
+        if (keys.length) notes.push(`Dimensions: ${keys.join(', ')} (${patternName(r.dimensions)} pattern)`);
+    }
+    const dimKeys = r.dimensions.map(dd => dd.key);
+    if (!r.root.enabled && !x.meta.seen.includes('root-node')) {
+        r.root.enabled = true;
+        notes.push('An overview node where navigation starts');
+    }
+    const y = b.y && !dimKeys.includes(b.y) ? b.y : undefined;
+    if (r.root.enabled && !r.labels.level0.template.trim()) {
+        const what = [chartLabel(x) || 'Chart', y && `of ${y}`, dimKeys.length && `by ${dimKeys.join(' and ')}`];
+        r.labels.level0.template = [
+            x.chart.description.trim(),
+            `${what.filter(Boolean).join(' ')}. {count} data points.`
+        ]
+            .filter(Boolean)
+            .join(' ');
+        notes.push('Overview label');
+    }
+    for (const k of dimKeys)
+        r.labels.perDivision[k] ??= template({ template: `{value:"${k}"}`, name: k, includeIndex: true });
+    if (!r.labels.leaves.template.trim()) {
+        r.labels.leaves = {
+            ...r.labels.leaves,
+            template: [y && `{key:"${y}"}: {value:"${y}"}`, leafDefault(x)].filter(Boolean).join(', ')
+        };
+        notes.push('Data point labels');
+    }
+    x.meta.prepDone = true;
+    return notes;
 }

@@ -1,4 +1,4 @@
-import type { Doc, Dim, Field, Row, ScaffoldConfig } from '../model/doc';
+import type { ChartBuild, Doc, Dim, Field, Row, ScaffoldConfig } from '../model/doc';
 
 export type VegaLiteSpec = Record<string, unknown>;
 export const CHART_TYPES = ['bar', 'stacked-bar', 'clustered-bar', 'scatter', 'line', 'area'];
@@ -156,6 +156,131 @@ export function buildVegaSpec(c: ScaffoldConfig, data: Row[]): VegaLiteSpec {
         mark,
         encoding
     };
+}
+
+const TIME = /^(\d{4}([-/]\d{1,2})*|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+
+export const ordinalLike = (rows: Row[], key: string) => {
+    const vals = new Set(rows.map(r => r[key]));
+    return vals.size <= 12 && vals.size < rows.length / 2 && [...vals].every(v => Number.isInteger(Number(v)));
+};
+
+export function guessBuild(fields: Field[], rows: Row[]): ChartBuild {
+    const live = fields.filter(f => !f.removed);
+    const uniq = (k: string) => new Set(rows.map(r => String(r[k]))).size;
+    const cat = (f: Field) => f.type === 'categorical' || ordinalLike(rows, f.key);
+    const nums = live.filter(f => !cat(f) && uniq(f.key) > 1).map(f => f.key);
+    const cats = live
+        .filter(f => cat(f) && uniq(f.key) > 1)
+        .map(f => f.key)
+        .sort(
+            (a, b) =>
+                (TIME.test(String(rows[0]?.[b])) ? 1 : 0) - (TIME.test(String(rows[0]?.[a])) ? 1 : 0) ||
+                uniq(b) - uniq(a)
+        );
+    if (!cats.length && nums.length >= 2) return { mode: 'encode', type: 'scatter', x: nums[0], y: nums[1] };
+    const x = cats[0] ?? nums[0];
+    const y = nums.find(k => k !== x);
+    const pairs = (k: string) => new Set(rows.map(r => `${r[x]}\u0001${r[k]}`)).size === rows.length;
+    const color =
+        uniq(x) < rows.length
+            ? cats
+                  .slice(1)
+                  .sort((a, b) => uniq(a) - uniq(b))
+                  .find(k => uniq(k) <= 10 && pairs(k))
+            : undefined;
+    if (!color && nums.length >= 2 && cats.length)
+        return { mode: 'encode', type: 'scatter', x: nums[0], y: nums[1], color: cats.at(-1) };
+    const time = rows.slice(0, 5).every(r => TIME.test(String(r[x])) && !/^\d{4}$/.test(String(r[x])));
+    return { mode: 'encode', type: time ? 'line' : color ? 'stacked-bar' : 'bar', x, y, color };
+}
+
+const parse = (text = '') => {
+    try {
+        const v = JSON.parse(text);
+        return v && typeof v === 'object' ? (v as VegaLiteSpec) : null;
+    } catch {
+        return null;
+    }
+};
+
+export function chartSpec(b: ChartBuild | undefined, fields: Field[], rows: Row[]): VegaLiteSpec | null {
+    if (!b || b.mode === 'none') return null;
+    let spec: VegaLiteSpec | null;
+    if (b.mode === 'spec') {
+        spec = parse(b.spec);
+        if (!spec) return null;
+        const { data, datasets, $schema, ...rest } = spec;
+        spec = rest;
+    } else {
+        if (!b.x || !b.y) return null;
+        const num = (k: string) => fields.find(f => f.key === k)?.type === 'numerical';
+        const scatter = b.type === 'scatter';
+        const x = { field: b.x, type: scatter && num(b.x) ? 'quantitative' : 'ordinal', sort: null };
+        const y = { field: b.y, type: num(b.y) ? 'quantitative' : 'ordinal' };
+        const color = b.color ? { color: { field: b.color, type: 'nominal', sort: null } } : {};
+        const marks: Record<string, unknown> = {
+            bar: 'bar',
+            'stacked-bar': 'bar',
+            'clustered-bar': 'bar',
+            scatter: { type: 'point', filled: true, size: 60 },
+            line: { type: 'line', point: true },
+            area: { type: 'area', line: true, point: true, fillOpacity: 0.4 }
+        };
+        spec = {
+            mark: marks[b.type ?? 'bar'] ?? 'bar',
+            encoding: {
+                x,
+                y,
+                ...color,
+                ...(b.type === 'clustered-bar' && b.color ? { xOffset: { field: b.color, type: 'nominal' } } : {}),
+                ...(b.type === 'stacked-bar' ? { order: { field: '_dn_row', type: 'quantitative' } } : {})
+            }
+        };
+    }
+    return {
+        $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
+        width: 640,
+        height: 400,
+        autosize: { type: 'fit', contains: 'padding' },
+        background: 'white',
+        ...spec,
+        data: { values: rows }
+    };
+}
+
+export function specType(b: ChartBuild | undefined) {
+    if (!b || b.mode === 'none') return '';
+    if (b.mode === 'encode') return b.type ?? '';
+    const spec = parse(b.spec);
+    const m = spec?.mark as string | { type: string } | undefined;
+    const mark = typeof m === 'string' ? m : m?.type;
+    const enc = (spec?.encoding ?? {}) as Record<string, unknown>;
+    if (mark === 'bar') return enc.xOffset || enc.yOffset ? 'clustered-bar' : enc.color ? 'stacked-bar' : 'bar';
+    return mark && ['point', 'circle', 'square'].includes(mark) ? 'scatter' : (mark ?? '');
+}
+
+export function specWarning(b: ChartBuild | undefined) {
+    if (b?.mode !== 'spec' || !b.spec?.trim()) return '';
+    const spec = parse(b.spec);
+    if (!spec) return 'This is not valid JSON yet.';
+    if (!spec.mark && !spec.layer) return 'Add a "mark" so there is something to draw.';
+    return /"(transform|aggregate|bin|timeUnit)"/.test(b.spec)
+        ? 'This spec transforms the data, so some marks may not line up with rows. Navigation falls back to a plain layout for those.'
+        : '';
+}
+
+export async function toImage(spec: VegaLiteSpec) {
+    const { view, cleanup } = await renderHidden(spec);
+    try {
+        const url = await view.toImageURL('png', 2);
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        return { url, width: img.naturalWidth / 2, height: img.naturalHeight / 2 };
+    } finally {
+        cleanup();
+    }
 }
 
 export async function renderHidden(spec: VegaLiteSpec) {

@@ -14,9 +14,10 @@
 
     const initial = (question: NonNullable<typeof q>) => {
         const v = question.get(app.doc);
-        if (question.input !== 'radio' || v) return v;
+        if ((question.input !== 'radio' && question.input !== 'dropdown') || v) return v;
         const opts = question.options ?? [];
-        return (opts.find(o => o.suggested && !o.disabled) ?? opts.find(o => !o.disabled))?.value ?? '';
+        const pick = opts.find(o => o.suggested && !o.disabled) ?? (question.input === 'radio' ? opts.find(o => !o.disabled) : null);
+        return pick?.value ?? '';
     };
     $effect.pre(() => {
         qid;
@@ -91,7 +92,11 @@
 
     <div class="qa-content">
         {#if !app.doc.data.rows}
-            <p class="qa-empty">Upload a dataset (or create one) to begin setting up your structure.</p>
+            <p class="qa-empty">No data{app.doc.image ? '' : ' or image'} loaded yet. Upload a dataset (or create one) to set up your structure, or skip prep and draw nodes by hand in the Editor.</p>
+            <div class="qa-empty-actions">
+                <button class="btn-ghost" type="button" onclick={() => goTo(0)}>Go to Upload</button>
+                <button class="btn-primary" type="button" onclick={() => goTo(2, true)}>Skip prep</button>
+            </div>
         {:else if q}
             {#key q.id}
                 <QAQuestion {q} value={pending} onchange={v => (pending = v)} chartImage={q.hideImage ? null : (app.doc.image?.url ?? null)} autofocus={moved} />
@@ -104,6 +109,9 @@
         <div class="qa-nav" role="group" aria-label="Question navigation">
             <button class="qa-btn qa-btn-back" onclick={back} disabled={index === 0} aria-label="Back to previous question">&#8592; Back</button>
             <span class="qa-nav-pos" aria-live="polite" aria-atomic="true">{index + 1} / {list.length}</span>
+            {#if !app.doc.meta.prepDone}
+                <button class="qa-btn qa-btn-skip" onclick={() => (app.ui.skipPrep = 2)}>Skip prep</button>
+            {/if}
             {#if index === list.length - 1}
                 <span class="qa-done-label">Done!</span>
                 <button class="qa-btn qa-btn-next" onclick={finish} disabled={blocked} aria-label="Continue to editor">Continue to Editor &#8594;</button>
@@ -231,6 +239,23 @@
         color: var(--dn-accent);
     }
     .qa-btn-back:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .qa-btn-skip {
+        margin-left: auto;
+        background: transparent;
+        border: 1px solid var(--dn-border);
+        color: var(--dn-text);
+    }
+
+    .qa-btn-skip ~ .qa-btn-next {
+        margin-left: 0;
+    }
+
+    .qa-empty-actions {
+        display: flex;
+        gap: var(--dn-space);
+        margin-top: calc(var(--dn-space) * 1.5);
+    }
 
     .qa-btn-next {
         background: var(--dn-accent);
