@@ -191,7 +191,7 @@
                 edgeSource = null;
             } else if (!cur.moved) edgeSource = cur.from;
         } else if (cur.kind === 'resize') {
-            if (cur.geo !== cur.start) edit('Resized node', d => setGeo(d, cur.id, cur.geo));
+            if (cur.geo !== cur.start) edit('Resized node', d => setGeo(d, cur.id, { ...cur.geo }));
         } else if (cur.kind === 'drag') {
             const hits = targets;
             targets = [];

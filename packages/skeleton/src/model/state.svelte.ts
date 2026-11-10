@@ -316,7 +316,7 @@ export function edit(label: string, mutate: (d: Doc) => void, coalesce = false) 
     commit(
         label,
         doc => {
-            const d: Doc = structuredClone({ ...doc, data: { ...doc.data, rows: null }, image: null });
+            const d = $state.snapshot({ ...doc, data: { ...doc.data, rows: null }, image: null }) as Doc;
             d.data.rows = doc.data.rows;
             d.image = doc.image;
             mutate(d);
