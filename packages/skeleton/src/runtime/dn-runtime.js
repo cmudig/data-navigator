@@ -238,6 +238,7 @@ export function buildStructure(pattern, rows) {
         s.nodes[id].edges.slice().forEach(e => unlink(s, e));
         delete s.nodes[id];
     }
+    for (const [id, e] of Object.entries(ov.edges || {})) if (e.detached) unlink(s, id);
     applyOrder(s, ov.order || {}, r);
     for (const [id, e] of Object.entries(ov.edges || {})) {
         if (!s.edges[id]) continue;
@@ -300,7 +301,7 @@ function applyOrder(s, order, recipe) {
         if (p && !s.nodes[p]) continue;
         const current = tree(s).children[p] ?? [];
         const list = [...ids.filter(id => s.nodes[id]), ...current.filter(id => !ids.includes(id))];
-        if (list.length < 2) continue;
+        if (!list.length) continue;
         const set = new Set(list);
         let pair = null;
         const linked = new Set();

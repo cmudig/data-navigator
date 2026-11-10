@@ -95,9 +95,14 @@ export const parentGroup = (edges: string[], hub: string, kids: string[], first:
         edges
     );
 
+export const edgesOf = (id: string) =>
+    Object.keys(app.structure.edges).filter(k =>
+        [app.structure.edges[k].source, app.structure.edges[k].target].includes(id)
+    );
+
 export const groupKids = (parent: string) => app.tree.children[parent] ?? [];
 
-const groupLevel = (parent: string) => (parent ? (app.tree.level[parent] ?? 0) + 1 : 1);
+export const groupLevel = (parent: string) => (parent ? (app.tree.level[parent] ?? 0) + 1 : 1);
 
 function place(d: Doc, parent: string, id: string, index?: number) {
     const list = groupKids(parent).filter(k => k !== id);
@@ -135,17 +140,52 @@ export function reorder(parent: string, ids: string[]) {
     const r = app.doc.recipe;
     const dimKey = (id: string) => s.nodes[id]?.dimensionLevel === 1 && s.nodes[id].derivedNode;
     const pdim = r.dimensions.find(d => d.key === s.nodes[parent]?.derivedNode && s.nodes[parent].dimensionLevel === 1);
+    const divs = pdim ? s.dimensions[pdim.key].divisions : {};
     edit('Reordered group', d => {
         if (ids.every(dimKey)) {
             const keys = ids.map(dimKey);
             d.recipe.dimensions.sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key));
-        } else if (pdim?.type === 'categorical' && ids.every(id => s.nodes[id]?.dimensionLevel === 2)) {
-            const divs = s.dimensions[pdim.key].divisions;
+        } else if (pdim?.type === 'categorical' && ids.every(id => divs[id])) {
             d.recipe.dimensions.find(x => x.key === pdim.key)!.order = ids.map(id => firstValue(divs[id], pdim.key));
             delete d.overrides.order[parent];
         } else d.overrides.order[parent] = ids;
     });
     say('Moved. The group order is updated.');
+}
+
+// Nodes that change level lose every edge. Nodes that only change group lose the links to their old parent and siblings.
+export function moveInto(group: string, index: number, ids: string[]) {
+    const t = app.tree;
+    const s = app.structure;
+    const lv = groupLevel(group);
+    const moving = new Set(ids);
+    const kids = groupKids(group);
+    const list = kids.filter(k => !moving.has(k));
+    list.splice(kids.slice(0, index).filter(k => !moving.has(k)).length, 0, ...ids);
+    if (ids.every(id => kids.includes(id))) return reorder(group, list);
+    edit(ids.length > 1 ? `Moved ${ids.length} nodes` : 'Moved node', d => {
+        const ov = d.overrides;
+        for (const id of ids) {
+            const from = t.group(id);
+            if (from === group) continue;
+            const all = t.level[id] !== undefined && t.level[id] !== lv;
+            const near = new Set([t.parent[id], ...(from !== undefined ? groupKids(from) : [])]);
+            for (const eid of edgesOf(id)) {
+                const e = s.edges[eid];
+                if (!all && !near.has(e.source === id ? e.target : e.source)) continue;
+                if (ov.added.edges[eid]) delete ov.added.edges[eid];
+                else ov.edges[eid] = { ...ov.edges[eid], detached: true };
+            }
+            for (const k in ov.order) ov.order[k] = ov.order[k].filter(x => !moving.has(x));
+            if (from !== undefined) ov.order[from] = groupKids(from).filter(k => !moving.has(k));
+            if (ov.added.nodes[id]) ov.added.nodes[id].level = lv;
+            else if (lv !== s.nodes[id].dimensionLevel) ov.nodes[id] = { ...ov.nodes[id], level: lv };
+            else if (ov.nodes[id]) delete ov.nodes[id].level;
+        }
+        ov.order[group] = list;
+    });
+    select(ids);
+    say(`Moved ${plural(ids.length, 'node')} into ${app.graph.nodes.get(group)?.name ?? 'the top level'}.`);
 }
 
 export const reorderable = (parent: string | undefined) => {

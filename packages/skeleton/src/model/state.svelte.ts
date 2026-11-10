@@ -236,7 +236,8 @@ class Store {
         const t = tree(s);
         const level: Record<string, number> = {};
         const added = this.doc.overrides.added.nodes;
-        for (const n of Object.values<any>(s.nodes)) if (!n.manual) level[n.id] = n.dimensionLevel ?? 3;
+        for (const n of Object.values<any>(s.nodes))
+            if (!n.manual) level[n.id] = this.doc.overrides.nodes[n.id]?.level ?? n.dimensionLevel ?? 3;
         for (let pass = 0; pass < 4; pass++)
             for (const id in added) {
                 if (!s.nodes[id] || level[id] !== undefined) continue;
@@ -269,7 +270,7 @@ class Store {
         const ov = this.doc.overrides;
         return [
             ...Object.keys(ov.nodes).filter(id => !ov.nodes[id].removed && !s.nodes[id]),
-            ...Object.keys(ov.edges).filter(id => !ov.edges[id].removed && !s.edges[id]),
+            ...Object.keys(ov.edges).filter(id => !ov.edges[id].removed && !ov.edges[id].detached && !s.edges[id]),
             ...Object.keys(ov.added.edges).filter(id => !s.edges[id])
         ];
     });

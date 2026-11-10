@@ -16,8 +16,15 @@ interface Opts {
     extra?: Record<string, unknown>;
 }
 
-// The Inspector lays out generated nodes itself. Hand-made nodes get the level and parent dimension they sit under,
+// The Inspector lays out generated nodes itself. Hand-made or moved nodes get the level and parent dimension they sit under,
 // so it can place and color them too; any it still cannot place are moved next to their siblings afterwards.
+const offTree = (s: any, t: Tree, id: string) => {
+    const n = s.nodes[id];
+    if (n.manual) return true;
+    const lv = n.dimensionLevel ?? 3;
+    return t.level[id] !== lv || (lv === 2 && s.nodes[t.parent[id]]?.derivedNode !== n.derivedNode);
+};
+
 function forInspector(s: any, t: Tree, hideLeaves = false) {
     const native = new Set<string>();
     const rank: Record<string, number> = {};
@@ -26,7 +33,7 @@ function forInspector(s: any, t: Tree, hideLeaves = false) {
     const entries = Object.entries<any>(s.nodes)
         .filter(([, n]) => !hideLeaves || n.dimensionLevel !== undefined || n.manual)
         .map(([id, n]) => {
-            if (!n.manual) return [id, n] as const;
+            if (!offTree(s, t, id)) return [id, n] as const;
             const lv = t.level[id];
             const pn = s.nodes[t.parent[id]];
             const div =
@@ -52,7 +59,7 @@ function forInspector(s: any, t: Tree, hideLeaves = false) {
                           ? { data: n.data ?? {} }
                           : null;
             if (as) native.add(id);
-            return [id, { ...n, data: undefined, ...as }] as const;
+            return [id, { ...n, data: undefined, dimensionLevel: undefined, derivedNode: undefined, ...as }] as const;
         })
         .sort((a, b) => (rank[a[0]] ?? 0) - (rank[b[0]] ?? 0));
     return { structure: { ...s, dimensions: dims, nodes: Object.fromEntries(entries) }, native };
@@ -72,7 +79,7 @@ function place(
     const fill: Record<number, string> = {};
     svg.querySelectorAll('circle').forEach(c => {
         const d = (c as any).__data__;
-        if (!d?.id || !s.nodes[d.id] || (s.nodes[d.id].manual && !native.has(d.id))) return;
+        if (!d?.id || !s.nodes[d.id] || (offTree(s, t, d.id) && !native.has(d.id))) return;
         out[d.id] = { x: d.x, y: d.y };
         fill[t.level[d.id] ?? 3] ??= c.getAttribute('fill') ?? '';
     });
@@ -82,7 +89,7 @@ function place(
         rows[l]?.length ? rows[l].sort((a, b) => a - b)[rows[l].length >> 1] : l <= 0 ? 30 : rowY(l - 1) + 60;
     const gap = R * 3;
     const manual = Object.keys(s.nodes).filter(
-        id => s.nodes[id].manual && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3)
+        id => offTree(s, t, id) && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3)
     );
     for (let pass = 0; pass < 3; pass++)
         for (const id of manual) {

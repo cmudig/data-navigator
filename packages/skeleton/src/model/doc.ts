@@ -153,6 +153,7 @@ export interface NodeOverride {
     semantics?: Partial<LabelTemplate>;
     geo?: Geo;
     style?: Partial<Style>;
+    level?: number;
 }
 export interface AddedNode {
     label: string;
@@ -167,7 +168,7 @@ export interface AddedEdge {
 }
 export interface Overrides {
     nodes: Record<string, NodeOverride>;
-    edges: Record<string, { removed?: true; rules?: string[] }>;
+    edges: Record<string, { removed?: true; detached?: true; rules?: string[] }>;
     added: { nodes: Record<string, AddedNode>; edges: Record<string, AddedEdge> };
     order: Record<string, string[]>;
 }
