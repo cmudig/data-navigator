@@ -1,7 +1,8 @@
 <script lang="ts">
     import 'data-navigator/text-chat.css';
     import { keyLabel } from 'data-navigator';
-    import { Inspector } from '@data-navigator/inspector';
+    import type { Inspector } from '@data-navigator/inspector';
+    import { drawInspector as layoutInspector } from '../../utils/inspectorLayout';
     import '@data-navigator/inspector/style.css';
     import { untrack } from 'svelte';
     import { app } from '../../model/state.svelte';
@@ -48,9 +49,8 @@
 
     function drawInspector(s: any) {
         if (!inspectorEl) return;
-        inspectorEl.innerHTML = '';
-        inspector = Inspector({ structure: s, container: inspectorEl, size: { width: 340, height: 280 }, colorBy: 'dimensionLevel', mode: app.ui.schema.graphMode, nodeRadius: 6, showConsoleMenu: { data: app.rows } } as any);
-        if (current) inspector.highlight(current.renderId || current.id);
+        inspector = layoutInspector(inspectorEl, s, app.tree, { width: 340, height: 280, mode: app.ui.schema.graphMode, radius: 6, extra: { showConsoleMenu: { data: app.rows } } }).ins;
+        if (current) inspector?.highlight(current.renderId || current.id);
     }
 
     $effect(() => {
