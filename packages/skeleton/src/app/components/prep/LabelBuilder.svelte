@@ -150,8 +150,8 @@
 
     <div class="lb-options">
         <div class="lb-noun-row">
-            <label class="lb-label" for="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}">What is this item called?{#if missing && !value.name}<span class="req" aria-hidden="true"> *</span>{/if}</label>
-            <input id="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-noun-input" aria-invalid={!!missing && !value.name} aria-describedby={missing && !value.name ? missing : undefined} value={value.name} oninput={e => set({ name: e.currentTarget.value })} placeholder={['root', 'group', 'subgroup', 'data point'][level]} />
+            <label class="lb-label" for="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}">What is this item called?</label>
+            <input id="lb-noun-input-{level}-{dimensionKey ?? nodeId ?? ''}" type="text" class="lb-noun-input" value={value.name} oninput={e => set({ name: e.currentTarget.value })} placeholder={['root', 'group', 'subgroup', 'data point'][level]} />
         </div>
         {#if level === 2 || level === 3 || (level === 1 && dims.length > 1)}
             <label class="lb-checkbox-label">
