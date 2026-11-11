@@ -15,11 +15,12 @@ function newEdges(d: Doc, pairs: [string, string, string[]][]) {
     });
 }
 
-function addEdges(label: string, pairs: [string, string, string[]][], drop: string[] = []) {
+function addEdges(label: string, pairs: [string, string, string[]][], drop: string[] = [], also?: (d: Doc) => void) {
     let ids: string[] = [];
     edit(label, d => {
         removeEdges(d, drop);
         ids = newEdges(d, pairs);
+        also?.(d);
     });
     select([], ids);
     say(`Created ${plural(ids.length, 'edge')}. They are selected.`);
@@ -78,11 +79,35 @@ export const clique = (ids: string[], pair: string[]) =>
         ids.flatMap((a, i) => ids.slice(i + 1).map(b => [a, b, [...pair]] as [string, string, string[]]))
     );
 
-export const chain = (ids: string[], pair: string[], wrap: boolean) =>
-    addEdges('Created dimension', [
-        ...ids.slice(1).map((id, i) => [ids[i], id, [...pair]] as [string, string, string[]]),
-        ...(wrap && ids.length > 2 ? [[ids.at(-1)!, ids[0], [...pair]] as [string, string, string[]]] : [])
-    ]);
+const links = (ids: string[], pair: string[], wrap = false) => [
+    ...ids.slice(1).map((id, i) => [ids[i], id, [...pair]] as [string, string, string[]]),
+    ...(wrap && ids.length > 2 ? [[ids.at(-1)!, ids[0], [...pair]] as [string, string, string[]]] : [])
+];
+
+// Only hand-made nodes take a level here; generated nodes keep the one the data gives them.
+function setLevel(d: Doc, ids: string[], level: number | null) {
+    for (const id of ids) if (level !== null && d.overrides.added.nodes[id]) d.overrides.added.nodes[id].level = level;
+}
+
+export const levelsInUse = () => [...new Set(Object.values(app.tree.level))].sort((a, b) => a - b);
+
+export const chain = (ids: string[], pair: string[], wrap: boolean, level: number | null = null) =>
+    addEdges('Created dimension', links(ids, pair, wrap), [], d => setLevel(d, ids, level));
+
+export function makeFamily(parent: string, kids: string[], pair: string[] | null, level: number | null) {
+    edit('Created parent grouping', d => {
+        newEdges(d, [
+            ...kids.map(
+                (k, i) => [parent, k, i ? ['drill-out'] : ['drill-out', 'drill-in']] as [string, string, string[]]
+            ),
+            ...(pair ? links(kids, pair) : [])
+        ]);
+        setLevel(d, [parent], level);
+        setLevel(d, kids, level === null ? null : level + 1);
+    });
+    select([parent]);
+    say(`${app.graph.nodes.get(parent)?.name ?? parent} is now the parent of ${plural(kids.length, 'node')}.`);
+}
 
 export const parentGroup = (edges: string[], hub: string, kids: string[], first: string) =>
     addEdges(
@@ -211,6 +236,8 @@ export function spatialOrder(ids: string[]) {
     return pts.sort((a, b) => (wide ? a.x - b.x : b.y - a.y)).map(p => p.id);
 }
 
+const drills = () => app.ui.edgeRules.some(r => r.startsWith('drill'));
+
 export function drawEdge(a: string, b: string) {
     if (a === b) return;
     const sel = new Set(app.ui.selected);
@@ -219,6 +246,8 @@ export function drawEdge(a: string, b: string) {
         app.ui.ordering = { ids, order: spatialOrder(ids), mode: 'spatial', ask: true };
     } else if (sel.size > 1 && sel.has(a) !== sel.has(b)) {
         const hub = sel.has(a) ? b : a;
-        fan(hub, [...sel], hub === a);
-    } else connect(a, b);
+        if (drills()) app.ui.family = { parent: hub, kids: [...sel] };
+        else fan(hub, [...sel], hub === a);
+    } else if (drills()) app.ui.family = { parent: b, kids: [a] };
+    else connect(a, b);
 }

@@ -39,7 +39,7 @@
     const selectedEdges = $derived(new Set(app.ui.selectedEdges));
     const ordering = $derived(editor ? app.ui.ordering : null);
     const hideLeaves = $derived(app.ui.schema.hideLeafNodes);
-    const mode = $derived(editor ? 'tree' : app.ui.schema.graphMode);
+    const mode = $derived(!app.leveled ? 'force' : editor ? 'tree' : app.graphMode);
     const sig = $derived(Object.keys(s.nodes).join() + '|' + Object.entries<any>(s.edges).map(([k, e]) => k + e.navigationRules).join() + mode + hideLeaves);
 
     let timer: ReturnType<typeof setTimeout>;
@@ -58,15 +58,37 @@
                 size = { w, h };
                 pos = out.pos;
                 edgePaths = out.paths;
+                if (editor && mode === 'force') follow(el, w, h);
                 if (!editor) wireViewer(el);
                 if (editor) {
                     Object.assign(app.ui.view, { w: boxW, h: boxH, cw: w, ch: h });
                     if (!fitted) (fitted = true), fitView();
                 }
             }), 60);
-        return () => clearTimeout(timer);
+        return () => (clearTimeout(timer), cancelAnimationFrame(raf));
     });
     let fitted = false;
+
+    // The force layout keeps moving for a few seconds, so read its positions each frame until it settles.
+    let raf = 0;
+    function follow(el: HTMLElement, w: number, h: number) {
+        let frames = 0;
+        const step = () => {
+            const at: Record<string, Pt> = {};
+            el.querySelectorAll('circle').forEach(c => {
+                const id = (c as any).__data__?.id;
+                if (id && s.nodes[id]) at[id] = { x: +(c.getAttribute('cx') ?? 0) + w / 2, y: +(c.getAttribute('cy') ?? 0) + h / 2 };
+            });
+            pos = at;
+            edgePaths = Object.fromEntries(
+                Object.entries<any>(s.edges)
+                    .filter(([, e]) => at[e.source] && at[e.target])
+                    .map(([id, e]) => [id, { d: `M ${at[e.source].x} ${at[e.source].y} L ${at[e.target].x} ${at[e.target].y}`, w: 1.5 }])
+            );
+            if (++frames < 360) raf = requestAnimationFrame(step);
+        };
+        step();
+    }
 
     function wireViewer(el: HTMLElement) {
         el.querySelectorAll('circle').forEach(c => {

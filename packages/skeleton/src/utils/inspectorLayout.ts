@@ -49,19 +49,21 @@ function forInspector(s: any, t: Tree, hideLeaves = false) {
                 };
             }
             const as =
-                lv === 1 && !pn
-                    ? { dimensionLevel: 1 }
-                    : lv === 1 && pn?.dimensionLevel === 0
+                lv === 0 && !pn && !Object.values<any>(s.nodes).some(m => m.dimensionLevel === 0)
+                    ? { dimensionLevel: 0 }
+                    : lv === 1 && !pn
                       ? { dimensionLevel: 1 }
-                      : lv === 2 && pn?.dimensionLevel === 1
-                        ? { dimensionLevel: 2, derivedNode: pn.derivedNode }
-                        : div
-                          ? { data: n.data ?? {} }
-                          : null;
+                      : lv === 1 && t.level[t.parent[id]] === 0
+                        ? { dimensionLevel: 1 }
+                        : lv === 2 && pn?.dimensionLevel === 1
+                          ? { dimensionLevel: 2, derivedNode: pn.derivedNode }
+                          : div
+                            ? { data: n.data ?? {} }
+                            : null;
             if (as) native.add(id);
             return [id, { ...n, data: undefined, dimensionLevel: undefined, derivedNode: undefined, ...as }] as const;
         })
-        .sort((a, b) => (rank[a[0]] ?? 0) - (rank[b[0]] ?? 0));
+        .sort((a, b) => (rank[a[0]] ?? 1e6) - (rank[b[0]] ?? 1e6));
     return { structure: { ...s, dimensions: dims, nodes: Object.fromEntries(entries) }, native };
 }
 
@@ -88,9 +90,9 @@ function place(
     const rowY = (l: number): number =>
         rows[l]?.length ? rows[l].sort((a, b) => a - b)[rows[l].length >> 1] : l <= 0 ? 30 : rowY(l - 1) + 60;
     const gap = R * 3;
-    const manual = Object.keys(s.nodes).filter(
-        id => offTree(s, t, id) && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3)
-    );
+    const manual = Object.keys(s.nodes)
+        .filter(id => offTree(s, t, id) && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3))
+        .sort((a, b) => (t.level[a] ?? 9) - (t.level[b] ?? 9));
     for (let pass = 0; pass < 3; pass++)
         for (const id of manual) {
             if (out[id] && pass) continue;
@@ -103,6 +105,7 @@ function place(
                 .find(k => out[k]);
             const next = sib.slice(i + 1).find(k => out[k]);
             const level = t.level[id] ?? 1;
+            const up = out[t.parent[id]];
             const rowXs = Object.keys(out)
                 .filter(k => k !== id && Math.abs(out[k].y - rowY(level)) < 1)
                 .map(k => out[k].x);
@@ -110,7 +113,9 @@ function place(
                 ? { x: out[prev].x + gap, y: out[prev].y }
                 : next
                   ? { x: out[next].x - gap, y: out[next].y }
-                  : { x: (rowXs.length ? Math.max(...rowXs) : width / 2 - gap) + gap, y: rowY(level) };
+                  : up
+                    ? { x: up.x + gap * (i - (sib.length - 1) / 2), y: rowY(level) }
+                    : { x: (rowXs.length ? Math.max(...rowXs) : width / 2 - gap) + gap, y: rowY(level) };
         }
     for (const id of manual) {
         const c = svg.ownerDocument.getElementById(`${prefix}svg${id}`);

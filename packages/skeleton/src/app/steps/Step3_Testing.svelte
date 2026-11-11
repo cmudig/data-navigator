@@ -49,7 +49,7 @@
 
     function drawInspector(s: any) {
         if (!inspectorEl) return;
-        inspector = layoutInspector(inspectorEl, s, app.tree, { width: 340, height: 280, mode: app.ui.schema.graphMode, radius: 6, extra: { showConsoleMenu: { data: app.rows } } }).ins;
+        inspector = layoutInspector(inspectorEl, s, app.tree, { width: 340, height: 280, mode: app.graphMode, radius: 6, extra: { showConsoleMenu: { data: app.rows } } }).ins;
         if (current) inspector?.highlight(current.renderId || current.id);
     }
 

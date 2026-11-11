@@ -118,6 +118,7 @@ class Store {
         space: false,
         ordering: null as Ordering | null,
         connect: null as { id: string; targets: string[] } | null,
+        family: null as { parent: string; kids: string[] } | null,
         skipPrep: null as number | null,
         fit: null as {
             key: string;
@@ -249,6 +250,9 @@ class Store {
         const group = (id: string) => t.parent[id] ?? (t.children['']?.includes(id) ? '' : undefined);
         return { ...t, level, group };
     });
+
+    leveled = $derived(Object.keys(this.tree.level).length > 0);
+    graphMode = $derived(this.leveled ? this.ui.schema.graphMode : 'force');
 
     missing = $derived.by(() => {
         const s = this.structure;

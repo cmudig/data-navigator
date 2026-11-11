@@ -2,7 +2,7 @@
     import { tick } from 'svelte';
     import { app } from '../../model/state.svelte';
     import { SIBLING_PRESETS } from '../../model/doc';
-    import { chain, clique, spatialOrder, structureOrder } from '../../model/edits';
+    import { chain, clique, levelsInUse, spatialOrder, structureOrder } from '../../model/edits';
     import Modal from './Modal.svelte';
 
     let dialog = $state<HTMLDialogElement>();
@@ -10,6 +10,9 @@
     let wrap = $state(false);
     let listEl = $state<HTMLOListElement>();
     const o = app.ui.ordering!;
+    const levels = levelsInUse().filter(l => l > 0);
+    const next = Math.max(0, ...levelsInUse()) + 1;
+    let level = $state(levelsInUse().length ? 'none' : String(next));
     const METHODS = [
         ['structure', 'Structure order', 'Higher groupings first, then the order nodes were added.'],
         ['spatial', 'Spatial order', 'Left to right when the selection is wide, bottom to top when it is tall.'],
@@ -40,7 +43,7 @@
     const close = () => dialog?.close();
     function submit() {
         const names = SIBLING_PRESETS.find(p => p.id === preset)!.names;
-        chain(full, [...names], wrap);
+        chain(full, [...names], wrap, level === 'none' ? null : +level);
         close();
     }
     function connectAll() {
@@ -94,6 +97,14 @@
                 </label>
                 <label><input type="checkbox" bind:checked={wrap} /> Wrap from last to first</label>
             </div>
+            <fieldset>
+                <legend>Add them to a level?</legend>
+                {#each levels as l (l)}
+                    <label class="radio-row"><input type="radio" name="order-level" value={String(l)} bind:group={level} /> Level {l}</label>
+                {/each}
+                <label class="radio-row"><input type="radio" name="order-level" value={String(next)} bind:group={level} /> New level {next}</label>
+                <label class="radio-row"><input type="radio" name="order-level" value="none" bind:group={level} /> No level, just link them as siblings</label>
+            </fieldset>
         {/if}
     </div>
     {#snippet actions()}
