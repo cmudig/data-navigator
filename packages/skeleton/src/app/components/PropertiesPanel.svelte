@@ -49,6 +49,11 @@
         const id = node!.id;
         edit('Edited node style', d => (d.overrides.nodes[id] = { ...d.overrides.nodes[id], style: { ...d.overrides.nodes[id]?.style, ...patch } }), true);
     };
+    // A path node switched to a box keeps its bounds and drops the path, so the export matches what the canvas shows.
+    function setShape(shape: Style['shape']) {
+        if (shape !== 'path' && node!.geo.path) setGeo({ path: '' });
+        setStyle({ shape });
+    }
     function setTemplate(t: LabelTemplate) {
         const id = node!.id;
         edit('Edited node label', d => (d.overrides.added.nodes[id] ? (d.overrides.added.nodes[id].label = t.template) : (d.overrides.nodes[id] = { ...d.overrides.nodes[id], semantics: t })), true);
@@ -289,13 +294,14 @@
         <summary class="section-heading">Rendering</summary>
         <div class="field">
             <label for="node-shape">Shape</label>
-            <select id="node-shape" value={node.geo.path ? 'path' : node.style.shape} onchange={e => setStyle({ shape: e.currentTarget.value as Style['shape'] })}>
+            <select id="node-shape" value={node.geo.path ? 'path' : node.style.shape} onchange={e => setShape(e.currentTarget.value as Style['shape'])}>
                 <option value="rect">rect</option>
                 <option value="ellipse">ellipse</option>
                 <option value="path">path</option>
             </select>
         </div>
         {#if node.style.shape === 'path' || node.geo.path}
+            {#if !node.geo.path}<p class="field-sub">Until you add path data, the node draws as a rectangle.</p>{/if}
             <div class="field">
                 <label for="node-path-data">SVG path data <span class="field-sub">(d attribute)</span></label>
                 <textarea id="node-path-data" class="path-data-textarea" rows="4" spellcheck="false" value={node.geo.path ?? ''} oninput={e => setGeo({ path: e.currentTarget.value })}></textarea>

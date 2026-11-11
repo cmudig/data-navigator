@@ -69,9 +69,20 @@ export const defaultTools = () => ({
     level1BackfillColor: '#ffffff',
     level2BackfillColor: '#ffffff',
     level3BackfillColor: '#ffffff',
-    nodeFillOpacity: 0.25
+    nodeFillOpacity: 0.25,
+    imageOpacity: 1
 });
 export type ToolOptions = ReturnType<typeof defaultTools>;
+// Display settings per level. Levels deeper than 3 use the level 3 settings.
+export const LEVEL_TOOLS = [
+    ['showLevel0Node', 'level0BackfillColor'],
+    ['showLevel1Nodes', 'level1BackfillColor'],
+    ['showLevel2Nodes', 'level2BackfillColor'],
+    ['showLevel3Nodes', 'level3BackfillColor']
+] as const;
+export const levelTools = (level: number | undefined) => (level === undefined ? null : LEVEL_TOOLS[Math.min(level, 3)]);
+export const shapeOf = (n: { geo: Geo; style: Style }) =>
+    n.geo.path ? 'path' : n.style.shape === 'ellipse' ? 'ellipse' : 'rect';
 
 const KIND_LEVEL: Record<Kind, number> = { root: 0, dimension: 1, division: 2, leaf: 3, manual: -1 };
 const shorten = (s: string) => (s.length > 24 ? s.slice(0, 24) + '…' : s);

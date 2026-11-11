@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { app, commit, type Tool, type ToolOptions } from '../../model/state.svelte';
+    import { app, commit, LEVEL_TOOLS, type Tool, type ToolOptions } from '../../model/state.svelte';
+    import { levelsInUse } from '../../model/edits';
     import { seedScaffold } from '../../utils/vegaBuilder';
 
     const TOOLS: [Tool, string][] = [
@@ -26,8 +27,7 @@
     const tools = $derived(app.ui.tools);
     const spatial = $derived(!app.ui.swapped);
     const edgeTypes = $derived([...new Set([...app.graph.edges.values()].map(e => e.rules[0]).filter(Boolean))]);
-    const levelShown: Record<string, keyof ToolOptions> = { root: 'showLevel0Node', dimension: 'showLevel1Nodes', division: 'showLevel2Nodes', leaf: 'showLevel3Nodes' };
-    const levelFill: Record<string, keyof ToolOptions> = { root: 'level0BackfillColor', dimension: 'level1BackfillColor', division: 'level2BackfillColor', leaf: 'level3BackfillColor' };
+    const deep = $derived(levelsInUse().some(l => l > 3));
 
     function toggleScaffold() {
         if (!app.doc.scaffold) commit('Started scaffold', d => ({ ...d, scaffold: seedScaffold(d, app.built ? app.view : null) }));
@@ -85,22 +85,28 @@
             <div class="tool-options-panel">
                 <label><input type="checkbox" checked={tools.showNodeLabels} onchange={e => setTool('showNodeLabels', e.currentTarget.checked)} /> Node labels</label>
                 <label><input type="checkbox" checked={tools.showEdgeLabels} onchange={e => setTool('showEdgeLabels', e.currentTarget.checked)} /> Edge labels</label>
-                <label class="slider">
-                    Fill opacity {tools.nodeFillOpacity.toFixed(2)}
-                    <input type="range" min="0" max="1" step="0.05" value={tools.nodeFillOpacity} oninput={e => setTool('nodeFillOpacity', parseFloat(e.currentTarget.value))} />
-                </label>
-                <label><input type="checkbox" checked={tools.showAllNodes} onchange={e => setTool('showAllNodes', e.currentTarget.checked)} /> All nodes <input type="color" title="Node backfill" value={tools.nodeBackfillColor} oninput={e => setTool('nodeBackfillColor', e.currentTarget.value)} /></label>
-                {#each ['root', 'dimension', 'division', 'leaf'] as kind, i (kind)}
+                {#if app.doc.image}
+                    <label class="slider">
+                        Image opacity {Math.round(tools.imageOpacity * 100)}%
+                        <input type="range" min="0" max="1" step="0.05" value={tools.imageOpacity} oninput={e => setTool('imageOpacity', parseFloat(e.currentTarget.value))} />
+                    </label>
+                {/if}
+                <label><input type="checkbox" checked={tools.showAllNodes} onchange={e => setTool('showAllNodes', e.currentTarget.checked)} /> All nodes <input type="color" title="Fill for every node" value={tools.nodeBackfillColor} oninput={e => setTool('nodeBackfillColor', e.currentTarget.value)} /></label>
+                {#each LEVEL_TOOLS as [shown, fill], i (shown)}
                     <label class="indent">
-                        <input type="checkbox" disabled={kind === 'root' && !app.doc.recipe.root.enabled} checked={!!tools[levelShown[kind]]} onchange={e => setTool(levelShown[kind], e.currentTarget.checked as never)} />
-                        Level {i}
-                        <input type="color" title="Level {i} backfill" value={tools[levelFill[kind]]} oninput={e => setTool(levelFill[kind], e.currentTarget.value as never)} />
+                        <input type="checkbox" disabled={!tools.showAllNodes} checked={!!tools[shown]} onchange={e => setTool(shown, e.currentTarget.checked)} />
+                        Level {i}{i === 3 && deep ? ' and below' : ''}
+                        <input type="color" title="Level {i} fill" value={tools[fill]} oninput={e => setTool(fill, e.currentTarget.value)} />
                     </label>
                 {/each}
+                <label class="slider">
+                    Node fill opacity {Math.round(tools.nodeFillOpacity * 100)}%
+                    <input type="range" min="0" max="1" step="0.05" value={tools.nodeFillOpacity} oninput={e => setTool('nodeFillOpacity', parseFloat(e.currentTarget.value))} />
+                </label>
                 <label><input type="checkbox" checked={tools.showEdges} onchange={e => setTool('showEdges', e.currentTarget.checked)} /> All edges <input type="color" title="Edge color" value={tools.edgeColor} oninput={e => setTool('edgeColor', e.currentTarget.value)} /></label>
                 {#each edgeTypes as type (type)}
                     <label class="indent">
-                        <input type="checkbox" checked={!tools.hiddenEdgeTypes.includes(type)} onchange={() => toggleEdgeType(type)} />
+                        <input type="checkbox" disabled={!tools.showEdges} checked={!tools.hiddenEdgeTypes.includes(type)} onchange={() => toggleEdgeType(type)} />
                         "{type}"
                         <input type="color" title="Color for {type} edges" value={tools.edgeTypeColors[type] ?? tools.edgeColor} oninput={e => (app.ui.tools.edgeTypeColors = { ...tools.edgeTypeColors, [type]: e.currentTarget.value })} />
                     </label>

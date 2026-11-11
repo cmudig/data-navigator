@@ -5,7 +5,7 @@
     import { drawInspector as layoutInspector } from '../../utils/inspectorLayout';
     import '@data-navigator/inspector/style.css';
     import { untrack } from 'svelte';
-    import { app } from '../../model/state.svelte';
+    import { app, shapeOf } from '../../model/state.svelte';
     import { mount } from '../../runtime/dn-runtime.js';
     import NavKeysPanel from '../components/NavKeysPanel.svelte';
     import AssistantPanel from '../components/AssistantPanel.svelte';
@@ -158,9 +158,9 @@
                 <svg class="shapes-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
                     {#each nodes as n (n.id)}
                         {@const fill = n.style.fillEnabled ? n.style.fill : 'none'}
-                        {#if n.geo.path}
+                        {#if shapeOf(n) === 'path'}
                             <path d={n.geo.path} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
-                        {:else if n.style.shape === 'ellipse'}
+                        {:else if shapeOf(n) === 'ellipse'}
                             <ellipse cx={center(n.geo).x} cy={center(n.geo).y} rx={n.geo.width / 2} ry={n.geo.height / 2} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
                         {:else}
                             <rect {...n.geo} rx="4" {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
