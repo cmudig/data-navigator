@@ -3,13 +3,23 @@
     import type { Geo, LabelTemplate, Style } from '../../model/doc';
     import { shiftPath, templateFor } from '../../runtime/dn-runtime.js';
     import LabelBuilder from './prep/LabelBuilder.svelte';
-    import { parentGroup, structureOrder } from '../../model/edits';
+    import { applyLevels, clearLevel, levelPlan, levelsInUse, parentGroup, structureOrder } from '../../model/edits';
+    import LevelModal from './LevelModal.svelte';
 
     const LEVEL: Record<string, 0 | 1 | 2 | 3> = { root: 0, dimension: 1, division: 2, leaf: 3, manual: 3 };
     const nodes = $derived(app.graph.nodes);
     const edges = $derived(app.graph.edges);
     const selNodes = $derived(app.ui.selected.map(id => nodes.get(id)).filter(n => !!n));
     const selEdges = $derived(app.ui.selectedEdges.map(id => edges.get(id)).filter(e => !!e));
+    const maxLevel = $derived(Math.max(0, ...levelsInUse()));
+    let levelAsk = $state<{ id: string; to: number } | null>(null);
+
+    function askLevel(id: string, v: string) {
+        if (v === 'none') return clearLevel(id);
+        const plan = levelPlan(id, +v, 'level');
+        if (Object.keys(plan.next).length > 1 || plan.skipped || plan.problem) levelAsk = { id, to: +v };
+        else applyLevels(plan.next);
+    }
     const node = $derived(selNodes.length === 1 && !selEdges.length ? selNodes[0] : undefined);
     const edge = $derived(selEdges.length === 1 && !selNodes.length ? selEdges[0] : undefined);
     const ov = $derived(app.doc.overrides);
@@ -184,6 +194,29 @@
             <label for="node-is-entry">Is entry node {#if isEntry}<span class="badge-entry" aria-hidden="true">★</span>{/if}</label>
             <input id="node-is-entry" type="checkbox" checked={isEntry} onchange={e => setEntry(node.id, e.currentTarget.checked)} />
         </div>
+        {#if isManual}
+            {@const lv = app.tree.level[node.id]}
+            <div class="field field-inline">
+                <label for="node-level">Level</label>
+                <select
+                    id="node-level"
+                    value={String(lv ?? 'none')}
+                    onchange={e => {
+                        askLevel(node.id, e.currentTarget.value);
+                        e.currentTarget.value = String(app.tree.level[node.id] ?? 'none');
+                    }}
+                >
+                    <option value="none">No level</option>
+                    {#each Array.from({ length: maxLevel + 2 }, (_, i) => i) as i (i)}
+                        <option value={String(i)} disabled={i === 0 && app.tree.root !== undefined && app.tree.root !== node.id}>
+                            {i}{i === 0 ? ' (root)' : i > maxLevel ? ' (new)' : ''}
+                        </option>
+                    {/each}
+                </select>
+            </div>
+        {:else if app.tree.level[node.id] !== undefined}
+            <p class="field-sub">Level {app.tree.level[node.id]}, set by the data.</p>
+        {/if}
         <p class="field-sub">Announced as: {node.label}</p>
         {#if isManual}
             <button class="btn-ghost btn-sm" type="button" onclick={() => connectTo(node.id)}>Connect to…</button>
@@ -369,6 +402,8 @@
         </section>
     {/if}
 {/if}
+
+{#if levelAsk}<LevelModal id={levelAsk.id} to={levelAsk.to} onclose={() => (levelAsk = null)} />{/if}
 
 <style>
     .missing {

@@ -81,7 +81,7 @@ export const clique = (ids: string[], pair: string[]) =>
 
 const links = (ids: string[], pair: string[], wrap = false) => [
     ...ids.slice(1).map((id, i) => [ids[i], id, [...pair]] as [string, string, string[]]),
-    ...(wrap && ids.length > 2 ? [[ids.at(-1)!, ids[0], [...pair]] as [string, string, string[]]] : [])
+    ...(wrap && ids.length > 1 ? [[ids.at(-1)!, ids[0], [...pair]] as [string, string, string[]]] : [])
 ];
 
 // Only hand-made nodes take a level here; generated nodes keep the one the data gives them.
@@ -92,16 +92,70 @@ function setLevel(d: Doc, ids: string[], level: number | null) {
 
 export const levelsInUse = () => [...new Set(Object.values(app.tree.level))].sort((a, b) => a - b);
 
+const below = (id: string, seen = new Set<string>()): string[] =>
+    (app.tree.children[id] ?? []).filter(k => !seen.has(k) && seen.add(k)).flatMap(k => [k, ...below(k, seen)]);
+
+// Plans a level change for a hand-made node. 'level' shifts every hand-made node on its level and below; 'branch' shifts it and the nodes under it.
+export function levelPlan(id: string, to: number, scope: 'level' | 'branch') {
+    const t = app.tree;
+    const added = app.doc.overrides.added.nodes;
+    const from = t.level[id];
+    const moved =
+        from === undefined
+            ? [id]
+            : scope === 'level'
+              ? Object.keys(t.level).filter(k => t.level[k] >= from)
+              : [id, ...below(id)];
+    const next: Record<string, number> = {};
+    for (const k of moved) if (added[k]) next[k] = from === undefined ? to : t.level[k] + to - from;
+    const at = (k: string) => next[k] ?? t.level[k];
+    const seen = new Set<string>();
+    const keepBelow = (k: string) => {
+        if (seen.has(k)) return;
+        seen.add(k);
+        for (const kid of t.children[k] ?? [])
+            if (added[kid] && at(kid) <= at(k)) ((next[kid] = at(k) + 1), keepBelow(kid));
+    };
+    Object.keys(next).forEach(keepBelow);
+    const name = (k: string) => app.graph.nodes.get(k)?.name ?? k;
+    const roots = [...new Set([...Object.keys(t.level), ...Object.keys(next)])].filter(k => at(k) === 0);
+    const up = Object.keys(next).find(
+        k =>
+            t.parent[k] !== undefined &&
+            !(t.parent[k] in next) &&
+            at(t.parent[k]) !== undefined &&
+            at(t.parent[k]) >= next[k]
+    );
+    const problem =
+        roots.length > 1
+            ? `That would put ${roots.map(name).join(' and ')} all at level 0, and only one root is allowed.`
+            : up
+              ? `${name(up)} would sit at or above its parent ${name(t.parent[up])} (level ${at(t.parent[up])}).`
+              : '';
+    return { next, problem, skipped: moved.filter(k => !added[k]).length };
+}
+
+export function applyLevels(next: Record<string, number>) {
+    edit('Changed level', d => {
+        for (const [k, l] of Object.entries(next)) if (d.overrides.added.nodes[k]) d.overrides.added.nodes[k].level = l;
+        const root = Object.keys(next).find(k => next[k] === 0);
+        if (root) d.entry = root;
+    });
+    say(`Changed the level of ${plural(Object.keys(next).length, 'node')}.`);
+}
+
+export const clearLevel = (id: string) => edit('Cleared level', d => delete d.overrides.added.nodes[id]?.level);
+
 export const chain = (ids: string[], pair: string[], wrap: boolean, level: number | null = null) =>
     addEdges('Created dimension', links(ids, pair, wrap), [], d => setLevel(d, ids, level));
 
-export function makeFamily(parent: string, kids: string[], pair: string[] | null, level: number | null) {
+export function makeFamily(parent: string, kids: string[], pair: string[] | null, level: number | null, wrap = true) {
     edit('Created parent grouping', d => {
         newEdges(d, [
             ...kids.map(
                 (k, i) => [parent, k, i ? ['drill-out'] : ['drill-out', 'drill-in']] as [string, string, string[]]
             ),
-            ...(pair ? links(kids, pair) : [])
+            ...(pair ? links(kids, pair, wrap) : [])
         ]);
         setLevel(d, [parent], level === 0 && app.tree.root && app.tree.root !== parent ? null : level);
         setLevel(d, kids, level === null ? null : Math.max(1, level + 1));

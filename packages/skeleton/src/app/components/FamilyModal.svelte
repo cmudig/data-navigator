@@ -9,23 +9,25 @@
     const pair = f.kids.length === 1;
     const name = (id: string) => app.graph.nodes.get(id)?.name ?? id;
     const used = levelsInUse();
-    const choices = [...new Set([...(used.includes(0) ? [] : [0]), ...used.filter(l => l > 0), (used.at(-1) ?? -1) + 1])];
+    const max = used.at(-1) ?? -1;
+    const choices = [...(used.includes(0) ? [] : [0]), ...Array.from({ length: max + 1 }, (_, i) => i + 1)];
 
     let rel = $state<'kids' | 'flip' | 'none'>('kids');
     let siblings = $state(true);
+    let loop = $state(true);
     let preset = $state('leftright');
     let level = $state(used.includes(0) ? 'none' : '0');
     const parent = $derived(rel === 'flip' ? f.kids[0] : f.parent);
     const kids = $derived(rel === 'flip' ? [f.parent] : f.kids);
     const fixed = $derived(app.tree.level[parent]);
     const label = (l: number) =>
-        `${l === 0 ? `Make ${name(parent)} the root (level 0) and entry point` : used.includes(l) ? `Level ${l}` : `New level ${l}`}, ${pair ? 'child' : 'children'} at level ${l + 1}`;
+        `${l === 0 ? `Make ${name(parent)} the root (level 0) and entry point` : used.includes(l) ? `Level ${l}` : l > max ? `New level ${l}` : `Empty level ${l}`}, ${pair ? 'child' : 'children'} at level ${l + 1}`;
 
     function submit() {
         if (rel === 'none') pair ? connect(f.kids[0], f.parent) : fan(f.parent, f.kids, false);
         else {
             const names = SIBLING_PRESETS.find(p => p.id === preset)!.names;
-            makeFamily(parent, spatialOrder(kids), !pair && siblings ? [...names] : null, fixed ?? (level === 'none' ? null : +level));
+            makeFamily(parent, spatialOrder(kids), !pair && siblings ? [...names] : null, fixed ?? (level === 'none' ? null : +level), loop);
         }
         dialog?.close();
     }
@@ -55,6 +57,7 @@
                             {#each SIBLING_PRESETS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
                         </select>
                     </label>
+                    <label class="keys"><input type="checkbox" bind:checked={loop} /> Wrap from last to first</label>
                 {/if}
             </fieldset>
         {/if}

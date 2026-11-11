@@ -7,10 +7,10 @@
 
     let dialog = $state<HTMLDialogElement>();
     let preset = $state('leftright');
-    let wrap = $state(false);
+    let wrap = $state(true);
     let listEl = $state<HTMLOListElement>();
     const o = app.ui.ordering!;
-    const levels = levelsInUse().filter(l => l > 0);
+    const levels = Array.from({ length: Math.max(0, ...levelsInUse()) }, (_, i) => i + 1);
     const next = Math.max(0, ...levelsInUse()) + 1;
     let level = $state(levelsInUse().length ? 'none' : String(next));
     const METHODS = [
@@ -100,7 +100,7 @@
             <fieldset>
                 <legend>Add them to a level?</legend>
                 {#each levels as l (l)}
-                    <label class="radio-row"><input type="radio" name="order-level" value={String(l)} bind:group={level} /> Level {l}</label>
+                    <label class="radio-row"><input type="radio" name="order-level" value={String(l)} bind:group={level} /> {levelsInUse().includes(l) ? 'Level' : 'Empty level'} {l}</label>
                 {/each}
                 <label class="radio-row"><input type="radio" name="order-level" value={String(next)} bind:group={level} /> New level {next}</label>
                 <label class="radio-row"><input type="radio" name="order-level" value="none" bind:group={level} /> No level, just link them as siblings</label>
