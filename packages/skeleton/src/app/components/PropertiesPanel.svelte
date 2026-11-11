@@ -1,15 +1,26 @@
 <script lang="ts">
-    import { app, edit, select } from '../../model/state.svelte';
+    import { tick } from 'svelte';
+    import { app, edit, select, shapeOf } from '../../model/state.svelte';
     import type { Geo, LabelTemplate, Style } from '../../model/doc';
     import { shiftPath, templateFor } from '../../runtime/dn-runtime.js';
     import LabelBuilder from './prep/LabelBuilder.svelte';
-    import { parentGroup, structureOrder } from '../../model/edits';
+    import { applyLevels, clearLevel, levelPlan, levelsInUse, parentGroup, pathBox, setGeos, setPaths, setStyles, structureOrder, toAbsolute, toShown, writeGeo } from '../../model/edits';
+    import LevelModal from './LevelModal.svelte';
 
     const LEVEL: Record<string, 0 | 1 | 2 | 3> = { root: 0, dimension: 1, division: 2, leaf: 3, manual: 3 };
     const nodes = $derived(app.graph.nodes);
     const edges = $derived(app.graph.edges);
     const selNodes = $derived(app.ui.selected.map(id => nodes.get(id)).filter(n => !!n));
     const selEdges = $derived(app.ui.selectedEdges.map(id => edges.get(id)).filter(e => !!e));
+    const maxLevel = $derived(Math.max(0, ...levelsInUse()));
+    let levelAsk = $state<{ id: string; to: number } | null>(null);
+
+    function askLevel(id: string, v: string) {
+        if (v === 'none') return clearLevel(id);
+        const plan = levelPlan(id, +v, 'level');
+        if (Object.keys(plan.next).length > 1 || plan.skipped || plan.problem) levelAsk = { id, to: +v };
+        else applyLevels(plan.next);
+    }
     const node = $derived(selNodes.length === 1 && !selEdges.length ? selNodes[0] : undefined);
     const edge = $derived(selEdges.length === 1 && !selNodes.length ? selEdges[0] : undefined);
     const ov = $derived(app.doc.overrides);
@@ -35,10 +46,59 @@
         edit('Moved node', d => (d.overrides.added.nodes[id] ? (d.overrides.added.nodes[id].geo = geo) : (d.overrides.nodes[id] = { ...d.overrides.nodes[id], geo })), true);
     }
     const unpin = (id: string) => edit('Reset node position', d => delete d.overrides.nodes[id].geo);
-    const setStyle = (patch: Partial<Style>) => {
-        const id = node!.id;
-        edit('Edited node style', d => (d.overrides.nodes[id] = { ...d.overrides.nodes[id], style: { ...d.overrides.nodes[id]?.style, ...patch } }), true);
+
+    // Rendering fields edit every selected node at once.
+    const ids = $derived(selNodes.map(n => n.id));
+    const list = $derived(selNodes);
+    const one = $derived(list.length === 1 ? list[0] : null);
+    const many = $derived(list.length > 1);
+    const same = <T,>(f: (n: (typeof list)[number]) => T): T | undefined => {
+        const v = list.map(f);
+        return v.every(x => x === v[0]) ? v[0] : undefined;
     };
+    const style = <K extends keyof Style>(k: K) => same(n => n.style[k]);
+    const shape = $derived(list.every(n => n.geo.path || n.style.shape === 'path') ? 'path' : same(shapeOf));
+    const relative = $derived(!ids.every(id => app.ui.absolute.includes(id)));
+    const shown = $derived(same(n => toShown(n.geo, relative)) ?? '');
+    let note = $state('');
+    $effect(() => void (ids.join(), (note = '')));
+
+    function setShapes(s: Style['shape']) {
+        edit(many ? `Changed shape of ${ids.length} nodes` : 'Changed shape', d => {
+            for (const n of list) {
+                // A box keeps the path's bounds and drops the path, so the export matches the canvas.
+                if (s !== 'path' && n.geo.path) writeGeo(d, n.id, { x: n.geo.x, y: n.geo.y, width: n.geo.width, height: n.geo.height });
+                d.overrides.nodes[n.id] = { ...d.overrides.nodes[n.id], style: { ...d.overrides.nodes[n.id]?.style, shape: s } };
+            }
+        });
+    }
+
+    const setRelative = (on: boolean) => (app.ui.absolute = on ? app.ui.absolute.filter(id => !ids.includes(id)) : [...new Set([...app.ui.absolute, ...ids])]);
+    const fits = (b: ReturnType<typeof pathBox>) => !!b && b.x >= -1 && b.y >= -1 && b.x + b.width <= app.size.width + 1 && b.y + b.height <= app.size.height + 1;
+
+    function commitPath(text: string) {
+        text = text.trim();
+        note = '';
+        if (!text) return setGeos(ids, () => ({ path: '' }), 'Cleared path');
+        let rel = relative;
+        // With one node, read the path whichever way lands it on the image.
+        if (one && !fits(pathBox(toAbsolute(text, one.geo, rel))) && fits(pathBox(toAbsolute(text, one.geo, !rel)))) {
+            rel = !rel;
+            setRelative(rel);
+            note = rel ? "Read as relative to the node's x and y, since that keeps it on the image." : 'Read as positions on the image, since that keeps it on the image.';
+        }
+        const paths = Object.fromEntries(list.map(n => [n.id, toAbsolute(text, n.geo, rel)]));
+        if (Object.values(paths).some(p => !pathBox(p))) return void (note = 'This path data could not be read. Check that it starts with M.');
+        setPaths(paths);
+    }
+
+    async function draw() {
+        app.ui.swapped = false;
+        app.ui.pen = { id: one!.id, pts: [] };
+        app.ui.live = 'Pen on. Click the canvas to add points. Click the first point to close the shape, or press Escape to finish.';
+        await tick();
+        document.querySelector<SVGElement>('.editor-canvas svg.spatial')?.focus();
+    }
     function setTemplate(t: LabelTemplate) {
         const id = node!.id;
         edit('Edited node label', d => (d.overrides.added.nodes[id] ? (d.overrides.added.nodes[id].label = t.template) : (d.overrides.nodes[id] = { ...d.overrides.nodes[id], semantics: t })), true);
@@ -151,6 +211,91 @@
     </ul>
 {/snippet}
 
+{#snippet renderingFields()}
+    <div class="field">
+        <label for="node-shape">Shape</label>
+        <select id="node-shape" value={shape ?? 'mixed'} onchange={e => setShapes(e.currentTarget.value as Style['shape'])}>
+            {#if !shape}<option value="mixed" disabled>Mixed</option>{/if}
+            <option value="rect">rect</option>
+            <option value="ellipse">ellipse</option>
+            <option value="path">path</option>
+        </select>
+    </div>
+    {#if shape === 'rect' || shape === 'ellipse' || (!shape && list.every(n => !n.geo.path))}
+        <div class="field-pair">
+            {#each [['width', 'Width'], ['height', 'Height']] as const as [k, label] (k)}
+                {@const v = same(n => toUnit(n.geo[k], k))}
+                <div class="field">
+                    <label for="node-{k}">{label} ({posUnit})</label>
+                    <input id="node-{k}" type="number" min="1" step={posUnit === '%' ? 0.1 : 1} value={v ?? ''} placeholder="Mixed" oninput={e => e.currentTarget.value && setGeos(ids, () => ({ [k]: Math.max(1, fromUnit(parseFloat(e.currentTarget.value), k)) }))} />
+                </div>
+            {/each}
+        </div>
+    {:else if shape === 'path'}
+        {#if one}
+            <button class="btn-ghost btn-sm" type="button" onclick={draw} disabled={app.ui.pen?.id === one.id}>{app.ui.pen?.id === one.id ? 'Drawing on the canvas…' : one.geo.path ? 'Redraw path' : 'Draw path'}</button>
+        {:else}
+            <p class="field-sub">Drawing works with one node selected. Type path data to set it on all {list.length}.</p>
+        {/if}
+        <label class="toggle"><input type="checkbox" checked={relative} onchange={e => setRelative(e.currentTarget.checked)} /> Relative to {one ? "the node's" : "each node's"} x and y</label>
+        <div class="field">
+            <label for="node-path-data">SVG path data <span class="field-sub">(d attribute)</span></label>
+            <textarea
+                id="node-path-data"
+                class="path-data-textarea"
+                rows="4"
+                spellcheck="false"
+                value={shown}
+                placeholder={many && same(n => n.geo.path ?? '') === undefined ? 'Mixed. New path data replaces every path.' : 'M 0 0 L 40 0 L 40 40 Z'}
+                onchange={e => commitPath(e.currentTarget.value)}
+                aria-describedby="path-note"
+            ></textarea>
+            <p id="path-note" class="field-sub" aria-live="polite">
+                {note || (one && !one.geo.path ? 'Until you add path data, the node draws as a rectangle.' : one ? `Size comes from the path: ${Math.round(one.geo.width)} × ${Math.round(one.geo.height)} px.` : '')}
+            </p>
+        </div>
+    {/if}
+    <div class="field field-inline">
+        <label for="node-fill-enabled">Fill color</label>
+        <div class="fill-row">
+            <input id="node-fill-enabled" type="checkbox" checked={!!style('fillEnabled')} indeterminate={style('fillEnabled') === undefined} onchange={e => setStyles(ids, { fillEnabled: e.currentTarget.checked })} aria-label="Enable fill color" />
+            <input id="node-fill" type="color" disabled={style('fillEnabled') === false} value={style('fill') ?? list[0].style.fill} oninput={e => setStyles(ids, { fill: e.currentTarget.value })} aria-label="Fill color" />
+        </div>
+    </div>
+    <fieldset class="panel-fieldset">
+        <legend class="fieldset-legend">Stroke</legend>
+        <div class="field field-inline">
+            <label for="node-stroke-color">Color{style('strokeColor') === undefined ? ' (mixed)' : ''}</label>
+            <input id="node-stroke-color" type="color" value={style('strokeColor') ?? list[0].style.strokeColor} oninput={e => setStyles(ids, { strokeColor: e.currentTarget.value })} />
+        </div>
+        <div class="field">
+            <label for="node-stroke-width">Width (px)</label>
+            <input id="node-stroke-width" type="number" min="0" max="20" step="0.5" value={style('strokeWidth') ?? ''} placeholder="Mixed" oninput={e => e.currentTarget.value && setStyles(ids, { strokeWidth: parseFloat(e.currentTarget.value) || 0 })} />
+        </div>
+        <div class="field">
+            <label for="node-stroke-dash">Dash pattern</label>
+            <select id="node-stroke-dash" value={style('strokeDash') ?? 'mixed'} onchange={e => setStyles(ids, { strokeDash: e.currentTarget.value as Style['strokeDash'] })}>
+                {#if style('strokeDash') === undefined}<option value="mixed" disabled>Mixed</option>{/if}
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+            </select>
+        </div>
+    </fieldset>
+    <div class="field">
+        <label for="node-opacity">Opacity <span class="value-hint" aria-hidden="true">{style('opacity')?.toFixed(2) ?? 'mixed'}</span></label>
+        <input id="node-opacity" type="range" min="0" max="1" step="0.05" value={style('opacity') ?? list[0].style.opacity} oninput={e => setStyles(ids, { opacity: parseFloat(e.currentTarget.value) })} />
+    </div>
+    <div class="field">
+        <label for="node-aria-role">Aria role</label>
+        <input id="node-aria-role" type="text" placeholder={style('ariaRole') === undefined ? 'Mixed' : 'img'} value={style('ariaRole') ?? ''} onchange={e => setStyles(ids, { ariaRole: e.currentTarget.value })} />
+    </div>
+    <div class="field">
+        <label for="node-custom-class">Custom CSS class</label>
+        <input id="node-custom-class" type="text" placeholder={style('customClass') === undefined ? 'Mixed' : ''} value={style('customClass') ?? ''} onchange={e => setStyles(ids, { customClass: e.currentTarget.value })} />
+    </div>
+{/snippet}
+
 <div class="visually-hidden" aria-live="polite" aria-atomic="true">{applyMsg}</div>
 
 {#if app.orphans.length}
@@ -184,6 +329,29 @@
             <label for="node-is-entry">Is entry node {#if isEntry}<span class="badge-entry" aria-hidden="true">★</span>{/if}</label>
             <input id="node-is-entry" type="checkbox" checked={isEntry} onchange={e => setEntry(node.id, e.currentTarget.checked)} />
         </div>
+        {#if isManual}
+            {@const lv = app.tree.level[node.id]}
+            <div class="field field-inline">
+                <label for="node-level">Level</label>
+                <select
+                    id="node-level"
+                    value={String(lv ?? 'none')}
+                    onchange={e => {
+                        askLevel(node.id, e.currentTarget.value);
+                        e.currentTarget.value = String(app.tree.level[node.id] ?? 'none');
+                    }}
+                >
+                    <option value="none">No level</option>
+                    {#each Array.from({ length: maxLevel + 2 }, (_, i) => i) as i (i)}
+                        <option value={String(i)} disabled={i === 0 && app.tree.root !== undefined && app.tree.root !== node.id}>
+                            {i}{i === 0 ? ' (root)' : i > maxLevel ? ' (new)' : ''}
+                        </option>
+                    {/each}
+                </select>
+            </div>
+        {:else if app.tree.level[node.id] !== undefined}
+            <p class="field-sub">Level {app.tree.level[node.id]}, set by the data.</p>
+        {/if}
         <p class="field-sub">Announced as: {node.label}</p>
         {#if isManual}
             <button class="btn-ghost btn-sm" type="button" onclick={() => connectTo(node.id)}>Connect to…</button>
@@ -191,7 +359,7 @@
     </section>
 
     <details class="panel-section">
-        <summary class="section-heading">Position &amp; Size</summary>
+        <summary class="section-heading">Position</summary>
         <div class="field-group">
             <fieldset class="unit-toggle">
                 <legend>Coordinate unit</legend>
@@ -200,7 +368,7 @@
                 {/each}
             </fieldset>
             <div class="field-pair">
-                {#each [['x', 'X', 'width'], ['y', 'Y', 'height'], ['width', 'Width', 'width'], ['height', 'Height', 'height']] as const as [k, label, axis] (k)}
+                {#each [['x', 'X', 'width'], ['y', 'Y', 'height']] as const as [k, label, axis] (k)}
                     <div class="field">
                         <label for="node-{k}">{label} ({posUnit})</label>
                         <input id="node-{k}" type="number" step={posUnit === '%' ? 0.1 : 1} value={toUnit(node.geo[k], axis)} oninput={e => setGeo({ [k]: fromUnit(parseFloat(e.currentTarget.value) || 0, axis) })} />
@@ -211,6 +379,11 @@
                 <button class="btn-ghost btn-sm" type="button" onclick={() => unpin(node.id)}>Reset to computed position</button>
             {/if}
         </div>
+    </details>
+
+    <details class="panel-section">
+        <summary class="section-heading">Rendering &amp; Size</summary>
+        {@render renderingFields()}
     </details>
 
     {@const missing = app.missing.has(node.id)}
@@ -251,62 +424,6 @@
             </ul>
         {/if}
     </section>
-
-    <details class="panel-section">
-        <summary class="section-heading">Rendering</summary>
-        <div class="field">
-            <label for="node-shape">Shape</label>
-            <select id="node-shape" value={node.geo.path ? 'path' : node.style.shape} onchange={e => setStyle({ shape: e.currentTarget.value as Style['shape'] })}>
-                <option value="rect">rect</option>
-                <option value="ellipse">ellipse</option>
-                <option value="path">path</option>
-            </select>
-        </div>
-        {#if node.style.shape === 'path' || node.geo.path}
-            <div class="field">
-                <label for="node-path-data">SVG path data <span class="field-sub">(d attribute)</span></label>
-                <textarea id="node-path-data" class="path-data-textarea" rows="4" spellcheck="false" value={node.geo.path ?? ''} oninput={e => setGeo({ path: e.currentTarget.value })}></textarea>
-            </div>
-        {/if}
-        <div class="field field-inline">
-            <label for="node-fill-enabled">Fill color</label>
-            <div class="fill-row">
-                <input id="node-fill-enabled" type="checkbox" checked={node.style.fillEnabled} onchange={e => setStyle({ fillEnabled: e.currentTarget.checked })} aria-label="Enable fill color" />
-                <input id="node-fill" type="color" disabled={!node.style.fillEnabled} value={node.style.fill} oninput={e => setStyle({ fill: e.currentTarget.value })} aria-label="Fill color" />
-            </div>
-        </div>
-        <fieldset class="panel-fieldset">
-            <legend class="fieldset-legend">Stroke</legend>
-            <div class="field field-inline">
-                <label for="node-stroke-color">Color</label>
-                <input id="node-stroke-color" type="color" value={node.style.strokeColor} oninput={e => setStyle({ strokeColor: e.currentTarget.value })} />
-            </div>
-            <div class="field">
-                <label for="node-stroke-width">Width (px)</label>
-                <input id="node-stroke-width" type="number" min="0" max="20" step="0.5" value={node.style.strokeWidth} oninput={e => setStyle({ strokeWidth: parseFloat(e.currentTarget.value) || 0 })} />
-            </div>
-            <div class="field">
-                <label for="node-stroke-dash">Dash pattern</label>
-                <select id="node-stroke-dash" value={node.style.strokeDash} onchange={e => setStyle({ strokeDash: e.currentTarget.value as Style['strokeDash'] })}>
-                    <option value="solid">Solid</option>
-                    <option value="dashed">Dashed</option>
-                    <option value="dotted">Dotted</option>
-                </select>
-            </div>
-        </fieldset>
-        <div class="field">
-            <label for="node-opacity">Opacity <span class="value-hint" aria-hidden="true">{node.style.opacity.toFixed(2)}</span></label>
-            <input id="node-opacity" type="range" min="0" max="1" step="0.05" value={node.style.opacity} oninput={e => setStyle({ opacity: parseFloat(e.currentTarget.value) })} />
-        </div>
-        <div class="field">
-            <label for="node-aria-role">Aria role</label>
-            <input id="node-aria-role" type="text" placeholder="img" value={node.style.ariaRole} oninput={e => setStyle({ ariaRole: e.currentTarget.value })} />
-        </div>
-        <div class="field">
-            <label for="node-custom-class">Custom CSS class</label>
-            <input id="node-custom-class" type="text" value={node.style.customClass} oninput={e => setStyle({ customClass: e.currentTarget.value })} />
-        </div>
-    </details>
 {:else if edge}
     <section class="panel-section" aria-labelledby="section-edge">
         <h3 id="section-edge" class="section-heading">Edge</h3>
@@ -333,6 +450,11 @@
                 <button class="btn-primary btn-sm" type="button" onclick={bulkLabel}>Apply</button>
             </div>
         </section>
+        <details class="panel-section">
+            <summary class="section-heading">Rendering &amp; Size</summary>
+            <p class="field-sub">Changes apply to all {selNodes.length} nodes.</p>
+            {@render renderingFields()}
+        </details>
     {/if}
     {#if selEdges.length}
         <section class="panel-section" aria-labelledby="section-multi-edge">
@@ -369,6 +491,8 @@
         </section>
     {/if}
 {/if}
+
+{#if levelAsk}<LevelModal id={levelAsk.id} to={levelAsk.to} onclose={() => (levelAsk = null)} />{/if}
 
 <style>
     .missing {
@@ -770,6 +894,13 @@
         color: var(--dn-text);
         display: block;
         margin-bottom: calc(var(--dn-space) * 0.5);
+    }
+
+    .toggle {
+        display: flex;
+        align-items: center;
+        gap: var(--dn-space);
+        font-size: 0.875rem;
     }
 
     .path-data-textarea {

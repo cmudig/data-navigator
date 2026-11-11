@@ -262,7 +262,7 @@
                 </label>
                 <label class="field-label allow-more">
                     Graph layout
-                    <select value={ui.graphMode} onchange={e => (app.ui.schema.graphMode = e.currentTarget.value as 'tree')}>
+                    <select value={app.graphMode} disabled={!app.leveled} title={app.leveled ? undefined : 'No levels yet, so the graph uses a force layout.'} onchange={e => (app.ui.schema.graphMode = e.currentTarget.value as 'tree')}>
                         <option value="tree">Tree</option>
                         <option value="force">Force</option>
                     </select>

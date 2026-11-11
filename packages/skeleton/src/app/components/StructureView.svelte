@@ -1,8 +1,9 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { Inspector } from '@data-navigator/inspector';
-    import { app, fitView, select } from '../../model/state.svelte';
-    import { addNode, deleteSelection, drawEdge, groupKids, insertAt, reorder, reorderable } from '../../model/edits';
+    import { drawInspector } from '../../utils/inspectorLayout';
+    import { app, fitView, select, undo } from '../../model/state.svelte';
+    import { addNode, newGeo, deleteSelection, drawEdge, edgesOf, groupKids, groupLevel, insertAt, moveInto, reorderable } from '../../model/edits';
+    import Modal from './Modal.svelte';
 
     const { canvas }: { canvas: 'editor' | 'viewer' } = $props();
     const editor = $derived(canvas === 'editor');
@@ -11,7 +12,7 @@
     type Gesture =
         | { kind: 'pan'; sx: number; sy: number; tx: number; ty: number }
         | { kind: 'lasso'; a: Pt; b: Pt; add: boolean }
-        | { kind: 'move'; id: string; at: Pt; moved: boolean; add: boolean }
+        | { kind: 'move'; id: string; ids: string[]; at: Pt; moved: boolean; add: boolean }
         | { kind: 'edge'; from: string; at: Pt; moved: boolean }
         | { kind: 'pen'; pts: Pt[] };
 
@@ -26,6 +27,10 @@
     let hoverRow = $state<{ level: number; group?: string } | null>(null);
     let rowPick = $state<number | null>(null);
     let adding = $state<{ group: string; level: number } | null>(null);
+    type Slot = { group: string; i: number; x: number; y: number; label: string };
+    let pending = $state<{ group: string; i: number; ids: string[]; shift: string[] } | null>(null);
+    let moveDialog = $state<HTMLDialogElement>();
+    let undoTip = $state.raw<{ doc: unknown; text: string } | null>(null);
 
     const s = $derived(app.structure);
     const t = $derived(app.tree);
@@ -34,99 +39,11 @@
     const selectedEdges = $derived(new Set(app.ui.selectedEdges));
     const ordering = $derived(editor ? app.ui.ordering : null);
     const hideLeaves = $derived(app.ui.schema.hideLeafNodes);
-    const mode = $derived(editor ? 'tree' : app.ui.schema.graphMode);
+    const mode = $derived(!app.leveled ? 'force' : editor ? 'tree' : app.graphMode);
     const sig = $derived(Object.keys(s.nodes).join() + '|' + Object.entries<any>(s.edges).map(([k, e]) => k + e.navigationRules).join() + mode + hideLeaves);
 
-    let native = new Set<string>();
-
-    function forInspector() {
-        const rank: Record<string, number> = {};
-        for (const kids of Object.values(t.children)) kids.forEach((k, i) => (rank[k] = i));
-        const dims: Record<string, any> = { ...s.dimensions };
-        native = new Set();
-        const entries = Object.entries<any>(s.nodes)
-            .filter(([, n]) => !hideLeaves || n.dimensionLevel !== undefined || n.manual)
-            .map(([id, n]) => {
-                if (!n.manual) return [id, n] as const;
-                const lv = t.level[id];
-                const pn = s.nodes[t.parent[id]];
-                const div = lv >= 3 && pn?.dimensionLevel === 2 && Object.keys(dims).length === 1 && dims[pn.derivedNode]?.divisions[pn.id];
-                if (div) {
-                    const dim = dims[pn.derivedNode];
-                    dims[pn.derivedNode] = { ...dim, divisions: { ...dim.divisions, [pn.id]: { ...div, values: { ...div.values, [id]: {} } } } };
-                }
-                const as =
-                    lv === 1 && !pn
-                        ? { dimensionLevel: 1 }
-                        : lv === 1 && pn?.dimensionLevel === 0
-                          ? { dimensionLevel: 1 }
-                          : lv === 2 && pn?.dimensionLevel === 1
-                            ? { dimensionLevel: 2, derivedNode: pn.derivedNode }
-                            : div
-                              ? { data: n.data ?? {} }
-                              : null;
-                if (as) native.add(id);
-                return [id, { ...n, data: undefined, ...as }] as const;
-            })
-            .sort((a, b) => (rank[a[0]] ?? 0) - (rank[b[0]] ?? 0));
-        return { ...s, dimensions: dims, nodes: Object.fromEntries(entries) };
-    }
-
-    function place(svg: SVGSVGElement, prefix: string) {
-        const out: Record<string, Pt> = {};
-        const fill: Record<number, string> = {};
-        svg.querySelectorAll('circle').forEach(c => {
-            const d = (c as any).__data__;
-            if (!d?.id || !s.nodes[d.id] || (s.nodes[d.id].manual && !native.has(d.id))) return;
-            out[d.id] = { x: d.x, y: d.y };
-            fill[t.level[d.id] ?? 3] ??= c.getAttribute('fill') ?? '';
-        });
-        const rows: Record<number, number[]> = {};
-        for (const id in out) (rows[t.level[id] ?? 3] ??= []).push(out[id].y);
-        const rowY = (l: number): number => (rows[l]?.length ? rows[l].sort((a, b) => a - b)[rows[l].length >> 1] : l <= 0 ? 30 : rowY(l - 1) + 60);
-        const gap = R * 3;
-        const manual = Object.keys(s.nodes).filter(id => s.nodes[id].manual && !native.has(id) && (!hideLeaves || (t.level[id] ?? 0) < 3));
-        for (let pass = 0; pass < 3; pass++)
-            for (const id of manual) {
-                if (out[id] && pass) continue;
-                const grp = t.group(id);
-                const sib = grp !== undefined ? t.children[grp] : [];
-                const i = sib.indexOf(id);
-                const prev = sib.slice(0, Math.max(0, i)).reverse().find(k => out[k]);
-                const next = sib.slice(i + 1).find(k => out[k]);
-                const level = t.level[id] ?? 1;
-                const rowXs = Object.keys(out).filter(k => k !== id && Math.abs(out[k].y - rowY(level)) < 1).map(k => out[k].x);
-                out[id] = prev
-                    ? { x: out[prev].x + gap, y: out[prev].y }
-                    : next
-                      ? { x: out[next].x - gap, y: out[next].y }
-                      : { x: (rowXs.length ? Math.max(...rowXs) : size.w / 2 - gap) + gap, y: rowY(level) };
-            }
-        for (const id of manual) {
-            const c = svg.ownerDocument.getElementById(`${prefix}svg${id}`);
-            c?.setAttribute('cx', String(out[id].x));
-            c?.setAttribute('cy', String(out[id].y));
-            if (fill[t.level[id] ?? 1]) c?.setAttribute('fill', fill[t.level[id] ?? 1]);
-        }
-        const paths: Record<string, { d: string; w: number }> = {};
-        for (const [id, e] of Object.entries<any>(s.edges)) {
-            const a = out[e.source];
-            const b = out[e.target];
-            if (!a || !b) continue;
-            const line = svg.ownerDocument.getElementById(`${prefix}svgedge${e.source}-${e.target}`);
-            const arc = e.navigationRules.map((r: string) => svg.ownerDocument.getElementById(`${prefix}svgedge${e.source}-${e.target}-${r}`)).find(Boolean);
-            const patched = manual.includes(e.source) || manual.includes(e.target);
-            if (line && patched) for (const [k, v] of [['x1', a.x], ['y1', a.y], ['x2', b.x], ['y2', b.y]] as const) line.setAttribute(k, String(v));
-            if (arc && patched) arc.setAttribute('d', `M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 18} ${b.x} ${b.y}`);
-            const el = line ?? arc;
-            const w = parseFloat(el?.getAttribute('stroke-width') ?? (el ? getComputedStyle(el).strokeWidth : '') ?? '') || 1.5;
-            paths[id] = { d: arc && !line ? arc.getAttribute('d')! : `M ${a.x} ${a.y} L ${b.x} ${b.y}`, w };
-        }
-        pos = out;
-        edgePaths = paths;
-    }
-
     let timer: ReturnType<typeof setTimeout>;
+    let drawn = $state(0);
     $effect(() => {
         sig;
         const w = Math.round(boxW);
@@ -138,20 +55,42 @@
             untrack(() => {
                 el.innerHTML = '';
                 if (!Object.keys(s.nodes).length) return;
-                const ins = Inspector({ structure: forInspector(), container: el, size: { width: w, height: h }, mode, colorBy: 'dimensionLevel', nodeRadius: R });
+                const out = drawInspector(el, s, t, { width: w, height: h, mode, radius: R, hideLeaves });
                 size = { w, h };
-                const svg = el.querySelector('svg') as SVGSVGElement;
-                if (mode === 'tree') place(svg, el.id + '-');
+                pos = out.pos;
+                edgePaths = out.paths;
+                drawn++;
+                if (editor && mode === 'force') follow(el, w, h);
                 if (!editor) wireViewer(el);
                 if (editor) {
                     Object.assign(app.ui.view, { w: boxW, h: boxH, cw: w, ch: h });
                     if (!fitted) (fitted = true), fitView();
                 }
-                return ins;
             }), 60);
-        return () => clearTimeout(timer);
+        return () => (clearTimeout(timer), cancelAnimationFrame(raf));
     });
     let fitted = false;
+
+    // The force layout keeps moving for a few seconds, so read its positions each frame until it settles.
+    let raf = 0;
+    function follow(el: HTMLElement, w: number, h: number) {
+        let frames = 0;
+        const step = () => {
+            const at: Record<string, Pt> = {};
+            el.querySelectorAll('circle').forEach(c => {
+                const id = (c as any).__data__?.id;
+                if (id && s.nodes[id]) at[id] = { x: +(c.getAttribute('cx') ?? 0) + w / 2, y: +(c.getAttribute('cy') ?? 0) + h / 2 };
+            });
+            pos = at;
+            edgePaths = Object.fromEntries(
+                Object.entries<any>(s.edges)
+                    .filter(([, e]) => at[e.source] && at[e.target])
+                    .map(([id, e]) => [id, { d: `M ${at[e.source].x} ${at[e.source].y} L ${at[e.target].x} ${at[e.target].y}`, w: 1.5 }])
+            );
+            if (++frames < 360) raf = requestAnimationFrame(step);
+        };
+        step();
+    }
 
     function wireViewer(el: HTMLElement) {
         el.querySelectorAll('circle').forEach(c => {
@@ -174,14 +113,16 @@
         if (editor) return;
         const sel = selected;
         const hov = app.ui.hovered;
-        sig;
+        drawn;
         host?.querySelectorAll('circle').forEach(c => {
             const id = (c as any).__data__?.id;
             if (!id) return;
-            const [stroke, width] = sel.has(id) ? ['var(--dn-accent)', '3'] : hov === id ? ['var(--dn-accent-mid)', '2.5'] : ['#fff', '1.5'];
+            const [stroke, width] = sel.has(id) ? ['var(--dn-select)', '4'] : hov === id ? ['var(--dn-accent-mid)', '2.5'] : ['#fff', '1.5'];
             c.setAttribute('stroke', stroke);
             c.setAttribute('stroke-width', width);
         });
+        const on = [...selectedEdges].map(id => s.edges[id] && `${host?.id}-svgedge${s.edges[id].source}-${s.edges[id].target}`);
+        host?.querySelectorAll('[id*="-svgedge"]').forEach(el => el.classList.toggle('sel-edge', on.some(pre => pre && (el.id === pre || el.id.startsWith(pre + '-')))));
     });
 
     const ids = $derived(Object.keys(pos));
@@ -209,42 +150,84 @@
         return out;
     });
 
-    function slotsFor(group: string, moving?: string) {
+    function slotsFor(group: string, moving: string[] = []): Slot[] {
         const kids = groupKids(group).filter(k => pos[k]);
         if (!kids.length) return [];
         const gap = R * 3;
         const xs = kids.map(k => pos[k].x);
         const at = (i: number) => (i === 0 ? xs[0] - gap / 1.5 : i === kids.length ? xs[i - 1] + gap / 1.5 : (xs[i - 1] + xs[i]) / 2);
-        const idx = moving ? kids.indexOf(moving) : -1;
-        return Array.from({ length: kids.length + 1 }, (_, i) => ({ i, x: at(i), y: pos[kids[0]].y, label: i < kids.length ? `before ${name(kids[i])}` : `after ${name(kids.at(-1)!)}` })).filter(
+        const idx = moving.length === 1 ? kids.indexOf(moving[0]) : -1;
+        return Array.from({ length: kids.length + 1 }, (_, i) => ({ group, i, x: at(i), y: pos[kids[0]].y, label: i < kids.length ? `before ${name(kids[i])}` : `after ${name(kids.at(-1)!)}` })).filter(
             sl => idx < 0 || (sl.i !== idx && sl.i !== idx + 1)
         );
     }
-    const single = $derived(app.ui.selected.length === 1 ? app.ui.selected[0] : null);
-    const moveGroup = $derived(editor && tool === 'selectNodes' && single && reorderable(t.group(single)) ? t.group(single)! : null);
-    const slots = $derived(adding ? slotsFor(adding.group) : moveGroup !== null && single ? slotsFor(moveGroup, single) : []);
+    const draggable = (id: string) => !!s.nodes[id] && (s.nodes[id].manual || s.nodes[id].dimensionLevel > 0);
+    const inView = (list: string[]) => list.filter(id => pos[id]).sort((a, b) => pos[a].y - pos[b].y || pos[a].x - pos[b].x);
+    const groupName = (grp: string) => (grp ? name(grp) : 'the top level');
+    const dragging = $derived(g?.kind === 'move' && g.moved && g.ids.length ? g.ids : null);
+    const dropSlots = $derived(
+        dragging
+            ? Object.keys(t.children)
+                  .filter(grp => !dragging.includes(grp))
+                  .flatMap(grp => {
+                      const list = slotsFor(grp, dragging);
+                      return (t.level[groupKids(grp)[0]] ?? 3) >= 3 ? list.slice(-1) : list;
+                  })
+            : []
+    );
+    const hot = $derived.by(() => {
+        if (g?.kind !== 'move' || !dropSlots.length) return null;
+        const at = g.at;
+        let best: Slot | null = null;
+        let bd = R * 4;
+        for (const sl of dropSlots) {
+            const d = Math.hypot(sl.x - at.x, sl.y - at.y);
+            if (d < bd) (best = sl), (bd = d);
+        }
+        return best;
+    });
+    const moveGroup = $derived.by(() => {
+        const sel = app.ui.selected;
+        const grp = sel.length ? t.group(sel[0]) : undefined;
+        return editor && tool === 'selectNodes' && grp !== undefined && reorderable(grp) && sel.every(id => t.group(id) === grp) ? grp : null;
+    });
+    const slots = $derived(adding ? slotsFor(adding.group) : dragging ? dropSlots : moveGroup !== null ? slotsFor(moveGroup, app.ui.selected) : []);
+    const moving = $derived(dragging ?? app.ui.selected);
 
-    function useSlot(i: number) {
+    function drop(group: string, i: number, list: string[]) {
+        if (list.every(id => t.group(id) === group) && !reorderable(group)) return void (app.ui.live = 'This group keeps its own order.');
+        const lv = groupLevel(group);
+        const shift = list.filter(id => t.level[id] !== undefined && t.level[id] !== lv && t.group(id) !== group);
+        if (shift.length) pending = { group, i, ids: list, shift };
+        else finish(group, i, list);
+    }
+
+    function finish(group: string, i: number, list: string[]) {
+        const cross = list.some(id => t.group(id) !== group);
+        moveInto(group, i, list);
+        if (cross) undoTip = { doc: app.doc, text: app.ui.live };
+    }
+
+    function useSlot(sl: Slot) {
+        const i = sl.i;
         if (adding) {
             const a = adding;
             const kids = groupKids(a.group);
             const ref = pos[kids[Math.min(i, kids.length - 1)]] ? app.graph.nodes.get(kids[Math.min(i, kids.length - 1)])?.geo : null;
-            const id = addNode(ref ? { x: ref.x + ref.width + 10, y: ref.y, width: 80, height: 40 } : { x: 40, y: 40, width: 80, height: 40 }, a.level);
+            const g = newGeo();
+            const near = ref && { ...g, x: ref.x + ref.width + g.height / 4, y: ref.y + ref.height / 2 - g.height / 2 };
+            const id = addNode(near ? { ...near, x: Math.min(near.x, app.size.width - g.width), y: Math.max(0, Math.min(near.y, app.size.height - g.height)) } : g, a.level);
             insertAt(a.group, id, i);
             adding = null;
             return;
         }
-        if (moveGroup === null || !single) return;
-        const kids = groupKids(moveGroup).filter(k => k !== single);
-        const from = groupKids(moveGroup).indexOf(single);
-        kids.splice(i > from ? i - 1 : i, 0, single);
-        reorder(moveGroup, kids);
+        if (moveGroup !== null) drop(moveGroup, i, inView(app.ui.selected));
     }
 
     function startAdd(group: string, level: number) {
         rowPick = null;
         adding = { group, level };
-        if (level >= 3) useSlot(groupKids(group).length);
+        if (level >= 3) useSlot({ group, i: groupKids(group).length, x: 0, y: 0, label: '' });
     }
 
     function toScene(e: { clientX: number; clientY: number }): Pt {
@@ -283,7 +266,10 @@
             else (rowPick = row.level), (adding = null);
             return;
         }
-        if (tool === 'selectNodes' && hit) return void (g = { kind: 'move', id: hit, at: p, moved: false, add: e.shiftKey });
+        if (tool === 'selectNodes' && hit) {
+            const list = (selected.has(hit) && !e.shiftKey ? app.ui.selected : [hit]).filter(draggable);
+            return void (g = { kind: 'move', id: hit, ids: list, at: p, moved: false, add: e.shiftKey });
+        }
         if (tool === 'selectNodes' || tool === 'selectEdges') g = { kind: 'lasso', a: p, b: p, add: e.shiftKey };
     }
 
@@ -306,13 +292,14 @@
 
     function up(e: PointerEvent) {
         const cur = g;
+        const target = hot;
         g = null;
         if (!cur) return;
         const p = toScene(e);
         if (cur.kind === 'lasso') {
             const b = box(cur.a, cur.b);
             if (b.w < 3 && b.h < 3) {
-                const edge = tool === 'selectEdges' && (e.target as Element).closest?.('[data-edge]')?.getAttribute('data-edge');
+                const edge = tool === 'selectEdges' && document.elementsFromPoint(e.clientX, e.clientY).find(el => el.hasAttribute('data-edge'))?.getAttribute('data-edge');
                 if (edge) return select([], cur.add ? toggle(selectedEdges, [edge]) : [edge]);
                 return cur.add || select();
             }
@@ -339,12 +326,8 @@
             if (cur.moved && to) drawEdge(cur.from, to);
         } else if (cur.kind === 'move') {
             if (!cur.moved) return select(cur.add ? toggle(selected, [cur.id]) : [cur.id]);
-            const grp = t.group(cur.id);
-            if (grp === undefined || !reorderable(grp)) return void (app.ui.live = 'This node cannot be reordered.');
-            const near = slotsFor(grp, cur.id).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
-            if (!near || Math.abs(near.y - p.y) > R * 4) return;
-            select([cur.id]);
-            useSlot(near.i);
+            if (!cur.ids.length) return void (app.ui.live = 'The root and data points cannot be moved.');
+            if (target) drop(target.group, target.i, inView([...cur.ids]));
         }
     }
 
@@ -430,10 +413,10 @@
                                 aria-label="Add a new group at this level"
                                 onpointerdown={e => {
                                     e.stopPropagation();
-                                    addNode({ x: 40, y: 40, width: 80, height: 40 }, lv);
+                                    addNode(undefined, lv);
                                     rowPick = null;
                                 }}
-                                onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), addNode({ x: 40, y: 40, width: 80, height: 40 }, lv), (rowPick = null))}
+                                onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), addNode(undefined, lv), (rowPick = null))}
                             >
                                 <circle cx={nx} cy={row.y} r={R * 1.4} />
                                 <text x={nx} y={row.y}>+</text>
@@ -454,6 +437,7 @@
 
                 {#each ids as id (id)}
                     {@const p = pos[id]}
+                    {#if selected.has(id) && selected.size > 1}<circle class="halo" cx={p.x} cy={p.y} r={R + 3} />{/if}
                     <circle class="ring" class:sel={selected.has(id)} class:hov={app.ui.hovered === id} cx={p.x} cy={p.y} r={R + 3}>
                         <title>{name(id)}</title>
                     </circle>
@@ -463,7 +447,7 @@
                     {/if}
                 {/each}
 
-                {#each slots as sl (sl.i)}
+                {#each slots as sl (sl.group + ':' + sl.i)}
                     <rect
                         class="slot"
                         x={sl.x - R * 0.8}
@@ -473,9 +457,10 @@
                         rx={R * 0.8}
                         role="button"
                         tabindex="0"
-                        aria-label="{adding ? 'Add new node' : `Move ${name(single ?? '')}`} {sl.label}"
-                        onpointerdown={e => (e.stopPropagation(), useSlot(sl.i))}
-                        onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), useSlot(sl.i))}
+                        class:hot={hot === sl}
+                        aria-label="{adding ? 'Add new node' : `Move ${moving.length === 1 ? name(moving[0]) : `${moving.length} nodes`}`} {sl.label}{sl.group !== moveGroup ? ` in ${groupName(sl.group)}` : ''}"
+                        onpointerdown={e => (e.stopPropagation(), useSlot(sl))}
+                        onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), useSlot(sl))}
                     />
                 {/each}
 
@@ -484,6 +469,7 @@
                 {/if}
                 {#if g?.kind === 'move' && g.moved}
                     <circle class="ghost" cx={g.at.x} cy={g.at.y} r={R} />
+                    {#if g.ids.length > 1}<g class="badge"><circle cx={g.at.x + R} cy={g.at.y - R} r={R} /><text x={g.at.x + R} y={g.at.y - R}>{g.ids.length}</text></g>{/if}
                 {/if}
                 {#if g?.kind === 'lasso'}
                     {@const b = box(g.a, g.b)}
@@ -495,10 +481,38 @@
             </svg>
         {/if}
     </div>
+    {#if undoTip && undoTip.doc === app.doc}
+        <div class="undo-tip" role="status">
+            {undoTip.text}
+            <button class="btn-ghost btn-sm" type="button" onclick={() => (undo(), (undoTip = null))}>Undo</button>
+        </div>
+    {/if}
     {#if !Object.keys(s.nodes).length}
         <p class="empty">{app.rows.length ? 'Choose a dimension to build the structure.' : 'Add data or nodes to see the structure.'}</p>
     {/if}
 </div>
+
+{#if pending}
+    {@const m = pending}
+    {@const lv = groupLevel(m.group)}
+    <Modal title="Move {m.ids.length > 1 ? `${m.ids.length} nodes` : name(m.ids[0])} into {groupName(m.group)}?" onclose={() => (pending = null)} bind:dialog={moveDialog}>
+        <p class="modal-desc">
+            {m.shift.length > 1 ? 'These nodes change' : 'This node changes'} level. To keep the structure clear, {m.shift.length > 1 ? 'they lose' : 'it loses'} every edge,
+            including links to children, and then {m.shift.length > 1 ? 'join' : 'joins'} {groupName(m.group)} as {m.shift.length > 1 ? 'siblings' : 'a sibling'}.
+        </p>
+        <ul class="modal-desc">
+            {#each m.shift as id (id)}
+                {@const n = edgesOf(id).length}
+                <li>{name(id)}: level {t.level[id]} to level {lv}, {n} edge{n === 1 ? '' : 's'} removed</li>
+            {/each}
+        </ul>
+        <p class="modal-desc">You can undo this right after.</p>
+        {#snippet actions()}
+            <button class="btn-ghost" type="button" onclick={() => moveDialog?.close()}>Cancel</button>
+            <button class="btn-primary" type="button" onclick={() => (finish(m.group, m.i, m.ids), moveDialog?.close())}>Move and remove edges</button>
+        {/snippet}
+    </Modal>
+{/if}
 
 <style>
     .structure {
@@ -532,6 +546,12 @@
         inset: 0;
     }
 
+    .host :global(.sel-edge) {
+        stroke: var(--dn-select);
+        stroke-width: 4;
+        stroke-opacity: 1;
+    }
+
     .host.passive {
         pointer-events: none;
     }
@@ -553,7 +573,8 @@
     }
 
     .ring.hov { stroke: var(--dn-accent-mid); }
-    .ring.sel { stroke: var(--dn-accent); }
+    .ring.sel { stroke: var(--dn-select); stroke-width: 4; }
+    .halo { fill: none; stroke: var(--dn-select-halo); stroke-width: 8; pointer-events: none; }
 
     .edge-hit {
         fill: none;
@@ -570,7 +591,7 @@
     }
 
     .edge-hit.live { pointer-events: stroke; cursor: pointer; }
-    .edge-hit.sel { stroke: var(--dn-accent); stroke-width: 3; }
+    .edge-hit.sel { stroke: var(--dn-select); stroke-width: 4; }
 
     .row {
         fill: transparent;
@@ -594,7 +615,7 @@
     }
 
     .pick:hover, .pick:focus-visible,
-    .slot:hover, .slot:focus-visible {
+    .slot:hover, .slot:focus-visible, .slot.hot {
         stroke: var(--dn-accent);
         stroke-width: 2.5;
         outline: none;
@@ -637,6 +658,22 @@
     .draft, .pen { stroke: var(--dn-accent); fill: none; stroke-width: 2; pointer-events: none; }
     .draft { stroke-dasharray: 6 3; }
     .lasso { fill: rgba(52, 81, 178, 0.08); stroke: var(--dn-accent); stroke-dasharray: 4 2; pointer-events: none; }
+
+    .undo-tip {
+        position: absolute;
+        left: 50%;
+        bottom: var(--dn-space);
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: var(--dn-space);
+        padding: 4px 4px 4px calc(var(--dn-space) * 1.5);
+        background: var(--dn-bg);
+        border: 1px solid var(--dn-border);
+        border-radius: var(--dn-radius);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        font-size: 0.8125rem;
+    }
 
     .empty {
         position: absolute;

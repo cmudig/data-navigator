@@ -24,6 +24,8 @@
     /* Text */
     --dn-text: #213547;
     --dn-text-muted: #476582;
+    --dn-select: #000;
+    --dn-select-halo: #fff;
 
     /* Code */
     --dn-code-bg: #1e1e2e;
@@ -46,6 +48,8 @@
     --dn-control: #80808a;
     --dn-text: #f0f0f0;
     --dn-text-muted: #adbac7;
+    --dn-select: #fff;
+    --dn-select-halo: #000;
 }
 
 /* ── Reset / Base ── */

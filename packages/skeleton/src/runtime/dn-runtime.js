@@ -238,6 +238,7 @@ export function buildStructure(pattern, rows) {
         s.nodes[id].edges.slice().forEach(e => unlink(s, e));
         delete s.nodes[id];
     }
+    for (const [id, e] of Object.entries(ov.edges || {})) if (e.detached) unlink(s, id);
     applyOrder(s, ov.order || {}, r);
     for (const [id, e] of Object.entries(ov.edges || {})) {
         if (!s.edges[id]) continue;
@@ -300,7 +301,7 @@ function applyOrder(s, order, recipe) {
         if (p && !s.nodes[p]) continue;
         const current = tree(s).children[p] ?? [];
         const list = [...ids.filter(id => s.nodes[id]), ...current.filter(id => !ids.includes(id))];
-        if (list.length < 2) continue;
+        if (!list.length) continue;
         const set = new Set(list);
         let pair = null;
         const linked = new Set();
@@ -335,6 +336,9 @@ function applyOrder(s, order, recipe) {
         const firstId = s.edges[firstEdge]
             ? firstEdge
             : Object.keys(s.edges).find(k => s.edges[k].source === p && s.edges[k].target === list[0]);
+        for (const e of Object.values(s.edges))
+            if (e.source === p && e.target !== list[0] && set.has(e.target))
+                e.navigationRules = e.navigationRules.filter(r => r !== inn);
         s.edges[firstId].navigationRules = [...new Set([...s.edges[firstId].navigationRules, inn])];
         P.edges = [firstId, ...P.edges.filter(id => id !== firstId)];
     }
@@ -503,9 +507,10 @@ export function toGeometry(g) {
 }
 
 export function shiftPath(d, dx, dy) {
+    const str = v => String(Math.round(v * 100) / 100);
     let i = 0;
     let cmd = 'M';
-    return d.replace(/([MLHVAZmlhvaz])|(-?\d*\.?\d+(?:e-?\d+)?)/g, (tok, c, n) => {
+    return d.replace(/([MLHVAZCSQTmlhvazcsqt])|(-?\d*\.?\d+(?:e-?\d+)?)/g, (tok, c, n) => {
         if (c) {
             cmd = c;
             i = 0;
@@ -513,11 +518,11 @@ export function shiftPath(d, dx, dy) {
         }
         const v = Number(n);
         const idx = i++;
-        if (cmd === 'H') return String(v + dx);
-        if (cmd === 'V') return String(v + dy);
-        if (cmd === 'A') return idx % 7 === 5 ? String(v + dx) : idx % 7 === 6 ? String(v + dy) : n;
+        if (cmd === 'H') return str(v + dx);
+        if (cmd === 'V') return str(v + dy);
+        if (cmd === 'A') return idx % 7 === 5 ? str(v + dx) : idx % 7 === 6 ? str(v + dy) : n;
         if (cmd === cmd.toLowerCase()) return n;
-        return String(idx % 2 ? v + dy : v + dx);
+        return str(idx % 2 ? v + dy : v + dx);
     });
 }
 

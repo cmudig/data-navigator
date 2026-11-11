@@ -5,6 +5,8 @@
     import StructureView from '../components/StructureView.svelte';
     import OrderModal from '../components/OrderModal.svelte';
     import ConnectModal from '../components/ConnectModal.svelte';
+    import JoinModal from '../components/JoinModal.svelte';
+    import FamilyModal from '../components/FamilyModal.svelte';
 
     let zoomInput = $state(100);
     $effect(() => {
@@ -70,6 +72,8 @@
 
 {#if app.ui.ordering}<OrderModal />{/if}
 {#if app.ui.connect}<ConnectModal />{/if}
+{#if app.ui.family}<FamilyModal />{/if}
+{#if app.ui.join}<JoinModal />{/if}
 
 <style>
     .editor-step {

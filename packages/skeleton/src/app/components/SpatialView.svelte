@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { app, edit, fitView, select } from '../../model/state.svelte';
-    import type { GNode, ToolOptions } from '../../model/state.svelte';
+    import { app, edit, fitView, levelTools, select, shapeOf } from '../../model/state.svelte';
+    import type { GNode } from '../../model/state.svelte';
     import type { Geo } from '../../model/doc';
-    import { addNode, deleteSelection, drawEdge } from '../../model/edits';
+    import { addNode, deleteSelection, drawEdge, newGeo, setPaths } from '../../model/edits';
     import { shiftPath } from '../../runtime/dn-runtime.js';
     import ScaffoldOverlay from './scaffold/ScaffoldOverlay.svelte';
 
@@ -37,8 +37,9 @@
     const selected = $derived(new Set(app.ui.selected));
     const selectedEdges = $derived(new Set(app.ui.selectedEdges));
     const ordering = $derived(editor ? app.ui.ordering : null);
-    const levelShown: Record<string, keyof ToolOptions> = { root: 'showLevel0Node', dimension: 'showLevel1Nodes', division: 'showLevel2Nodes', leaf: 'showLevel3Nodes' };
-    const levelFill: Record<string, keyof ToolOptions> = { root: 'level0BackfillColor', dimension: 'level1BackfillColor', division: 'level2BackfillColor', leaf: 'level3BackfillColor', manual: 'nodeBackfillColor' };
+    const pen = $derived(editor ? app.ui.pen : null);
+    let penAt = $state<Pt | null>(null);
+    const backfill = (id: string) => tools[levelTools(app.tree.level[id])?.[1] ?? 'nodeBackfillColor'];
 
     $effect(() => {
         if (!editor) return;
@@ -57,8 +58,10 @@
     };
     const nodeList = $derived([...app.graph.nodes.values()].map(n => ({ ...n, geo: geoOf(n) })));
     const byId = $derived(new Map(nodeList.map(n => [n.id, n])));
-    const hidden = $derived(new Set(nodeList.filter(n => !tools.showAllNodes || (n.kind !== 'manual' && !tools[levelShown[n.kind]])).map(n => n.id)));
+    const hidden = $derived(new Set(nodeList.filter(n => !tools.showAllNodes || !(tools[levelTools(app.tree.level[n.id])?.[0] ?? 'showAllNodes'])).map(n => n.id)));
     const visible = $derived(nodeList.filter(n => !hidden.has(n.id)));
+    // Containers paint first so their fill never covers the nodes inside them.
+    const painted = $derived([...visible].sort((a, b) => (app.tree.level[a.id] ?? 9) - (app.tree.level[b.id] ?? 9)));
     const edgeList = $derived(
         [...app.graph.edges.values()].filter(e => tools.showEdges && !tools.hiddenEdgeTypes.includes(e.rules[0]) && !hidden.has(e.source) && !hidden.has(e.target))
     );
@@ -67,6 +70,21 @@
     const inside = (p: Pt, q: Geo) => p.x >= q.x && p.x <= q.x + q.width && p.y >= q.y && p.y <= q.y + q.height;
     const overlaps = (a: Geo, b: Geo) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
     const area = (q: Geo) => q.width * q.height;
+    // Edges are hit-tested under the nodes but painted above them, so filled nodes never hide an edge.
+    const edgeShapes = $derived(
+        edgeList.flatMap(edge => {
+            const src = byId.get(edge.source);
+            const tgt = byId.get(edge.target);
+            if (!src || !tgt) return [];
+            const [a, b] = [center(src.geo), center(tgt.geo)];
+            const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            const mx = (a.x + b.x) / 2 + ((b.y - a.y) / len) * 30;
+            const my = (a.y + b.y) / 2 - ((b.x - a.x) / len) * 30;
+            const curved = edge.rules.length > 1;
+            const sel = selectedEdges.has(edge.id);
+            return [{ edge, src, tgt, sel, curved, d: curved ? `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}` : `M ${a.x} ${a.y} L ${b.x} ${b.y}`, lx: (a.x + 2 * mx + b.x) / 4, ly: (a.y + 2 * my + b.y) / 4, col: sel ? 'var(--dn-accent)' : (tools.edgeTypeColors[edge.rules[0]] ?? tools.edgeColor) }];
+        })
+    );
     const within = (p: Pt, id: string) => {
         const el = svgEl?.querySelector<SVGGeometryElement>(`[data-node="${CSS.escape(id)}"] .shape`);
         return el ? el.isPointInFill(new DOMPoint(p.x, p.y)) || el.isPointInStroke(new DOMPoint(p.x, p.y)) : false;
@@ -97,6 +115,20 @@
         else d.overrides.nodes[id] = { ...d.overrides.nodes[id], geo };
     }
 
+    // The pen adds a point per click. Clicking the first point closes the shape; Escape keeps it open. Both save it.
+    const nearStart = (p: Pt) => !!pen && pen.pts.length > 2 && Math.hypot(p.x - pen.pts[0].x, p.y - pen.pts[0].y) <= 8 * k;
+    function finishPen(closed: boolean) {
+        const cur = app.ui.pen;
+        app.ui.pen = null;
+        penAt = null;
+        if (!cur || cur.pts.length < 2) return void (app.ui.live = 'Pen off. A path needs at least two points.');
+        const r = (v: number) => Math.round(v * 10) / 10;
+        setPaths({ [cur.id]: cur.pts.map((q, i) => `${i ? 'L' : 'M'} ${r(q.x)} ${r(q.y)}`).join(' ') + (closed ? ' Z' : '') }, 'Drew path');
+        app.ui.absolute = [...new Set([...app.ui.absolute, cur.id])];
+        select([cur.id]);
+        app.ui.live = `Saved a ${closed ? 'closed' : 'open'} path with ${cur.pts.length} points.`;
+    }
+
     function down(e: PointerEvent, id: string | null = null, edgeId: string | null = null) {
         if (e.button === 2) return;
         e.stopPropagation();
@@ -115,7 +147,8 @@
             return;
         }
         if (e.button === 1 || tool === 'pan') return void (g = { kind: 'pan', sx: e.clientX, sy: e.clientY, tx: t.tx, ty: t.ty });
-        if (tool === 'addNode') return void addNode({ x: p.x - 50, y: p.y - 25, width: 100, height: 50 });
+        if (pen) return void (nearStart(p) ? finishPen(true) : (app.ui.pen!.pts = [...pen.pts, p]));
+        if (tool === 'addNode') return void addNode(newGeo(p));
         if (tool === 'addEdge') {
             const from = id ?? nodeAt(p);
             if (from) g = { kind: 'edge', from, at: p, moved: false };
@@ -131,6 +164,7 @@
     }
 
     function move(e: PointerEvent) {
+        if (pen) penAt = toScene(e);
         if (!g) return;
         const p = toScene(e);
         if (g.kind === 'pan') {
@@ -191,7 +225,7 @@
                 edgeSource = null;
             } else if (!cur.moved) edgeSource = cur.from;
         } else if (cur.kind === 'resize') {
-            if (cur.geo !== cur.start) edit('Resized node', d => setGeo(d, cur.id, cur.geo));
+            if (cur.geo !== cur.start) edit('Resized node', d => setGeo(d, cur.id, { ...cur.geo }));
         } else if (cur.kind === 'drag') {
             const hits = targets;
             targets = [];
@@ -217,7 +251,8 @@
 
     function key(e: KeyboardEvent) {
         if (!editor) return;
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && pen) finishPen(false);
+        else if (e.key === 'Escape') {
             if (g || edgeSource || targets.length) (g = null), (edgeSource = null), (targets = []);
             else select();
         } else if (e.key.toLowerCase() === 'a' && (e.ctrlKey || e.metaKey)) {
@@ -227,8 +262,7 @@
         else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), cycle(1));
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), cycle(-1));
         else if (e.key === 'Enter' && tool === 'addNode') {
-            const c = { x: (svgW / 2 - t.tx) / t.scale, y: (svgH / 2 - t.ty) / t.scale };
-            addNode({ x: c.x - 50, y: c.y - 25, width: 100, height: 50 });
+            addNode(newGeo({ x: (svgW / 2 - t.tx) / t.scale, y: (svgH / 2 - t.ty) / t.scale }));
         } else if (e.key === 'Enter' && tool === 'addEdge') {
             const cur = app.ui.selected.at(-1);
             if (!edgeSource) (edgeSource = cur ?? null), (app.ui.live = cur ? `Edge starts at ${byId.get(cur)?.name}. Use arrow keys to pick the target, then press Enter.` : 'Select a node first.');
@@ -262,6 +296,7 @@
     aria-label={editor ? 'Spatial view. Arrow keys move between nodes, Enter uses the current tool, Delete removes the selection.' : 'Spatial view preview. Click a node to select it.'}
     class="spatial"
     class:viewer={!editor}
+    class:penning={!!pen}
     data-tool={tool}
     style={g?.kind === 'resize' ? `cursor: ${g.dir}-resize` : ''}
     onpointerdown={e => down(e)}
@@ -275,58 +310,40 @@
     </defs>
     <g bind:this={sceneEl} transform="translate({t.tx} {t.ty}) scale({t.scale})">
         {#if app.doc.image}
-            <image href={app.doc.image.url} x="0" y="0" width={vbW} height={vbH} preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+            <image href={app.doc.image.url} x="0" y="0" width={vbW} height={vbH} opacity={tools.imageOpacity} preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
         {:else}
             <rect class="canvas-bg" x="0" y="0" width={vbW} height={vbH} />
         {/if}
 
         <g class="edge-layer" class:inert={!edgeOn}>
-            {#each edgeList as edge (edge.id)}
-                {@const src = byId.get(edge.source)}
-                {@const tgt = byId.get(edge.target)}
-                {#if src && tgt}
-                    {@const sc = center(src.geo)}
-                    {@const tc = center(tgt.geo)}
-                    {@const dx = tc.x - sc.x}
-                    {@const dy = tc.y - sc.y}
-                    {@const len = Math.hypot(dx, dy) || 1}
-                    {@const mx = (sc.x + tc.x) / 2 + (dy / len) * 30}
-                    {@const my = (sc.y + tc.y) / 2 - (dx / len) * 30}
-                    {@const d = edge.rules.length > 1 ? `M ${sc.x} ${sc.y} Q ${mx} ${my} ${tc.x} ${tc.y}` : `M ${sc.x} ${sc.y} L ${tc.x} ${tc.y}`}
-                    {@const isSel = selectedEdges.has(edge.id)}
-                    {@const col = isSel ? 'var(--dn-accent)' : (tools.edgeTypeColors[edge.rules[0]] ?? tools.edgeColor)}
-                    <g
-                        class="edge"
-                        class:hovered={app.ui.hoveredEdge === edge.id}
-                        role="button"
-                        tabindex="-1"
-                        aria-label="Edge {edge.rules.join(' and ')} from {src.name} to {tgt.name}{isSel ? ', selected' : ''}"
-                        onpointerdown={e => edgeOn && down(e, null, edge.id)}
-                        onpointerenter={() => (app.ui.hoveredEdge = edge.id)}
-                        onpointerleave={() => (app.ui.hoveredEdge = null)}
-                    >
-                        <path {d} fill="none" stroke="transparent" stroke-width={12 * k} />
-                        <path {d} fill="none" stroke={col} stroke-width={(isSel ? 3 : 1.5) * k} stroke-dasharray={edge.rules.length > 1 ? undefined : `${4 * k} ${2 * k}`} marker-end="url(#dn-arrow-{canvas})" />
-                        {#if tools.showEdgeLabels}
-                            <text x={(sc.x + 2 * mx + tc.x) / 4} y={(sc.y + 2 * my + tc.y) / 4} class="edge-label" font-size={11 * k} fill={col}>{edge.rules.join(' / ')}</text>
-                        {/if}
-                    </g>
-                {/if}
+            {#each edgeShapes as { edge, src, tgt, sel, d } (edge.id)}
+                <g
+                    class="edge"
+                    role="button"
+                    tabindex="-1"
+                    aria-label="Edge {edge.rules.join(' and ')} from {src.name} to {tgt.name}{sel ? ', selected' : ''}"
+                    onpointerdown={e => edgeOn && down(e, null, edge.id)}
+                    onpointerenter={() => (app.ui.hoveredEdge = edge.id)}
+                    onpointerleave={() => (app.ui.hoveredEdge = null)}
+                >
+                    <path {d} fill="none" stroke="transparent" stroke-width={12 * k} />
+                </g>
             {/each}
         </g>
 
         <g class="node-layer">
-            {#each visible as node (node.id)}
+            {#each painted as node (node.id)}
                 {@const q = node.geo}
                 {@const st = node.style}
                 {@const isSel = selected.has(node.id)}
-                {@const shape = q.path ? 'path' : st.shape}
+                {@const shape = shapeOf(node)}
                 {@const cx = q.x + q.width / 2}
                 {@const cy = q.y + q.height / 2}
-                {@const fill = st.fillEnabled ? st.fill : shape === 'path' ? 'none' : 'white'}
-                {@const stroke = isSel ? 'var(--dn-accent)' : st.strokeColor}
-                {@const sw = (isSel ? 3 : st.strokeWidth) * (editor ? 1 : k)}
+                {@const fill = st.fillEnabled ? st.fill : backfill(node.id)}
+                {@const stroke = isSel ? 'var(--dn-select)' : st.strokeColor}
+                {@const sw = (isSel ? 4 : st.strokeWidth) * (editor ? 1 : k)}
                 {@const missing = editor && app.missing.has(node.id)}
+                {@const halo = isSel && selected.size > 1 ? sw + 4 * (editor ? 1 : k) : 0}
                 <g
                     class="node"
                     data-node={node.id}
@@ -339,14 +356,15 @@
                     onpointerenter={() => (app.ui.hovered = node.id)}
                     onpointerleave={() => (app.ui.hovered = null)}
                 >
+                    {#if halo && shape === 'ellipse'}<ellipse class="halo" {cx} {cy} rx={q.width / 2} ry={q.height / 2} stroke-width={halo} />
+                    {:else if halo && shape === 'path'}<path class="halo" d={q.path} stroke-width={halo} />
+                    {:else if halo}<rect class="halo" x={q.x} y={q.y} width={q.width} height={q.height} rx="4" stroke-width={halo} />{/if}
                     {#if shape === 'ellipse'}
-                        <ellipse {cx} {cy} rx={q.width / 2} ry={q.height / 2} fill={tools[levelFill[node.kind]] as string} fill-opacity={tools.nodeFillOpacity} stroke="none" pointer-events="none" />
-                        <ellipse class="shape" {cx} {cy} rx={q.width / 2} ry={q.height / 2} {fill} fill-opacity={st.fillEnabled ? tools.nodeFillOpacity : 0} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
+                        <ellipse class="shape" {cx} {cy} rx={q.width / 2} ry={q.height / 2} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else if shape === 'path'}
-                        <path class="shape" d={q.path ?? ''} {fill} fill-opacity={st.fillEnabled ? tools.nodeFillOpacity : 0} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
+                        <path class="shape" d={q.path} {fill} fill-opacity={tools.nodeFillOpacity} pointer-events={node.kind === 'manual' ? 'visiblePainted' : 'visibleStroke'} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else}
-                        <rect x={q.x} y={q.y} width={q.width} height={q.height} fill={tools[levelFill[node.kind]] as string} fill-opacity={tools.nodeFillOpacity} stroke="none" rx="4" pointer-events="none" />
-                        <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={st.fillEnabled ? tools.nodeFillOpacity : 0} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
+                        <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
                     {/if}
                     {#if targets.includes(node.id)}
                         {@const pad = 6 * k}
@@ -363,12 +381,6 @@
                             <rect class="drop-target" x={q.x - pad} y={q.y - pad} width={q.width + 2 * pad} height={q.height + 2 * pad} rx="6" vector-effect="non-scaling-stroke" stroke-dasharray="{4 * k} {3 * k}" />
                         {/if}
                     {/if}
-                    {#if tools.showNodeLabels}
-                        <text x={cx} y={cy} class="node-label" font-size={12 * (editor ? 1 : k)} fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor}>{node.name}</text>
-                    {/if}
-                    {#if node.id === app.entry}
-                        <text x={q.x + 2} y={q.y - 4 * k} font-size={11 * k} fill="var(--dn-accent)" pointer-events="none" aria-hidden="true">▶ entry</text>
-                    {/if}
                     {#if missing}
                         <polygon class="missing" points={star(q.x + q.width, q.y, 8 * k)} stroke-width={1.5 * k} aria-hidden="true" />
                     {/if}
@@ -378,7 +390,7 @@
                             <text x={cx} y={q.y - 14 * k} font-size={11 * k}>{ordering.order.indexOf(node.id) + 1}</text>
                         </g>
                     {/if}
-                    {#if editor && tool === 'selectNodes' && isSel && selected.size === 1 && shape !== 'path'}
+                    {#if editor && !pen && tool === 'selectNodes' && isSel && selected.size === 1 && shape !== 'path'}
                         {#each handles(q) as h (h.dir)}
                             <rect
                                 class="resize-handle"
@@ -400,6 +412,28 @@
                 </g>
             {/each}
         </g>
+
+        <g class="paint" aria-hidden="true">
+            {#each edgeShapes as { edge, sel, curved, d, lx, ly, col } (edge.id)}
+                <path {d} class:hovered={app.ui.hoveredEdge === edge.id} fill="none" stroke={col} stroke-width={(sel ? 3 : 1.5) * k} stroke-dasharray={curved ? undefined : `${4 * k} ${2 * k}`} marker-end="url(#dn-arrow-{canvas})" />
+                {#if tools.showEdgeLabels}<text x={lx} y={ly} class="edge-label" font-size={11 * k} fill={col}>{edge.rules.join(' / ')}</text>{/if}
+            {/each}
+            {#each visible as node (node.id)}
+                {@const q = node.geo}
+                {#if tools.showNodeLabels}
+                    <text x={q.x + q.width / 2} y={q.y + q.height / 2} class="node-label" font-size={12 * (editor ? 1 : k)} fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor}>{node.name}</text>
+                {/if}
+                {#if node.id === app.entry}<text x={q.x + 2} y={q.y - 4 * k} font-size={11 * k} fill="var(--dn-accent)">▶ entry</text>{/if}
+            {/each}
+        </g>
+
+        {#if pen}
+            {@const pts = penAt ? [...pen.pts, penAt] : pen.pts}
+            {#if pts.length > 1}<polyline class="pen-line" points={pts.map(q => `${q.x},${q.y}`).join(' ')} stroke-width={2 * k} />{/if}
+            {#each pen.pts as q, i (i)}
+                <circle class="pen-pt" class:hot={i === 0 && !!penAt && nearStart(penAt)} cx={q.x} cy={q.y} r={(i ? 3 : 5) * k} stroke-width={1.5 * k} />
+            {/each}
+        {/if}
 
         {#if g?.kind === 'edge' && g.moved && byId.get(g.from)}
             {@const c = center(byId.get(g.from)!.geo)}
@@ -449,6 +483,7 @@
     .node,
     .edge {
         cursor: pointer;
+        outline: none;
     }
 
     .spatial[data-tool='addNode'] .node,
@@ -465,7 +500,39 @@
         stroke-dasharray: 6 3;
     }
 
-    .edge.hovered path:last-of-type {
+    .paint,
+    .halo,
+    .pen-line,
+    .pen-pt {
+        pointer-events: none;
+    }
+
+    .halo {
+        fill: none;
+        stroke: var(--dn-select-halo);
+    }
+
+    .spatial.penning,
+    .spatial.penning .node,
+    .spatial.penning .edge {
+        cursor: crosshair;
+    }
+
+    .pen-line {
+        fill: none;
+        stroke: var(--dn-accent);
+    }
+
+    .pen-pt {
+        fill: var(--dn-bg);
+        stroke: var(--dn-accent);
+    }
+
+    .pen-pt.hot {
+        fill: var(--dn-accent);
+    }
+
+    .paint path.hovered {
         stroke: var(--dn-accent-mid);
     }
 

@@ -1,10 +1,11 @@
 <script lang="ts">
     import 'data-navigator/text-chat.css';
     import { keyLabel } from 'data-navigator';
-    import { Inspector } from '@data-navigator/inspector';
+    import type { Inspector } from '@data-navigator/inspector';
+    import { drawInspector as layoutInspector } from '../../utils/inspectorLayout';
     import '@data-navigator/inspector/style.css';
     import { untrack } from 'svelte';
-    import { app } from '../../model/state.svelte';
+    import { app, shapeOf } from '../../model/state.svelte';
     import { mount } from '../../runtime/dn-runtime.js';
     import NavKeysPanel from '../components/NavKeysPanel.svelte';
     import AssistantPanel from '../components/AssistantPanel.svelte';
@@ -48,9 +49,8 @@
 
     function drawInspector(s: any) {
         if (!inspectorEl) return;
-        inspectorEl.innerHTML = '';
-        inspector = Inspector({ structure: s, container: inspectorEl, size: { width: 340, height: 280 }, colorBy: 'dimensionLevel', mode: app.ui.schema.graphMode, nodeRadius: 6, showConsoleMenu: { data: app.rows } } as any);
-        if (current) inspector.highlight(current.renderId || current.id);
+        inspector = layoutInspector(inspectorEl, s, app.tree, { width: 340, height: 280, mode: app.graphMode, radius: 6, extra: { showConsoleMenu: { data: app.rows } } }).ins;
+        if (current) inspector?.highlight(current.renderId || current.id);
     }
 
     $effect(() => {
@@ -158,9 +158,9 @@
                 <svg class="shapes-overlay" width={canvasWidth} height={canvasHeight} aria-hidden="true">
                     {#each nodes as n (n.id)}
                         {@const fill = n.style.fillEnabled ? n.style.fill : 'none'}
-                        {#if n.geo.path}
+                        {#if shapeOf(n) === 'path'}
                             <path d={n.geo.path} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
-                        {:else if n.style.shape === 'ellipse'}
+                        {:else if shapeOf(n) === 'ellipse'}
                             <ellipse cx={center(n.geo).x} cy={center(n.geo).y} rx={n.geo.width / 2} ry={n.geo.height / 2} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
                         {:else}
                             <rect {...n.geo} rx="4" {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
