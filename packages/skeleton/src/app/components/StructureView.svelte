@@ -2,7 +2,7 @@
     import { untrack } from 'svelte';
     import { drawInspector } from '../../utils/inspectorLayout';
     import { app, fitView, select, undo } from '../../model/state.svelte';
-    import { addNode, deleteSelection, drawEdge, edgesOf, groupKids, groupLevel, insertAt, moveInto, reorderable } from '../../model/edits';
+    import { addNode, newGeo, deleteSelection, drawEdge, edgesOf, groupKids, groupLevel, insertAt, moveInto, reorderable } from '../../model/edits';
     import Modal from './Modal.svelte';
 
     const { canvas }: { canvas: 'editor' | 'viewer' } = $props();
@@ -214,7 +214,9 @@
             const a = adding;
             const kids = groupKids(a.group);
             const ref = pos[kids[Math.min(i, kids.length - 1)]] ? app.graph.nodes.get(kids[Math.min(i, kids.length - 1)])?.geo : null;
-            const id = addNode(ref ? { x: ref.x + ref.width + 10, y: ref.y, width: 80, height: 40 } : { x: 40, y: 40, width: 80, height: 40 }, a.level);
+            const g = newGeo();
+            const near = ref && { ...g, x: ref.x + ref.width + g.height / 4, y: ref.y + ref.height / 2 - g.height / 2 };
+            const id = addNode(near ? { ...near, x: Math.min(near.x, app.size.width - g.width), y: Math.max(0, Math.min(near.y, app.size.height - g.height)) } : g, a.level);
             insertAt(a.group, id, i);
             adding = null;
             return;
@@ -411,10 +413,10 @@
                                 aria-label="Add a new group at this level"
                                 onpointerdown={e => {
                                     e.stopPropagation();
-                                    addNode({ x: 40, y: 40, width: 80, height: 40 }, lv);
+                                    addNode(undefined, lv);
                                     rowPick = null;
                                 }}
-                                onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), addNode({ x: 40, y: 40, width: 80, height: 40 }, lv), (rowPick = null))}
+                                onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), addNode(undefined, lv), (rowPick = null))}
                             >
                                 <circle cx={nx} cy={row.y} r={R * 1.4} />
                                 <text x={nx} y={row.y}>+</text>

@@ -54,7 +54,24 @@ export function deleteSelection(nodes: string[], edges: string[]) {
     say(`Deleted ${plural(nodes.length, 'node')} and ${plural(edges.length, 'edge')}.`);
 }
 
-export function addNode(geo: Geo, level?: number) {
+// New nodes are sized from the editor canvas, not the image, so they look the same on any image and from either view.
+export function newGeo(center?: { x: number; y: number }): Geo {
+    const { w, h } = app.ui.view;
+    const { width: W, height: H } = app.size;
+    const fit = w && h ? Math.min(w / W, h / H) * 0.95 : 1;
+    const width = Math.round((w ? Math.min(Math.max(w * 0.084, 45), 112) : W * 0.084) / fit);
+    const height = Math.round(width / 2);
+    let c = center ?? { x: W / 2, y: H / 2 };
+    const taken = (q: { x: number; y: number }) =>
+        Object.values(app.doc.overrides.added.nodes).some(
+            n =>
+                n.geo && Math.abs(n.geo.x + n.geo.width / 2 - q.x) < 2 && Math.abs(n.geo.y + n.geo.height / 2 - q.y) < 2
+        );
+    if (!center) while (taken(c)) c = { x: c.x + height / 2, y: c.y + height / 2 };
+    return { x: c.x - width / 2, y: c.y - height / 2, width, height };
+}
+
+export function addNode(geo: Geo = newGeo(), level?: number) {
     const id = newId('node', app.structure.nodes);
     edit('Added node', d => {
         d.overrides.added.nodes[id] = { label: '', geo, ...(level !== undefined ? { level } : {}) };

@@ -2,7 +2,7 @@
     import { app, edit, fitView, levelTools, select, shapeOf } from '../../model/state.svelte';
     import type { GNode } from '../../model/state.svelte';
     import type { Geo } from '../../model/doc';
-    import { addNode, deleteSelection, drawEdge, setPaths } from '../../model/edits';
+    import { addNode, deleteSelection, drawEdge, newGeo, setPaths } from '../../model/edits';
     import { shiftPath } from '../../runtime/dn-runtime.js';
     import ScaffoldOverlay from './scaffold/ScaffoldOverlay.svelte';
 
@@ -148,7 +148,7 @@
         }
         if (e.button === 1 || tool === 'pan') return void (g = { kind: 'pan', sx: e.clientX, sy: e.clientY, tx: t.tx, ty: t.ty });
         if (pen) return void (nearStart(p) ? finishPen(true) : (app.ui.pen!.pts = [...pen.pts, p]));
-        if (tool === 'addNode') return void addNode({ x: p.x - 50, y: p.y - 25, width: 100, height: 50 });
+        if (tool === 'addNode') return void addNode(newGeo(p));
         if (tool === 'addEdge') {
             const from = id ?? nodeAt(p);
             if (from) g = { kind: 'edge', from, at: p, moved: false };
@@ -262,8 +262,7 @@
         else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), cycle(1));
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), cycle(-1));
         else if (e.key === 'Enter' && tool === 'addNode') {
-            const c = { x: (svgW / 2 - t.tx) / t.scale, y: (svgH / 2 - t.ty) / t.scale };
-            addNode({ x: c.x - 50, y: c.y - 25, width: 100, height: 50 });
+            addNode(newGeo({ x: (svgW / 2 - t.tx) / t.scale, y: (svgH / 2 - t.ty) / t.scale }));
         } else if (e.key === 'Enter' && tool === 'addEdge') {
             const cur = app.ui.selected.at(-1);
             if (!edgeSource) (edgeSource = cur ?? null), (app.ui.live = cur ? `Edge starts at ${byId.get(cur)?.name}. Use arrow keys to pick the target, then press Enter.` : 'Select a node first.');
@@ -363,7 +362,7 @@
                     {#if shape === 'ellipse'}
                         <ellipse class="shape" {cx} {cy} rx={q.width / 2} ry={q.height / 2} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else if shape === 'path'}
-                        <path class="shape" d={q.path} {fill} fill-opacity={tools.nodeFillOpacity} pointer-events="visibleStroke" {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
+                        <path class="shape" d={q.path} {fill} fill-opacity={tools.nodeFillOpacity} pointer-events={node.kind === 'manual' ? 'visiblePainted' : 'visibleStroke'} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else}
                         <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
                     {/if}

@@ -381,6 +381,11 @@
         </div>
     </details>
 
+    <details class="panel-section">
+        <summary class="section-heading">Rendering &amp; Size</summary>
+        {@render renderingFields()}
+    </details>
+
     {@const missing = app.missing.has(node.id)}
     <section class="panel-section" class:missing aria-labelledby="section-semantics">
         <h3 id="section-semantics" class="section-heading">Semantics</h3>
@@ -419,11 +424,6 @@
             </ul>
         {/if}
     </section>
-
-    <details class="panel-section">
-        <summary class="section-heading">Rendering &amp; Size</summary>
-        {@render renderingFields()}
-    </details>
 {:else if edge}
     <section class="panel-section" aria-labelledby="section-edge">
         <h3 id="section-edge" class="section-heading">Edge</h3>
