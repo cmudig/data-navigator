@@ -336,6 +336,9 @@ function applyOrder(s, order, recipe) {
         const firstId = s.edges[firstEdge]
             ? firstEdge
             : Object.keys(s.edges).find(k => s.edges[k].source === p && s.edges[k].target === list[0]);
+        for (const e of Object.values(s.edges))
+            if (e.source === p && e.target !== list[0] && set.has(e.target))
+                e.navigationRules = e.navigationRules.filter(r => r !== inn);
         s.edges[firstId].navigationRules = [...new Set([...s.edges[firstId].navigationRules, inn])];
         P.edges = [firstId, ...P.edges.filter(id => id !== firstId)];
     }

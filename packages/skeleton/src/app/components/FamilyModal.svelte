@@ -1,7 +1,7 @@
 <script lang="ts">
     import { app } from '../../model/state.svelte';
     import { SIBLING_PRESETS } from '../../model/doc';
-    import { connect, fan, levelsInUse, makeFamily, spatialOrder } from '../../model/edits';
+    import { connect, fan, groupKids, levelsInUse, makeFamily, spatialOrder } from '../../model/edits';
     import Modal from './Modal.svelte';
 
     let dialog = $state<HTMLDialogElement>();
@@ -20,6 +20,7 @@
     const parent = $derived(rel === 'flip' ? f.kids[0] : f.parent);
     const kids = $derived(rel === 'flip' ? [f.parent] : f.kids);
     const fixed = $derived(app.tree.level[parent]);
+    const had = $derived(groupKids(parent).filter(k => !kids.includes(k)));
     const label = (l: number) =>
         `${l === 0 ? `Make ${name(parent)} the root (level 0) and entry point` : used.includes(l) ? `Level ${l}` : l > max ? `New level ${l}` : `Empty level ${l}`}, ${pair ? 'child' : 'children'} at level ${l + 1}`;
 
@@ -27,7 +28,7 @@
         if (rel === 'none') pair ? connect(f.kids[0], f.parent) : fan(f.parent, f.kids, false);
         else {
             const names = SIBLING_PRESETS.find(p => p.id === preset)!.names;
-            makeFamily(parent, spatialOrder(kids), !pair && siblings ? [...names] : null, fixed ?? (level === 'none' ? null : +level), loop);
+            makeFamily(parent, spatialOrder(kids), (!pair && siblings) || had.length ? [...names] : null, fixed ?? (level === 'none' ? null : +level), loop);
         }
         dialog?.close();
     }
@@ -45,7 +46,21 @@
         {/if}
         <label class="radio-row"><input type="radio" name="family-rel" value="none" bind:group={rel} /> {pair ? 'Neither, just add the edge' : 'No, just add the edges'}</label>
     </fieldset>
-    {#if rel !== 'none'}
+    {#if rel !== 'none' && had.length}
+        <p class="modal-desc">
+            {name(parent)} already has {had.length === 1 ? 'a child' : `${had.length} children`}, so {pair || rel === 'flip' ? 'the new child joins' : 'the new children join'} the end of that row{had.length > 1
+                ? ' using its keys'
+                : ''}{app.tree.level[had[0]] !== undefined ? ` at level ${app.tree.level[had[0]]}` : ''}. Only the first child is reached by drilling in.
+        </p>
+        {#if had.length < 2}
+            <label class="keys">
+                Sibling keys
+                <select bind:value={preset}>
+                    {#each SIBLING_PRESETS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+                </select>
+            </label>
+        {/if}
+    {:else if rel !== 'none'}
         {#if !pair}
             <fieldset>
                 <legend>Siblings</legend>

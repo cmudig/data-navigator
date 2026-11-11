@@ -146,11 +146,116 @@ export function applyLevels(next: Record<string, number>) {
 
 export const clearLevel = (id: string) => edit('Cleared level', d => delete d.overrides.added.nodes[id]?.level);
 
+const isDrill = (r: string) => r.startsWith('drill');
+
+// Edges between these nodes that step with any of these keys. Edges inside a group are left to the group's order.
+const sibEdges = (ids: string[], pair: string[]) => {
+    const set = new Set(ids);
+    return Object.keys(app.structure.edges).filter(k => {
+        const e = app.structure.edges[k];
+        return (
+            set.has(e.source) &&
+            set.has(e.target) &&
+            !e.navigationRules.some(isDrill) &&
+            pair.some(r => e.navigationRules.includes(r))
+        );
+    });
+};
+
+function strip(d: Doc, ids: string[], pair: string[]) {
+    for (const id of ids) {
+        const rest = app.structure.edges[id].navigationRules.filter((r: string) => !pair.includes(r));
+        if (!rest.length) removeEdges(d, [id]);
+        else if (d.overrides.added.edges[id]) d.overrides.added.edges[id].rules = rest;
+        else d.overrides.edges[id] = { ...d.overrides.edges[id], rules: rest };
+    }
+}
+
 export const chain = (ids: string[], pair: string[], wrap: boolean, level: number | null = null) =>
-    addEdges('Created dimension', links(ids, pair, wrap), [], d => setLevel(d, ids, level));
+    addEdges('Created dimension', links(ids, pair, wrap), [], d => {
+        strip(
+            d,
+            sibEdges(
+                ids.filter(id => app.tree.group(id) === undefined),
+                pair
+            ),
+            pair
+        );
+        setLevel(d, ids, level);
+    });
+
+export type SiblingRow = { parent?: string; ids: string[]; pair: string[]; wrap: boolean };
+
+// The row of siblings a node steps through with these keys: its group, or a chain of hand-drawn edges.
+export function rowOf(id: string, keys: string[]): SiblingRow | null {
+    const t = app.tree;
+    const edges = Object.values<any>(app.structure.edges).filter(e => !e.navigationRules.some(isDrill));
+    const parent = t.group(id);
+    let ids = parent !== undefined ? groupKids(parent) : [id];
+    if (parent === undefined) {
+        const set = new Set(ids);
+        const loose = (e: any) =>
+            keys.some(r => e.navigationRules.includes(r)) &&
+            t.group(e.source) === undefined &&
+            t.group(e.target) === undefined;
+        for (let grew = true; grew; ) {
+            grew = false;
+            for (const e of edges)
+                if (loose(e) && set.has(e.source) !== set.has(e.target))
+                    (set.add(e.source).add(e.target), (grew = true));
+        }
+        if (set.size < 2) return null;
+        ids = [...set];
+    } else if (ids.length < 2 && !parent) return null;
+    const set = new Set(ids);
+    const inner = edges.filter(e => set.has(e.source) && set.has(e.target));
+    const pair = inner[0]?.navigationRules.slice(0, 2) ?? keys;
+    if (!pair.some((r: string) => keys.includes(r))) return null;
+    const next: Record<string, string> = {};
+    for (const e of inner) next[e.source] ??= e.target;
+    const hasPrev = new Set(inner.map(e => e.target));
+    if (parent === undefined) {
+        const out: string[] = [];
+        for (
+            let cur: string | undefined = ids.find(k => !hasPrev.has(k)) ?? structureOrder(ids)[0];
+            cur && !out.includes(cur);
+            cur = next[cur]
+        )
+            out.push(cur);
+        ids = out.length === ids.length ? out : structureOrder(ids);
+    }
+    const linked = new Set(inner.flatMap(e => [e.source, e.target]));
+    return { parent, ids, pair, wrap: !inner.length || (linked.size > 1 && [...linked].every(k => hasPrev.has(k))) };
+}
+
+// Adds nodes to an existing row at one position, relinking the siblings so every node stays reachable.
+export function joinRow(row: SiblingRow, ids: string[], index: number) {
+    const list = row.ids.filter(k => !ids.includes(k));
+    list.splice(index, 0, ...ids);
+    const lv = row.ids.map(k => app.tree.level[k]).find(l => l !== undefined);
+    edit(`Added ${plural(ids.length, 'node')} to a row`, d => {
+        if (row.parent === undefined) strip(d, sibEdges(row.ids, row.pair), row.pair);
+        if (row.parent === undefined || row.ids.length < 2) newEdges(d, links(list, row.pair, row.wrap));
+        if (row.parent !== undefined) d.overrides.order[row.parent] = list;
+        setLevel(d, ids, lv ?? null);
+    });
+    select(ids);
+    say(`Added ${plural(ids.length, 'node')} to the row. It now has ${list.length} nodes.`);
+}
 
 export function makeFamily(parent: string, kids: string[], pair: string[] | null, level: number | null, wrap = true) {
+    const had = groupKids(parent).filter(k => !kids.includes(k));
+    if (had.length) return addKids(parent, had, kids, pair, wrap);
     edit('Created parent grouping', d => {
+        if (pair)
+            strip(
+                d,
+                sibEdges(
+                    kids.filter(k => app.tree.group(k) === undefined),
+                    pair
+                ),
+                pair
+            );
         newEdges(d, [
             ...kids.map(
                 (k, i) => [parent, k, i ? ['drill-out'] : ['drill-out', 'drill-in']] as [string, string, string[]]
@@ -163,6 +268,21 @@ export function makeFamily(parent: string, kids: string[], pair: string[] | null
     });
     select([parent]);
     say(`${app.graph.nodes.get(parent)?.name ?? parent} is now the parent of ${plural(kids.length, 'node')}.`);
+}
+
+// A parent keeps one row of children, so new children join the end of it instead of starting a second row.
+function addKids(parent: string, had: string[], kids: string[], pair: string[] | null, wrap: boolean) {
+    const list = [...had, ...kids];
+    edit('Added children', d => {
+        newEdges(d, [
+            ...kids.map(k => [parent, k, ['drill-out']] as [string, string, string[]]),
+            ...(had.length < 2 && pair ? links(list, pair, wrap) : [])
+        ]);
+        d.overrides.order[parent] = list;
+        setLevel(d, kids, app.tree.level[had[0]] ?? null);
+    });
+    select([parent]);
+    say(`${app.graph.nodes.get(parent)?.name ?? parent} now has ${plural(list.length, 'child')}.`);
 }
 
 export const parentGroup = (edges: string[], hub: string, kids: string[], first: string) =>
@@ -303,7 +423,17 @@ export function drawEdge(a: string, b: string) {
     } else if (sel.size > 1 && sel.has(a) !== sel.has(b)) {
         const hub = sel.has(a) ? b : a;
         if (drills()) app.ui.family = { parent: hub, kids: [...sel] };
-        else fan(hub, [...sel], hub === a);
+        else if (!askJoin(hub, [...sel], () => fan(hub, [...sel], hub === a))) fan(hub, [...sel], hub === a);
     } else if (drills()) app.ui.family = { parent: b, kids: [a] };
-    else connect(a, b);
+    else if (!askJoin(b, [a], () => connect(a, b)) && !askJoin(a, [b], () => connect(a, b))) connect(a, b);
+}
+
+// Drawing a sibling edge from loose nodes to a node in a row asks whether they should join that row.
+function askJoin(target: string, ids: string[], plain: () => void) {
+    const keys = app.ui.edgeRules;
+    if (ids.some(id => rowOf(id, keys))) return false;
+    const row = rowOf(target, keys);
+    if (!row || ids.some(id => row.ids.includes(id))) return false;
+    app.ui.join = { row, ids: spatialOrder(ids), target, plain };
+    return true;
 }

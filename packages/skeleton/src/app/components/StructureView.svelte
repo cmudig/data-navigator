@@ -43,6 +43,7 @@
     const sig = $derived(Object.keys(s.nodes).join() + '|' + Object.entries<any>(s.edges).map(([k, e]) => k + e.navigationRules).join() + mode + hideLeaves);
 
     let timer: ReturnType<typeof setTimeout>;
+    let drawn = $state(0);
     $effect(() => {
         sig;
         const w = Math.round(boxW);
@@ -58,6 +59,7 @@
                 size = { w, h };
                 pos = out.pos;
                 edgePaths = out.paths;
+                drawn++;
                 if (editor && mode === 'force') follow(el, w, h);
                 if (!editor) wireViewer(el);
                 if (editor) {
@@ -111,14 +113,16 @@
         if (editor) return;
         const sel = selected;
         const hov = app.ui.hovered;
-        sig;
+        drawn;
         host?.querySelectorAll('circle').forEach(c => {
             const id = (c as any).__data__?.id;
             if (!id) return;
-            const [stroke, width] = sel.has(id) ? ['var(--dn-accent)', '3'] : hov === id ? ['var(--dn-accent-mid)', '2.5'] : ['#fff', '1.5'];
+            const [stroke, width] = sel.has(id) ? ['var(--dn-select)', '4'] : hov === id ? ['var(--dn-accent-mid)', '2.5'] : ['#fff', '1.5'];
             c.setAttribute('stroke', stroke);
             c.setAttribute('stroke-width', width);
         });
+        const on = [...selectedEdges].map(id => s.edges[id] && `${host?.id}-svgedge${s.edges[id].source}-${s.edges[id].target}`);
+        host?.querySelectorAll('[id*="-svgedge"]').forEach(el => el.classList.toggle('sel-edge', on.some(pre => pre && (el.id === pre || el.id.startsWith(pre + '-')))));
     });
 
     const ids = $derived(Object.keys(pos));
@@ -293,7 +297,7 @@
         if (cur.kind === 'lasso') {
             const b = box(cur.a, cur.b);
             if (b.w < 3 && b.h < 3) {
-                const edge = tool === 'selectEdges' && (e.target as Element).closest?.('[data-edge]')?.getAttribute('data-edge');
+                const edge = tool === 'selectEdges' && document.elementsFromPoint(e.clientX, e.clientY).find(el => el.hasAttribute('data-edge'))?.getAttribute('data-edge');
                 if (edge) return select([], cur.add ? toggle(selectedEdges, [edge]) : [edge]);
                 return cur.add || select();
             }
@@ -539,6 +543,12 @@
         inset: 0;
     }
 
+    .host :global(.sel-edge) {
+        stroke: var(--dn-select);
+        stroke-width: 4;
+        stroke-opacity: 1;
+    }
+
     .host.passive {
         pointer-events: none;
     }
@@ -560,7 +570,7 @@
     }
 
     .ring.hov { stroke: var(--dn-accent-mid); }
-    .ring.sel { stroke: var(--dn-accent); }
+    .ring.sel { stroke: var(--dn-select); stroke-width: 4; }
 
     .edge-hit {
         fill: none;
@@ -577,7 +587,7 @@
     }
 
     .edge-hit.live { pointer-events: stroke; cursor: pointer; }
-    .edge-hit.sel { stroke: var(--dn-accent); stroke-width: 3; }
+    .edge-hit.sel { stroke: var(--dn-select); stroke-width: 4; }
 
     .row {
         fill: transparent;

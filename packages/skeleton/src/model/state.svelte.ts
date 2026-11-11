@@ -119,6 +119,7 @@ class Store {
         ordering: null as Ordering | null,
         connect: null as { id: string; targets: string[] } | null,
         family: null as { parent: string; kids: string[] } | null,
+        join: null as { row: import('./edits').SiblingRow; ids: string[]; target: string; plain: () => void } | null,
         skipPrep: null as number | null,
         fit: null as {
             key: string;
@@ -288,7 +289,10 @@ class Store {
         return [
             ...Object.keys(ov.nodes).filter(id => !ov.nodes[id].removed && !s.nodes[id]),
             ...Object.keys(ov.edges).filter(id => !ov.edges[id].removed && !ov.edges[id].detached && !s.edges[id]),
-            ...Object.keys(ov.added.edges).filter(id => !s.edges[id])
+            // A group's saved order rebuilds its sibling edges, so only edges to missing nodes are stale.
+            ...Object.keys(ov.added.edges).filter(
+                id => !s.nodes[ov.added.edges[id].source] || !s.nodes[ov.added.edges[id].target]
+            )
         ];
     });
 

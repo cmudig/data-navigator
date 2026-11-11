@@ -324,8 +324,8 @@
                 {@const cx = q.x + q.width / 2}
                 {@const cy = q.y + q.height / 2}
                 {@const fill = st.fillEnabled ? st.fill : shape === 'path' ? 'none' : 'white'}
-                {@const stroke = isSel ? 'var(--dn-accent)' : st.strokeColor}
-                {@const sw = (isSel ? 3 : st.strokeWidth) * (editor ? 1 : k)}
+                {@const stroke = isSel ? 'var(--dn-select)' : st.strokeColor}
+                {@const sw = (isSel ? 4 : st.strokeWidth) * (editor ? 1 : k)}
                 {@const missing = editor && app.missing.has(node.id)}
                 <g
                     class="node"
@@ -449,6 +449,7 @@
     .node,
     .edge {
         cursor: pointer;
+        outline: none;
     }
 
     .spatial[data-tool='addNode'] .node,
