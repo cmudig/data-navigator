@@ -507,9 +507,10 @@ export function toGeometry(g) {
 }
 
 export function shiftPath(d, dx, dy) {
+    const str = v => String(Math.round(v * 100) / 100);
     let i = 0;
     let cmd = 'M';
-    return d.replace(/([MLHVAZmlhvaz])|(-?\d*\.?\d+(?:e-?\d+)?)/g, (tok, c, n) => {
+    return d.replace(/([MLHVAZCSQTmlhvazcsqt])|(-?\d*\.?\d+(?:e-?\d+)?)/g, (tok, c, n) => {
         if (c) {
             cmd = c;
             i = 0;
@@ -517,11 +518,11 @@ export function shiftPath(d, dx, dy) {
         }
         const v = Number(n);
         const idx = i++;
-        if (cmd === 'H') return String(v + dx);
-        if (cmd === 'V') return String(v + dy);
-        if (cmd === 'A') return idx % 7 === 5 ? String(v + dx) : idx % 7 === 6 ? String(v + dy) : n;
+        if (cmd === 'H') return str(v + dx);
+        if (cmd === 'V') return str(v + dy);
+        if (cmd === 'A') return idx % 7 === 5 ? str(v + dx) : idx % 7 === 6 ? str(v + dy) : n;
         if (cmd === cmd.toLowerCase()) return n;
-        return String(idx % 2 ? v + dy : v + dx);
+        return str(idx % 2 ? v + dy : v + dx);
     });
 }
 

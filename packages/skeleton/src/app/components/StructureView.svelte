@@ -435,6 +435,7 @@
 
                 {#each ids as id (id)}
                     {@const p = pos[id]}
+                    {#if selected.has(id) && selected.size > 1}<circle class="halo" cx={p.x} cy={p.y} r={R + 3} />{/if}
                     <circle class="ring" class:sel={selected.has(id)} class:hov={app.ui.hovered === id} cx={p.x} cy={p.y} r={R + 3}>
                         <title>{name(id)}</title>
                     </circle>
@@ -571,6 +572,7 @@
 
     .ring.hov { stroke: var(--dn-accent-mid); }
     .ring.sel { stroke: var(--dn-select); stroke-width: 4; }
+    .halo { fill: none; stroke: var(--dn-select-halo); stroke-width: 8; pointer-events: none; }
 
     .edge-hit {
         fill: none;

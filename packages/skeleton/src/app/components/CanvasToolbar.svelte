@@ -66,7 +66,7 @@
 
 <div class="canvas-toolbar" role="toolbar" aria-label="Editor canvas tools">
     {#each TOOLS as [t, label] (t)}
-        <button class="btn-ghost btn-sm tool" class:active={app.ui.tool === t} type="button" aria-pressed={app.ui.tool === t} onclick={() => (app.ui.tool = t)}>
+        <button class="btn-ghost btn-sm tool" class:active={app.ui.tool === t} type="button" aria-pressed={app.ui.tool === t} onclick={() => ((app.ui.tool = t), (app.ui.pen = null))}>
             {@render icon(t)}{label}
         </button>
     {/each}
@@ -120,7 +120,9 @@
         </button>
     {/if}
 </div>
-<p class="tool-hint" aria-live="polite">{HINTS[app.ui.space ? 'pan' : app.ui.tool]}</p>
+<p class="tool-hint" aria-live="polite">
+    {app.ui.pen ? 'Pen: click to add points. Click the first point to close the shape, or press Escape to finish.' : HINTS[app.ui.space ? 'pan' : app.ui.tool]}
+</p>
 
 <style>
     .canvas-toolbar {

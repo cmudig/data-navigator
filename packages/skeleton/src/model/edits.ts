@@ -1,5 +1,5 @@
-import { firstValue } from '../runtime/dn-runtime.js';
-import { newId, type Doc, type Geo } from './doc';
+import { firstValue, shiftPath } from '../runtime/dn-runtime.js';
+import { newId, type Doc, type Geo, type Style } from './doc';
 import { app, edit, select } from './state.svelte';
 
 const say = (msg: string) => (app.ui.live = msg);
@@ -63,6 +63,75 @@ export function addNode(geo: Geo, level?: number) {
     select([id]);
     say(`Added ${id}. It has no description yet.`);
     return id;
+}
+
+export function writeGeo(d: Doc, id: string, geo: Geo) {
+    if (d.overrides.added.nodes[id]) d.overrides.added.nodes[id].geo = geo;
+    else d.overrides.nodes[id] = { ...d.overrides.nodes[id], geo };
+}
+
+export function setStyles(ids: string[], patch: Partial<Style>) {
+    edit(
+        ids.length > 1 ? `Edited style of ${ids.length} nodes` : 'Edited node style',
+        d => {
+            for (const id of ids)
+                d.overrides.nodes[id] = {
+                    ...d.overrides.nodes[id],
+                    style: { ...d.overrides.nodes[id]?.style, ...patch }
+                };
+        },
+        true
+    );
+}
+
+export function setGeos(ids: string[], patch: (g: Geo) => Partial<Geo>, label = 'Resized node') {
+    edit(
+        ids.length > 1 ? `${label} (${ids.length} nodes)` : label,
+        d => {
+            for (const id of ids) {
+                const g = app.graph.nodes.get(id)!.geo;
+                const geo = { ...g, ...patch(g) };
+                if (!geo.path) delete geo.path;
+                writeGeo(d, id, geo);
+            }
+        },
+        true
+    );
+}
+
+// Measures a path in the browser. Returns null when the path data cannot be read.
+export function pathBox(d: string) {
+    if (!/^\s*[Mm]/.test(d)) return null;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('style', 'position:absolute;width:0;height:0;visibility:hidden');
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d);
+    svg.append(p);
+    document.body.append(svg);
+    const b = p.getBBox();
+    const len = p.getTotalLength();
+    svg.remove();
+    const r = (v: number) => Math.round(v * 100) / 100;
+    return len > 0 ? { x: r(b.x), y: r(b.y), width: r(b.width), height: r(b.height) } : null;
+}
+
+// Paths are stored in absolute positions; relative paths are offset by each node's x and y.
+export const toAbsolute = (d: string, g: Geo, relative: boolean) => (relative ? shiftPath(d, g.x, g.y) : d);
+export const toShown = (g: Geo, relative: boolean) =>
+    g.path ? (relative ? shiftPath(g.path, -g.x, -g.y) : g.path) : '';
+
+export function setPaths(paths: Record<string, string>, label = 'Edited path') {
+    edit(Object.keys(paths).length > 1 ? `${label} (${Object.keys(paths).length} nodes)` : label, d => {
+        for (const [id, path] of Object.entries(paths)) {
+            const b = pathBox(path);
+            if (!b) continue;
+            writeGeo(d, id, { ...b, path });
+            d.overrides.nodes[id] = {
+                ...d.overrides.nodes[id],
+                style: { ...d.overrides.nodes[id]?.style, shape: 'path' }
+            };
+        }
+    });
 }
 
 export const connect = (a: string, b: string) => addEdges('Added edge', [[a, b, [...app.ui.edgeRules]]]);

@@ -130,6 +130,8 @@ class Store {
         ordering: null as Ordering | null,
         connect: null as { id: string; targets: string[] } | null,
         family: null as { parent: string; kids: string[] } | null,
+        absolute: [] as string[],
+        pen: null as { id: string; pts: { x: number; y: number }[] } | null,
         join: null as { row: import('./edits').SiblingRow; ids: string[]; target: string; plain: () => void } | null,
         skipPrep: null as number | null,
         fit: null as {
