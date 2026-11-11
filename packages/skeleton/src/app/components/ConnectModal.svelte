@@ -20,7 +20,7 @@
     const isGroup = (n: string) => !!t.children[n]?.length;
     const structured = $derived(!!target && (t.group(target) !== undefined || isGroup(target)));
     const p = $derived(target ? t.parent[target] : undefined);
-    const canParent = $derived(!!p && app.structure.nodes[p]?.dimensionLevel !== 0);
+    const canParent = $derived(!!p && app.tree.level[p] !== 0);
     const kind = $derived(target && isGroup(target) ? 'group' : 'node');
 
     function submit() {

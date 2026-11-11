@@ -237,18 +237,31 @@ class Store {
         const t = tree(s);
         const level: Record<string, number> = {};
         const added = this.doc.overrides.added.nodes;
-        for (const n of Object.values<any>(s.nodes))
-            if (!n.manual) level[n.id] = this.doc.overrides.nodes[n.id]?.level ?? n.dimensionLevel ?? 3;
+        // Only one node may sit at level 0: the data's root first, then the first hand-made node set there.
+        let root = Object.values<any>(s.nodes).find(n => !n.manual && n.dimensionLevel === 0)?.id as string | undefined;
+        const extraRoots: string[] = [];
+        const put = (id: string, l: number | undefined) => {
+            if (l === undefined || isNaN(l) || l < 0) return;
+            if (l === 0 && root && root !== id) return void extraRoots.push(id);
+            if (l === 0) root = id;
+            level[id] = l;
+        };
+        for (const n of Object.values<any>(s.nodes)) {
+            if (n.manual) continue;
+            const l = this.doc.overrides.nodes[n.id]?.level ?? n.dimensionLevel ?? 3;
+            level[n.id] = l === 0 && n.id !== root ? (n.dimensionLevel ?? 3) : l;
+        }
+        for (const id in added) if (s.nodes[id] && added[id].level !== undefined) put(id, added[id].level);
         for (let pass = 0; pass < 4; pass++)
             for (const id in added) {
-                if (!s.nodes[id] || level[id] !== undefined) continue;
+                if (!s.nodes[id] || level[id] !== undefined || added[id].level !== undefined) continue;
                 const p = t.parent[id];
                 const kid = t.children[id]?.find(k => level[k] !== undefined);
-                const l = added[id].level ?? (p ? level[p] + 1 : kid ? level[kid] - 1 : undefined);
-                if (l !== undefined && !isNaN(l)) level[id] = l;
+                const l = p ? level[p] + 1 : kid ? level[kid] - 1 : undefined;
+                if (l !== 0) put(id, l);
             }
         const group = (id: string) => t.parent[id] ?? (t.children['']?.includes(id) ? '' : undefined);
-        return { ...t, level, group };
+        return { ...t, level, group, extraRoots, root };
     });
 
     leveled = $derived(Object.keys(this.tree.level).length > 0);
@@ -288,6 +301,10 @@ class Store {
         if (!this.entry) out.push('No entry node. Pick one in the Editor before testing.');
         for (const [key, names] of Object.entries(this.conflicts))
             out.push(`Key ${key} is used by ${names.join(', ')}.`);
+        for (const id of this.tree.extraRoots)
+            out.push(
+                `"${id}" is set as a root, but "${this.tree.root}" already is. It has no level until you move it.`
+            );
         const isolated = Object.values<any>(s.nodes).filter(n => !n.edges.length).length;
         if (isolated && Object.keys(s.nodes).length > 1)
             out.push(`${isolated} node${isolated > 1 ? 's have' : ' has'} no edges.`);

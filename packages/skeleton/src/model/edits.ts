@@ -86,7 +86,8 @@ const links = (ids: string[], pair: string[], wrap = false) => [
 
 // Only hand-made nodes take a level here; generated nodes keep the one the data gives them.
 function setLevel(d: Doc, ids: string[], level: number | null) {
-    for (const id of ids) if (level !== null && d.overrides.added.nodes[id]) d.overrides.added.nodes[id].level = level;
+    for (const id of ids)
+        if (level !== null && level >= 0 && d.overrides.added.nodes[id]) d.overrides.added.nodes[id].level = level;
 }
 
 export const levelsInUse = () => [...new Set(Object.values(app.tree.level))].sort((a, b) => a - b);
@@ -102,8 +103,9 @@ export function makeFamily(parent: string, kids: string[], pair: string[] | null
             ),
             ...(pair ? links(kids, pair) : [])
         ]);
-        setLevel(d, [parent], level);
-        setLevel(d, kids, level === null ? null : level + 1);
+        setLevel(d, [parent], level === 0 && app.tree.root && app.tree.root !== parent ? null : level);
+        setLevel(d, kids, level === null ? null : Math.max(1, level + 1));
+        if (level === 0) d.entry = parent;
     });
     select([parent]);
     say(`${app.graph.nodes.get(parent)?.name ?? parent} is now the parent of ${plural(kids.length, 'node')}.`);

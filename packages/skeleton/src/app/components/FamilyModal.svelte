@@ -19,7 +19,7 @@
     const kids = $derived(rel === 'flip' ? [f.parent] : f.kids);
     const fixed = $derived(app.tree.level[parent]);
     const label = (l: number) =>
-        `${l === 0 ? `Make ${name(parent)} the root (level 0)` : used.includes(l) ? `Level ${l}` : `New level ${l}`}, ${pair ? 'child' : 'children'} at level ${l + 1}`;
+        `${l === 0 ? `Make ${name(parent)} the root (level 0) and entry point` : used.includes(l) ? `Level ${l}` : `New level ${l}`}, ${pair ? 'child' : 'children'} at level ${l + 1}`;
 
     function submit() {
         if (rel === 'none') pair ? connect(f.kids[0], f.parent) : fan(f.parent, f.kids, false);
