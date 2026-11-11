@@ -27,6 +27,8 @@
     let scalerWidth = $state(0);
     let innerHeight = $state(900);
     const canvasScale = $derived(scalerWidth > 0 ? Math.min(1, scalerWidth / canvasWidth, Math.max(160, innerHeight - 460) / canvasHeight) : 1);
+    // Overlay lines and labels keep their on-screen size however far a large image is scaled down.
+    const k = $derived(1 / canvasScale);
 
     let navMode = $state<'text' | 'keyboard'>('text');
     let showAllNodes = $state(false);
@@ -121,7 +123,7 @@
             : []
     );
     const keyboardInstructions = $derived(Object.entries<any>(structure.navigationRules).map(([rule, k]) => ({ rule, key: keyLabel(k.key) })));
-    const dash = (d: string) => (d === 'dashed' ? '6,3' : d === 'dotted' ? '2,2' : undefined);
+    const dash = (d: string) => (d === 'dashed' ? `${6 * k},${3 * k}` : d === 'dotted' ? `${2 * k},${2 * k}` : undefined);
     const center = (g: { x: number; y: number; width: number; height: number }) => ({ x: g.x + g.width / 2, y: g.y + g.height / 2 });
     const formatTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 </script>
@@ -159,11 +161,11 @@
                     {#each nodes as n (n.id)}
                         {@const fill = n.style.fillEnabled ? n.style.fill : 'none'}
                         {#if shapeOf(n) === 'path'}
-                            <path d={n.geo.path} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                            <path d={n.geo.path} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth * k} stroke-dasharray={dash(n.style.strokeDash)} />
                         {:else if shapeOf(n) === 'ellipse'}
-                            <ellipse cx={center(n.geo).x} cy={center(n.geo).y} rx={n.geo.width / 2} ry={n.geo.height / 2} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                            <ellipse cx={center(n.geo).x} cy={center(n.geo).y} rx={n.geo.width / 2} ry={n.geo.height / 2} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth * k} stroke-dasharray={dash(n.style.strokeDash)} />
                         {:else}
-                            <rect {...n.geo} rx="4" {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth} stroke-dasharray={dash(n.style.strokeDash)} />
+                            <rect {...n.geo} rx={4 * k} {fill} fill-opacity={app.ui.tools.nodeFillOpacity} stroke={n.style.strokeColor} stroke-width={n.style.strokeWidth * k} stroke-dasharray={dash(n.style.strokeDash)} />
                         {/if}
                     {/each}
                 </svg>
@@ -181,8 +183,8 @@
                         {#if a && b}
                             {@const sc = center(a.geo)}
                             {@const tc = center(b.geo)}
-                            <line x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y} stroke="var(--dn-accent)" stroke-width="1.5" opacity="0.5" marker-end="url(#dn-test-arrow)" />
-                            <text x={(sc.x + tc.x) / 2} y={(sc.y + tc.y) / 2 - 5} font-size="10" fill="var(--dn-accent)" text-anchor="middle" paint-order="stroke" stroke="var(--dn-bg, white)" stroke-width="3">{e.rules.join(' / ')}</text>
+                            <line x1={sc.x} y1={sc.y} x2={tc.x} y2={tc.y} stroke="var(--dn-accent)" stroke-width={1.5 * k} opacity="0.5" marker-end="url(#dn-test-arrow)" />
+                            <text x={(sc.x + tc.x) / 2} y={(sc.y + tc.y) / 2 - 5 * k} font-size={10 * k} fill="var(--dn-accent)" text-anchor="middle" paint-order="stroke" stroke="var(--dn-bg, white)" stroke-width={3 * k}>{e.rules.join(' / ')}</text>
                         {/if}
                     {/each}
                 </svg>

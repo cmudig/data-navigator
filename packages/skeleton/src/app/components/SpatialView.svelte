@@ -274,7 +274,7 @@
         const at: Record<Dir, Pt> = { nw: { x: q.x, y: q.y }, n: { x: q.x + q.width / 2, y: q.y }, ne: { x: q.x + q.width, y: q.y }, e: { x: q.x + q.width, y: q.y + q.height / 2 }, se: { x: q.x + q.width, y: q.y + q.height }, s: { x: q.x + q.width / 2, y: q.y + q.height }, sw: { x: q.x, y: q.y + q.height }, w: { x: q.x, y: q.y + q.height / 2 } };
         return DIRS.map(dir => ({ dir, ...at[dir] }));
     };
-    const dash = (d: string) => (d === 'dashed' ? '6 3' : d === 'dotted' ? '2 2' : undefined);
+    const dash = (d: string) => (d === 'dashed' ? `${6 * k} ${3 * k}` : d === 'dotted' ? `${2 * k} ${2 * k}` : undefined);
     const star = (x: number, y: number, r: number) =>
         Array.from({ length: 10 }, (_, i) => {
             const a = (Math.PI / 5) * i - Math.PI / 2;
@@ -341,9 +341,9 @@
                 {@const cy = q.y + q.height / 2}
                 {@const fill = st.fillEnabled ? st.fill : backfill(node.id)}
                 {@const stroke = isSel ? 'var(--dn-select)' : st.strokeColor}
-                {@const sw = (isSel ? 4 : st.strokeWidth) * (editor ? 1 : k)}
+                {@const sw = (isSel ? 4 : st.strokeWidth) * k}
                 {@const missing = editor && app.missing.has(node.id)}
-                {@const halo = isSel && selected.size > 1 ? sw + 4 * (editor ? 1 : k) : 0}
+                {@const halo = isSel && selected.size > 1 ? sw + 4 * k : 0}
                 <g
                     class="node"
                     data-node={node.id}
@@ -358,13 +358,13 @@
                 >
                     {#if halo && shape === 'ellipse'}<ellipse class="halo" {cx} {cy} rx={q.width / 2} ry={q.height / 2} stroke-width={halo} />
                     {:else if halo && shape === 'path'}<path class="halo" d={q.path} stroke-width={halo} />
-                    {:else if halo}<rect class="halo" x={q.x} y={q.y} width={q.width} height={q.height} rx="4" stroke-width={halo} />{/if}
+                    {:else if halo}<rect class="halo" x={q.x} y={q.y} width={q.width} height={q.height} rx={4 * k} stroke-width={halo} />{/if}
                     {#if shape === 'ellipse'}
                         <ellipse class="shape" {cx} {cy} rx={q.width / 2} ry={q.height / 2} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else if shape === 'path'}
                         <path class="shape" d={q.path} {fill} fill-opacity={tools.nodeFillOpacity} pointer-events={node.kind === 'manual' ? 'visiblePainted' : 'visibleStroke'} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} opacity={st.opacity} />
                     {:else}
-                        <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx="4" opacity={st.opacity} />
+                        <rect class="shape" x={q.x} y={q.y} width={q.width} height={q.height} {fill} fill-opacity={tools.nodeFillOpacity} {stroke} stroke-width={sw} stroke-dasharray={dash(st.strokeDash)} rx={4 * k} opacity={st.opacity} />
                     {/if}
                     {#if targets.includes(node.id)}
                         {@const pad = 6 * k}
@@ -416,12 +416,12 @@
         <g class="paint" aria-hidden="true">
             {#each edgeShapes as { edge, sel, curved, d, lx, ly, col } (edge.id)}
                 <path {d} class:hovered={app.ui.hoveredEdge === edge.id} fill="none" stroke={col} stroke-width={(sel ? 3 : 1.5) * k} stroke-dasharray={curved ? undefined : `${4 * k} ${2 * k}`} marker-end="url(#dn-arrow-{canvas})" />
-                {#if tools.showEdgeLabels}<text x={lx} y={ly} class="edge-label" font-size={11 * k} fill={col}>{edge.rules.join(' / ')}</text>{/if}
+                {#if tools.showEdgeLabels}<text x={lx} y={ly} class="edge-label" font-size={11 * k} stroke-width={2 * k} fill={col}>{edge.rules.join(' / ')}</text>{/if}
             {/each}
             {#each visible as node (node.id)}
                 {@const q = node.geo}
                 {#if tools.showNodeLabels}
-                    <text x={q.x + q.width / 2} y={q.y + q.height / 2} class="node-label" font-size={12 * (editor ? 1 : k)} fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor}>{node.name}</text>
+                    <text x={q.x + q.width / 2} y={q.y + q.height / 2} class="node-label" font-size={12 * k} stroke-width={3 * k} fill={tools.nodeLabelColor} stroke={tools.nodeLabelOutlineColor}>{node.name}</text>
                 {/if}
                 {#if node.id === app.entry}<text x={q.x + 2} y={q.y - 4 * k} font-size={11 * k} fill="var(--dn-accent)">▶ entry</text>{/if}
             {/each}
@@ -541,7 +541,6 @@
         dominant-baseline: middle;
         font-family: var(--dn-font);
         font-weight: 700;
-        stroke-width: 3px;
         stroke-linejoin: round;
         paint-order: stroke;
         pointer-events: none;
@@ -552,7 +551,6 @@
         font-family: var(--dn-font);
         paint-order: stroke;
         stroke: var(--dn-bg);
-        stroke-width: 2px;
     }
 
     .drop-target {
